@@ -6,16 +6,22 @@
 //   POST   /api/operator/tenants/:id/suspend   { suspended: bool }
 //   DELETE /api/operator/tenants/:id        -> Mandant komplett löschen (DSGVO)
 //   GET    /api/operator/pending            -> offene Registrierungen
+//   POST   /api/operator/pending/:id/resend -> Bestätigungsmail erneut senden
+//   DELETE /api/operator/pending/:id        -> offene Registrierung verwerfen
 import { json, readJsonBody } from '../helpers.js'
 import { operatorLogin, requireOperator, operatorEnabled } from '../operator.js'
 import { openTenantDb, deleteTenant, tenantExists } from '../tenants.js'
 import { runWithDb } from '../db-context.js'
 import {
   listTenants, getTenant, setSuspended, removeTenant, listPending,
+  getPendingByTenant, refreshPendingExpiry, removePendingByTenant,
 } from '../registry.js'
 import {
   createSnapshot, listSnapshots, restoreSnapshot, snapshotPath, deleteBackups,
 } from '../tenant-backup.js'
+import { config } from '../config.js'
+import { sendConfirmEmail } from '../email.js'
+import { CONFIRM_TTL_MS } from './register.js'
 import fs from 'node:fs'
 
 // Kennzahlen eines Mandanten aus seiner DB lesen (Shows, Nutzer).
@@ -132,6 +138,31 @@ export async function operatorRoutes(req, res, pathname) {
       tenantId: p.tenant_id, email: p.email, createdAt: p.created_at, expiresAt: p.expires_at,
     }))
     return json(res, 200, { pending })
+  }
+
+  const resend = pathname.match(/^\/api\/operator\/pending\/([a-z0-9-]+)\/resend$/)
+  if (resend && method === 'POST') {
+    const id = resend[1]
+    const row = getPendingByTenant(id)
+    if (!row) return json(res, 404, { error: 'Offene Registrierung nicht gefunden' })
+    refreshPendingExpiry(id, CONFIRM_TTL_MS)
+    const confirmUrl = `${config.appUrl}/register/confirm?token=${row.token}`
+    try {
+      await sendConfirmEmail(row.email, id, confirmUrl)
+    } catch (err) {
+      return json(res, 502, { error: 'Mailversand fehlgeschlagen: ' + err.message })
+    }
+    console.log(`[operator] Bestätigungsmail erneut gesendet: ${id}`)
+    return json(res, 200, { ok: true })
+  }
+
+  const pendingDetail = pathname.match(/^\/api\/operator\/pending\/([a-z0-9-]+)$/)
+  if (pendingDetail && method === 'DELETE') {
+    const id = pendingDetail[1]
+    const changed = removePendingByTenant(id)
+    if (!changed) return json(res, 404, { error: 'Offene Registrierung nicht gefunden' })
+    console.log(`[operator] Offene Registrierung gelöscht: ${id}`)
+    return json(res, 200, { ok: true })
   }
 
   return null

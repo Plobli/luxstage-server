@@ -124,6 +124,24 @@ export function takePending(token) {
   return row
 }
 
+// ── Betreiber-Panel: Pending-Verwaltung ──────────────────────────────────────
+export function getPendingByTenant(tenantId) {
+  return getRegistry().prepare(
+    'SELECT * FROM pending_registrations WHERE tenant_id = ?'
+  ).get(tenantId) || null
+}
+
+// Ablaufzeit beim erneuten Versand auffrischen, damit der Link nicht sofort abläuft.
+export function refreshPendingExpiry(tenantId, ttlMs) {
+  return getRegistry().prepare(
+    'UPDATE pending_registrations SET expires_at = ? WHERE tenant_id = ?'
+  ).run(now() + ttlMs, tenantId).changes
+}
+
+export function removePendingByTenant(tenantId) {
+  return getRegistry().prepare('DELETE FROM pending_registrations WHERE tenant_id = ?').run(tenantId).changes
+}
+
 // Abgelaufene Pending-Einträge aufräumen (periodisch aufrufen).
 export function purgeExpiredPending() {
   return getRegistry().prepare('DELETE FROM pending_registrations WHERE expires_at < ?').run(now()).changes

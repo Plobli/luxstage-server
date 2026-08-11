@@ -79,7 +79,11 @@ async function loadPending() {
       <td><strong>${p.tenantId}</strong></td>
       <td class="mut">${p.email}</td>
       <td class="mut">${fmtDate(p.createdAt)}</td>
-      <td class="${expired ? '' : 'mut'}">${fmtExpiry(p.expiresAt)}</td>`
+      <td class="${expired ? '' : 'mut'}">${fmtExpiry(p.expiresAt)}</td>
+      <td><div class="row-actions">
+        <button class="ghost" data-pact="resend" data-id="${p.tenantId}">Erneut senden</button>
+        <button class="danger" data-pact="delete" data-id="${p.tenantId}">Löschen</button>
+      </div></td>`
     body.appendChild(tr)
   }
 }
@@ -161,6 +165,20 @@ $('#tbody').addEventListener('click', async e => {
       await api('DELETE', `/api/operator/tenants/${id}`)
     }
     await refresh()
+  } catch (err) { alert(err.message) }
+})
+
+$('#pendingBody').addEventListener('click', async e => {
+  const btn = e.target.closest('button'); if (!btn) return
+  const id = btn.dataset.id
+  try {
+    if (btn.dataset.pact === 'resend') {
+      await api('POST', `/api/operator/pending/${id}/resend`)
+    } else if (btn.dataset.pact === 'delete') {
+      if (!confirm(`Offene Registrierung "${id}" löschen?`)) return
+      await api('DELETE', `/api/operator/pending/${id}`)
+    }
+    await loadPending()
   } catch (err) { alert(err.message) }
 })
 

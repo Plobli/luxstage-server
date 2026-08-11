@@ -17,7 +17,7 @@ import { runWithDb } from '../db-context.js'
 import { sendConfirmEmail } from '../email.js'
 import { PASSWORD_MIN_LENGTH } from '../../shared/constants.js'
 
-const CONFIRM_TTL_MS = 24 * 60 * 60 * 1000 // 24 h
+export const CONFIRM_TTL_MS = 24 * 60 * 60 * 1000 // 24 h
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 // URL der Mandanten-Subdomain für den Bestätigungslink.
