@@ -11,12 +11,12 @@ import { config } from './config.js'
 import { isValidTenantId, tenantExists } from './tenants.js'
 
 // Nicht als Mandant registrierbar: generische, bestehende feste Subdomains
-// (thema/appreview/docs zeigen bereits woanders hin) und typische Marketing/Mail-Namen.
+// (appreview/docs zeigen bereits woanders hin) und typische Marketing/Mail-Namen.
 const RESERVED = new Set([
   // generisch / infrastruktur
   'www', 'app', 'api', 'admin', 'static', 'assets',
   // bestehende feste Subdomains unter luxstage.app
-  'thema', 'appreview', 'docs',
+  'appreview', 'docs',
   // marketing / mail (reserviert für spätere Nutzung)
   'mail', 'mx', 'smtp', 'imap', 'pop', 'cdn', 'blog', 'shop',
   'help', 'support', 'status', 'dev', 'staging', 'test',
