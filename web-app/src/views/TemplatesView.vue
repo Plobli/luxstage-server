@@ -198,7 +198,6 @@
 
               <!-- Fixture-Panel -->
               <div class="border-t border-border px-4 py-3 space-y-2">
-                <p class="text-xs text-muted-foreground">{{ t('template.bar.fixture.hint') }}</p>
                 <div v-for="fx in (barFixtures[bar.id] ?? [])" :key="fx.id" class="flex items-center gap-2">
                   <span class="text-xs font-mono text-muted-foreground w-16 shrink-0 tabular-nums">{{ cmToDisplay(fx.position) }} {{ unit }}</span>
                   <span class="text-xs text-foreground flex-1 truncate">
@@ -215,7 +214,7 @@
                   </Button>
                 </div>
                 <Button variant="outline" size="sm" class="border-dashed text-xs" @click="openNewBarFixture(bar)">
-                  <Plus class="size-2.5 mr-1" /> {{ t('template.bar.fixture.add') }}
+                  <Plus class="size-2.5 mr-1" /> {{ t('template.bar.fixture.add_optional') }}
                 </Button>
               </div>
             </div>
