@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "start": "node index.js",
-    "dev": "node --watch-path=. --watch index.js",
+    "dev": "node --env-file=.env --watch-path=. --watch index.js",
     "test": "echo 'No tests'"
   },
   "dependencies": {

@@ -164,7 +164,7 @@
 
           <!-- Zugstangen -->
           <TabsContent value="bars" class="mt-0 outline-none space-y-3">
-            <div class="text-sm text-muted-foreground">
+            <div class="text-sm text-muted-foreground whitespace-pre-line">
               {{ t('zugstange.hint') }}
             </div>
             <div v-if="templateBars.length === 0" class="text-sm text-muted-foreground border border-dashed border-border rounded-lg px-4 py-6 text-center">
@@ -188,9 +188,6 @@
                 <span class="text-sm font-medium text-foreground flex-1 truncate">{{ bar.name }}</span>
                 <span v-if="bar.zug_nr" class="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-muted text-muted-foreground shrink-0">{{ bar.zug_nr }}</span>
                 <span class="text-xs text-muted-foreground shrink-0">{{ formatLength(bar.length_cm) }}</span>
-                <Button variant="ghost" size="icon" class="size-6 text-muted-foreground shrink-0" @click.stop="toggleBarFixtures(bar.id)">
-                  <ChevronDown class="size-3 transition-transform" :class="expandedBarId === bar.id ? 'rotate-180' : ''" />
-                </Button>
                 <Button variant="ghost" size="icon" class="size-6 text-muted-foreground shrink-0" @click.stop="openEditTemplateBar(bar)">
                   <Pencil class="size-3" />
                 </Button>
@@ -199,8 +196,8 @@
                 </Button>
               </div>
 
-              <!-- Fixture-Panel (aufklappbar) -->
-              <div v-if="expandedBarId === bar.id" class="border-t border-border px-4 py-3 space-y-2">
+              <!-- Fixture-Panel -->
+              <div class="border-t border-border px-4 py-3 space-y-2">
                 <p class="text-xs text-muted-foreground">{{ t('template.bar.fixture.hint') }}</p>
                 <div v-for="fx in (barFixtures[bar.id] ?? [])" :key="fx.id" class="flex items-center gap-2">
                   <span class="text-xs font-mono text-muted-foreground w-16 shrink-0 tabular-nums">{{ cmToDisplay(fx.position) }} {{ unit }}</span>
@@ -621,7 +618,7 @@
     </Dialog>
 
   <!-- FAB -->
-  <Button variant="accent" @click="openNewDialog" class="fixed bottom-6 right-6 h-11 px-5 shadow-lg border-0 flex items-center gap-2">
+  <Button v-if="!editingName" variant="accent" @click="openNewDialog" class="fixed bottom-6 right-6 h-11 px-5 shadow-lg border-0 flex items-center gap-2">
     <Plus class="size-4" /> {{ t('template.new') }}
   </Button>
   </div>
@@ -743,7 +740,6 @@ const towerSlotForm = ref({ channel: '', device: '', color: '' })
 
 // Bar-Fixtures
 const barFixtures = ref({})
-const expandedBarId = ref(null)
 const barFixtureDialogOpen = ref(false)
 const editingBarFixture = ref(null)
 const editingBarFixtureBar = ref(null)
@@ -873,9 +869,9 @@ async function openDetail(name) {
   templateBars.value = bars
   templateTowers.value = towers
   barFixtures.value = {}
-  expandedBarId.value = null
   expandedTowerId.value = null
   detailLoading.value = false
+  await Promise.all(bars.map(loadBarFixtures))
 }
 
 function openNewTemplateBar() {
@@ -895,7 +891,9 @@ async function saveTbarForm() {
     Object.assign(editingTbar.value, tbarForm.value)
   } else {
     const { id } = await createTemplateBar(editingName.value, tbarForm.value)
-    templateBars.value.push({ id, template_id: '', sort_order: templateBars.value.length, ...tbarForm.value })
+    const bar = { id, template_id: '', sort_order: templateBars.value.length, ...tbarForm.value }
+    templateBars.value.push(bar)
+    await loadBarFixtures(bar)
   }
   tbarDialogOpen.value = false
 }
@@ -907,16 +905,9 @@ async function removeTemplateBar(barId, idx) {
 
 // ── Bar-Fixture-Funktionen ────────────────────────────────────────────────────
 
-async function toggleBarFixtures(barId) {
-  if (expandedBarId.value === barId) {
-    expandedBarId.value = null
-    return
-  }
-  expandedBarId.value = barId
-  if (!barFixtures.value[barId]) {
-    const fixtures = await api.get(`/api/templates/${encodeURIComponent(editingName.value)}/bars/${barId}/fixtures`)
-    barFixtures.value[barId] = fixtures
-  }
+async function loadBarFixtures(bar) {
+  const fixtures = await api.get(`/api/templates/${encodeURIComponent(editingName.value)}/bars/${bar.id}/fixtures`)
+  barFixtures.value[bar.id] = fixtures
 }
 
 function openNewBarFixture(bar) {

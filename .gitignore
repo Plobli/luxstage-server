@@ -48,6 +48,7 @@ start.sh
 dev.sh
 ecosystem.config.cjs
 Dev-Server-App/
+DEV-SERVER.md
 
 # Laufzeit-Daten
 data/

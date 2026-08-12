@@ -173,7 +173,8 @@ export function reorderTemplateBars(templateId, orderedIds) {
 }
 
 // Wendet Template-Bars oder Template-Towers auf eine einzelne Show an.
-// withChannels: true → Kanal-Info aus Template-Slots/-Fixtures wird NICHT übertragen (Kanäle sind show-spezifisch).
+// withChannels: true → Fixtures/Slot-Belegungen aus Template werden mit übernommen und per Kanalnummer den Show-Kanälen zugeordnet.
+// withChannels: false → nur leere Bars/Towers ohne Fixtures/Kanäle werden angelegt.
 // Die Funktion fügt nur fehlende Einträge hinzu (nach Name/Position).
 export function applyTemplateToShow(templateName, showSlug, scope, withChannels, selectedIds = null) {
   const tpl = getDb().prepare('SELECT * FROM templates WHERE name = ?').get(templateName)
