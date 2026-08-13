@@ -177,7 +177,14 @@ function setSort(key) {
 }
 const creating = ref(false)
 const drawerOpen = ref(false)
-const form = ref({ name: '', datum: new Date().toISOString().slice(0, 10), template: '__none__', spielzeit: '', use_bars: true, use_towers: true })
+
+function currentSpielzeit() {
+  const now = new Date()
+  const startYear = now.getMonth() >= 6 ? now.getFullYear() : now.getFullYear() - 1
+  return `${String(startYear).slice(-2)}/${String(startYear + 1).slice(-2)}`
+}
+
+const form = ref({ name: '', datum: new Date().toISOString().slice(0, 10), template: '__none__', spielzeit: currentSpielzeit(), use_bars: true, use_towers: true })
 
 function formatDatum(d) {
   if (!d) return ''
@@ -256,7 +263,7 @@ async function handleCreate() {
 }
 
 function openCreate() {
-  form.value = { name: '', datum: new Date().toISOString().slice(0, 10), template: '__none__', spielzeit: '', use_bars: true, use_towers: true }
+  form.value = { name: '', datum: new Date().toISOString().slice(0, 10), template: '__none__', spielzeit: currentSpielzeit(), use_bars: true, use_towers: true }
   drawerOpen.value = true
 }
 
