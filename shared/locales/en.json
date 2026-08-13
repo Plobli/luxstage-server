@@ -87,6 +87,7 @@
   "mode.lighting": "Focus",
   "field.channel": "Chan",
   "field.channel_number": "Chan",
+  "field.dmx_address": "DMX",
   "field.address": "Address",
   "field.device": "Device",
   "field.quantity": "Qty.",

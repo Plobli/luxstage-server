@@ -2,9 +2,10 @@
   <div ref="rootEl" class="h-full overflow-x-auto overflow-y-auto bg-card channel-list" style="scrollbar-width: thin;">
     <div class="min-w-230">
     <div class="sticky top-0 z-20 border-b border-border/90 bg-muted shadow-[0_1px_0_rgba(255,255,255,0.04),0_4px_8px_rgba(0,0,0,0.10)]">
-      <div v-if="!isMobile" class="grid min-h-8 grid-cols-[2rem_10rem_7rem_6rem_minmax(14rem,22%)_1fr_7rem_2.5rem] items-center border-b border-border/60 text-[10px] font-semibold uppercase tracking-[0.22em] text-foreground/90">
+      <div v-if="!isMobile" class="grid min-h-8 grid-cols-[2rem_6rem_5rem_7rem_6rem_minmax(14rem,22%)_1fr_7rem_2.5rem] items-center border-b border-border/60 text-[10px] font-semibold uppercase tracking-[0.22em] text-foreground/90">
         <div></div>
-        <div class="flex items-center gap-1">{{ labels.channel }}<HelpIcon v-if="labels.channelHelp" :text="labels.channelHelp" /></div>
+        <div class="px-3 flex items-center gap-1">{{ labels.channel }}<HelpIcon v-if="labels.channelHelp" :text="labels.channelHelp" /></div>
+        <div class="px-3 flex items-center gap-1">{{ labels.dmx }}</div>
         <div class="px-3 flex items-center gap-1">{{ labels.color }}<HelpIcon v-if="labels.colorHelp" :text="labels.colorHelp" /></div>
         <div class="px-3 flex items-center gap-1">{{ labels.quantity }}<HelpIcon v-if="labels.quantityHelp" :text="labels.quantityHelp" /></div>
         <div class="px-3 flex items-center gap-1">{{ labels.device }}<HelpIcon v-if="labels.deviceHelp" :text="labels.deviceHelp" /></div>
@@ -164,23 +165,22 @@
             </div>
           </div>
           <!-- Desktop add form -->
-          <div v-else class="grid grid-cols-[2rem_10rem_7rem_6rem_minmax(14rem,22%)_minmax(16rem,1fr)_4.5rem] items-center gap-0">
+          <div v-else class="grid grid-cols-[2rem_6rem_5rem_7rem_6rem_minmax(14rem,22%)_minmax(16rem,1fr)_4.5rem] items-center gap-0">
             <div></div>
             <div class="px-3">
-              <div class="flex items-center gap-1.5">
-                <Input
-                  data-channel-nr-input
-                  v-model="addForm.channel"
-                  :placeholder="labels.channelNr"
-                  class="h-7 w-[5.5ch] border-0 bg-transparent px-1 py-0 text-center font-mono text-base font-semibold leading-none text-foreground shadow-none placeholder:text-muted-foreground/60 focus-visible:bg-muted/20 focus-visible:ring-0"
-                />
-                <span class="select-none font-mono text-sm text-muted-foreground/50">/</span>
-                <Input
-                  v-model="addForm.address"
-                  :placeholder="labels.addressExample"
-                  class="h-7 w-[8ch] border-0 bg-transparent px-1 py-0 text-center text-xs text-muted-foreground shadow-none placeholder:text-muted-foreground/60 focus-visible:bg-muted/20 focus-visible:ring-0"
-                />
-              </div>
+              <Input
+                data-channel-nr-input
+                v-model="addForm.channel"
+                :placeholder="labels.channelNr"
+                class="h-7 w-[5.5ch] border-0 bg-transparent px-1 py-0 text-center font-mono text-base font-semibold leading-none text-foreground shadow-none placeholder:text-muted-foreground/60 focus-visible:bg-muted/20 focus-visible:ring-0"
+              />
+            </div>
+            <div class="px-3">
+              <Input
+                v-model="addForm.address"
+                :placeholder="labels.addressExample"
+                class="h-7 w-[8ch] border-0 bg-transparent px-1 py-0 text-center text-xs text-muted-foreground shadow-none placeholder:text-muted-foreground/60 focus-visible:bg-muted/20 focus-visible:ring-0"
+              />
             </div>
             <div class="px-2">
               <ColorAutocomplete v-model="addForm.color" @change="() => {}" :placeholder="labels.color" />

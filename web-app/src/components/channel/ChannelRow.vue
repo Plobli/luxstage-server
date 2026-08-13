@@ -6,7 +6,7 @@
         :class="isMobile
           ? `border-t border-border/60 ${rowIndex % 2 === 0 ? 'bg-card' : 'bg-muted/40'}`
           : 'group/row grid border-t border-border/60 bg-card transition-colors'
-              + ' grid-cols-[2rem_10rem_7rem_6rem_minmax(14rem,22%)_1fr_7rem_2.5rem] items-center'"
+              + ' grid-cols-[2rem_6rem_5rem_7rem_6rem_minmax(14rem,22%)_1fr_7rem_2.5rem] items-center'"
       >
         <!-- Desktop: Drag handle -->
         <div v-if="!isMobile" class="flex py-0 pl-1 pr-0 align-middle">
@@ -17,30 +17,31 @@
 
         <!-- Desktop: Kanal -->
         <div v-if="!isMobile" class="py-0 pr-0 pl-0 align-middle border-l border-border/40 h-full flex items-center">
-          <div class="grid h-full min-h-14 w-full grid-cols-[8ch_auto_7ch] items-stretch">
-            <Input
-              v-model="ch.channel"
-              @focus="emit('recordFocus')"
-              @input="emit('change')"
-              @blur="emit('commitFocus')"
-              :data-nav-row="rowIndex"
-              data-nav-col="0"
-              @keydown="onKeydownCol0"
-              @click.stop="emit('toggleStatus', ch)"
-              :title="ch.channel ? 'Status' : ''"
-              :class="[dupChannelNrs.has(ch.channel) ? 'ring-1 ring-yellow-400/60' : '', channelStatusClass]"
-              class="h-full min-h-14 w-full self-stretch cursor-text rounded-none border-0 bg-transparent px-1 py-0 text-center font-mono text-xl font-semibold shadow-none transition-colors placeholder:text-muted-foreground/60 focus-visible:ring-0"
-            />
-            <span class="flex w-3 select-none items-center justify-center self-stretch font-mono text-sm text-muted-foreground/50">/</span>
-            <Input
-              v-model="ch.address"
-              @focus="emit('recordFocus')"
-              @input="emit('change')"
-              @blur="emit('commitFocus')"
-              @click.stop
-              class="h-full min-h-14 w-full self-stretch rounded-none border-0 bg-transparent px-1 py-0 text-center text-xs text-muted-foreground shadow-none placeholder:text-muted-foreground/60 focus-visible:ring-0"
-            />
-          </div>
+          <Input
+            v-model="ch.channel"
+            @focus="emit('recordFocus')"
+            @input="emit('change')"
+            @blur="emit('commitFocus')"
+            :data-nav-row="rowIndex"
+            data-nav-col="0"
+            @keydown="onKeydownCol0"
+            @click.stop="emit('toggleStatus', ch)"
+            :title="ch.channel ? 'Status' : ''"
+            :class="[dupChannelNrs.has(ch.channel) ? 'ring-1 ring-yellow-400/60' : '', channelStatusClass]"
+            class="h-full min-h-14 w-full self-stretch cursor-text rounded-none border-0 bg-transparent px-1 py-0 text-center font-mono text-xl font-semibold shadow-none transition-colors placeholder:text-muted-foreground/60 focus-visible:ring-0"
+          />
+        </div>
+
+        <!-- Desktop: DMX-Adresse -->
+        <div v-if="!isMobile" class="py-0 pr-0 pl-0 align-middle border-l border-border/40 h-full flex items-center">
+          <Input
+            v-model="ch.address"
+            @focus="emit('recordFocus')"
+            @input="emit('change')"
+            @blur="emit('commitFocus')"
+            @click.stop
+            class="h-full min-h-14 w-full self-stretch rounded-none border-0 bg-transparent px-1 py-0 text-center text-xs text-muted-foreground shadow-none placeholder:text-muted-foreground/60 focus-visible:ring-0"
+          />
         </div>
 
         <!-- Desktop: Farbe -->

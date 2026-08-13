@@ -87,6 +87,7 @@
   "mode.lighting": "Einleuchten",
   "field.channel": "Kreis",
   "field.channel_number": "Kreis",
+  "field.dmx_address": "DMX",
   "field.address": "Adresse",
   "field.device": "Gerät",
   "field.quantity": "Anz.",

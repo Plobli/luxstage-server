@@ -98,6 +98,7 @@
               :allShowPhotos="photos"
               :labels="{
                 channel: t('field.channel'),
+                dmx: t('field.dmx_address'),
                 color: t('field.color'),
                 device: t('field.device'),
                 quantity: t('field.quantity'),
