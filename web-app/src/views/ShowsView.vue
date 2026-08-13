@@ -55,7 +55,6 @@
           >
             <div class="min-w-0 pr-4">
               <span class="font-medium text-foreground text-sm truncate block">{{ show.name || show.id }}</span>
-              <span v-if="show.untertitel" class="text-xs text-muted-foreground/60 truncate block">{{ show.untertitel }}</span>
             </div>
             <span class="text-sm text-muted-foreground hidden sm:block">{{ formatDatum(show.datum) }}</span>
             <span class="text-sm text-muted-foreground hidden lg:block">{{ show.spielzeit || '—' }}</span>
@@ -84,10 +83,6 @@
           <div>
             <Label for="showDate">{{ t('show.date') }}</Label>
             <Input size="lg" id="showDate" v-model="form.datum" type="date" />
-          </div>
-          <div>
-            <Label for="showUntertitel">{{ t('show.meta.untertitel') }}</Label>
-            <Input size="lg" id="showUntertitel" v-model="form.untertitel" type="text" :placeholder="t('show.meta.untertitel.placeholder')" />
           </div>
           <div>
             <Label for="showSpielzeit">{{ t('field.spielzeit') }}</Label>
@@ -182,7 +177,7 @@ function setSort(key) {
 }
 const creating = ref(false)
 const drawerOpen = ref(false)
-const form = ref({ name: '', datum: new Date().toISOString().slice(0, 10), template: '__none__', untertitel: '', spielzeit: '', use_bars: true, use_towers: true })
+const form = ref({ name: '', datum: new Date().toISOString().slice(0, 10), template: '__none__', spielzeit: '', use_bars: true, use_towers: true })
 
 function formatDatum(d) {
   if (!d) return ''
@@ -239,7 +234,7 @@ async function handleCreate() {
   try {
     const tplCreate = form.value.template === '__none__' ? '' : form.value.template
     const content = `---\nid: ${id}\nname: ${form.value.name || id}\ndatum: ${form.value.datum || new Date().toISOString().slice(0, 10)}\n${tplCreate ? `template: ${tplCreate}\n` : ''}---\n\n`
-    await createShow({ id, name: form.value.name || id, datum: form.value.datum || new Date().toISOString().slice(0, 10), content, template: tplCreate || undefined, untertitel: form.value.untertitel || undefined, spielzeit: form.value.spielzeit || undefined, use_bars: form.value.use_bars, use_towers: form.value.use_towers })
+    await createShow({ id, name: form.value.name || id, datum: form.value.datum || new Date().toISOString().slice(0, 10), content, template: tplCreate || undefined, spielzeit: form.value.spielzeit || undefined, use_bars: form.value.use_bars, use_towers: form.value.use_towers })
     invalidate('shows')
     const newShow = { id, name: form.value.name || id, datum: form.value.datum || new Date().toISOString().slice(0, 10), template: tplCreate }
     shows.value.push(newShow)
@@ -261,7 +256,7 @@ async function handleCreate() {
 }
 
 function openCreate() {
-  form.value = { name: '', datum: new Date().toISOString().slice(0, 10), template: '__none__', untertitel: '', spielzeit: '', use_bars: true, use_towers: true }
+  form.value = { name: '', datum: new Date().toISOString().slice(0, 10), template: '__none__', spielzeit: '', use_bars: true, use_towers: true }
   drawerOpen.value = true
 }
 
