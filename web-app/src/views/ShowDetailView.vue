@@ -1020,7 +1020,7 @@ onMounted(async () => {
       loadSections()
     ])
 
-    meta.value = { name: showData.name, datum: showData.datum, template: showData.template, untertitel: showData.untertitel, spielzeit: showData.spielzeit, use_bars: showData.use_bars !== false, use_towers: showData.use_towers !== false }
+    meta.value = { name: showData.name, datum: showData.datum, template: showData.template, spielzeit: showData.spielzeit, use_bars: showData.use_bars !== false, use_towers: showData.use_towers !== false }
     setupMarkdown.value = showData.setupMarkdown ?? ''
     eosActiveChannels.value = showData.eosActiveChannels ?? null
 

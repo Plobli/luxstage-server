@@ -54,7 +54,6 @@
         >
           <div class="min-w-0 pr-4">
             <span class="font-medium text-foreground text-sm truncate block">{{ show.name || show.id }}</span>
-            <span v-if="show.untertitel" class="text-xs text-muted-foreground/60 truncate block">{{ show.untertitel }}</span>
           </div>
           <span class="text-sm text-muted-foreground hidden sm:block">{{ formatDatum(show.datum) }}</span>
           <span class="text-sm text-muted-foreground hidden lg:block">{{ show.spielzeit || '—' }}</span>

@@ -56,7 +56,7 @@ function contrastColor(hex) {
   return (0.299*r + 0.587*g + 0.114*b)/255 > 0.5 ? '#000000' : '#ffffff'
 }
 
-// show: { name, datum, untertitel, ... }
+// show: { name, datum, template, ... }
 // channels: [{ channel, address, device, position, color, notes }]
 // sectionsMap: Map<sectionId, contentString>  (from db.readShowSections)
 // templateSections: [{ id, title, order, type }]
@@ -64,7 +64,7 @@ function contrastColor(hex) {
 // floorplan: { imagePath, canvasData } — optionaler Grundriss
 // photosPerPage: Fotos je Druckseite (1, 2, 4, 6, 8, 9 oder 12)
 export async function generatePDF(show, channels, sectionsMap, templateSections, photoEntries, res, floorplan = null, unit = 'm', photosPerPage = 4) {
-  const fm = { name: show.name, datum: show.datum, venue: show.untertitel }
+  const fm = { name: show.name, datum: show.datum, venue: show.template }
   const grouped = groupByPosition(channels)
 
   const hasSections = Array.isArray(templateSections) && templateSections.length > 0

@@ -99,10 +99,6 @@
           <Input id="meta-datum" v-model="editMeta.datum" type="date" size="lg" />
         </div>
         <div>
-          <Label for="meta-untertitel">{{ t('show.meta.untertitel') }}</Label>
-          <Input id="meta-untertitel" v-model="editMeta.untertitel" type="text" size="lg" :placeholder="t('show.meta.untertitel.placeholder')" />
-        </div>
-        <div>
           <Label for="meta-spielzeit">{{ t('field.spielzeit') }}</Label>
           <Input id="meta-spielzeit" v-model="editMeta.spielzeit" type="text" size="lg" :placeholder="t('show.meta.spielzeit.placeholder')" />
         </div>
@@ -162,12 +158,11 @@ const editingName = ref(false)
 const editName = ref('')
 const nameInput = ref(null)
 const metaDialogOpen = ref(false)
-const editMeta = ref({ datum: '', untertitel: '', spielzeit: '', use_bars: true, use_towers: true })
+const editMeta = ref({ datum: '', spielzeit: '', use_bars: true, use_towers: true })
 
 function openMetaDialog() {
   editMeta.value = {
     datum: props.showMeta.datum ?? '',
-    untertitel: props.showMeta.untertitel ?? '',
     spielzeit: props.showMeta.spielzeit ?? '',
     use_bars: props.showMeta.use_bars !== false,
     use_towers: props.showMeta.use_towers !== false,

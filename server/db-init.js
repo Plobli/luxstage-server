@@ -26,7 +26,6 @@ function _initSchema(database) {
       name           TEXT,
       datum          TEXT,
       template       TEXT,
-      untertitel     TEXT,
       spielzeit      TEXT,
       setup_markdown TEXT,
       eos_active_channels TEXT,
@@ -228,6 +227,9 @@ if (!showCols.includes('use_bars')) {
 }
 if (!showCols.includes('use_towers')) {
   database.exec('ALTER TABLE shows ADD COLUMN use_towers INTEGER NOT NULL DEFAULT 1')
+}
+if (showCols.includes('untertitel')) {
+  database.exec('ALTER TABLE shows DROP COLUMN untertitel')
 }
 // section_kv_rows: Zeilen für kv-table Sections
 const kvRowsTableExists = database.prepare(

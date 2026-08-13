@@ -31,9 +31,9 @@ export async function showRoutes(req, res, pathname, params) {
 
   if (method === 'POST' && SHOW_LIST.test(pathname)) {
     const body = await readJsonBody(req, res); if (body === null) return
-    const { id, name, datum, template, untertitel, spielzeit, channels, use_bars, use_towers } = body
+    const { id, name, datum, template, spielzeit, channels, use_bars, use_towers } = body
     if (!id || !/^[a-z0-9_-]+$/i.test(id)) return json(res, 400, { error: 'Ungültige ID' })
-    db.createShow(id, { name, datum, template, untertitel, spielzeit, use_bars: use_bars !== false, use_towers: use_towers !== false })
+    db.createShow(id, { name, datum, template, spielzeit, use_bars: use_bars !== false, use_towers: use_towers !== false })
     if (Array.isArray(channels) && channels.length) db.writeChannels(id, channels)
     return json(res, 201, { id })
   }
@@ -161,7 +161,6 @@ export async function showRoutes(req, res, pathname, params) {
         name: show.name,
         datum: show.datum,
         template: show.template,
-        untertitel: show.untertitel,
         spielzeit: show.spielzeit,
         use_bars: show.use_bars !== 0,
         use_towers: show.use_towers !== 0,

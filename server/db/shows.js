@@ -21,7 +21,7 @@ export function readShow(slug) {
 }
 
 export function writeShow(slug, fields) {
-  const allowed = ['name', 'datum', 'template', 'untertitel', 'spielzeit', 'setup_markdown', 'eos_active_channels', 'last_edited_by', 'last_edited_at', 'use_bars', 'use_towers']
+  const allowed = ['name', 'datum', 'template', 'spielzeit', 'setup_markdown', 'eos_active_channels', 'last_edited_by', 'last_edited_at', 'use_bars', 'use_towers']
   const updates = Object.fromEntries(
     Object.entries(fields).filter(([k]) => allowed.includes(k))
   )
@@ -36,14 +36,13 @@ export function createShow(slug, fields) {
     const id = randomUUID()
     const ts = now()
     getDb().prepare(`
-      INSERT INTO shows (id, slug, name, datum, template, untertitel, spielzeit, archived, use_bars, use_towers, created_at, updated_at)
-      VALUES (@id, @slug, @name, @datum, @template, @untertitel, @spielzeit, 0, @use_bars, @use_towers, @ts, @ts)
+      INSERT INTO shows (id, slug, name, datum, template, spielzeit, archived, use_bars, use_towers, created_at, updated_at)
+      VALUES (@id, @slug, @name, @datum, @template, @spielzeit, 0, @use_bars, @use_towers, @ts, @ts)
     `).run({
       id, slug,
       name: fields.name ?? slug,
       datum: fields.datum ?? new Date().toISOString().slice(0, 10),
       template: fields.template ?? null,
-      untertitel: fields.untertitel ?? null,
       spielzeit: fields.spielzeit ?? null,
       use_bars: fields.use_bars !== false ? 1 : 0,
       use_towers: fields.use_towers !== false ? 1 : 0,
