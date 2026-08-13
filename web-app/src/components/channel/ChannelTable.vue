@@ -111,19 +111,7 @@
               @click="startAdd(item.group.position)"
             >+ {{ labels.add }}</Button>
             <template v-if="item.isLast">
-              <div v-if="addingNewPosition" class="flex items-center gap-2">
-                <Input
-                  autofocus
-                  v-model="newPositionName"
-                  :placeholder="labels.positionNamePlaceholder"
-                  @keydown.enter="saveNewPosition"
-                  @keydown.escape="addingNewPosition = false"
-                  @blur="saveNewPosition"
-                  class="h-7 w-48 rounded-sm border-0 border-b border-primary/30 bg-transparent px-1 text-[11px] font-semibold text-foreground shadow-none focus-visible:ring-0"
-                />
-              </div>
               <Button
-                v-else
                 variant="ghost"
                 size="sm"
                 class="h-7 rounded-sm px-2 text-[11px] text-muted-foreground hover:text-accent-foreground"
@@ -138,14 +126,14 @@
           <div
             class="border-t border-border/60 bg-card px-3 py-1.5"
             data-no-drag
-            @keydown.escape="addingPosition = null"
+            @keydown.escape="cancelAdd"
             @keydown.enter.prevent="saveAdd"
           >
           <!-- Mobile add form -->
           <div v-if="isMobile" class="flex flex-col gap-1.5">
             <div class="flex items-center gap-1.5">
               <Input
-                autofocus
+                data-channel-nr-input
                 v-model="addForm.channel"
                 :placeholder="labels.channelNr"
                 class="h-8 w-[5.5ch] border-0 bg-transparent px-1 py-0 text-center font-mono text-base font-semibold leading-none text-foreground shadow-none placeholder:text-muted-foreground/60 focus-visible:bg-muted/20 focus-visible:ring-0"
@@ -176,12 +164,12 @@
             </div>
           </div>
           <!-- Desktop add form -->
-          <div v-else class="grid grid-cols-[2rem_10rem_7rem_6rem_minmax(14rem,22%)_minmax(16rem,1fr)_2.5rem] items-center gap-0">
+          <div v-else class="grid grid-cols-[2rem_10rem_7rem_6rem_minmax(14rem,22%)_minmax(16rem,1fr)_4.5rem] items-center gap-0">
             <div></div>
             <div class="px-3">
               <div class="flex items-center gap-1.5">
                 <Input
-                  autofocus
+                  data-channel-nr-input
                   v-model="addForm.channel"
                   :placeholder="labels.channelNr"
                   class="h-7 w-[5.5ch] border-0 bg-transparent px-1 py-0 text-center font-mono text-base font-semibold leading-none text-foreground shadow-none placeholder:text-muted-foreground/60 focus-visible:bg-muted/20 focus-visible:ring-0"
@@ -220,7 +208,14 @@
                 class="h-8 min-h-8 w-full resize-none border-0 bg-transparent px-2 py-1.5 text-sm leading-none text-foreground shadow-none transition-colors placeholder:text-muted-foreground/60 hover:bg-muted/10 focus-visible:bg-muted/20 focus-visible:outline-none focus-visible:ring-0"
               />
             </div>
-            <div class="flex justify-center">
+            <div class="flex items-center justify-center gap-1">
+              <Button
+                size="icon"
+                variant="ghost"
+                class="size-8 rounded-sm text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                :title="labels.cancel"
+                @click="cancelAdd"
+              ><X class="size-4" /></Button>
               <Button
                 size="icon"
                 variant="ghost"
@@ -252,13 +247,33 @@
       </template>
       </div>
     </div>
+
+    <Dialog :open="addingNewPosition" @update:open="val => { if (!val) addingNewPosition = false }">
+      <DialogContent class="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>{{ labels.addPosition }}</DialogTitle>
+        </DialogHeader>
+        <DialogBody>
+          <Input
+            ref="newPositionInput"
+            v-model="newPositionName"
+            :placeholder="labels.positionNamePlaceholder"
+            @keydown.enter="saveNewPosition"
+          />
+        </DialogBody>
+        <DialogFooter>
+          <Button variant="ghost" @click="addingNewPosition = false">{{ labels.cancel }}</Button>
+          <Button :disabled="!newPositionName.trim()" @click="saveNewPosition">{{ labels.addAction }}</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   </div>
 </template>
 
 <script setup>
 import { ref, computed, watch, nextTick, onMounted, onBeforeUnmount } from 'vue'
 import { useContainerWidth } from '@/composables/useContainerWidth'
-import { Check } from 'lucide-vue-next'
+import { Check, X } from 'lucide-vue-next'
 import HelpIcon from '@/components/ui/HelpIcon.vue'
 import Sortable from 'sortablejs'
 import ChannelRow from './ChannelRow.vue'
@@ -266,6 +281,7 @@ import ColorAutocomplete from '../ColorAutocomplete.vue'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Button } from '@/components/ui/button'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogBody } from '@/components/ui/dialog'
 
 const props = defineProps({
   channels: { type: Array, required: true },
@@ -317,10 +333,12 @@ const addForm = ref({})
 // gerade ein Kanal angelegt wird. Hier geht es um eine neue, noch leere Position.
 const addingNewPosition = ref(false)
 const newPositionName = ref('')
+const newPositionInput = ref(null)
 
 function startAddPosition() {
   addingNewPosition.value = true
   newPositionName.value = ''
+  nextTick(() => newPositionInput.value?.$el?.querySelector('input')?.focus())
 }
 
 const emptyPositions = ref([])
@@ -436,6 +454,13 @@ function savePosition() {
 function startAdd(position) {
   addingPosition.value = position
   addForm.value = { channel: '', address: '', device: '', position, color: '', notes: '', quantity: 1 }
+  nextTick(() => {
+    rootEl.value?.querySelector('[data-channel-nr-input]')?.focus()
+  })
+}
+
+function cancelAdd() {
+  addingPosition.value = null
 }
 
 function saveAdd() {

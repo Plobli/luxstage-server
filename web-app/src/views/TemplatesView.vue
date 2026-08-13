@@ -93,6 +93,8 @@
                   editPosition: t('channel.position.edit'),
                   noPosition: t('channel.no_position'),
                   add: t('channel.add'),
+                  addAction: t('action.add'),
+                  cancel: t('action.cancel'),
                   delete: t('action.delete'),
                   empty: t('channel.list.empty'),
                   channelNr: t('show.channel.nr'),
