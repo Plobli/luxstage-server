@@ -1,0 +1,13 @@
+{
+  "apiUrl": "http://localhost:8080",
+  "format": "JSON_TOLGEE",
+  "push": {
+    "files": [
+      { "path": "../shared/locales/de.json", "language": "de" },
+      { "path": "../shared/locales/en.json", "language": "en" }
+    ]
+  },
+  "pull": {
+    "path": "../shared/locales"
+  }
+}

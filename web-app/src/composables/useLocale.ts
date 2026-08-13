@@ -1,23 +1,11 @@
 /**
- * useLocale — schlankes i18n ohne vue-i18n
- * Lädt de.json / en.json aus shared/locales/
+ * useLocale — Kompatibilitäts-Bridge auf @tolgee/vue
+ * Bestehende t(key, params)-Aufrufe bleiben unverändert, laufen aber
+ * jetzt durch Tolgee (inkl. In-Context-Editor). de.json/en.json dienen
+ * als staticData-Fallback, siehe tolgee.ts.
  */
-import { ref, computed, type ComputedRef } from 'vue'
-import de from '../../../shared/locales/de.json'
-import en from '../../../shared/locales/en.json'
-
-type MessageBundle = Record<string, string>;
-const messages: Record<string, MessageBundle> = { de, en }
-const locale = ref(localStorage.getItem('locale') || 'de')
-
-// Sprachänderungen aus anderen Tabs/Fenstern übernehmen
-if (typeof window !== 'undefined') {
-  window.addEventListener('storage', (e: StorageEvent) => {
-    if (e.key === 'locale' && e.newValue && messages[e.newValue]) {
-      locale.value = e.newValue
-    }
-  })
-}
+import { computed, type ComputedRef } from 'vue'
+import { useTranslate, useTolgee } from '@tolgee/vue'
 
 export interface UseLocaleReturn {
   t: (key: string, params?: Record<string, string | number>) => string;
@@ -26,23 +14,17 @@ export interface UseLocaleReturn {
 }
 
 export function useLocale(): UseLocaleReturn {
+  const { t: tolgeeT } = useTranslate()
+  const tolgee = useTolgee(['language'])
+
   function t(key: string, params?: Record<string, string | number>): string {
-    let val: string = messages[locale.value]?.[key] ?? messages['de']?.[key] ?? key
-    if (params) {
-      for (const [k, v] of Object.entries(params)) {
-        val = val.replaceAll(`{${k}}`, String(v))
-      }
-    }
-    return val
+    return tolgeeT.value(key, params as Record<string, string> | undefined)
   }
 
   function setLocale(lang: string): void {
-    if (messages[lang]) {
-      locale.value = lang
-      localStorage.setItem('locale', lang)
-    }
+    tolgee.value.changeLanguage(lang)
   }
 
-  return { t, locale: computed(() => locale.value), setLocale }
+  return { t, locale: computed(() => tolgee.value.getLanguage() ?? 'de'), setLocale }
 }
 

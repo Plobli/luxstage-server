@@ -125,8 +125,11 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 | `./web-app/components.json` | Shadcn-vue UI-Komponenten-Konfiguration. |
 | `./web-app/.env` | Development-Umgebungsvariablen für Web-App. |
 | `./web-app/.env.production` | Produktiv-Umgebungsvariablen für Web-App. |
-| `./web-app/src/main.ts` | Bootstrap: erstellt Vue-App, registriert Router, wendet System-Theme an. |
-| `./web-app/src/App.vue` | Root-Komponente: Sidebar, Top-Bar, Routing, globale Dialoge und Status-Updates. |
+| `./web-app/.env.development.local` | Lokale Tolgee-Server-URL und API-Key (nicht versioniert). |
+| `./web-app/.tolgeerc.json` | Tolgee-CLI-Config für `npm run tolgee:push`/`tolgee:pull`. |
+| `./web-app/src/main.ts` | Bootstrap: erstellt Vue-App, registriert Router und Tolgee, wendet System-Theme an. |
+| `./web-app/src/tolgee.ts` | Zentrale Tolgee-Instanz: Dev lädt live vom Server (In-Context-Editor), Prod nutzt shared/locales als staticData. |
+| `./web-app/src/App.vue` | Root-Komponente: TolgeeProvider, Sidebar, Top-Bar, Routing, globale Dialoge und Status-Updates. |
 | `./web-app/src/style.css` | Tailwind, Theme-Variablen, Print-Styles für Tabellen und Foto-Galerien. |
 | `./web-app/src/router/index.ts` | Vue Router mit Auth-Guards, Admin-Checks und Route-Definitionen. |
 
@@ -144,7 +147,7 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 | `./web-app/src/composables/useShowFloorplan.ts` | Lädt und speichert Grundriss-Daten und Bilder pro Show. |
 | `./web-app/src/composables/useTokenRefresh.ts` | Erneuert JWT-Token automatisch vor Ablauf. |
 | `./web-app/src/composables/useShowChannels.ts` | Verwaltet Kanäle mit Undo/Redo, Suche, Filter und EOS-Import. |
-| `./web-app/src/composables/useLocale.ts` | Schlanke i18n ohne Abhängigkeiten, lädt de.json/en.json. |
+| `./web-app/src/composables/useLocale.ts` | Kompatibilitäts-Bridge auf @tolgee/vue; bestehende t(key)-Aufrufe laufen jetzt über Tolgee. |
 | `./web-app/src/composables/usePhotoSettings.ts` | Speichert Benutzereinstellung für Fotos pro Seite. |
 | `./web-app/src/composables/useShowSections.ts` | Lädt und speichert benutzerdefinierte Abschnitte pro Show. |
 | `./web-app/src/composables/useBreakpoint.ts` | Erkennt Bildschirmgröße via MediaQueryList-Listener. |

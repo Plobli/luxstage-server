@@ -1,4 +1,8 @@
 <template>
+  <TolgeeProvider>
+    <template v-slot:fallback>
+      <div class="h-dvh flex items-center justify-center bg-background text-muted-foreground">Loading...</div>
+    </template>
   <div class="h-full bg-background pt-[env(safe-area-inset-top)]">
     <!-- Login-Route: kein Sidebar-Layout -->
     <RouterView v-if="route.meta.public" />
@@ -211,11 +215,13 @@
       @cancel="resolveConfirm(false)"
     />
   </div>
+  </TolgeeProvider>
 </template>
 
 <script setup>
 import { ref, watch, onMounted, onUnmounted, computed } from 'vue'
 import { RouterView, RouterLink, useRoute, useRouter } from 'vue-router'
+import { TolgeeProvider } from '@tolgee/vue'
 import { Button } from '@/components/ui/button'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import {
@@ -299,11 +305,11 @@ function isActiveRoute(item) {
   return route.path.startsWith(item.to)
 }
 
-const navigation = [
+const navigation = computed(() => [
   { name: t('nav.shows'), to: '/', routeName: 'shows', icon: Layers },
   { name: t('nav.archive'), to: '/archive', routeName: 'archive', icon: Archive },
   { name: t('nav.templates'), to: '/templates', routeName: 'templates', icon: Files },
-]
+])
 
 const isSettingsDetail = computed(() => route.path.startsWith('/settings'))
 
