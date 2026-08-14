@@ -609,10 +609,10 @@
   "zugstange.scale.help": "Blendet die Zentimeter-Skala über der Stange aus. Sinnvoll bei Stangen ohne feste Bemaßung.",
   "zugstange.scale.hide": "Bemaßung ausblenden",
   "zugstange.scale.show": "Bemaßung einblenden",
-  "zugstange.type.zugstange": "Zugstange",
-  "zugstange.type.traverse": "Traverse",
-  "zugstange.type.punktzug": "Punktzug",
   "zugstange.type.filter.all": "Alle",
+  "zugstange.type.punktzug": "Punktzug",
+  "zugstange.type.traverse": "Traverse",
+  "zugstange.type.zugstange": "Zugstange",
   "zugstange.punktzug.position.placeholder": "Position, z. B. über Bühnenmitte, 3m hinter Vorhang…",
   "zugstange.traverse.side.in": "Innen",
   "zugstange.traverse.side.out": "Außen"

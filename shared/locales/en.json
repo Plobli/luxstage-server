@@ -609,10 +609,10 @@
   "zugstange.scale.help": "Hides the centimetre scale above the batten. Useful for battens without fixed dimension marks.",
   "zugstange.scale.hide": "Hide dimension marks",
   "zugstange.scale.show": "Show dimension marks",
-  "zugstange.type.zugstange": "Batten",
-  "zugstange.type.traverse": "Truss",
-  "zugstange.type.punktzug": "Point hoist",
   "zugstange.type.filter.all": "All",
+  "zugstange.type.punktzug": "Point hoist",
+  "zugstange.type.traverse": "Truss",
+  "zugstange.type.zugstange": "Batten",
   "zugstange.punktzug.position.placeholder": "Position, e.g. above centre stage, 3m behind curtain…",
   "zugstange.traverse.side.in": "Inside",
   "zugstange.traverse.side.out": "Outside"
