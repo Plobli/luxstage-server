@@ -394,12 +394,12 @@
       </DialogHeader>
       <DialogBody>
         <Input v-if="!pickerChannel" size="lg" v-model="fixtureSearch" :placeholder="t('zugstange.fixture.search.placeholder')" autofocus @keydown.enter="selectFirstAndConfirm" />
-        <div v-if="!pickerChannel" class="max-h-96 overflow-y-auto grid grid-cols-8 gap-2 pt-1">
+        <div v-if="!pickerChannel" class="max-h-96 overflow-y-auto grid gap-2 pt-1" style="grid-template-columns: repeat(auto-fill, minmax(3rem, 1fr));">
           <button
             v-for="ch in filteredChannelsForPicker"
             :key="ch.channel"
             :title="[ch.device, ch.address ? `DMX ${ch.address}` : null, ch.color].filter(Boolean).join(' · ')"
-            class="aspect-square rounded-lg border flex items-center justify-center text-lg font-bold tabular-nums transition-colors border-border/40 text-foreground hover:bg-accent/15 hover:border-accent/50"
+            class="aspect-square max-w-14 rounded-lg border flex items-center justify-center text-base font-bold tabular-nums transition-colors border-border/40 text-foreground hover:bg-accent/15 hover:border-accent/50"
             @click="pickerChannel = ch; fixtureSearch = ''"
           >{{ ch.channel }}</button>
         </div>
