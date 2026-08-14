@@ -554,10 +554,10 @@
   "template.upload.success": "Spielort-Vorlage erfolgreich importiert.",
   "zugstange.action.create": "Anlegen",
   "zugstange.add": "Element hinzufügen",
-  "zugstange.delete.confirm": "Zugstange \"{name}\" wirklich löschen?",
-  "zugstange.dialog.edit": "Zugstange bearbeiten",
+  "zugstange.delete.confirm": "\"{name}\" wirklich löschen?",
+  "zugstange.dialog.edit": "Element bearbeiten",
   "zugstange.dialog.from_template": "Aus Vorlage einfügen…",
-  "zugstange.dialog.new": "Neue Zugstange",
+  "zugstange.dialog.new": "Neues Element",
   "zugstange.empty": "Keine Elemente vorhanden",
   "zugstange.empty.desc": "Füge hier die Elemente deiner Obermaschinerie hinzu und platziere Kreise an konkreten Positionen darauf  – so siehst du auf einen Blick, welches Gerät wo eingebaut werden muss.",
   "zugstange.field.height": "Höhe",
@@ -568,6 +568,7 @@
   "zugstange.field.length_cm": "Länge (cm)",
   "zugstange.field.length_unit": "Länge ({unit})",
   "zugstange.field.name": "Name",
+  "zugstange.field.type": "Typ",
   "zugstange.field.zug_nr": "Zugnummer",
   "zugstange.field.zug_nr.help": "Nummer des Zuges im Zugsystem der Bühne, wie sie am Stellwerk steht.",
   "zugstange.field.zug_nr.placeholder": "z. B. 12",
@@ -607,5 +608,9 @@
   "zugstange.scale.click_to_add": "Klicken zum Hinzufügen",
   "zugstange.scale.help": "Blendet die Zentimeter-Skala über der Stange aus. Sinnvoll bei Stangen ohne feste Bemaßung.",
   "zugstange.scale.hide": "Bemaßung ausblenden",
-  "zugstange.scale.show": "Bemaßung einblenden"
+  "zugstange.scale.show": "Bemaßung einblenden",
+  "zugstange.type.zugstange": "Zugstange",
+  "zugstange.type.traverse": "Traverse",
+  "zugstange.type.punktzug": "Punktzug",
+  "zugstange.type.filter.all": "Alle"
 }

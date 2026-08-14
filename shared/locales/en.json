@@ -554,10 +554,10 @@
   "template.upload.success": "Venue template imported successfully.",
   "zugstange.action.create": "Create",
   "zugstange.add": "Add element",
-  "zugstange.delete.confirm": "Delete batten \"{name}\"?",
-  "zugstange.dialog.edit": "Edit batten",
+  "zugstange.delete.confirm": "Delete \"{name}\"?",
+  "zugstange.dialog.edit": "Edit element",
   "zugstange.dialog.from_template": "Insert from template…",
-  "zugstange.dialog.new": "New batten",
+  "zugstange.dialog.new": "New element",
   "zugstange.empty": "No elements yet",
   "zugstange.empty.desc": "Add the components of your overhead machinery here and place circles at specific locations on them—that way, you can see at a glance which device needs to be installed where.",
   "zugstange.field.height": "Height",
@@ -568,6 +568,7 @@
   "zugstange.field.length_cm": "Length (cm)",
   "zugstange.field.length_unit": "Length ({unit})",
   "zugstange.field.name": "Name",
+  "zugstange.field.type": "Type",
   "zugstange.field.zug_nr": "Batten number",
   "zugstange.field.zug_nr.help": "Number of the batten in the stage's fly system, as labelled at the control station.",
   "zugstange.field.zug_nr.placeholder": "e.g. 12",
@@ -607,5 +608,9 @@
   "zugstange.scale.click_to_add": "Click to add",
   "zugstange.scale.help": "Hides the centimetre scale above the batten. Useful for battens without fixed dimension marks.",
   "zugstange.scale.hide": "Hide dimension marks",
-  "zugstange.scale.show": "Show dimension marks"
+  "zugstange.scale.show": "Show dimension marks",
+  "zugstange.type.zugstange": "Batten",
+  "zugstange.type.traverse": "Truss",
+  "zugstange.type.punktzug": "Point hoist",
+  "zugstange.type.filter.all": "All"
 }

@@ -895,6 +895,8 @@ function posLabel(cm, unit) {
   return cm > 0 ? `+${val}` : `-${val}`
 }
 
+const BAR_TYPE_LABELS = { zugstange: 'Zugstange', traverse: 'Traverse', punktzug: 'Punktzug' }
+
 // Zugstangen als visuelle Zeilen mit Kanal-Kreisen
 function drawBarRows(doc, bars, channels, margin, usableW, startY, bottomLimit, addFooter, unit = 'm') {
   const CIRCLE_R = mm(3.2)
@@ -924,6 +926,7 @@ function drawBarRows(doc, bars, channels, margin, usableW, startY, bottomLimit, 
 
     // Meta: Länge · Höhe · Zugname
     const metaParts = [
+      BAR_TYPE_LABELS[bar.bar_type] ?? null,
       bar.length_cm ? `Länge ${cmToDisplayUnit(bar.length_cm, unit)}` : null,
       bar.height_cm != null ? `Höhe ${cmToDisplayUnit(bar.height_cm, unit)}` : null,
       bar.zug_nr ? `Zug ${bar.zug_nr}` : null,

@@ -148,14 +148,15 @@ export function writeTemplateBar(name, data) {
   const id = data.id || randomUUID()
   const existing = getDb().prepare('SELECT id FROM template_bars WHERE id = ?').get(id)
   if (existing) {
+    const currentBarType = getDb().prepare('SELECT bar_type FROM template_bars WHERE id = ?').get(id)?.bar_type ?? 'zugstange'
     getDb().prepare(
-      'UPDATE template_bars SET name=?, zug_nr=?, length_cm=?, sort_order=? WHERE id=?'
-    ).run(data.name ?? '', data.zug_nr ?? '', data.length_cm ?? 600, data.sort_order ?? 0, id)
+      'UPDATE template_bars SET name=?, zug_nr=?, length_cm=?, sort_order=?, bar_type=? WHERE id=?'
+    ).run(data.name ?? '', data.zug_nr ?? '', data.length_cm ?? 600, data.sort_order ?? 0, data.bar_type ?? currentBarType, id)
   } else {
     const count = getDb().prepare('SELECT COUNT(*) as n FROM template_bars WHERE template_id = ?').get(tpl.id).n
     getDb().prepare(
-      'INSERT INTO template_bars (id, template_id, name, zug_nr, length_cm, sort_order) VALUES (?, ?, ?, ?, ?, ?)'
-    ).run(id, tpl.id, data.name ?? '', data.zug_nr ?? '', data.length_cm ?? 600, data.sort_order ?? count)
+      'INSERT INTO template_bars (id, template_id, name, zug_nr, length_cm, sort_order, bar_type) VALUES (?, ?, ?, ?, ?, ?, ?)'
+    ).run(id, tpl.id, data.name ?? '', data.zug_nr ?? '', data.length_cm ?? 600, data.sort_order ?? count, data.bar_type ?? 'zugstange')
   }
   return id
 }
@@ -195,8 +196,8 @@ export function applyTemplateToShow(templateName, showSlug, scope, withChannels,
         if (!existingByName.has(tb.name)) {
           const newBarId = randomUUID()
           getDb().prepare(
-            'INSERT INTO bars (id, show_id, name, zug_nr, length_cm, sort_order, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)'
-          ).run(newBarId, show.id, tb.name, tb.zug_nr, tb.length_cm, sortBase++, Date.now())
+            'INSERT INTO bars (id, show_id, name, zug_nr, length_cm, sort_order, bar_type, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+          ).run(newBarId, show.id, tb.name, tb.zug_nr, tb.length_cm, sortBase++, tb.bar_type ?? 'zugstange', Date.now())
           existingByName.set(tb.name, { id: newBarId })
         }
         if (withChannels) {
@@ -279,13 +280,13 @@ export function saveShowItemsToTemplate(templateName, showSlug, scope, barOrTowe
         if (tplBarByName.has(barName)) {
           tplBarId = tplBarByName.get(barName).id
           getDb().prepare(
-            'UPDATE template_bars SET name=?, zug_nr=?, length_cm=?, sort_order=? WHERE id=?'
-          ).run(barName, bar.zug_nr ?? '', bar.length_cm ?? 600, currentCount + idx, tplBarId)
+            'UPDATE template_bars SET name=?, zug_nr=?, length_cm=?, sort_order=?, bar_type=? WHERE id=?'
+          ).run(barName, bar.zug_nr ?? '', bar.length_cm ?? 600, currentCount + idx, bar.bar_type ?? 'zugstange', tplBarId)
         } else {
           tplBarId = randomUUID()
           getDb().prepare(
-            'INSERT INTO template_bars (id, template_id, name, zug_nr, length_cm, sort_order) VALUES (?, ?, ?, ?, ?, ?)'
-          ).run(tplBarId, tpl.id, barName, bar.zug_nr ?? '', bar.length_cm ?? 600, currentCount + idx)
+            'INSERT INTO template_bars (id, template_id, name, zug_nr, length_cm, sort_order, bar_type) VALUES (?, ?, ?, ?, ?, ?, ?)'
+          ).run(tplBarId, tpl.id, barName, bar.zug_nr ?? '', bar.length_cm ?? 600, currentCount + idx, bar.bar_type ?? 'zugstange')
         }
         idx++
 
@@ -492,7 +493,7 @@ export function applyTemplateToAllShows(templateName, scope) {
     }
   }
 
-  const insertBar     = getDb().prepare('INSERT INTO bars (id, show_id, name, zug_nr, length_cm, sort_order, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)')
+  const insertBar     = getDb().prepare('INSERT INTO bars (id, show_id, name, zug_nr, length_cm, sort_order, bar_type, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
   const insertTower   = getDb().prepare('INSERT INTO towers (id, show_id, name, side, stage_area, slot_count, sort_order, notes, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)')
   const insertSlot    = getDb().prepare('INSERT OR IGNORE INTO tower_slots (id, tower_id, slot_index, channel_id) VALUES (?, ?, ?, NULL)')
   const insertDef     = getDb().prepare('INSERT INTO section_defs (id, show_id, title, type, icon, sort_order) VALUES (?, ?, ?, ?, ?, ?)')
@@ -512,7 +513,7 @@ export function applyTemplateToAllShows(templateName, scope) {
       for (const tb of tBars) {
         if (!existingBarNames.has(tb.name)) {
           const sortOrder = existingBarCount + stats.barsAdded
-          insertBar.run(randomUUID(), show.id, tb.name, tb.zug_nr, tb.length_cm, sortOrder, Date.now())
+          insertBar.run(randomUUID(), show.id, tb.name, tb.zug_nr, tb.length_cm, sortOrder, tb.bar_type ?? 'zugstange', Date.now())
           stats.barsAdded++
         }
       }

@@ -1,4 +1,5 @@
 import { api } from './client'
+import type { BarType } from './bars'
 
 export interface TemplateBar {
   id: string
@@ -7,6 +8,7 @@ export interface TemplateBar {
   zug_nr: string
   length_cm: number
   sort_order: number
+  bar_type: BarType
 }
 
 export async function fetchTemplateBars(templateName: string): Promise<TemplateBar[]> {

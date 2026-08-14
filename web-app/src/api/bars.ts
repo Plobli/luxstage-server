@@ -1,5 +1,7 @@
 import { api } from './client'
 
+export type BarType = 'zugstange' | 'traverse' | 'punktzug'
+
 export interface BarFixture {
   id: string
   bar_id: string
@@ -18,6 +20,7 @@ export interface Bar {
   fixtures: BarFixture[]
   height_cm?: number | null
   notes?: string | null
+  bar_type: BarType
 }
 
 export async function fetchBars(showId: string): Promise<Bar[]> {

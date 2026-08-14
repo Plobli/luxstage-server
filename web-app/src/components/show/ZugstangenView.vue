@@ -1,5 +1,16 @@
 <template>
   <div class="relative flex flex-col h-full overflow-hidden">
+    <!-- Typ-Filter -->
+    <div v-if="bars.length > 0" class="flex items-center gap-1.5 px-5 pt-3 pb-1 shrink-0 overflow-x-auto">
+      <button
+        v-for="opt in typeFilterOptions"
+        :key="opt.value"
+        class="shrink-0 px-3 py-1 rounded-full text-xs font-medium border transition-colors"
+        :class="typeFilter === opt.value ? 'bg-accent/20 border-accent/50 text-accent' : 'border-border/40 text-muted-foreground hover:bg-white/5'"
+        @click="typeFilter = opt.value"
+      >{{ opt.label }}<span v-if="opt.value !== 'all'" class="ml-1 tabular-nums opacity-60">{{ opt.count }}</span></button>
+    </div>
+
     <!-- Zugstangen-Liste -->
     <div class="flex-1 overflow-y-auto pb-14 md:pb-0">
       <div v-if="bars.length === 0" class="flex flex-col items-center justify-center gap-3 h-64 text-center px-8">
@@ -9,10 +20,14 @@
           <p class="text-sm text-muted-foreground mt-1">{{ t('zugstange.empty.desc') }}</p>
         </div>
       </div>
+      <div v-else-if="filteredBars.length === 0" class="flex flex-col items-center justify-center gap-3 h-64 text-center px-8">
+        <AlignJustify class="size-8 text-muted-foreground/40" />
+        <p class="text-sm text-muted-foreground">{{ t('zugstange.empty') }}</p>
+      </div>
 
-      <!-- Eine Zeile pro Zugstange -->
+      <!-- Eine Zeile pro Element -->
       <div
-        v-for="bar in bars"
+        v-for="bar in filteredBars"
         :key="bar.id"
         draggable="true"
         class="group/row relative flex items-center gap-6 px-5 py-4 mx-3 my-2 rounded-xl border transition-colors"
@@ -24,7 +39,10 @@
       >
         <!-- Linke Spalte: Name oben, Länge + Höhe unten (bündig zur Anmerkung) -->
         <div class="w-44 shrink-0 self-stretch flex flex-col justify-end">
-          <div class="text-lg font-semibold text-foreground tracking-tight truncate leading-tight mb-3">{{ bar.name }}</div>
+          <div class="flex items-center gap-1.5 mb-3">
+            <span class="text-lg font-semibold text-foreground tracking-tight truncate leading-tight">{{ bar.name }}</span>
+          </div>
+          <span class="self-start -mt-2 mb-2 px-1.5 py-0.5 rounded text-[10px] font-medium uppercase tracking-wide bg-white/8 text-muted-foreground/70">{{ typeLabel(bar.bar_type) }}</span>
           <div class="min-w-0">
             <!-- Länge -->
             <div class="relative w-32">
@@ -179,6 +197,19 @@
         <DialogTitle>{{ editingBar ? t('zugstange.dialog.edit') : t('zugstange.dialog.new') }}</DialogTitle>
       </DialogHeader>
       <DialogBody>
+        <div class="flex flex-col gap-1.5">
+          <label class="text-xs text-muted-foreground">{{ t('zugstange.field.type') }}</label>
+          <div class="flex gap-1.5">
+            <button
+              v-for="opt in barTypeOptions"
+              :key="opt.value"
+              type="button"
+              class="flex-1 h-9 rounded-md border text-sm font-medium transition-colors"
+              :class="barForm.bar_type === opt.value ? 'bg-accent/20 border-accent/50 text-accent' : 'border-border/40 text-muted-foreground hover:bg-white/5'"
+              @click="barForm.bar_type = opt.value"
+            >{{ opt.label }}</button>
+          </div>
+        </div>
         <div class="flex flex-col gap-1.5">
           <label class="text-xs text-muted-foreground">{{ t('zugstange.field.name') }}</label>
           <Input size="lg" v-model="barForm.name" :placeholder="t('zugstange.name.placeholder')" autofocus />
@@ -421,6 +452,18 @@ const props = defineProps({
 
 const emit = defineEmits(['assigned', 'navigate-to-channel', 'reordered'])
 
+// Typ (Zugstange / Traverse / Punktzug)
+const BAR_TYPES = ['zugstange', 'traverse', 'punktzug']
+function typeLabel(type) { return t(`zugstange.type.${type || 'zugstange'}`) }
+const barTypeOptions = computed(() => BAR_TYPES.map(value => ({ value, label: typeLabel(value) })))
+
+const typeFilter = ref('all')
+const filteredBars = computed(() => typeFilter.value === 'all' ? props.bars : props.bars.filter(b => (b.bar_type || 'zugstange') === typeFilter.value))
+const typeFilterOptions = computed(() => [
+  { value: 'all', label: t('zugstange.type.filter.all') },
+  ...BAR_TYPES.map(value => ({ value, label: typeLabel(value), count: props.bars.filter(b => (b.bar_type || 'zugstange') === value).length })),
+].filter(opt => opt.value === 'all' || opt.count > 0))
+
 // Als Vorlage speichern
 const saveDialogOpen = ref(false)
 const savingBarId = ref(null)
@@ -529,7 +572,7 @@ function goToChannel(channelId) {
 // Bar Dialog
 const barDialogOpen = ref(false)
 const editingBar = ref(null)
-const barForm = ref({ name: '', zug_nr: '', length_cm: 1100, hide_scale: false })
+const barForm = ref({ name: '', zug_nr: '', length_cm: 1100, hide_scale: false, bar_type: 'zugstange' })
 // Anzeige-Wert für length-Input (in gewählter Einheit)
 const barFormDisplay = computed({
   get: () => ({ length: cmToDisplay(barForm.value.length_cm) }),
@@ -538,12 +581,12 @@ const barFormDisplay = computed({
 
 function openNewBarDialog() {
   editingBar.value = null
-  barForm.value = { name: '', zug_nr: '', length_cm: 1100 }
+  barForm.value = { name: '', zug_nr: '', length_cm: 1100, bar_type: typeFilter.value !== 'all' ? typeFilter.value : 'zugstange' }
   barDialogOpen.value = true
 }
 function openEditBarDialog(bar) {
   editingBar.value = bar
-  barForm.value = { name: bar.name, zug_nr: bar.zug_nr, length_cm: bar.length_cm, hide_scale: bar.hide_scale ?? false }
+  barForm.value = { name: bar.name, zug_nr: bar.zug_nr, length_cm: bar.length_cm, hide_scale: bar.hide_scale ?? false, bar_type: bar.bar_type || 'zugstange' }
   barDialogOpen.value = true
 }
 async function saveBarForm() {
@@ -551,6 +594,7 @@ async function saveBarForm() {
   if (editingBar.value) {
     await props.saveBarFn(editingBar.value.id, { ...barForm.value, height_cm: editingBar.value.height_cm ?? null, notes: editingBar.value.notes ?? '' })
     editingBar.value.hide_scale = barForm.value.hide_scale
+    editingBar.value.bar_type = barForm.value.bar_type
   } else {
     await props.addBarFn({ ...barForm.value })
   }
@@ -577,7 +621,7 @@ function doRemoveFixture() {
 }
 
 async function saveInlineField(bar, field, value) {
-  await props.saveBarFn(bar.id, { name: bar.name, zug_nr: bar.zug_nr, length_cm: bar.length_cm, height_cm: bar.height_cm, notes: bar.notes, hide_scale: bar.hide_scale ?? false, [field]: value })
+  await props.saveBarFn(bar.id, { name: bar.name, zug_nr: bar.zug_nr, length_cm: bar.length_cm, height_cm: bar.height_cm, notes: bar.notes, hide_scale: bar.hide_scale ?? false, bar_type: bar.bar_type || 'zugstange', [field]: value })
   bar[field] = value
 }
 

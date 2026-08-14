@@ -439,6 +439,13 @@ if (!barsTableExists) {
     database.exec("ALTER TABLE towers ADD COLUMN notes TEXT NOT NULL DEFAULT ''")
 }
 
+// Migration: bar_type auf bars — unterscheidet Zugstange/Traverse/Punktzug
+{
+  const cols = database.prepare("PRAGMA table_info(bars)").all().map(c => c.name)
+  if (!cols.includes('bar_type'))
+    database.exec("ALTER TABLE bars ADD COLUMN bar_type TEXT NOT NULL DEFAULT 'zugstange'")
+}
+
 // template_bars: Zugstangen-Definitionen pro Bühnen-Template
 const templateBarsTableExists = database.prepare(
   "SELECT name FROM sqlite_master WHERE type='table' AND name='template_bars'"
@@ -451,10 +458,18 @@ if (!templateBarsTableExists) {
       name        TEXT NOT NULL DEFAULT '',
       zug_nr      TEXT NOT NULL DEFAULT '',
       length_cm   INTEGER NOT NULL DEFAULT 600,
-      sort_order  INTEGER NOT NULL DEFAULT 0
+      sort_order  INTEGER NOT NULL DEFAULT 0,
+      bar_type    TEXT NOT NULL DEFAULT 'zugstange'
     );
     CREATE INDEX idx_template_bars_tpl ON template_bars(template_id);
   `)
+}
+
+// Migration: bar_type auf template_bars
+{
+  const cols = database.prepare("PRAGMA table_info(template_bars)").all().map(c => c.name)
+  if (!cols.includes('bar_type'))
+    database.exec("ALTER TABLE template_bars ADD COLUMN bar_type TEXT NOT NULL DEFAULT 'zugstange'")
 }
 
 // Migration: section_defs Umbenennung (Stände→Raum, Besonderheiten→Hinweise)

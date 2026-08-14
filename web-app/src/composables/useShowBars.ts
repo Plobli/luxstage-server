@@ -80,6 +80,7 @@ export function useShowBars(showId: string, channels?: Ref<Channel[]>) {
           barId,
           barName: bar.name,
           zugNr: bar.zug_nr,
+          barType: bar.bar_type,
           position,
         })
       }
