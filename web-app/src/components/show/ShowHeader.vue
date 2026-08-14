@@ -35,18 +35,9 @@
           <History class="size-3.5" />
           {{ labels.history }}
         </Button>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="sm" class="text-muted-foreground hover:text-foreground flex items-center gap-1">
-              {{ labels.import }}<ChevronDown class="size-3 opacity-50" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" class="w-56">
-            <DropdownMenuItem class="cursor-pointer" @click="eosFileInput?.click()">{{ labels.eosImport }}</DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem class="cursor-pointer text-muted-foreground" @click="csvImportInput?.click()">{{ labels.csvImport }}</DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <Button variant="outline" size="sm" class="text-muted-foreground hover:text-foreground" @click="importModalOpen = true">
+          {{ labels.import }}
+        </Button>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="outline" size="sm" class="text-muted-foreground hover:text-foreground flex items-center gap-1">
@@ -73,8 +64,7 @@
           <DropdownMenuContent align="end" class="w-48">
             <DropdownMenuItem class="cursor-pointer" @click="emit('openHistory')">{{ labels.history }}</DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem class="cursor-pointer" @click="eosFileInput?.click()">{{ labels.eosImport }}</DropdownMenuItem>
-            <DropdownMenuItem class="cursor-pointer text-muted-foreground" @click="csvImportInput?.click()">{{ labels.csvImport }}</DropdownMenuItem>
+            <DropdownMenuItem class="cursor-pointer" @click="importModalOpen = true">{{ labels.import }}</DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem class="cursor-pointer" @click="emit('openPdf')">{{ labels.pdf }}</DropdownMenuItem>
             <DropdownMenuItem class="cursor-pointer text-muted-foreground" @click="emit('downloadCsv')">{{ labels.csvExport }}</DropdownMenuItem>
@@ -120,6 +110,13 @@
       </DialogFooter>
     </DialogContent>
   </Dialog>
+
+  <ImportModal
+    :open="importModalOpen"
+    @chooseEos="importModalOpen = false; eosFileInput?.click()"
+    @chooseCsv="importModalOpen = false; csvImportInput?.click()"
+    @cancel="importModalOpen = false"
+  />
 </template>
 
 <script setup>
@@ -131,6 +128,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogBody } from '@/components/ui/dialog'
 import Checkbox from '@/components/ui/checkbox/Checkbox.vue'
+import ImportModal from './ImportModal.vue'
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem,
   DropdownMenuTrigger, DropdownMenuSeparator,
@@ -158,6 +156,7 @@ const editingName = ref(false)
 const editName = ref('')
 const nameInput = ref(null)
 const metaDialogOpen = ref(false)
+const importModalOpen = ref(false)
 const editMeta = ref({ datum: '', spielzeit: '', use_bars: true, use_towers: true })
 
 function openMetaDialog() {
