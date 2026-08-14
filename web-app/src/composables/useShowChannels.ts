@@ -13,6 +13,7 @@ export interface EosMergePreview {
   nowGone: { nr: string, label: string }[];
   untouched: { nr: string, label: string }[];
   addressMismatch: { nr: string, label: string, oldAddress: string, newAddress: string }[];
+  previouslyExcluded: Set<string>;
 }
 
 export interface UndoRedoState {
@@ -63,8 +64,9 @@ export function useShowChannels({
   const healthFilterSnapshot = ref<Set<string> | null>(null)
   
   const eosActiveChannels = ref<string[] | null>(null)
-  const eosMergePreview = ref<EosMergePreview>({ open: false, newActive: [], nowGone: [], untouched: [], addressMismatch: [] })
-  let _eosMergeResolve: ((v: { ok: boolean, applyAddresses: Set<string> }) => void) | null = null
+  const eosExcludedChannels = ref<string[]>([])
+  const eosMergePreview = ref<EosMergePreview>({ open: false, newActive: [], nowGone: [], untouched: [], addressMismatch: [], previouslyExcluded: new Set() })
+  let _eosMergeResolve: ((v: { ok: boolean, applyAddresses: Set<string>, excludedChannels: Set<string> }) => void) | null = null
   let ignoreSseCount = 0
 
   const persistChannels = useDebounceFn(async () => {
@@ -353,7 +355,12 @@ export function useShowChannels({
   }
 
   async function persistEosChannels(): Promise<void> {
-    await updateMeta(showId, { ...meta.value, setupMarkdown: setupMarkdown.value, eosActiveChannels: eosActiveChannels.value })
+    await updateMeta(showId, {
+      ...meta.value,
+      setupMarkdown: setupMarkdown.value,
+      eosActiveChannels: eosActiveChannels.value,
+      eosExcludedChannels: eosExcludedChannels.value,
+    })
   }
 
   async function onEosFileSelected(e: any): Promise<void> {
@@ -396,19 +403,31 @@ export function useShowChannels({
         return eosAddr && currentAddr && eosAddr !== currentAddr
       })
       .map(ch => ({ nr: String(ch.channel), label: chLabel(String(ch.channel)), oldAddress: ch.address ?? '', newAddress: channelAddresses.get(String(ch.channel))! }))
+      .sort((a, b) => parseInt(a.nr, 10) - parseInt(b.nr, 10))
 
-    const { ok, applyAddresses } = await new Promise<{ ok: boolean, applyAddresses: Set<string> }>(resolve => {
+    // Eos liefert Kanäle in Cue-Reihenfolge, nicht numerisch — für die
+    // Vorschau sortieren, damit der Nutzer die Liste überblicken kann.
+    const byChannelNr = (a: string, b: string) => parseInt(a, 10) - parseInt(b, 10)
+
+    const previouslyExcluded = new Set(eosExcludedChannels.value)
+
+    const { ok, applyAddresses, excludedChannels } = await new Promise<{ ok: boolean, applyAddresses: Set<string>, excludedChannels: Set<string> }>(resolve => {
       _eosMergeResolve = resolve
       eosMergePreview.value = {
         open: true,
-        newActive:  newActiveNrs.map(nr => ({ nr, label: chLabel(nr) })),
-        nowGone:    nowGoneNrs.map(nr => ({ nr, label: chLabel(nr) })),
-        untouched:  untouchedNrs.map(nr => ({ nr, label: chLabel(nr) })),
+        newActive:  [...newActiveNrs].sort(byChannelNr).map(nr => ({ nr, label: chLabel(nr) })),
+        nowGone:    [...nowGoneNrs].sort(byChannelNr).map(nr => ({ nr, label: chLabel(nr) })),
+        untouched:  [...untouchedNrs].sort(byChannelNr).map(nr => ({ nr, label: chLabel(nr) })),
         addressMismatch: addressMismatches,
+        previouslyExcluded,
       }
     })
     eosMergePreview.value.open = false
     if (!ok) return
+
+    // Vom Nutzer im Dialog abgewählte Kanäle werden so behandelt, als wären
+    // sie nicht im Eos-Export aktiv — kein Anlegen, keine Notiz, kein Tracking.
+    const newActiveNrsFiltered = newActiveNrs.filter(nr => !excludedChannels.has(nr))
 
     // t() liefert vor Abschluss des initialen Tolgee-Ladevorgangs den rohen
     // Key statt der Übersetzung — hier wird das Ergebnis dauerhaft in notes
@@ -416,7 +435,7 @@ export function useShowChannels({
     await localeReady()
     const movingLightNote = t('eos.import.moving_light_note')
     const existingNrs = new Set(channels.value.map(ch => String(ch.channel)))
-    const missingNrs = newActiveNrs.filter(nr => !existingNrs.has(nr))
+    const missingNrs = newActiveNrsFiltered.filter(nr => !existingNrs.has(nr))
     let channelsChanged = false
 
     if (missingNrs.length > 0) {
@@ -431,7 +450,8 @@ export function useShowChannels({
 
     for (const ch of channels.value) {
       const nr = String(ch.channel)
-      if (newActiveNrs.includes(nr) && movingLightChannels.has(nr) && !(ch.notes ?? '').trim()) {
+      if (excludedChannels.has(nr)) continue
+      if (newActiveNrsFiltered.includes(nr) && movingLightChannels.has(nr) && !(ch.notes ?? '').trim()) {
         ch.notes = movingLightNote
         channelsChanged = true
       }
@@ -449,14 +469,18 @@ export function useShowChannels({
     }
 
     eosActiveChannels.value = [
-      ...newActiveNrs,
+      ...newActiveNrsFiltered,
       ...nowGoneNrs.map(nr => `-${nr}`),
     ]
+    // excludedChannels ist die vollständige, im Dialog bestätigte Ausschlussmenge
+    // (inkl. zuvor schon dauerhaft ausgeschlossener Kanäle) — direkt übernehmen,
+    // damit sie beim nächsten Import wieder als "wird nicht importiert" erscheinen.
+    eosExcludedChannels.value = [...excludedChannels]
     await persistEosChannels()
   }
 
-  function resolveEosMergePreview(value: boolean, applyAddresses?: Set<string>): void {
-    _eosMergeResolve?.({ ok: value, applyAddresses: applyAddresses ?? new Set() })
+  function resolveEosMergePreview(value: boolean, applyAddresses?: Set<string>, excludedChannels?: Set<string>): void {
+    _eosMergeResolve?.({ ok: value, applyAddresses: applyAddresses ?? new Set(), excludedChannels: excludedChannels ?? new Set() })
     _eosMergeResolve = null
   }
 
@@ -506,6 +530,7 @@ export function useShowChannels({
     healthFilter,
     activateHealthFilter,
     eosActiveChannels,
+    eosExcludedChannels,
     eosMergePreview,
     dupWarning,
     dupChannelWarning,

@@ -388,7 +388,8 @@
       :nowGone="eosMergePreview.nowGone"
       :untouched="eosMergePreview.untouched"
       :addressMismatch="eosMergePreview.addressMismatch"
-      @confirm="applyAddresses => resolveEosMergePreview(true, applyAddresses)"
+      :previouslyExcluded="eosMergePreview.previouslyExcluded"
+      @confirm="(applyAddresses, excludedChannels) => resolveEosMergePreview(true, applyAddresses, excludedChannels)"
       @cancel="resolveEosMergePreview(false)"
     />
 
@@ -617,7 +618,7 @@ const persistSetupDebounced = useDebounceFn(async () => {
 const towers = ref([])
 
 const {
-  channels, channelsSaving, search, healthFilter, activateHealthFilter, eosActiveChannels, eosMergePreview,
+  channels, channelsSaving, search, healthFilter, activateHealthFilter, eosActiveChannels, eosExcludedChannels, eosMergePreview,
   dupWarning, dupChannelWarning, dupChannelNrs, groupedChannels,
   scheduleChannelsSave, persistChannels, deleteChannel, clearChannel,
   onCsvImportSelected, onEosFileSelected, resolveEosMergePreview,
@@ -1034,6 +1035,7 @@ onMounted(async () => {
     meta.value = { name: showData.name, datum: showData.datum, template: showData.template, spielzeit: showData.spielzeit, use_bars: showData.use_bars !== false, use_towers: showData.use_towers !== false }
     setupMarkdown.value = showData.setupMarkdown ?? ''
     eosActiveChannels.value = showData.eosActiveChannels ?? null
+    eosExcludedChannels.value = showData.eosExcludedChannels ?? []
 
     // Aufbau-Section automatisch anlegen falls nicht vorhanden.
     // Erkennung über icon: beim Titelvergleich entstand bei jedem Öffnen ein

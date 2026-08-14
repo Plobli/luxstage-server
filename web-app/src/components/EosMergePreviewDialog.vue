@@ -6,20 +6,48 @@
       </DialogHeader>
 
       <DialogBody class="max-h-[60vh] overflow-y-auto">
-        <!-- Neu aktiv (gelb) -->
+        <!-- Neu aktiv (gelb) — anklickbar, um einzelne Kanäle vom Import auszuschließen -->
         <div v-if="newActive.length > 0" class="flex flex-col gap-1">
-          <div class="text-xs font-medium text-yellow-400 uppercase tracking-wide">
-            {{ t('eos.preview.new_active', { n: newActive.length }) }}
+          <div class="flex items-center justify-between">
+            <div class="text-xs font-medium text-yellow-400 uppercase tracking-wide">
+              {{ t('eos.preview.new_active', { n: newActive.length }) }}
+            </div>
+            <div class="flex items-center gap-4">
+              <button
+                type="button"
+                class="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2"
+                @click="excludeAllNewActive"
+              >
+                {{ t('eos.preview.apply_none') }}
+              </button>
+              <button
+                type="button"
+                class="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2"
+                @click="excludeNoneNewActive"
+              >
+                {{ t('eos.preview.apply_all') }}
+              </button>
+            </div>
           </div>
+          <p class="text-xs text-muted-foreground/70">{{ t('eos.preview.new_active_hint') }}</p>
           <div class="flex flex-wrap gap-1">
             <Badge
               v-for="ch in newActive"
               :key="ch.nr"
               variant="outline"
-              class="bg-yellow-500/15 text-yellow-300 border-yellow-500/30 font-normal"
+              role="button"
+              tabindex="0"
+              :title="excludedNewActive.has(ch.nr) ? t('eos.preview.will_not_import') : t('eos.preview.will_import')"
+              class="cursor-pointer font-normal select-none"
+              :class="excludedNewActive.has(ch.nr)
+                ? 'bg-red-500/15 text-red-300 border-red-500/30 line-through'
+                : 'bg-yellow-500/15 text-yellow-300 border-yellow-500/30'"
+              @click="toggleExcludeNewActive(ch.nr)"
+              @keydown.enter="toggleExcludeNewActive(ch.nr)"
+              @keydown.space.prevent="toggleExcludeNewActive(ch.nr)"
             >
               <span class="font-mono font-medium">{{ ch.nr }}</span>
-              <span v-if="ch.label" class="ml-1 text-yellow-400/70">{{ ch.label }}</span>
+              <span v-if="ch.label" :class="excludedNewActive.has(ch.nr) ? 'ml-1 text-red-400/70' : 'ml-1 text-yellow-400/70'">{{ ch.label }}</span>
             </Badge>
           </div>
         </div>
@@ -131,7 +159,7 @@
         <Button variant="outline" class="w-full sm:w-auto" @click="$emit('cancel')">
           {{ t('action.cancel') }}
         </Button>
-        <Button class="w-full sm:w-auto bg-accent hover:bg-accent/90 text-accent-foreground" @click="$emit('confirm', applyAddresses)">
+        <Button class="w-full sm:w-auto bg-accent hover:bg-accent/90 text-accent-foreground" @click="onConfirm">
           {{ t('eos.preview.confirm') }}
         </Button>
       </DialogFooter>
@@ -158,9 +186,12 @@ const props = defineProps({
   untouched: { type: Array, default: () => [] },
   // Array of { nr: string, label?: string, oldAddress: string, newAddress: string }
   addressMismatch: { type: Array, default: () => [] },
+  // Kanäle, die bei einem früheren Import bereits vom Nutzer ausgeschlossen
+  // wurden — bleiben dauerhaft als "wird nicht importiert" vorbelegt.
+  previouslyExcluded: { type: Set, default: () => new Set() },
 })
 
-defineEmits(['confirm', 'cancel'])
+const emit = defineEmits(['confirm', 'cancel'])
 
 // Standardmäßig ist nichts ausgewählt: ein Klick auf "Importieren" ohne
 // bewusste Entscheidung darf keine bestehenden Adressen überschreiben.
@@ -184,5 +215,33 @@ function selectAllAddresses() {
 
 function selectNoAddresses() {
   applyAddresses.value = new Set()
+}
+
+// Dauerhaft ausgeschlossene Kanäle bleiben ausgeschlossen vorbelegt, auch
+// wenn sie in diesem Import erneut auftauchen — der Nutzer muss sie aktiv
+// wieder einschließen, damit sie importiert werden.
+const excludedNewActive = ref(new Set())
+watch(() => props.newActive, () => {
+  const stillPresent = new Set(props.newActive.map(ch => ch.nr))
+  excludedNewActive.value = new Set([...props.previouslyExcluded].filter(nr => stillPresent.has(nr)))
+}, { immediate: true })
+
+function toggleExcludeNewActive(nr) {
+  const next = new Set(excludedNewActive.value)
+  if (next.has(nr)) next.delete(nr)
+  else next.add(nr)
+  excludedNewActive.value = next
+}
+
+function excludeAllNewActive() {
+  excludedNewActive.value = new Set(props.newActive.map(ch => ch.nr))
+}
+
+function excludeNoneNewActive() {
+  excludedNewActive.value = new Set()
+}
+
+function onConfirm() {
+  emit('confirm', applyAddresses.value, excludedNewActive.value)
 }
 </script>

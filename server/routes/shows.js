@@ -43,10 +43,11 @@ export async function showRoutes(req, res, pathname, params) {
     if (method === 'PUT') {
       const user = req.user
       const body = await readJsonBody(req, res); if (body === null) return
-      const { setupMarkdown, eosActiveChannels, use_bars, use_towers, ...rest } = body
+      const { setupMarkdown, eosActiveChannels, eosExcludedChannels, use_bars, use_towers, ...rest } = body
       const fields = { ...rest }
       if (setupMarkdown !== undefined) fields.setup_markdown = setupMarkdown
       if (eosActiveChannels !== undefined) fields.eos_active_channels = JSON.stringify(eosActiveChannels)
+      if (eosExcludedChannels !== undefined) fields.eos_excluded_channels = JSON.stringify(eosExcludedChannels)
       if (use_bars !== undefined) fields.use_bars = use_bars ? 1 : 0
       if (use_towers !== undefined) fields.use_towers = use_towers ? 1 : 0
       fields.last_edited_by = user.username
@@ -166,6 +167,7 @@ export async function showRoutes(req, res, pathname, params) {
         use_towers: show.use_towers !== 0,
         setupMarkdown: show.setup_markdown ?? '',
         eosActiveChannels: show.eos_active_channels ? JSON.parse(show.eos_active_channels) : null,
+        eosExcludedChannels: show.eos_excluded_channels ? JSON.parse(show.eos_excluded_channels) : null,
         channels,
         lock,
       })

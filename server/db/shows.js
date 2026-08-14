@@ -21,7 +21,7 @@ export function readShow(slug) {
 }
 
 export function writeShow(slug, fields) {
-  const allowed = ['name', 'datum', 'template', 'spielzeit', 'setup_markdown', 'eos_active_channels', 'last_edited_by', 'last_edited_at', 'use_bars', 'use_towers']
+  const allowed = ['name', 'datum', 'template', 'spielzeit', 'setup_markdown', 'eos_active_channels', 'eos_excluded_channels', 'last_edited_by', 'last_edited_at', 'use_bars', 'use_towers']
   const updates = Object.fromEntries(
     Object.entries(fields).filter(([k]) => allowed.includes(k))
   )
