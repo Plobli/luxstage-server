@@ -72,8 +72,28 @@
           </div>
         </div>
 
-        <!-- Mittlere Spalte: Punktzug — Freitext-Position + ein Kreis -->
-        <div v-if="isPunktzug(bar)" class="flex-1 min-w-0 flex items-center gap-4">
+        <!-- Mittlere Spalte: Punktzug — ein Kreis links, Freitext-Position rechts -->
+        <div v-if="isPunktzug(bar)" class="flex-1 min-w-0 flex items-center gap-8">
+          <div class="shrink-0">
+            <div v-if="bar.fixtures[0]" class="relative group/fx">
+              <button
+                class="size-14 rounded-full border-2 border-accent bg-accent/30 backdrop-blur-sm flex items-center justify-center hover:bg-accent/50 transition-all shadow-lg"
+                :class="bar.fixtures[0].notes ? 'ring-2 ring-yellow-400/60' : ''"
+                @click="openFixtureEditDialog(bar.fixtures[0], bar)"
+              >
+                <span class="text-base font-bold text-white tabular-nums drop-shadow-sm">{{ channelNr(bar.fixtures[0].channel_id) }}</span>
+              </button>
+              <button
+                class="absolute -top-0.5 -right-0.5 size-4 rounded-full bg-red-500/90 text-white items-center justify-center hidden group-hover/fx:flex z-20 hover:bg-red-500 transition-colors shadow"
+                @click.stop="confirmRemoveFixture(bar.fixtures[0], bar)"
+              ><svg viewBox="0 0 10 10" width="7" height="7" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="2" y1="2" x2="8" y2="8"/><line x1="8" y1="2" x2="2" y2="8"/></svg></button>
+            </div>
+            <button
+              v-else
+              class="size-14 rounded-full border-2 border-dashed border-accent/40 bg-accent/5 flex items-center justify-center hover:bg-accent/10 transition-colors"
+              @click="onPunktzugAddClick(bar)"
+            ><Plus class="size-5 text-accent/60" /></button>
+          </div>
           <div class="flex-1 min-w-0">
             <input
               type="text"
@@ -89,26 +109,6 @@
               class="w-full h-8 mt-1.5 rounded-md border border-transparent bg-white/3 px-2.5 text-sm text-foreground placeholder:text-muted-foreground/25 hover:bg-white/5 focus:outline-none focus:border-accent/60 focus:bg-white/5 transition-colors"
               @change="saveInlineField(bar, 'notes', $event.target.value)"
             />
-          </div>
-          <div class="shrink-0">
-            <div v-if="bar.fixtures[0]" class="relative group/fx">
-              <button
-                class="size-10 rounded-full border-2 border-accent bg-accent/30 backdrop-blur-sm flex items-center justify-center hover:bg-accent/50 transition-all shadow-lg"
-                :class="bar.fixtures[0].notes ? 'ring-2 ring-yellow-400/60' : ''"
-                @click="openFixtureEditDialog(bar.fixtures[0], bar)"
-              >
-                <span class="text-xs font-bold text-white tabular-nums drop-shadow-sm">{{ channelNr(bar.fixtures[0].channel_id) }}</span>
-              </button>
-              <button
-                class="absolute -top-0.5 -right-0.5 size-3.5 rounded-full bg-red-500/90 text-white items-center justify-center hidden group-hover/fx:flex z-20 hover:bg-red-500 transition-colors shadow"
-                @click.stop="confirmRemoveFixture(bar.fixtures[0], bar)"
-              ><svg viewBox="0 0 10 10" width="7" height="7" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="2" y1="2" x2="8" y2="8"/><line x1="8" y1="2" x2="2" y2="8"/></svg></button>
-            </div>
-            <button
-              v-else
-              class="size-10 rounded-full border-2 border-dashed border-accent/40 bg-accent/5 flex items-center justify-center hover:bg-accent/10 transition-colors"
-              @click="onPunktzugAddClick(bar)"
-            ><Plus class="size-4 text-accent/60" /></button>
           </div>
         </div>
 
