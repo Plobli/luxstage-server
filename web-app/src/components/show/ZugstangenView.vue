@@ -38,11 +38,11 @@
         @dragend="onBarDragEnd"
       >
         <!-- Linke Spalte: Name oben, Länge + Höhe unten (bündig zur Anmerkung) -->
-        <div class="w-44 shrink-0 self-stretch flex flex-col justify-end">
+        <div class="w-44 shrink-0 self-stretch flex flex-col" :class="isPunktzug(bar) ? 'justify-center' : 'justify-end'">
           <div class="flex items-center gap-1.5 mb-3">
             <span class="text-lg font-semibold text-foreground tracking-tight truncate leading-tight">{{ bar.name }}</span>
           </div>
-          <span class="self-start -mt-2 mb-2 px-1.5 py-0.5 rounded text-[10px] font-medium uppercase tracking-wide bg-white/8 text-muted-foreground/70">{{ typeLabel(bar.bar_type) }}</span>
+          <span class="self-start -mt-2 px-1.5 py-0.5 rounded text-[10px] font-medium uppercase tracking-wide bg-white/8 text-muted-foreground/70" :class="isPunktzug(bar) ? '' : 'mb-2'">{{ typeLabel(bar.bar_type) }}</span>
           <div v-if="!isPunktzug(bar)" class="min-w-0">
             <!-- Länge -->
             <div class="relative w-32">
@@ -130,7 +130,7 @@
             <svg
               v-if="isTraverse(bar)"
               class="absolute left-0 right-0 pointer-events-none"
-              style="top: 23px; height: 30px; width: 100%;"
+              style="top: 26px; height: 28px; width: 100%;"
               preserveAspectRatio="none"
               viewBox="0 0 400 30"
             >
