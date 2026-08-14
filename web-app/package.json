@@ -6,8 +6,8 @@
     "build": "vite build",
     "preview": "vite preview",
     "typecheck": "vue-tsc --noEmit",
-    "tolgee:push": "tolgee push --force-mode NO_FORCE",
-    "tolgee:pull": "tolgee pull -d \"\""
+    "tolgee:push": "sh -c 'set -a; . ./.env.development.local; set +a; tolgee push --force-mode NO_FORCE'",
+    "tolgee:pull": "sh -c 'set -a; . ./.env.development.local; set +a; tolgee pull -d \"\"'"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.2.2",

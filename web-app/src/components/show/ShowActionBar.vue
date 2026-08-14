@@ -71,14 +71,21 @@
         <AlertTriangle class="size-3 mr-1" />{{ labels.dupChannel }}
       </Badge>
 
-      <!-- Farb-Legende der Kanalnummer. Dauerhaft sichtbar, weil sie den
-           Arbeitsstand erklärt — vorher nur im Tooltip des Spalten-Hilfeicons.
-           Erst ab lg, sonst wird die Zeile zu voll. -->
-      <div v-if="activeTab === 'channels'" class="hidden lg:flex items-center gap-3 text-[11px] text-muted-foreground/70">
-        <span class="flex items-center gap-1"><span class="size-1.5 rounded-full bg-current" /><span>{{ labels.legendDefault }}</span></span>
-        <span class="flex items-center gap-1 text-green-600 dark:text-green-400"><span class="size-1.5 rounded-full bg-current" /><span>{{ labels.legendActive }}</span></span>
-        <span class="flex items-center gap-1 text-amber-400"><span class="size-1.5 rounded-full bg-current" /><span>{{ labels.legendEos }}</span></span>
-      </div>
+      <!-- Farb-Legende der Kanalnummer, hinter Klick-Popover statt dauerhaft sichtbar. -->
+      <DropdownMenu v-if="activeTab === 'channels'">
+        <DropdownMenuTrigger asChild>
+          <button type="button" class="hidden lg:flex items-center gap-1.5 rounded-md px-2 py-1 text-xs text-muted-foreground/70 hover:bg-muted/60 transition-colors">
+            <CircleHelp class="size-3.5" /><span>{{ labels.legendTitle }}</span>
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" class="w-56">
+          <div class="px-2 py-1.5 flex flex-col gap-1.5 text-xs">
+            <span class="flex items-center gap-1.5"><span class="size-1.5 rounded-full bg-current text-muted-foreground/70" /><span>{{ labels.legendDefault }}</span></span>
+            <span class="flex items-center gap-1.5 text-green-600 dark:text-green-400"><span class="size-1.5 rounded-full bg-current" /><span>{{ labels.legendActive }}</span></span>
+            <span class="flex items-center gap-1.5 text-amber-400"><span class="size-1.5 rounded-full bg-current" /><span>{{ labels.legendEos }}</span></span>
+          </div>
+        </DropdownMenuContent>
+      </DropdownMenu>
 
       <!-- Health Badge -->
       <ShowHealthBadge
@@ -102,11 +109,12 @@
 
 <script setup>
 import { computed } from 'vue'
-import { Search, Undo2, Redo2, AlertTriangle } from 'lucide-vue-next'
+import { Search, Undo2, Redo2, AlertTriangle, CircleHelp } from 'lucide-vue-next'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import ShowHealthBadge from './ShowHealthBadge.vue'
 
 const props = defineProps({

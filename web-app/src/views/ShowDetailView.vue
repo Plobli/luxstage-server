@@ -62,6 +62,7 @@
           dupAddress: t('channel.dup_address'),
           dupChannel: t('channel.dup_channel'),
           search: t('channel.search'),
+          legendTitle: t('channel.legend.title'),
           legendDefault: t('channel.legend.default'),
           legendActive: t('channel.legend.active'),
           legendEos: t('channel.legend.eos'),
