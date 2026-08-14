@@ -130,19 +130,19 @@
             <svg
               v-if="isTraverse(bar)"
               class="absolute left-0 right-0 pointer-events-none"
-              style="top: 22px; height: 30px; width: 100%;"
+              style="top: 26px; height: 24px; width: 100%;"
               preserveAspectRatio="none"
-              :viewBox="`0 0 ${trussViewBoxWidth(bar)} 30`"
+              viewBox="0 0 400 30"
             >
               <polyline
-                :points="trussLatticePoints(bar).down"
+                :points="trussLatticePoints().down"
                 fill="none"
                 stroke="rgba(255,255,255,0.18)"
                 stroke-width="1.5"
                 vector-effect="non-scaling-stroke"
               />
               <polyline
-                :points="trussLatticePoints(bar).up"
+                :points="trussLatticePoints().up"
                 fill="none"
                 stroke="rgba(255,255,255,0.18)"
                 stroke-width="1.5"
@@ -663,20 +663,17 @@ function barFixturesBySide(bar, side) {
   return bar.fixtures.filter(fx => (fx.side || 'out') === side)
 }
 
-// Fachwerk-Kreuzverstrebung für die Traversen-Visualisierung
-const TRUSS_SEGMENT_W = 24
-function trussViewBoxWidth(bar) {
-  const len = bar.length_cm || 600
-  const segments = Math.max(4, Math.round(len / 50))
-  return segments * TRUSS_SEGMENT_W
-}
-function trussLatticePoints(bar) {
-  const w = trussViewBoxWidth(bar)
-  const segments = Math.round(w / TRUSS_SEGMENT_W)
+// Fachwerk-Kreuzverstrebung für die Traversen-Visualisierung.
+// Feste Segmentzahl (unabhängig von der Stangenlänge) + preserveAspectRatio="none"
+// sorgt dafür, dass das Muster bei jeder Container-Breite gleichmäßig bleibt.
+const TRUSS_SEGMENTS = 20
+const TRUSS_VIEWBOX_W = 400
+function trussLatticePoints() {
+  const segW = TRUSS_VIEWBOX_W / TRUSS_SEGMENTS
   const down = []
   const up = []
-  for (let i = 0; i <= segments; i++) {
-    const x = i * TRUSS_SEGMENT_W
+  for (let i = 0; i <= TRUSS_SEGMENTS; i++) {
+    const x = i * segW
     down.push(`${x},${i % 2 === 0 ? 0 : 30}`)
     up.push(`${x},${i % 2 === 0 ? 30 : 0}`)
   }
