@@ -126,6 +126,30 @@
               >{{ tick.label }}</span>
             </div>
 
+            <!-- Traverse: Fachwerk-Kreuzverstrebung zwischen innerer und äußerer Linie -->
+            <svg
+              v-if="isTraverse(bar)"
+              class="absolute left-0 right-0 pointer-events-none"
+              style="top: 22px; height: 30px; width: 100%;"
+              preserveAspectRatio="none"
+              :viewBox="`0 0 ${trussViewBoxWidth(bar)} 30`"
+            >
+              <polyline
+                :points="trussLatticePoints(bar).down"
+                fill="none"
+                stroke="rgba(255,255,255,0.18)"
+                stroke-width="1.5"
+                vector-effect="non-scaling-stroke"
+              />
+              <polyline
+                :points="trussLatticePoints(bar).up"
+                fill="none"
+                stroke="rgba(255,255,255,0.18)"
+                stroke-width="1.5"
+                vector-effect="non-scaling-stroke"
+              />
+            </svg>
+
             <!-- Traverse: zweite (innere) Linie oberhalb der äußeren -->
             <div
               v-if="isTraverse(bar)"
@@ -138,7 +162,6 @@
               @mousemove="hoverBarId = bar.id; hoverSide = 'in'; hoverPct = $event.offsetX / $event.currentTarget.offsetWidth * 100"
             >
               <div class="absolute left-0 right-0 rounded-full bg-white/10 border border-white/15 pointer-events-none" style="top: 13px; height: 4px;" />
-              <span class="absolute -top-1 left-0 text-[8px] uppercase tracking-wider text-muted-foreground/40 pointer-events-none">{{ t('zugstange.traverse.side.in') }}</span>
               <div
                 v-if="hoverBarId === bar.id && hoverSide === 'in' && hoverPct !== null && !hoverOnFixture"
                 class="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 pointer-events-none z-10"
@@ -186,7 +209,6 @@
                 class="absolute left-0 right-0 rounded-full bg-white/15 border border-white/20 pointer-events-none"
                 :style="{ top: isTraverse(bar) ? '13px' : '21px', height: isTraverse(bar) ? '4px' : '6px' }"
               />
-              <span v-if="isTraverse(bar)" class="absolute -top-1 left-0 text-[8px] uppercase tracking-wider text-muted-foreground/40 pointer-events-none">{{ t('zugstange.traverse.side.out') }}</span>
               <!-- Statischer Hinweis bei leerer Stange -->
               <div
                 v-if="bar.fixtures.length === 0 && hoverBarId !== bar.id"
@@ -639,6 +661,26 @@ function isTraverse(bar) { return bar?.bar_type === 'traverse' }
 function barFixturesBySide(bar, side) {
   if (!isTraverse(bar)) return bar.fixtures
   return bar.fixtures.filter(fx => (fx.side || 'out') === side)
+}
+
+// Fachwerk-Kreuzverstrebung für die Traversen-Visualisierung
+const TRUSS_SEGMENT_W = 24
+function trussViewBoxWidth(bar) {
+  const len = bar.length_cm || 600
+  const segments = Math.max(4, Math.round(len / 50))
+  return segments * TRUSS_SEGMENT_W
+}
+function trussLatticePoints(bar) {
+  const w = trussViewBoxWidth(bar)
+  const segments = Math.round(w / TRUSS_SEGMENT_W)
+  const down = []
+  const up = []
+  for (let i = 0; i <= segments; i++) {
+    const x = i * TRUSS_SEGMENT_W
+    down.push(`${x},${i % 2 === 0 ? 0 : 30}`)
+    up.push(`${x},${i % 2 === 0 ? 30 : 0}`)
+  }
+  return { down: down.join(' '), up: up.join(' ') }
 }
 
 function getScaleTicks(bar) {

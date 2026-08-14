@@ -613,7 +613,5 @@
   "zugstange.type.punktzug": "Point hoist",
   "zugstange.type.traverse": "Truss",
   "zugstange.type.zugstange": "Batten",
-  "zugstange.punktzug.position.placeholder": "Position, e.g. above centre stage, 3m behind curtain…",
-  "zugstange.traverse.side.in": "Inside",
-  "zugstange.traverse.side.out": "Outside"
+  "zugstange.punktzug.position.placeholder": "Position, e.g. above centre stage, 3m behind curtain…"
 }
