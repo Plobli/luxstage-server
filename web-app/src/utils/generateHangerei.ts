@@ -40,6 +40,10 @@ export function generateBarLine(
     return `${bar.name}: ${bar.notes}`
   }
 
+  const isPunktzug = bar.bar_type === 'punktzug'
+  const isTraverse = bar.bar_type === 'traverse'
+  const sideLabel = (side?: string) => side === 'in' ? (locale === 'en' ? 'Inside' : 'Innen') : (locale === 'en' ? 'Outside' : 'Außen')
+
   const sorted = [...bar.fixtures].sort((a, b) => a.position - b.position)
   const parts = sorted.map(fx => {
     const ch = channelById.get(fx.channel_id)
@@ -48,7 +52,7 @@ export function generateBarLine(
       ch?.device || undefined,
       ch?.address ? `#${ch.address}` : undefined,
       formatColor(ch?.color),
-      formatHangPosition(fx.position, unit, cmToDisplay, locale),
+      isPunktzug ? (fx.position_text || undefined) : isTraverse ? `${sideLabel(fx.side)} ${formatHangPosition(fx.position, unit, cmToDisplay, locale)}` : formatHangPosition(fx.position, unit, cmToDisplay, locale),
       fx.notes || undefined,
     ].filter(Boolean)
     return tokens.join(' ')

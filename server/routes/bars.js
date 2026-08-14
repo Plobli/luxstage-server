@@ -52,9 +52,9 @@ export async function barRoutes(req, res, pathname) {
     const slug = m[1]; const barId = m[2]
     if (method === 'POST') {
       const body = await readJsonBody(req, res); if (body === null) return
-      const { channelId, position, notes, fixtureId } = body
+      const { channelId, position, notes, fixtureId, side, positionText } = body
       if (!channelId) return json(res, 400, { error: 'channelId erforderlich' })
-      const id = db.writeBarFixture(barId, channelId, position ?? 0, notes ?? '', fixtureId ?? null)
+      const id = db.writeBarFixture(barId, channelId, position ?? 0, notes ?? '', fixtureId ?? null, side ?? 'out', positionText ?? '')
       broadcast(slug, 'bars-updated', {})
       return json(res, 200, { ok: true, id })
     }

@@ -62,18 +62,18 @@ export function reorderBars(slug, orderedIds) {
   tx()
 }
 
-export function writeBarFixture(barId, channelId, position, notes, fixtureId) {
+export function writeBarFixture(barId, channelId, position, notes, fixtureId, side, positionText) {
   const id = fixtureId || randomUUID()
   const existing = fixtureId ? getDb().prepare('SELECT id FROM bar_fixtures WHERE id = ?').get(id) : null
   if (existing) {
     getDb().prepare(
-      'UPDATE bar_fixtures SET position = ?, notes = ? WHERE id = ?'
-    ).run(position ?? 0, notes ?? '', id)
+      'UPDATE bar_fixtures SET position = ?, notes = ?, side = ?, position_text = ? WHERE id = ?'
+    ).run(position ?? 0, notes ?? '', side ?? 'out', positionText ?? '', id)
   } else {
     getDb().prepare(`
-      INSERT INTO bar_fixtures (id, bar_id, channel_id, position, notes)
-      VALUES (?, ?, ?, ?, ?)
-    `).run(id, barId, channelId, position ?? 0, notes ?? '')
+      INSERT INTO bar_fixtures (id, bar_id, channel_id, position, notes, side, position_text)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `).run(id, barId, channelId, position ?? 0, notes ?? '', side ?? 'out', positionText ?? '')
   }
 
   const bar = getDb().prepare('SELECT * FROM bars WHERE id = ?').get(barId)

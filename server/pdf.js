@@ -897,6 +897,51 @@ function posLabel(cm, unit) {
 
 const BAR_TYPE_LABELS = { zugstange: 'Zugstange', traverse: 'Traverse', punktzug: 'Punktzug' }
 
+// Punktzug: kompakte Zeile ohne Längen-Skala — Freitext-Position + ein Kreis
+function drawPunktzugRow(doc, bar, fx, channels, margin, usableW, startY, bottomLimit, addFooter) {
+  const CIRCLE_R = mm(3.2)
+  const hasNotes = !!(bar.notes && bar.notes.trim())
+  const ROW_H = mm(hasNotes ? 20 : 15)
+
+  let ty = startY
+  if (ty + ROW_H > bottomLimit) { doc.addPage(); addFooter(); ty = PAGE_MARGIN }
+
+  doc.roundedRect(margin, ty, usableW, ROW_H, 4).fillAndStroke('#f5f5f5', '#cccccc')
+  doc.fillColor('black')
+
+  doc.font(FONT_BOLD).fontSize(11).fillColor('#111111')
+    .text(bar.name ?? '', margin + mm(4), ty + mm(3), { width: mm(48), lineBreak: false, ellipsis: true })
+  doc.font(FONT_NORMAL).fontSize(7.5).fillColor('#888888')
+    .text(BAR_TYPE_LABELS.punktzug, margin + mm(4), ty + mm(9), { width: mm(48), lineBreak: false })
+
+  const posX = margin + mm(56)
+  const posW = usableW - mm(56) - mm(16)
+  if (fx?.position_text) {
+    doc.font(FONT_NORMAL).fontSize(8).fillColor('#333333')
+      .text(fx.position_text, posX, ty + mm(6), { width: posW, lineBreak: false, ellipsis: true })
+  }
+
+  if (fx) {
+    const cx = margin + usableW - mm(10)
+    const cy = ty + mm(7.5)
+    const ch = channels.find(c => c.id === fx.channel_id)
+    doc.circle(cx, cy, CIRCLE_R + 0.5).fill('rgba(220,55,64,0.18)')
+    doc.circle(cx, cy, CIRCLE_R).fill('#dc3740')
+    doc.font(FONT_BOLD).fontSize(7.5).fillColor('white')
+    const textH = doc.currentLineHeight()
+    doc.text(String(ch?.channel ?? '?'), cx - CIRCLE_R, cy - textH / 2, { width: CIRCLE_R * 2, align: 'center', lineBreak: false })
+    doc.fillColor('black')
+    if (fx.notes) doc.circle(cx + CIRCLE_R * 0.7, cy - CIRCLE_R * 0.7, mm(1.2)).fill('#f59e0b')
+  }
+
+  if (hasNotes) {
+    doc.font(FONT_NORMAL).fontSize(7).fillColor('#000000')
+      .text(bar.notes, margin + mm(4), ty + ROW_H - mm(6), { width: usableW - mm(8), lineBreak: false, ellipsis: true })
+  }
+
+  return ty + ROW_H + mm(4)
+}
+
 // Zugstangen als visuelle Zeilen mit Kanal-Kreisen
 function drawBarRows(doc, bars, channels, margin, usableW, startY, bottomLimit, addFooter, unit = 'm') {
   const CIRCLE_R = mm(3.2)
@@ -907,9 +952,14 @@ function drawBarRows(doc, bars, channels, margin, usableW, startY, bottomLimit, 
   for (const bar of bars) {
     const fixtures = bar.fixtures ?? []
     const barLenCm = bar.length_cm || 600
+    const hasNotes = !!(bar.notes && bar.notes.trim())
+
+    if (bar.bar_type === 'punktzug') {
+      ty = drawPunktzugRow(doc, bar, fixtures[0], channels, margin, usableW, ty, bottomLimit, addFooter)
+      continue
+    }
 
     // Höhe dynamisch: Basis + ggf. Gerät-Zeilen + ggf. Anmerkung
-    const hasNotes = !!(bar.notes && bar.notes.trim())
     // Für jedes Fixture eine Gerätename-Zeile unterhalb des Kreises (nur wenn Device vorhanden)
     const BAR_H = mm(hasNotes ? 46 : 42)
 
@@ -1011,6 +1061,13 @@ function drawBarRows(doc, bars, channels, margin, usableW, startY, bottomLimit, 
       // Anmerkungs-Marker (kleiner Punkt oben rechts am Kreis, wie gelber Ring in WebApp)
       if (fx.notes) {
         doc.circle(cx + CIRCLE_R * 0.7, lineY - CIRCLE_R * 0.7, mm(1.2)).fill('#f59e0b')
+      }
+
+      // Innen/Außen-Kennzeichnung bei Traversen
+      if (bar.bar_type === 'traverse') {
+        doc.font(FONT_BOLD).fontSize(5).fillColor('#666666')
+          .text(fx.side === 'in' ? 'I' : 'A', cx - CIRCLE_R, lineY - CIRCLE_R - mm(3.5), { width: CIRCLE_R * 2, align: 'center', lineBreak: false })
+        doc.fillColor('black')
       }
     }
 

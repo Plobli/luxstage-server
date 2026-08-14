@@ -1,6 +1,7 @@
 import { api } from './client'
 
 export type BarType = 'zugstange' | 'traverse' | 'punktzug'
+export type FixtureSide = 'in' | 'out'
 
 export interface BarFixture {
   id: string
@@ -8,6 +9,8 @@ export interface BarFixture {
   channel_id: string
   position: number
   notes?: string
+  side?: FixtureSide
+  position_text?: string
 }
 
 export interface Bar {
@@ -39,8 +42,8 @@ export async function deleteBar(showId: string, barId: string): Promise<void> {
   return api.delete(`/api/shows/${showId}/bars/${barId}`)
 }
 
-export async function addBarFixture(showId: string, barId: string, channelId: string, position: number, notes?: string, fixtureId?: string): Promise<{ id: string }> {
-  return api.post(`/api/shows/${showId}/bars/${barId}/fixtures`, { channelId, position, notes: notes ?? '', fixtureId: fixtureId ?? null })
+export async function addBarFixture(showId: string, barId: string, channelId: string, position: number, notes?: string, fixtureId?: string, side?: FixtureSide, positionText?: string): Promise<{ id: string }> {
+  return api.post(`/api/shows/${showId}/bars/${barId}/fixtures`, { channelId, position, notes: notes ?? '', fixtureId: fixtureId ?? null, side: side ?? 'out', positionText: positionText ?? '' })
 }
 
 export async function patchBarFixtureNotes(showId: string, barId: string, fixtureId: string, notes: string): Promise<void> {

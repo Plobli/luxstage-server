@@ -446,6 +446,20 @@ if (!barsTableExists) {
     database.exec("ALTER TABLE bars ADD COLUMN bar_type TEXT NOT NULL DEFAULT 'zugstange'")
 }
 
+// Migration: side auf bar_fixtures — innen/außen bei Traversen
+{
+  const cols = database.prepare("PRAGMA table_info(bar_fixtures)").all().map(c => c.name)
+  if (!cols.includes('side'))
+    database.exec("ALTER TABLE bar_fixtures ADD COLUMN side TEXT NOT NULL DEFAULT 'out'")
+}
+
+// Migration: position_text auf bar_fixtures — Freitext-Position bei Punktzug
+{
+  const cols = database.prepare("PRAGMA table_info(bar_fixtures)").all().map(c => c.name)
+  if (!cols.includes('position_text'))
+    database.exec("ALTER TABLE bar_fixtures ADD COLUMN position_text TEXT NOT NULL DEFAULT ''")
+}
+
 // template_bars: Zugstangen-Definitionen pro Bühnen-Template
 const templateBarsTableExists = database.prepare(
   "SELECT name FROM sqlite_master WHERE type='table' AND name='template_bars'"
@@ -556,6 +570,20 @@ if (!templateBarFixturesTableExists) {
     );
     CREATE INDEX idx_template_bar_fixtures_bar ON template_bar_fixtures(bar_id);
   `)
+}
+
+// Migration: side auf template_bar_fixtures — innen/außen bei Traversen
+{
+  const cols = database.prepare("PRAGMA table_info(template_bar_fixtures)").all().map(c => c.name)
+  if (!cols.includes('side'))
+    database.exec("ALTER TABLE template_bar_fixtures ADD COLUMN side TEXT NOT NULL DEFAULT 'out'")
+}
+
+// Migration: position_text auf template_bar_fixtures — Freitext-Position bei Punktzug
+{
+  const cols = database.prepare("PRAGMA table_info(template_bar_fixtures)").all().map(c => c.name)
+  if (!cols.includes('position_text'))
+    database.exec("ALTER TABLE template_bar_fixtures ADD COLUMN position_text TEXT NOT NULL DEFAULT ''")
 }
 }
 

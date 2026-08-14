@@ -205,11 +205,11 @@ export function applyTemplateToShow(templateName, showSlug, scope, withChannels,
           const fixtures = getDb().prepare('SELECT * FROM template_bar_fixtures WHERE bar_id = ?').all(tb.id)
           for (const fx of fixtures) {
             getDb().prepare(`
-              INSERT INTO bar_fixtures (id, bar_id, channel_id, position, notes)
-              SELECT ?, ?, c.id, ?, ?
+              INSERT INTO bar_fixtures (id, bar_id, channel_id, position, notes, side, position_text)
+              SELECT ?, ?, c.id, ?, ?, ?, ?
               FROM channels c
               WHERE c.show_id = ? AND c.channel = ?
-            `).run(randomUUID(), bar.id, fx.position, fx.notes ?? '', show.id, fx.channel ?? '')
+            `).run(randomUUID(), bar.id, fx.position, fx.notes ?? '', fx.side ?? 'out', fx.position_text ?? '', show.id, fx.channel ?? '')
           }
         }
       }
@@ -299,14 +299,16 @@ export function saveShowItemsToTemplate(templateName, showSlug, scope, barOrTowe
           `).all(bar.id)
           for (const fx of fixtures) {
             getDb().prepare(
-              'INSERT INTO template_bar_fixtures (id, bar_id, position, channel, device, color, notes) VALUES (?, ?, ?, ?, ?, ?, ?)'
+              'INSERT INTO template_bar_fixtures (id, bar_id, position, channel, device, color, notes, side, position_text) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
             ).run(
               randomUUID(), tplBarId,
               fields.position !== false ? fx.position : 0,
               fields.channel !== false ? (fx.channel ?? null) : null,
               fields.device  !== false ? (fx.device  ?? null) : null,
               fields.color   !== false ? (fx.color   ?? null) : null,
-              fields.notes   !== false ? (fx.notes   ?? '')   : ''
+              fields.notes   !== false ? (fx.notes   ?? '')   : '',
+              fx.side ?? 'out',
+              fx.position_text ?? ''
             )
           }
         }
@@ -446,12 +448,12 @@ export function writeTemplateBarFixture(barId, data) {
   const existing = getDb().prepare('SELECT id FROM template_bar_fixtures WHERE id = ?').get(id)
   if (existing) {
     getDb().prepare(
-      'UPDATE template_bar_fixtures SET position=?, channel=?, device=?, color=?, notes=? WHERE id=?'
-    ).run(data.position ?? 0, data.channel ?? null, data.device ?? null, data.color ?? null, data.notes ?? '', id)
+      'UPDATE template_bar_fixtures SET position=?, channel=?, device=?, color=?, notes=?, side=?, position_text=? WHERE id=?'
+    ).run(data.position ?? 0, data.channel ?? null, data.device ?? null, data.color ?? null, data.notes ?? '', data.side ?? 'out', data.position_text ?? '', id)
   } else {
     getDb().prepare(
-      'INSERT INTO template_bar_fixtures (id, bar_id, position, channel, device, color, notes) VALUES (?, ?, ?, ?, ?, ?, ?)'
-    ).run(id, barId, data.position ?? 0, data.channel ?? null, data.device ?? null, data.color ?? null, data.notes ?? '')
+      'INSERT INTO template_bar_fixtures (id, bar_id, position, channel, device, color, notes, side, position_text) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
+    ).run(id, barId, data.position ?? 0, data.channel ?? null, data.device ?? null, data.color ?? null, data.notes ?? '', data.side ?? 'out', data.position_text ?? '')
   }
   return id
 }

@@ -59,7 +59,7 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 | `./server/backup.js` | ZIP-basierte Backup- und Wiederherstellungsfunktionen. |
 | `./server/photos.js` | Foto-Upload mit Skalierung und Thumbnail-Generierung. |
 | `./server/floorplan.js` | Grundrissbild-Verwaltung mit Format-Validierung. |
-| `./server/pdf.js` | PDF-Export für Einleuchtpläne mit Filter-Farbcodierung. |
+| `./server/pdf.js` | PDF-Export für Einleuchtpläne mit Filter-Farbcodierung, inkl. Punktzug-Sonderlayout und Traverse-Innen/Außen-Kennzeichnung. |
 | `./server/sse.js` | Server-Sent Events für Echtzeit-Kanal-Updates und Präsenz, pro Mandant gescopt. |
 | `./server/email.js` | SMTP-Konfiguration und Email-Versand mit Fallback-Support. |
 | `./server/package.json` | NPM-Abhängigkeiten (sqlite, pdfkit, sharp, bcrypt, jwt). |
@@ -98,7 +98,7 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 | `./server/routes/users.js` | API-Routen für Benutzer-Verwaltung und Preferences. |
 | `./server/routes/register.js` | API-Routen für Self-Service-Registrierung (Double Opt-In). |
 | `./server/routes/channels.js` | API-Routen für Kanäle und Beleuchtungs-Checks. |
-| `./server/routes/bars.js` | API-Routen für Show-Stangen, Fixtures, Reordering. |
+| `./server/routes/bars.js` | API-Routen für Obermaschinerie-Elemente, Fixtures (inkl. side/positionText), Reordering. |
 | `./server/routes/towers.js` | API-Routen für Show-Türme, Slots, Restore. |
 | `./server/routes/sections.js` | API-Routen für Show-Sections und deren Definitionen. |
 | `./server/routes/photos.js` | API-Routen für Foto-Upload, Beschreibungen, Channel-Fotos. |
@@ -156,7 +156,7 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 | `./web-app/src/composables/useShowTowers.ts` | Verwaltet Türme (Lichtstative) mit Slot-Zuweisungen. |
 | `./web-app/src/composables/useShowPhotos.ts` | Lädt Fotos-Liste pro Show. |
 | `./web-app/src/composables/useUndoRedo.ts` | Allgemeines Undo/Redo mit SessionStorage und Focus-Tracking. |
-| `./web-app/src/composables/useShowBars.ts` | Verwaltet Lichtstangen mit Fixtures und Kanal-Zuordnungen. |
+| `./web-app/src/composables/useShowBars.ts` | Verwaltet Obermaschinerie-Elemente mit Fixtures (inkl. side/positionText) und Kanal-Zuordnungen. |
 
 ### web-app/src/utils/
 

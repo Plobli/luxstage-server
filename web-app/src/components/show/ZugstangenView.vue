@@ -43,7 +43,7 @@
             <span class="text-lg font-semibold text-foreground tracking-tight truncate leading-tight">{{ bar.name }}</span>
           </div>
           <span class="self-start -mt-2 mb-2 px-1.5 py-0.5 rounded text-[10px] font-medium uppercase tracking-wide bg-white/8 text-muted-foreground/70">{{ typeLabel(bar.bar_type) }}</span>
-          <div class="min-w-0">
+          <div v-if="!isPunktzug(bar)" class="min-w-0">
             <!-- Länge -->
             <div class="relative w-32">
               <span class="absolute left-2.5 top-1/2 -translate-y-1/2 text-[10px] font-medium text-muted-foreground/40 uppercase tracking-wider pointer-events-none">{{ t('zugstange.field.length') }}</span>
@@ -72,9 +72,49 @@
           </div>
         </div>
 
+        <!-- Mittlere Spalte: Punktzug — Freitext-Position + ein Kreis -->
+        <div v-if="isPunktzug(bar)" class="flex-1 min-w-0 flex items-center gap-4">
+          <div class="flex-1 min-w-0">
+            <input
+              type="text"
+              :value="bar.fixtures[0]?.position_text ?? ''"
+              :placeholder="t('zugstange.punktzug.position.placeholder')"
+              class="w-full h-9 rounded-md border border-transparent bg-white/3 px-2.5 text-sm text-foreground placeholder:text-muted-foreground/25 hover:bg-white/5 focus:outline-none focus:border-accent/60 focus:bg-white/5 transition-colors"
+              @change="savePunktzugPositionText(bar, $event.target.value)"
+            />
+            <input
+              type="text"
+              :value="bar.notes ?? ''"
+              :placeholder="t('zugstange.notes.placeholder')"
+              class="w-full h-8 mt-1.5 rounded-md border border-transparent bg-white/3 px-2.5 text-sm text-foreground placeholder:text-muted-foreground/25 hover:bg-white/5 focus:outline-none focus:border-accent/60 focus:bg-white/5 transition-colors"
+              @change="saveInlineField(bar, 'notes', $event.target.value)"
+            />
+          </div>
+          <div class="shrink-0">
+            <div v-if="bar.fixtures[0]" class="relative group/fx">
+              <button
+                class="size-10 rounded-full border-2 border-accent bg-accent/30 backdrop-blur-sm flex items-center justify-center hover:bg-accent/50 transition-all shadow-lg"
+                :class="bar.fixtures[0].notes ? 'ring-2 ring-yellow-400/60' : ''"
+                @click="openFixtureEditDialog(bar.fixtures[0], bar)"
+              >
+                <span class="text-xs font-bold text-white tabular-nums drop-shadow-sm">{{ channelNr(bar.fixtures[0].channel_id) }}</span>
+              </button>
+              <button
+                class="absolute -top-0.5 -right-0.5 size-3.5 rounded-full bg-red-500/90 text-white items-center justify-center hidden group-hover/fx:flex z-20 hover:bg-red-500 transition-colors shadow"
+                @click.stop="confirmRemoveFixture(bar.fixtures[0], bar)"
+              ><svg viewBox="0 0 10 10" width="7" height="7" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="2" y1="2" x2="8" y2="8"/><line x1="8" y1="2" x2="2" y2="8"/></svg></button>
+            </div>
+            <button
+              v-else
+              class="size-10 rounded-full border-2 border-dashed border-accent/40 bg-accent/5 flex items-center justify-center hover:bg-accent/10 transition-colors"
+              @click="onPunktzugAddClick(bar)"
+            ><Plus class="size-4 text-accent/60" /></button>
+          </div>
+        </div>
+
         <!-- Mittlere Spalte: Stangen-Visualisierung + Anmerkung (gleiche Breite) -->
-        <div class="flex-1 min-w-0">
-          <div class="relative" style="height: 60px;">
+        <div v-else class="flex-1 min-w-0">
+          <div class="relative" :style="{ height: isTraverse(bar) ? '76px' : '60px' }">
             <!-- Skala-Labels oben -->
             <div v-if="!bar.hide_scale" class="absolute left-0 right-0 h-4" style="top: 12px;">
               <span
@@ -86,37 +126,86 @@
               >{{ tick.label }}</span>
             </div>
 
-            <!-- Stangen-Linie + Marker -->
+            <!-- Traverse: zweite (innere) Linie oberhalb der äußeren -->
+            <div
+              v-if="isTraverse(bar)"
+              class="absolute left-0 right-0 cursor-crosshair"
+              style="top: 9px; height: 32px;"
+              :data-bar-id="bar.id" data-side="in"
+              @click.self="onBarLineClick($event, bar, 'in')"
+              @mouseenter="hoverBarId = bar.id; hoverSide = 'in'"
+              @mouseleave="hoverBarId = null; hoverPct = null; hoverSide = null"
+              @mousemove="hoverBarId = bar.id; hoverSide = 'in'; hoverPct = $event.offsetX / $event.currentTarget.offsetWidth * 100"
+            >
+              <div class="absolute left-0 right-0 rounded-full bg-white/10 border border-white/15 pointer-events-none" style="top: 13px; height: 4px;" />
+              <span class="absolute -top-1 left-0 text-[8px] uppercase tracking-wider text-muted-foreground/40 pointer-events-none">{{ t('zugstange.traverse.side.in') }}</span>
+              <div
+                v-if="hoverBarId === bar.id && hoverSide === 'in' && hoverPct !== null && !hoverOnFixture"
+                class="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 pointer-events-none z-10"
+                :style="{ left: hoverPct + '%' }"
+              >
+                <div class="size-8 rounded-full border-2 border-accent/40 bg-accent/10 flex items-center justify-center">
+                  <span class="text-xs font-bold text-white/40 tabular-nums">+</span>
+                </div>
+              </div>
+              <div
+                v-for="fx in barFixturesBySide(bar, 'in')"
+                :key="fx.id"
+                class="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 group/fx z-10"
+                :style="{ left: posPercent(fx.position, bar.length_cm) + '%' }"
+                @mouseenter="hoverOnFixture = true"
+                @mouseleave="hoverOnFixture = false"
+                @mousedown.prevent.stop="startDrag($event, fx, bar)"
+              >
+                <button
+                  class="size-8 rounded-full border-2 border-accent bg-accent/30 backdrop-blur-sm flex items-center justify-center hover:bg-accent/50 transition-all shadow-lg"
+                  :class="fx.notes ? 'ring-2 ring-yellow-400/60' : ''"
+                  @click.stop="openFixtureEditDialog(fx, bar)"
+                >
+                  <span class="text-[10px] font-bold text-white tabular-nums drop-shadow-sm">{{ channelNr(fx.channel_id) }}</span>
+                </button>
+                <button
+                  class="absolute -top-0.5 -right-0.5 size-3.5 rounded-full bg-red-500/90 text-white items-center justify-center hidden group-hover/fx:flex z-20 hover:bg-red-500 transition-colors shadow"
+                  @click.stop="confirmRemoveFixture(fx, bar)"
+                ><svg viewBox="0 0 10 10" width="7" height="7" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="2" y1="2" x2="8" y2="8"/><line x1="8" y1="2" x2="2" y2="8"/></svg></button>
+              </div>
+            </div>
+
+            <!-- Stangen-/Traversen-Linie (außen) + Marker -->
             <div
               class="absolute left-0 right-0 cursor-crosshair"
-              style="top: 9px; height: 48px;"
-              :data-bar-id="bar.id"
-              @click.self="onBarLineClick($event, bar)"
-              @mouseenter="hoverBarId = bar.id"
-              @mouseleave="hoverBarId = null; hoverPct = null"
-              @mousemove="hoverBarId = bar.id; hoverPct = $event.offsetX / $event.currentTarget.offsetWidth * 100"
+              :style="{ top: isTraverse(bar) ? '41px' : '9px', height: isTraverse(bar) ? '32px' : '48px' }"
+              :data-bar-id="bar.id" data-side="out"
+              @click.self="onBarLineClick($event, bar, 'out')"
+              @mouseenter="hoverBarId = bar.id; hoverSide = 'out'"
+              @mouseleave="hoverBarId = null; hoverPct = null; hoverSide = null"
+              @mousemove="hoverBarId = bar.id; hoverSide = 'out'; hoverPct = $event.offsetX / $event.currentTarget.offsetWidth * 100"
             >
               <!-- Stangen-Track -->
-              <div class="absolute left-0 right-0 rounded-full bg-white/15 border border-white/20 pointer-events-none" style="top: 21px; height: 6px;" />
+              <div
+                class="absolute left-0 right-0 rounded-full bg-white/15 border border-white/20 pointer-events-none"
+                :style="{ top: isTraverse(bar) ? '13px' : '21px', height: isTraverse(bar) ? '4px' : '6px' }"
+              />
+              <span v-if="isTraverse(bar)" class="absolute -top-1 left-0 text-[8px] uppercase tracking-wider text-muted-foreground/40 pointer-events-none">{{ t('zugstange.traverse.side.out') }}</span>
               <!-- Statischer Hinweis bei leerer Stange -->
               <div
                 v-if="bar.fixtures.length === 0 && hoverBarId !== bar.id"
                 class="absolute left-1/2 -translate-x-1/2 pointer-events-none select-none whitespace-nowrap text-xs text-muted-foreground/60"
-                style="top: 34px;"
+                :style="{ top: isTraverse(bar) ? '18px' : '34px' }"
               >{{ t('zugstange.scale.click_to_add') }}</div>
               <!-- Ghost-Marker bei Hover -->
               <div
-                v-if="hoverBarId === bar.id && hoverPct !== null && !hoverOnFixture"
+                v-if="hoverBarId === bar.id && hoverSide === 'out' && hoverPct !== null && !hoverOnFixture"
                 class="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 pointer-events-none z-10"
                 :style="{ left: hoverPct + '%' }"
               >
-                <div class="size-10 rounded-full border-2 border-accent/40 bg-accent/10 flex items-center justify-center">
+                <div class="rounded-full border-2 border-accent/40 bg-accent/10 flex items-center justify-center" :class="isTraverse(bar) ? 'size-8' : 'size-10'">
                   <span class="text-xs font-bold text-white/40 tabular-nums">+</span>
                 </div>
               </div>
               <!-- Tick-Striche -->
               <div
-                v-if="!bar.hide_scale"
+                v-if="!bar.hide_scale && !isTraverse(bar)"
                 v-for="tick in getScaleTicks(bar)"
                 :key="'t'+tick.pos"
                 class="absolute top-1/2 -translate-x-px pointer-events-none"
@@ -130,7 +219,7 @@
               />
               <!-- Kanal-Marker -->
               <div
-                v-for="fx in bar.fixtures"
+                v-for="fx in barFixturesBySide(bar, 'out')"
                 :key="fx.id"
                 class="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 group/fx z-10"
                 :style="{ left: posPercent(fx.position, bar.length_cm) + '%' }"
@@ -139,11 +228,11 @@
                 @mousedown.prevent.stop="startDrag($event, fx, bar)"
               >
                 <button
-                  class="size-10 rounded-full border-2 border-accent bg-accent/30 backdrop-blur-sm flex items-center justify-center hover:bg-accent/50 transition-all shadow-lg"
-                  :class="fx.notes ? 'ring-2 ring-yellow-400/60' : ''"
+                  class="rounded-full border-2 border-accent bg-accent/30 backdrop-blur-sm flex items-center justify-center hover:bg-accent/50 transition-all shadow-lg"
+                  :class="[fx.notes ? 'ring-2 ring-yellow-400/60' : '', isTraverse(bar) ? 'size-8' : 'size-10']"
                   @click.stop="openFixtureEditDialog(fx, bar)"
                 >
-                  <span class="text-xs font-bold text-white tabular-nums drop-shadow-sm">{{ channelNr(fx.channel_id) }}</span>
+                  <span class="font-bold text-white tabular-nums drop-shadow-sm" :class="isTraverse(bar) ? 'text-[10px]' : 'text-xs'">{{ channelNr(fx.channel_id) }}</span>
                 </button>
                 <button
                   class="absolute -top-0.5 -right-0.5 size-3.5 rounded-full bg-red-500/90 text-white items-center justify-center hidden group-hover/fx:flex z-20 hover:bg-red-500 transition-colors shadow"
@@ -214,14 +303,14 @@
           <label class="text-xs text-muted-foreground">{{ t('zugstange.field.name') }}</label>
           <Input size="lg" v-model="barForm.name" :placeholder="t('zugstange.name.placeholder')" autofocus />
         </div>
-        <div class="flex flex-col gap-1.5">
+        <div v-if="barForm.bar_type !== 'punktzug'" class="flex flex-col gap-1.5">
           <label class="flex items-center gap-1.5 text-xs text-muted-foreground">
             {{ t('zugstange.field.length_unit', { unit }) }}
             <HelpIcon :text="t('zugstange.field.length.help')" side="right" />
           </label>
           <Input size="lg" :modelValue="barFormDisplay.length" type="number" :min="lengthMin" :max="lengthMax" :step="inputStep" @update:modelValue="barForm.length_cm = parseToCm(Number($event))" />
         </div>
-        <button type="button" class="flex items-center justify-between w-full rounded-lg border border-border px-4 py-3 text-left transition-colors hover:bg-muted/40" @click="barForm.hide_scale = !barForm.hide_scale">
+        <button v-if="barForm.bar_type !== 'punktzug'" type="button" class="flex items-center justify-between w-full rounded-lg border border-border px-4 py-3 text-left transition-colors hover:bg-muted/40" @click="barForm.hide_scale = !barForm.hide_scale">
           <span class="flex items-center gap-1.5 text-sm text-foreground">
             {{ t('zugstange.scale.hide') }}
             <HelpIcon :text="t('zugstange.scale.help')" side="right" />
@@ -316,7 +405,7 @@
               <svg viewBox="0 0 10 10" width="12" height="12" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="2" y1="2" x2="8" y2="8"/><line x1="8" y1="2" x2="2" y2="8"/></svg>
             </button>
           </div>
-          <div class="flex flex-col gap-1.5">
+          <div v-if="!isPunktzug(pickerBar)" class="flex flex-col gap-1.5">
             <label class="text-xs text-muted-foreground">{{ t('zugstange.fixture.position') }} {{ unitLabel }}</label>
             <Input size="lg" autofocus :modelValue="cmToDisplay(pickerPosition)" type="number" :min="cmToDisplay(-(pickerBar?.length_cm || 600)/2)" :max="cmToDisplay((pickerBar?.length_cm || 600)/2)" :step="inputStep" @update:modelValue="pickerPosition = parseToCm(Number($event))" @keydown.enter="confirmAddFixture" />
           </div>
@@ -545,6 +634,13 @@ function posPercent(pos, lengthCm) {
   return Math.max(0, Math.min(100, ((pos + len / 2) / len) * 100))
 }
 
+function isPunktzug(bar) { return bar?.bar_type === 'punktzug' }
+function isTraverse(bar) { return bar?.bar_type === 'traverse' }
+function barFixturesBySide(bar, side) {
+  if (!isTraverse(bar)) return bar.fixtures
+  return bar.fixtures.filter(fx => (fx.side || 'out') === side)
+}
+
 function getScaleTicks(bar) {
   const len = bar.length_cm || 600
   const half = len / 2
@@ -659,6 +755,7 @@ const fixtureSearch = ref('')
 const pickerChannel = ref(null)
 const pickerPosition = ref(0)
 const pickerBar = ref(null)
+const pickerSide = ref('out')
 
 const filteredChannelsForPicker = computed(() => {
   const q = fixtureSearch.value.trim().toLowerCase()
@@ -668,7 +765,7 @@ const filteredChannelsForPicker = computed(() => {
   }).slice(0, 50)
 })
 
-function onBarLineClick(event, bar) {
+function onBarLineClick(event, bar, side = 'out') {
   // Klickposition in cm umrechnen
   const rect = event.currentTarget.getBoundingClientRect()
   const pct = (event.clientX - rect.left) / rect.width
@@ -679,6 +776,16 @@ function onBarLineClick(event, bar) {
   pickerBar.value = bar
   pickerChannel.value = null
   pickerPosition.value = Math.max(-len / 2, Math.min(len / 2, snapped))
+  pickerSide.value = side
+  fixtureSearch.value = ''
+  fixturePickerOpen.value = true
+}
+
+function onPunktzugAddClick(bar) {
+  pickerBar.value = bar
+  pickerChannel.value = null
+  pickerPosition.value = 0
+  pickerSide.value = 'out'
   fixtureSearch.value = ''
   fixturePickerOpen.value = true
 }
@@ -697,16 +804,24 @@ async function confirmAddFixture() {
   for (let i = 0; i < qty; i++) {
     const pos = Math.round((startPos + i * spacing) / 10) * 10
     const half = (pickerBar.value.length_cm ?? 600) / 2
-    await props.assignFixtureFn(pickerBar.value.id, pickerChannel.value.id, Math.max(-half, Math.min(half, pos)))
+    await props.assignFixtureFn(pickerBar.value.id, pickerChannel.value.id, Math.max(-half, Math.min(half, pos)), undefined, pickerSide.value)
   }
   fixturePickerOpen.value = false
   pickerChannel.value = null
   emit('assigned')
 }
 
+async function savePunktzugPositionText(bar, value) {
+  const fx = bar.fixtures[0]
+  if (!fx) return
+  await props.assignFixtureFn(bar.id, fx.channel_id, 0, fx.id, fx.side || 'out', value)
+  fx.position_text = value
+}
+
 // Hover-Tooltip
 const hoverBarId = ref(null)
 const hoverPct = ref(null)
+const hoverSide = ref(null)
 const hoverOnFixture = ref(false)
 
 
@@ -744,7 +859,7 @@ async function onDragEnd() {
   const { fx, bar } = dragging
   dragging = null
   dragBarLineEl = null
-  await props.assignFixtureFn(bar.id, fx.channel_id, fx.position, fx.id)
+  await props.assignFixtureFn(bar.id, fx.channel_id, fx.position, fx.id, fx.side || 'out', fx.position_text)
 }
 
 onBeforeUnmount(() => {

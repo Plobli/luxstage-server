@@ -1,5 +1,5 @@
 import { ref, type Ref } from 'vue'
-import { fetchBars, createBar, updateBar, deleteBar as apiDeleteBar, addBarFixture, patchBarFixtureNotes, removeBarFixture, reorderBars as apiReorderBars, type Bar } from '../api/bars'
+import { fetchBars, createBar, updateBar, deleteBar as apiDeleteBar, addBarFixture, patchBarFixtureNotes, removeBarFixture, reorderBars as apiReorderBars, type Bar, type FixtureSide } from '../api/bars'
 import type { Channel } from '../api/channels'
 
 export function useShowBars(showId: string, channels?: Ref<Channel[]>) {
@@ -57,8 +57,8 @@ export function useShowBars(showId: string, channels?: Ref<Channel[]>) {
     if (fx) fx.notes = notes
   }
 
-  async function assignFixture(barId: string, channelId: string, position: number, fixtureId?: string) {
-    const result = await addBarFixture(showId, barId, channelId, position, undefined, fixtureId)
+  async function assignFixture(barId: string, channelId: string, position: number, fixtureId?: string, side?: FixtureSide, positionText?: string) {
+    const result = await addBarFixture(showId, barId, channelId, position, undefined, fixtureId, side, positionText)
     const bar = bars.value.find(b => b.id === barId)
     if (!bar) return
 
@@ -66,9 +66,11 @@ export function useShowBars(showId: string, channels?: Ref<Channel[]>) {
       const existing = bar.fixtures.find(f => f.id === fixtureId)
       if (existing) {
         existing.position = position
+        if (side !== undefined) existing.side = side
+        if (positionText !== undefined) existing.position_text = positionText
       }
     } else {
-      bar.fixtures.push({ id: result.id, bar_id: barId, channel_id: channelId, position, notes: '' })
+      bar.fixtures.push({ id: result.id, bar_id: barId, channel_id: channelId, position, notes: '', side, position_text: positionText })
       bar.fixtures.sort((a, b) => a.position - b.position)
     }
 
