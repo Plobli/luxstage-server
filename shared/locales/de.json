@@ -579,6 +579,7 @@
   "zugstange.fixture.position": "Position auf Stange (0 = Mitte)",
   "zugstange.fixture.remove.action": "Entfernen",
   "zugstange.fixture.remove.confirm": "Scheinwerfer {fixture} von \"{bar}\" entfernen?",
+  "zugstange.fixture.picker.back": "Zurück zur Auswahl",
   "zugstange.fixture.remove.title": "Scheinwerfer entfernen",
   "zugstange.fixture.search.placeholder": "Kreis suchen…",
   "zugstange.hint": "Elemente der Obermaschinerie können mit oder ohne Scheinwerfer angelegt werden.\n\nDie hier angelegten Elemente werden in einer Show nicht automatisch eingefügt. Du kannst diese aber später innerhalb jeder Show hinzufügen – mit und ohne Kreise.",

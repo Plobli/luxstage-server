@@ -579,6 +579,7 @@
   "zugstange.fixture.position": "Position on batten (cm, 0 = centre)",
   "zugstange.fixture.remove.action": "Remove",
   "zugstange.fixture.remove.confirm": "Remove fixture {fixture} from \"{bar}\"?",
+  "zugstange.fixture.picker.back": "Back to selection",
   "zugstange.fixture.remove.title": "Remove fixture",
   "zugstange.fixture.search.placeholder": "Search channels…",
   "zugstange.hint": "Elements of the fly system can be created with or without fixtures.\n\nElements created here are not automatically added to a show. You can add them later within each show – with or without channels.",

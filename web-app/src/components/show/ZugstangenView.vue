@@ -394,16 +394,30 @@
       </DialogHeader>
       <DialogBody>
         <Input v-if="!pickerChannel" size="lg" v-model="fixtureSearch" :placeholder="t('zugstange.fixture.search.placeholder')" autofocus @keydown.enter="selectFirstAndConfirm" />
-        <div v-if="!pickerChannel" class="w-full max-h-96 overflow-y-auto grid! gap-2 pt-1" style="grid-template-columns: repeat(auto-fill, minmax(3rem, 1fr));">
-          <button
-            v-for="ch in filteredChannelsForPicker"
-            :key="ch.channel"
-            :title="[ch.device, ch.address ? `DMX ${ch.address}` : null, ch.color].filter(Boolean).join(' · ')"
-            class="aspect-square max-w-14 rounded-lg border flex items-center justify-center text-base font-bold tabular-nums transition-colors border-border/40 text-foreground hover:bg-accent/15 hover:border-accent/50"
-            @click="pickerChannel = ch; fixtureSearch = ''"
-          >{{ ch.channel }}</button>
-        </div>
+        <TooltipProvider v-if="!pickerChannel" :delay-duration="200">
+          <div class="w-full max-h-96 overflow-y-auto grid! gap-2 pt-1" style="grid-template-columns: repeat(auto-fill, minmax(3rem, 1fr));">
+            <Tooltip v-for="ch in filteredChannelsForPicker" :key="ch.channel">
+              <TooltipTrigger asChild>
+                <button
+                  class="aspect-square max-w-14 rounded-lg border flex items-center justify-center text-base font-bold tabular-nums transition-colors border-border/40 text-foreground hover:bg-accent/15 hover:border-accent/50"
+                  @click="pickerChannel = ch; fixtureSearch = ''"
+                >{{ ch.channel }}</button>
+              </TooltipTrigger>
+              <TooltipContent v-if="ch.device || ch.address || ch.color">
+                <p class="text-sm">{{ [ch.device, ch.address ? `DMX ${ch.address}` : null, ch.color].filter(Boolean).join(' · ') }}</p>
+              </TooltipContent>
+            </Tooltip>
+          </div>
+        </TooltipProvider>
         <div v-if="pickerChannel" class="flex flex-col gap-3">
+          <button
+            type="button"
+            class="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors self-start"
+            @click="pickerChannel = null"
+          >
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+            {{ t('zugstange.fixture.picker.back') }}
+          </button>
           <div class="flex items-center gap-4 px-4 py-3 rounded-lg bg-accent/10 border border-accent/30">
             <span class="text-2xl font-bold tabular-nums w-10 shrink-0 text-accent">{{ pickerChannel.channel }}</span>
             <div class="flex flex-col min-w-0 flex-1">
@@ -412,9 +426,6 @@
                 <span v-if="pickerChannel.address">DMX {{ pickerChannel.address }}</span><span v-if="pickerChannel.address && pickerChannel.color"> · </span><span v-if="pickerChannel.color">{{ pickerChannel.color }}</span>
               </span>
             </div>
-            <button class="text-muted-foreground/50 hover:text-foreground transition-colors" @click="pickerChannel = null">
-              <svg viewBox="0 0 10 10" width="12" height="12" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="2" y1="2" x2="8" y2="8"/><line x1="8" y1="2" x2="2" y2="8"/></svg>
-            </button>
           </div>
           <div v-if="!isPunktzug(pickerBar)" class="flex flex-col gap-1.5">
             <label class="text-xs text-muted-foreground">{{ t('zugstange.fixture.position') }} {{ unitLabel }}</label>
@@ -532,6 +543,7 @@ import { Label } from '@/components/ui/label'
 import HelpIcon from '@/components/ui/HelpIcon.vue'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogBody } from '@/components/ui/dialog'
 import Checkbox from '@/components/ui/checkbox/Checkbox.vue'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 
 const props = defineProps({
   bars: { type: Array, required: true },
