@@ -12,6 +12,7 @@ export interface EosMergePreview {
   newActive: { nr: string, label: string }[];
   nowGone: { nr: string, label: string }[];
   untouched: { nr: string, label: string }[];
+  addressMismatch: { nr: string, label: string, oldAddress: string, newAddress: string }[];
 }
 
 export interface UndoRedoState {
@@ -36,6 +37,7 @@ export function useShowChannels({
   towers,
   saveTowersSnapshot,
   t,
+  localeReady,
   confirm
 }: {
   showId: string;
@@ -50,6 +52,7 @@ export function useShowChannels({
   towers: Ref<Tower[]>;
   saveTowersSnapshot: (snapshot: Tower[]) => Promise<void>;
   t: (key: string, params?: any) => string;
+  localeReady: () => Promise<void>;
   confirm: (opts: any) => Promise<boolean>;
 }) {
   const channels = ref<Channel[]>([])
@@ -60,8 +63,8 @@ export function useShowChannels({
   const healthFilterSnapshot = ref<Set<string> | null>(null)
   
   const eosActiveChannels = ref<string[] | null>(null)
-  const eosMergePreview = ref<EosMergePreview>({ open: false, newActive: [], nowGone: [], untouched: [] })
-  let _eosMergeResolve: ((v: boolean) => void) | null = null
+  const eosMergePreview = ref<EosMergePreview>({ open: false, newActive: [], nowGone: [], untouched: [], addressMismatch: [] })
+  let _eosMergeResolve: ((v: { ok: boolean, applyAddresses: Set<string> }) => void) | null = null
   let ignoreSseCount = 0
 
   const persistChannels = useDebounceFn(async () => {
@@ -230,19 +233,19 @@ export function useShowChannels({
     event.target.value = ''
   }
 
-  function parseEosCsv(text: string): { activeChannels: string[] | null, error: string | null } {
+  function parseEosCsv(text: string): { activeChannels: string[] | null, movingLightChannels: Set<string>, channelAddresses: Map<string, string>, error: string | null } {
     const lines = text.split(/\r?\n/)
     if (lines[0].trim() !== 'START_LEVELS') {
-      return { activeChannels: null, error: 'eos.import.error.invalid' }
+      return { activeChannels: null, movingLightChannels: new Set(), channelAddresses: new Map(), error: 'eos.import.error.invalid' }
     }
     const headerIdx = lines.findIndex(l => l.startsWith('TARGET_TYPE,'))
-    if (headerIdx === -1) return { activeChannels: null, error: 'eos.import.error.parse' }
+    if (headerIdx === -1) return { activeChannels: null, movingLightChannels: new Set(), channelAddresses: new Map(), error: 'eos.import.error.parse' }
     const headers = lines[headerIdx].split(',')
     const colChannel   = headers.indexOf('CHANNEL')
     const colParamType = headers.indexOf('PARAMETER_TYPE_AS_TEXT')
     const colLevel     = headers.indexOf('LEVEL')
     if (colChannel === -1 || colParamType === -1 || colLevel === -1) {
-      return { activeChannels: null, error: 'eos.import.error.parse' }
+      return { activeChannels: null, movingLightChannels: new Set(), channelAddresses: new Map(), error: 'eos.import.error.parse' }
     }
     const active = new Set<string>()
     for (let i = headerIdx + 1; i < lines.length; i++) {
@@ -252,7 +255,101 @@ export function useShowChannels({
         if (ch) active.add(ch)
       }
     }
-    return { activeChannels: [...active], error: null }
+    return {
+      activeChannels: [...active],
+      movingLightChannels: findMovingLightChannels(lines),
+      channelAddresses: findChannelAddresses(lines),
+      error: null,
+    }
+  }
+
+  function findBlock(lines: string[], marker: string): { headers: string[], rows: string[][] } | null {
+    const startIdx = lines.findIndex(l => l.trim() === marker)
+    if (startIdx === -1) return null
+    const headers = (lines[startIdx + 1] ?? '').split(',')
+    const rows: string[][] = []
+    for (let i = startIdx + 2; i < lines.length; i++) {
+      if (lines[i].startsWith('START_')) break
+      if (!lines[i].trim()) continue
+      rows.push(lines[i].split(','))
+    }
+    return { headers, rows }
+  }
+
+  // Moving Lights (Pan/Tilt) bekommen keine sinnvolle feste Position/Notiz –
+  // sie werden beim Eos-Import automatisch erkannt statt dauerhaft gelb zu bleiben.
+  function findMovingLightChannels(lines: string[]): Set<string> {
+    const fixtures = findBlock(lines, 'START_FIXTURES')
+    const channelsBlock = findBlock(lines, 'START_CHANNELS')
+    if (!fixtures || !channelsBlock) return new Set()
+
+    const colTypeName = fixtures.headers.indexOf('FIXTURE_TYPE_NAME')
+    const colParam     = fixtures.headers.indexOf('PARAMETER_TYPE_TEXT_SHORT')
+    if (colTypeName === -1 || colParam === -1) return new Set()
+
+    const movingLightTypes = new Set<string>()
+    for (const row of fixtures.rows) {
+      if (row[colParam] === 'Pan' || row[colParam] === 'Tilt') {
+        movingLightTypes.add(row[colTypeName])
+      }
+    }
+    if (movingLightTypes.size === 0) return new Set()
+
+    const colChannel = channelsBlock.headers.indexOf('CHANNEL')
+    const colFixtureType = channelsBlock.headers.indexOf('FIXTURE_TYPE')
+    if (colChannel === -1 || colFixtureType === -1) return new Set()
+
+    const result = new Set<string>()
+    for (const row of channelsBlock.rows) {
+      if (movingLightTypes.has(row[colFixtureType])) {
+        const ch = (row[colChannel] ?? '').trim()
+        if (ch) result.add(ch)
+      }
+    }
+    return result
+  }
+
+  // Eos-Rohadressen kommen in drei Formen: reine Zahl ("121", auch >512 als
+  // durchlaufende Adresse über Universumsgrenzen), Range ohne Universum
+  // ("332<341") und Range mit Universum ("3/278<282"). LuxStage stellt
+  // Adressen einheitlich als "Universum/Startadresse" dar (z.B. "1/121").
+  function normalizeEosAddress(raw: string): string | null {
+    const value = raw.trim()
+    if (!value) return null
+
+    const withUniverse = value.match(/^(\d+)\/(\d+)(?:<\d+)?$/)
+    if (withUniverse) {
+      const universe = withUniverse[1]
+      const address = withUniverse[2].padStart(3, '0')
+      return `${universe}/${address}`
+    }
+
+    const withoutUniverse = value.match(/^(\d+)(?:<\d+)?$/)
+    if (withoutUniverse) {
+      const absolute = parseInt(withoutUniverse[1], 10)
+      const universe = Math.floor((absolute - 1) / 512) + 1
+      const address = ((absolute - 1) % 512 + 1).toString().padStart(3, '0')
+      return `${universe}/${address}`
+    }
+
+    return null
+  }
+
+  function findChannelAddresses(lines: string[]): Map<string, string> {
+    const channelsBlock = findBlock(lines, 'START_CHANNELS')
+    if (!channelsBlock) return new Map()
+
+    const colChannel = channelsBlock.headers.indexOf('CHANNEL')
+    const colAddress = channelsBlock.headers.indexOf('ADDRESS')
+    if (colChannel === -1 || colAddress === -1) return new Map()
+
+    const result = new Map<string, string>()
+    for (const row of channelsBlock.rows) {
+      const ch = (row[colChannel] ?? '').trim()
+      const addr = normalizeEosAddress(row[colAddress] ?? '')
+      if (ch && addr) result.set(ch, addr)
+    }
+    return result
   }
 
   async function persistEosChannels(): Promise<void> {
@@ -265,7 +362,7 @@ export function useShowChannels({
     e.target.value = ''
 
     const text = await file.text()
-    const { activeChannels, error } = parseEosCsv(text)
+    const { activeChannels, movingLightChannels, channelAddresses, error } = parseEosCsv(text)
 
     if (error || !activeChannels) {
       window.alert(t(error || 'eos.import.error.parse'))
@@ -290,24 +387,64 @@ export function useShowChannels({
     const nowGoneNrs    = prevTracked.filter(nr => !activeChannels.includes(nr))
     const untouchedNrs  = activeChannels.filter(nr => channelsWithNotes.has(nr))
 
-    const ok = await new Promise<boolean>(resolve => {
+    // Kanäle mit vorhandener, aber abweichender Adresse werden nie automatisch
+    // überschrieben — der Nutzer entscheidet selbst, nachdem er es hier sieht.
+    const addressMismatches = channels.value
+      .filter(ch => {
+        const eosAddr = channelAddresses.get(String(ch.channel))
+        const currentAddr = (ch.address ?? '').trim()
+        return eosAddr && currentAddr && eosAddr !== currentAddr
+      })
+      .map(ch => ({ nr: String(ch.channel), label: chLabel(String(ch.channel)), oldAddress: ch.address ?? '', newAddress: channelAddresses.get(String(ch.channel))! }))
+
+    const { ok, applyAddresses } = await new Promise<{ ok: boolean, applyAddresses: Set<string> }>(resolve => {
       _eosMergeResolve = resolve
       eosMergePreview.value = {
         open: true,
         newActive:  newActiveNrs.map(nr => ({ nr, label: chLabel(nr) })),
         nowGone:    nowGoneNrs.map(nr => ({ nr, label: chLabel(nr) })),
         untouched:  untouchedNrs.map(nr => ({ nr, label: chLabel(nr) })),
+        addressMismatch: addressMismatches,
       }
     })
     eosMergePreview.value.open = false
     if (!ok) return
 
+    // t() liefert vor Abschluss des initialen Tolgee-Ladevorgangs den rohen
+    // Key statt der Übersetzung — hier wird das Ergebnis dauerhaft in notes
+    // gespeichert, also muss die Übersetzung sicher geladen sein.
+    await localeReady()
+    const movingLightNote = t('eos.import.moving_light_note')
     const existingNrs = new Set(channels.value.map(ch => String(ch.channel)))
     const missingNrs = newActiveNrs.filter(nr => !existingNrs.has(nr))
+    let channelsChanged = false
+
     if (missingNrs.length > 0) {
-      const newChannels: Channel[] = missingNrs.map(nr => ({ channel: nr, address: '', device: '', position: '', color: '', notes: '' }))
+      const newChannels: Channel[] = missingNrs.map(nr => ({
+        channel: nr, address: channelAddresses.get(nr) ?? '', device: '', position: '', color: '',
+        notes: movingLightChannels.has(nr) ? movingLightNote : '',
+      }))
       channels.value = [...channels.value, ...newChannels]
         .sort((a, b) => parseInt(a.channel) - parseInt(b.channel))
+      channelsChanged = true
+    }
+
+    for (const ch of channels.value) {
+      const nr = String(ch.channel)
+      if (newActiveNrs.includes(nr) && movingLightChannels.has(nr) && !(ch.notes ?? '').trim()) {
+        ch.notes = movingLightNote
+        channelsChanged = true
+      }
+      if (!(ch.address ?? '').trim() && channelAddresses.has(nr)) {
+        ch.address = channelAddresses.get(nr)!
+        channelsChanged = true
+      } else if (applyAddresses.has(nr) && channelAddresses.has(nr)) {
+        ch.address = channelAddresses.get(nr)!
+        channelsChanged = true
+      }
+    }
+
+    if (channelsChanged) {
       await saveChannels(showId, channels.value)
     }
 
@@ -318,8 +455,8 @@ export function useShowChannels({
     await persistEosChannels()
   }
 
-  function resolveEosMergePreview(value: boolean): void {
-    _eosMergeResolve?.(value)
+  function resolveEosMergePreview(value: boolean, applyAddresses?: Set<string>): void {
+    _eosMergeResolve?.({ ok: value, applyAddresses: applyAddresses ?? new Set() })
     _eosMergeResolve = null
   }
 

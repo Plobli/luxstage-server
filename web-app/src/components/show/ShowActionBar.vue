@@ -94,6 +94,7 @@
         :noDevice="healthStats.noDevice"
         :noPosition="healthStats.noPosition"
         :noAddress="healthStats.noAddress"
+        :incomplete="healthStats.incomplete"
         :activeFilter="activeHealthFilter"
         :labels="healthLabels"
         @filterNoNotes="emit('healthFilter', 'noNotes')"
@@ -126,7 +127,7 @@ const props = defineProps({
   dupAddressWarning: { type: Boolean, default: false },
   dupChannelWarning: { type: Boolean, default: false },
   search: { type: String, default: '' },
-  healthStats: { type: Object, default: () => ({ noNotes: 0, noDevice: 0, noPosition: 0, noAddress: 0 }) },
+  healthStats: { type: Object, default: () => ({ noNotes: 0, noDevice: 0, noPosition: 0, noAddress: 0, incomplete: 0 }) },
   healthLabels: { type: Object, default: null },
   activeHealthFilter: { type: String, default: null },
   labels: { type: Object, required: true },

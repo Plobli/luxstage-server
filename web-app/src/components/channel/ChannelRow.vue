@@ -38,7 +38,7 @@
             v-model="ch.address"
             @focus="emit('recordFocus')"
             @input="emit('change')"
-            @blur="emit('commitFocus')"
+            @blur="onAddressBlur"
             @click.stop
             class="h-full min-h-14 w-full self-stretch rounded-none border-0 bg-transparent px-1 py-0 text-center text-xs text-muted-foreground shadow-none placeholder:text-muted-foreground/60 focus-visible:ring-0"
           />
@@ -175,7 +175,7 @@
                 v-model="ch.address"
                 @focus="emit('recordFocus')"
                 @input="emit('change')"
-                @blur="emit('commitFocus')"
+                @blur="onAddressBlur"
                 @click.stop
                 class="w-16 h-8 rounded border-0 bg-transparent px-1 py-0 text-center text-xs text-muted-foreground shadow-none placeholder:text-muted-foreground/60 focus-visible:ring-0"
               />
@@ -231,6 +231,7 @@ import ColorAutocomplete from '../ColorAutocomplete.vue'
 import ChannelTextarea from './ChannelTextarea.vue'
 import QuantitySelect from './QuantitySelect.vue'
 import { useIsMobile } from '@/composables/useBreakpoint.js'
+import { normalizeDmxAddress } from '@/utils/dmxAddress'
 
 const props = defineProps({
   ch: { type: Object, required: true },
@@ -265,6 +266,16 @@ function onDeviceBlur() {
     quantityFlash.value = true
     setTimeout(() => { quantityFlash.value = false }, 600)
   }
+}
+
+function onAddressBlur() {
+  const ch = props.ch
+  const normalized = normalizeDmxAddress(ch.address ?? '')
+  if (normalized !== ch.address) {
+    ch.address = normalized
+    emit('change')
+  }
+  emit('commitFocus')
 }
 
 const _isMobileViewport = useIsMobile()

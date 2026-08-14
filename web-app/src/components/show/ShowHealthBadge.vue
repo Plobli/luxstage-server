@@ -76,6 +76,7 @@ const props = defineProps<{
   noDevice: number
   noPosition: number
   noAddress: number
+  incomplete: number
   activeFilter?: string | null
   labels: {
     title: string
@@ -96,7 +97,7 @@ const emit = defineEmits<{
   clearFilter: []
 }>()
 
-const total = computed(() => props.noDevice + props.noPosition + props.noAddress)
+const total = computed(() => props.incomplete)
 
 const activeFilterLabel = computed(() => {
   if (!props.activeFilter) return null

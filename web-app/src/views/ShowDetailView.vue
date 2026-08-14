@@ -387,7 +387,8 @@
       :newActive="eosMergePreview.newActive"
       :nowGone="eosMergePreview.nowGone"
       :untouched="eosMergePreview.untouched"
-      @confirm="resolveEosMergePreview(true)"
+      :addressMismatch="eosMergePreview.addressMismatch"
+      @confirm="applyAddresses => resolveEosMergePreview(true, applyAddresses)"
       @cancel="resolveEosMergePreview(false)"
     />
 
@@ -531,7 +532,7 @@ const SECTION_ICONS = {
 }
 
 const props = defineProps({ id: { type: String, required: true } })
-const { t, locale } = useLocale()
+const { t, locale, ready: localeReady } = useLocale()
 const { setNav, clearNav, navigate: navNavigate } = useShowNav()
 const { confirm } = useConfirm()
 const { onKeydown } = useKeyboardNav()
@@ -637,6 +638,7 @@ const {
   towers,
   saveTowersSnapshot: (snapshot) => restoreTowersSnapshot(props.id, snapshot),
   t,
+  localeReady,
   confirm
 })
 
@@ -673,6 +675,11 @@ const healthStats = computed(() => {
     noDevice:   chs.filter(c => !(c.device ?? '').trim()).length,
     noPosition: chs.filter(c => !(c.position ?? '').trim()).length,
     noAddress:  chs.filter(c => !(c.address ?? '').trim()).length,
+    // Kanäle mit mindestens einer Lücke — keine Summe der Einzelwerte,
+    // sonst würde ein Kanal mit mehreren fehlenden Angaben mehrfach zählen.
+    incomplete: chs.filter(c =>
+      !(c.device ?? '').trim() || !(c.position ?? '').trim() || !(c.address ?? '').trim()
+    ).length,
   }
 })
 

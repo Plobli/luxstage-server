@@ -11,6 +11,7 @@ export interface UseLocaleReturn {
   t: (key: string, params?: Record<string, string | number>) => string;
   locale: ComputedRef<string>;
   setLocale: (lang: string) => void;
+  ready: () => Promise<void>;
 }
 
 export function useLocale(): UseLocaleReturn {
@@ -25,6 +26,14 @@ export function useLocale(): UseLocaleReturn {
     tolgee.value.changeLanguage(lang)
   }
 
-  return { t, locale: computed(() => tolgee.value.getLanguage() ?? 'de'), setLocale }
+  // Wartet, bis Übersetzungen geladen sind — nötig für t()-Aufrufe, deren
+  // Ergebnis dauerhaft gespeichert wird (z.B. in Notizfeldern), da t() sonst
+  // vor Abschluss des initialen Ladevorgangs den rohen Key zurückgibt.
+  async function ready(): Promise<void> {
+    if (tolgee.value.isLoaded()) return
+    await tolgee.value.run()
+  }
+
+  return { t, locale: computed(() => tolgee.value.getLanguage() ?? 'de'), setLocale, ready }
 }
 
