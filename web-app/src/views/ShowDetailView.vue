@@ -388,8 +388,9 @@
       :nowGone="eosMergePreview.nowGone"
       :untouched="eosMergePreview.untouched"
       :addressMismatch="eosMergePreview.addressMismatch"
+      :deviceMismatch="eosMergePreview.deviceMismatch"
       :previouslyExcluded="eosMergePreview.previouslyExcluded"
-      @confirm="(applyAddresses, excludedChannels) => resolveEosMergePreview(true, applyAddresses, excludedChannels)"
+      @confirm="(applyAddresses, excludedChannels, applyDevices) => resolveEosMergePreview(true, applyAddresses, excludedChannels, applyDevices)"
       @cancel="resolveEosMergePreview(false)"
     />
 

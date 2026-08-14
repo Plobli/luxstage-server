@@ -143,8 +143,58 @@
           </div>
         </div>
 
+        <!-- Gerät weicht ab (orange) — gleiche Logik wie Adresse. -->
+        <div v-if="deviceMismatch.length > 0" class="flex flex-col gap-1">
+          <div class="flex items-center justify-between">
+            <div class="text-xs font-medium text-orange-400 uppercase tracking-wide">
+              {{ t('eos.preview.device_mismatch', { n: deviceMismatch.length }) }}
+            </div>
+            <div class="flex items-center gap-4">
+              <button
+                type="button"
+                class="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2"
+                @click="selectAllDevices"
+              >
+                {{ t('eos.preview.apply_all') }}
+              </button>
+              <button
+                type="button"
+                class="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2"
+                @click="selectNoDevices"
+              >
+                {{ t('eos.preview.apply_none') }}
+              </button>
+            </div>
+          </div>
+          <p class="text-xs text-muted-foreground/70">{{ t('eos.preview.device_hint') }}</p>
+          <div class="grid gap-y-1.5 gap-x-3" style="grid-template-columns: auto 1fr auto auto auto;">
+            <span />
+            <span />
+            <span class="text-[0.65rem] text-muted-foreground/50 uppercase tracking-wide text-right pb-0.5">{{ t('eos.preview.old_address') }}</span>
+            <span />
+            <span class="text-[0.65rem] text-muted-foreground/50 uppercase tracking-wide pb-0.5">{{ t('eos.preview.new_address') }}</span>
+
+            <template v-for="ch in deviceMismatch" :key="ch.nr">
+              <span class="font-mono font-medium text-xs self-center pr-2">{{ ch.nr }}</span>
+              <span class="text-muted-foreground text-xs self-center pr-2">{{ ch.label }}</span>
+              <span class="text-muted-foreground/70 text-xs self-center text-right">{{ ch.oldDevice }}</span>
+              <Toggle
+                :modelValue="applyDevices.has(ch.nr)"
+                @update:modelValue="v => setApplyDevice(ch.nr, v)"
+                size="sm"
+                :title="applyDevices.has(ch.nr) ? t('eos.preview.apply_device') : t('eos.preview.keep_device')"
+                class="justify-self-center data-[state=on]:bg-orange-500/20 data-[state=on]:text-orange-300 data-[state=off]:text-muted-foreground/50"
+              >
+                <ArrowRight v-if="applyDevices.has(ch.nr)" class="size-3.5" />
+                <ArrowLeft v-else class="size-3.5" />
+              </Toggle>
+              <span class="text-muted-foreground/70 text-xs self-center">{{ ch.newDevice }}</span>
+            </template>
+          </div>
+        </div>
+
         <!-- Keine Änderungen -->
-        <p v-if="newActive.length === 0 && nowGone.length === 0 && untouched.length === 0 && addressMismatch.length === 0" class="text-sm text-muted-foreground">
+        <p v-if="newActive.length === 0 && nowGone.length === 0 && untouched.length === 0 && addressMismatch.length === 0 && deviceMismatch.length === 0" class="text-sm text-muted-foreground">
           {{ t('eos.preview.empty') }}
         </p>
 
@@ -186,6 +236,8 @@ const props = defineProps({
   untouched: { type: Array, default: () => [] },
   // Array of { nr: string, label?: string, oldAddress: string, newAddress: string }
   addressMismatch: { type: Array, default: () => [] },
+  // Array of { nr: string, label?: string, oldDevice: string, newDevice: string }
+  deviceMismatch: { type: Array, default: () => [] },
   // Kanäle, die bei einem früheren Import bereits vom Nutzer ausgeschlossen
   // wurden — bleiben dauerhaft als "wird nicht importiert" vorbelegt.
   previouslyExcluded: { type: Set, default: () => new Set() },
@@ -217,6 +269,26 @@ function selectNoAddresses() {
   applyAddresses.value = new Set()
 }
 
+const applyDevices = ref(new Set())
+watch(() => props.deviceMismatch, () => {
+  applyDevices.value = new Set()
+}, { immediate: true })
+
+function setApplyDevice(nr, apply) {
+  const next = new Set(applyDevices.value)
+  if (apply) next.add(nr)
+  else next.delete(nr)
+  applyDevices.value = next
+}
+
+function selectAllDevices() {
+  applyDevices.value = new Set(props.deviceMismatch.map(ch => ch.nr))
+}
+
+function selectNoDevices() {
+  applyDevices.value = new Set()
+}
+
 // Dauerhaft ausgeschlossene Kanäle bleiben ausgeschlossen vorbelegt, auch
 // wenn sie in diesem Import erneut auftauchen — der Nutzer muss sie aktiv
 // wieder einschließen, damit sie importiert werden.
@@ -242,6 +314,6 @@ function excludeNoneNewActive() {
 }
 
 function onConfirm() {
-  emit('confirm', applyAddresses.value, excludedNewActive.value)
+  emit('confirm', applyAddresses.value, excludedNewActive.value, applyDevices.value)
 }
 </script>
