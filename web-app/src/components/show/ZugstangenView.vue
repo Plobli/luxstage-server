@@ -394,7 +394,7 @@
       </DialogHeader>
       <DialogBody>
         <Input v-if="!pickerChannel" size="lg" v-model="fixtureSearch" :placeholder="t('zugstange.fixture.search.placeholder')" autofocus @keydown.enter="selectFirstAndConfirm" />
-        <div v-if="!pickerChannel" class="max-h-96 overflow-y-auto grid gap-2 pt-1" style="grid-template-columns: repeat(auto-fill, minmax(3rem, 1fr));">
+        <div v-if="!pickerChannel" class="w-full max-h-96 overflow-y-auto grid! gap-2 pt-1" style="grid-template-columns: repeat(auto-fill, minmax(3rem, 1fr));">
           <button
             v-for="ch in filteredChannelsForPicker"
             :key="ch.channel"
