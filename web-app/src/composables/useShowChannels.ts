@@ -326,6 +326,7 @@ export function useShowChannels({
   function channelStatus(ch: Channel): 'active' | 'eos' | 'default' {
     const notes = (ch.notes ?? '').trim()
     if (notes.length > 0) return 'active'
+    if (ch.mount_ref) return 'active'
     const nr = String(ch.channel)
     if (!eosActiveChannels.value) return 'default'
     if (eosActiveChannels.value.includes(nr)) return 'eos'
