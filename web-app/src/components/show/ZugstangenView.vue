@@ -132,21 +132,19 @@
               class="absolute left-0 right-0 pointer-events-none"
               style="top: 26px; height: 24px; width: 100%;"
               preserveAspectRatio="none"
-              viewBox="0 0 400 30"
+              viewBox="0 0 400 24"
             >
               <polyline
                 :points="trussLatticePoints().down"
                 fill="none"
                 stroke="rgba(255,255,255,0.18)"
                 stroke-width="1.5"
-                vector-effect="non-scaling-stroke"
               />
               <polyline
                 :points="trussLatticePoints().up"
                 fill="none"
                 stroke="rgba(255,255,255,0.18)"
                 stroke-width="1.5"
-                vector-effect="non-scaling-stroke"
               />
             </svg>
 
@@ -664,8 +662,9 @@ function barFixturesBySide(bar, side) {
 }
 
 // Fachwerk-Kreuzverstrebung für die Traversen-Visualisierung.
-// Feste Segmentzahl (unabhängig von der Stangenlänge) + preserveAspectRatio="none"
-// sorgt dafür, dass das Muster bei jeder Container-Breite gleichmäßig bleibt.
+// viewBox-Höhe entspricht exakt der CSS-Pixelhöhe (keine Y-Streckung) —
+// preserveAspectRatio="none" staucht dadurch nur horizontal, Winkel bleiben sauber.
+const TRUSS_H = 24
 const TRUSS_SEGMENTS = 20
 const TRUSS_VIEWBOX_W = 400
 function trussLatticePoints() {
@@ -674,8 +673,8 @@ function trussLatticePoints() {
   const up = []
   for (let i = 0; i <= TRUSS_SEGMENTS; i++) {
     const x = i * segW
-    down.push(`${x},${i % 2 === 0 ? 0 : 30}`)
-    up.push(`${x},${i % 2 === 0 ? 30 : 0}`)
+    down.push(`${x},${i % 2 === 0 ? 0 : TRUSS_H}`)
+    up.push(`${x},${i % 2 === 0 ? TRUSS_H : 0}`)
   }
   return { down: down.join(' '), up: up.join(' ') }
 }
