@@ -388,29 +388,20 @@
 
   <!-- Fixture Picker -->
   <Dialog :open="fixturePickerOpen" @update:open="fixturePickerOpen = $event">
-    <DialogContent class="sm:max-w-lg">
+    <DialogContent class="sm:max-w-2xl">
       <DialogHeader>
         <DialogTitle>{{ t('zugstange.fixture.add') }}</DialogTitle>
       </DialogHeader>
       <DialogBody>
         <Input v-if="!pickerChannel" size="lg" v-model="fixtureSearch" :placeholder="t('zugstange.fixture.search.placeholder')" autofocus @keydown.enter="selectFirstAndConfirm" />
-        <div v-if="!pickerChannel" class="max-h-64 overflow-y-auto flex flex-col">
+        <div v-if="!pickerChannel" class="max-h-96 overflow-y-auto grid grid-cols-8 gap-2 pt-1">
           <button
             v-for="ch in filteredChannelsForPicker"
             :key="ch.channel"
-            class="flex items-center gap-4 px-4 py-3 text-left transition-colors border-b border-border/30 last:border-b-0"
-            :class="pickerChannel?.id === ch.id ? 'bg-accent/20 border-l-2 border-l-accent' : 'hover:bg-muted/40 border-l-2 border-l-transparent'"
+            :title="[ch.device, ch.address ? `DMX ${ch.address}` : null, ch.color].filter(Boolean).join(' · ')"
+            class="aspect-square rounded-lg border flex items-center justify-center text-lg font-bold tabular-nums transition-colors border-border/40 text-foreground hover:bg-accent/15 hover:border-accent/50"
             @click="pickerChannel = ch; fixtureSearch = ''"
-          >
-            <span class="text-2xl font-bold tabular-nums w-10 shrink-0" :class="pickerChannel?.id === ch.id ? 'text-accent' : 'text-foreground'">{{ ch.channel }}</span>
-            <div class="flex flex-col min-w-0 flex-1">
-              <span class="text-sm font-semibold truncate" :class="pickerChannel?.id === ch.id ? 'text-accent' : 'text-foreground'">{{ ch.device }}</span>
-              <span v-if="ch.address || ch.color" class="text-xs text-muted-foreground mt-0.5">
-                <span v-if="ch.address">DMX {{ ch.address }}</span><span v-if="ch.address && ch.color"> · </span><span v-if="ch.color">{{ ch.color }}</span>
-              </span>
-            </div>
-            <svg v-if="pickerChannel?.id === ch.id" class="size-4 shrink-0 text-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
-          </button>
+          >{{ ch.channel }}</button>
         </div>
         <div v-if="pickerChannel" class="flex flex-col gap-3">
           <div class="flex items-center gap-4 px-4 py-3 rounded-lg bg-accent/10 border border-accent/30">
@@ -800,7 +791,7 @@ const filteredChannelsForPicker = computed(() => {
   return props.channels.filter(ch => {
     if (!q) return true
     return (ch.channel ?? '').toLowerCase().includes(q) || (ch.device ?? '').toLowerCase().includes(q)
-  }).slice(0, 50)
+  }).slice(0, 200)
 })
 
 function onBarLineClick(event, bar, side = 'out') {
