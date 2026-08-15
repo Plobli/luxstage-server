@@ -51,6 +51,14 @@
         <div class="h-px bg-border mx-4" />
 
         <!-- Slots -->
+        <!-- BUG: Drag-Reorder verschiebt sich, weil dieses <template v-for> pro Slot
+             6 einzelne Grid-Zellen als direkte Geschwister-Kinder rendert (Handle,
+             Kanalnummer, Farbe, Separator, Device, Aktionen). Sortable.js (initSortable
+             unten) zählt DOM-Kindelemente des Containers als oldIndex/newIndex, sieht also
+             24 Items bei 4 Slots statt 4 — ein Drag verschiebt eine einzelne Grid-Zelle,
+             nicht den zusammenhängenden Slot. Fix: pro Slot einen echten Wrapper-Div mit
+             `display:contents` (oder Grid via CSS-Subgrid) verwenden, damit Sortable exakt
+             einen Kindknoten pro Slot sieht, das 6-Spalten-Layout aber erhalten bleibt. -->
         <div
           :key="slotRenderKey"
           :ref="el => initSortable(el, tower)"
