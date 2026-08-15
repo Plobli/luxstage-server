@@ -487,6 +487,7 @@ import { useShowBars } from '../composables/useShowBars.js'
 import { useShowHistory } from '../composables/useShowHistory.js'
 import { useMeasureUnit } from '../composables/useMeasureUnit'
 import { useShowTabs } from '../composables/useShowTabs.js'
+import { useTemplateInsertion } from '../composables/useTemplateInsertion.js'
 
 import ShowHeader from '../components/show/ShowHeader.vue'
 const ShowActionBar = defineAsyncComponent(() => import('../components/show/ShowActionBar.vue'))
@@ -506,7 +507,7 @@ import Checkbox from '@/components/ui/checkbox/Checkbox.vue'
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
-import { fetchShow, updateMeta, createSnapshot, applyTemplateToShow, saveShowItemsToTemplate } from '../api/shows.js'
+import { fetchShow, updateMeta, createSnapshot } from '../api/shows.js'
 import { invalidate } from '../api/cache.js'
 import { saveShowSectionDefs } from '../api/sections.ts'
 import { uuid } from '../utils/uuid.js'
@@ -515,8 +516,6 @@ import { generateHangereiEntries, generateGassenturmEntries } from '../utils/gen
 const PhotoGallery = defineAsyncComponent(() => import('../components/show/PhotoGallery.vue'))
 const HistorySlideOver = defineAsyncComponent(() => import('../components/show/HistorySlideOver.vue'))
 import { isOnline, api } from '../api/client.js'
-import { fetchTemplateBars } from '../api/templateBars.js'
-import { fetchTemplateTowers } from '../api/templateTowers.js'
 
 const ChannelTable = defineAsyncComponent(() => import('../components/channel/ChannelTable.vue'))
 const SectionEditor = defineAsyncComponent(() => import('../components/show/SectionEditor.vue'))
@@ -616,6 +615,25 @@ const {
 
 const { loadTowers, addTower, saveTower, removeTower, assignSlot } = useShowTowers(props.id, channels, towers)
 const { bars, loadBars, addBar, saveBar, removeBar, assignFixture, updateFixtureNotes, unassignFixture, reorderBars } = useShowBars(props.id, channels)
+
+const {
+  fromTemplateDialogOpen,
+  fromTemplateScope,
+  fromTemplateWithChannels,
+  fromTemplateLoading,
+  fromTemplateItemsLoading,
+  fromTemplateItems,
+  fromTemplateSelectedIds,
+  fromTemplateToggleId,
+  fromTemplateSelectAll,
+  fromTemplateSelectNone,
+  openFromTemplateDialog,
+  saveTowerToTemplate,
+  saveBarToTemplate,
+  fetchTowerTemplateNames,
+  fetchBarTemplateNames,
+  confirmFromTemplate,
+} = useTemplateInsertion(props.id, meta, { loadBars, loadTowers })
 
 const { historyOpen, openHistory, restore: doRestoreHistory } = useShowHistory(props.id, {
   pushSnapshot,
@@ -882,99 +900,6 @@ function onPlaceInFloorplan(ch) {
 const newSectionDialog = ref(false)
 const newSectionName = ref('')
 const newSectionType = ref('markdown')
-
-// Vorlage einfügen
-const fromTemplateDialogOpen = ref(false)
-const fromTemplateScope = ref('bars')
-const fromTemplateWithChannels = ref(false)
-const fromTemplateLoading = ref(false)
-const fromTemplateItemsLoading = ref(false)
-const fromTemplateItems = ref([])
-const fromTemplateSelectedIds = ref(new Set())
-
-function fromTemplateToggleId(id) {
-  const s = new Set(fromTemplateSelectedIds.value)
-  if (s.has(id)) s.delete(id)
-  else s.add(id)
-  fromTemplateSelectedIds.value = s
-}
-
-function fromTemplateSelectAll() {
-  fromTemplateSelectedIds.value = new Set(fromTemplateItems.value.map(i => i.id))
-}
-
-function fromTemplateSelectNone() {
-  fromTemplateSelectedIds.value = new Set()
-}
-
-async function openFromTemplateDialog(scope) {
-  if (!meta.value.template) return
-  fromTemplateScope.value = scope
-  fromTemplateWithChannels.value = false
-  fromTemplateItems.value = []
-  fromTemplateSelectedIds.value = new Set()
-  fromTemplateDialogOpen.value = true
-  fromTemplateItemsLoading.value = true
-  try {
-    if (scope === 'bars') {
-      const items = await fetchTemplateBars(meta.value.template)
-      // Fixture-Anzahl je Bar nachladen
-      const withCounts = await Promise.all(items.map(async b => {
-        try {
-          const fxList = await api.get(`/api/templates/${encodeURIComponent(meta.value.template)}/bars/${b.id}/fixtures`)
-          return { ...b, _fixtureCount: fxList.length }
-        } catch { return { ...b, _fixtureCount: 0 } }
-      }))
-      fromTemplateItems.value = withCounts
-    } else {
-      fromTemplateItems.value = await fetchTemplateTowers(meta.value.template)
-    }
-    fromTemplateSelectedIds.value = new Set(fromTemplateItems.value.map(i => i.id))
-  } finally {
-    fromTemplateItemsLoading.value = false
-  }
-}
-
-async function saveTowerToTemplate(tower, fields, overrideName) {
-  if (!meta.value.template) return
-  await saveShowItemsToTemplate(props.id, meta.value.template, 'towers', [tower.id], fields, overrideName)
-}
-
-async function saveBarToTemplate(bar, fields, overrideName) {
-  if (!meta.value.template) return
-  await saveShowItemsToTemplate(props.id, meta.value.template, 'bars', [bar.id], fields, overrideName)
-}
-
-async function fetchTowerTemplateNames() {
-  if (!meta.value.template) return []
-  const items = await fetchTemplateTowers(meta.value.template)
-  return items.map(t => t.name)
-}
-
-async function fetchBarTemplateNames() {
-  if (!meta.value.template) return []
-  const items = await fetchTemplateBars(meta.value.template)
-  return items.map(b => b.name)
-}
-
-async function confirmFromTemplate() {
-  if (!meta.value.template) return
-  fromTemplateLoading.value = true
-  try {
-    await applyTemplateToShow(
-      props.id,
-      meta.value.template,
-      fromTemplateScope.value,
-      fromTemplateWithChannels.value,
-      [...fromTemplateSelectedIds.value]
-    )
-    if (fromTemplateScope.value === 'bars') await loadBars()
-    else await loadTowers()
-    fromTemplateDialogOpen.value = false
-  } finally {
-    fromTemplateLoading.value = false
-  }
-}
 
 function addSectionFromSubtab() {
   newSectionName.value = ''
