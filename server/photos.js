@@ -1,6 +1,10 @@
 // LuxStage/server/photos.js
 import fs from 'node:fs/promises'
+import { createWriteStream } from 'node:fs'
 import path from 'node:path'
+import { randomUUID } from 'node:crypto'
+import Busboy from 'busboy'
+import { pipeline } from 'node:stream/promises'
 import sharp from 'sharp'
 import { config } from './config.js'
 import * as db from './db.js'
@@ -18,7 +22,7 @@ async function ensureDir(dir) {
   await fs.mkdir(dir, { recursive: true })
 }
 
-export async function savePhoto(slug, filename, buffer) {
+export async function savePhoto(slug, filename, source) {
   const dir = photosDir(slug)
   await ensureDir(dir)
 
@@ -27,7 +31,7 @@ export async function savePhoto(slug, filename, buffer) {
   const outPath = path.join(dir, outName)
   const tmpPath = `${outPath}.tmp`
 
-  const sharpInstance = sharp(buffer).rotate()
+  const sharpInstance = sharp(source).rotate()
 
   await sharpInstance
     .clone()
@@ -141,44 +145,49 @@ export function getPhotoPath(slug, filename) {
   return path.join(photosDir(slug), path.basename(filename))
 }
 
-const MAX_PHOTO_UPLOAD_BYTES = 50 * 1024 * 1024 // 50 MB
+const MAX_PHOTO_UPLOAD_BYTES = 50 * 1024 * 1024
+const MAX_PHOTO_UPLOAD_FILES = 20
 
-export function parseMultipart(req) {
-  return new Promise((resolve, reject) => {
-    const chunks = []; let size = 0
-    req.on('data', c => {
-      size += c.length
-      if (size > MAX_PHOTO_UPLOAD_BYTES) { req.destroy(); return reject(new Error('Upload zu groß')) }
-      chunks.push(c)
+export async function parseMultipart(req) {
+  const uploadDir = await fs.mkdtemp(path.join(config.dataPath, '.upload-'))
+  const files = []
+  try {
+    await new Promise((resolve, reject) => {
+      let rejected = false
+      const fail = (error) => {
+        if (rejected) return
+        rejected = true
+        reject(error)
+      }
+      const parser = Busboy({
+        headers: req.headers,
+        limits: { fileSize: MAX_PHOTO_UPLOAD_BYTES, files: MAX_PHOTO_UPLOAD_FILES },
+      })
+      const writes = []
+
+      parser.on('file', (fieldname, stream, info) => {
+        const tempPath = path.join(uploadDir, randomUUID())
+        writes.push(pipeline(stream, createWriteStream(tempPath)).then(() => {
+          if (stream.truncated) throw new Error('Upload zu groß')
+          files.push({ fieldname, filename: info.filename, path: tempPath })
+        }))
+      })
+      parser.on('filesLimit', () => fail(new Error('Zu viele Dateien')))
+      parser.on('error', fail)
+      parser.on('finish', async () => {
+        try {
+          await Promise.all(writes)
+          if (!rejected) resolve()
+        } catch (error) {
+          fail(error)
+        }
+      })
+      req.on('error', fail)
+      req.pipe(parser)
     })
-    req.on('end', () => resolve(Buffer.concat(chunks)))
-    req.on('error', reject)
-  })
-}
-
-export function extractFileFromMultipart(body, boundary) {
-  const boundaryBuf = Buffer.from('--' + boundary)
-  const parts = []
-  let start = 0
-
-  while (start < body.length) {
-    const bStart = body.indexOf(boundaryBuf, start)
-    if (bStart === -1) break
-    const headerStart = bStart + boundaryBuf.length + 2
-    const headerEnd = body.indexOf(Buffer.from('\r\n\r\n'), headerStart)
-    if (headerEnd === -1) break
-    const header = body.slice(headerStart, headerEnd).toString()
-    const dataStart = headerEnd + 4
-    const bEnd = body.indexOf(boundaryBuf, dataStart)
-    if (bEnd === -1) break
-    const dataEnd = bEnd - 2
-    const nameMatch = header.match(/name="([^"]+)"/)
-    const fileMatch = header.match(/filename="([^"]+)"/)
-    if (nameMatch && fileMatch) {
-      const ctMatch = header.match(/content-type:\s*([^;\r\n]+)/i)
-      parts.push({ fieldname: nameMatch[1], filename: fileMatch[1], data: body.slice(dataStart, dataEnd), mimeType: ctMatch?.[1].trim() || null })
-    }
-    start = bEnd
+    return { files, cleanup: () => fs.rm(uploadDir, { recursive: true, force: true }) }
+  } catch (error) {
+    await fs.rm(uploadDir, { recursive: true, force: true })
+    throw error
   }
-  return parts
 }
