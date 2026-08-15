@@ -14,7 +14,7 @@
             @focus="emit('recordFocus')"
             @blur="emit('commitFocus')"
             @input="sec.title = $event.target.value"
-            @change="persistSectionDefs"
+            @change="saveSectionDefsFn"
             class="h-7 min-w-40 flex-1 border-0 bg-transparent px-0 text-sm font-semibold text-accent shadow-none placeholder:text-muted-foreground/60 focus-visible:ring-0"
           />
           <Button variant="ghost" size="icon" class="size-6 rounded-sm text-muted-foreground/50 transition-colors shrink-0" @click="deleteSectionDef(sortedSections.indexOf(sec))">
@@ -160,7 +160,6 @@ import Sortable from 'sortablejs'
 const MarkdownEditor = defineAsyncComponent(() => import('../MarkdownEditor.vue'))
 import { useConfirm } from '../../composables/useConfirm.js'
 import { useLocale } from '../../composables/useLocale.js'
-import { saveShowSectionDefs } from '../../api/sections.js'
 import { uuid } from '../../utils/uuid.js'
 
 const props = defineProps({
@@ -170,6 +169,12 @@ const props = defineProps({
   setupMarkdown: { type: String, default: '' },
   singleSectionId: { type: String, default: null },
   labels: { type: Object, required: true },
+  // Speichert sectionDefs über das Show-Composable (useShowSections), damit
+  // Versionstracking für die Konflikterkennung greift — direkte
+  // saveShowSectionDefs()-Aufrufe hier würden das Composable-eigene
+  // sectionDefsVersion umgehen und den nächsten Save fälschlich als
+  // Konflikt erkennen lassen.
+  saveSectionDefsFn: { type: Function, required: true },
 })
 
 const emit = defineEmits([
@@ -261,7 +266,7 @@ watch(
     const { defs: migrated, changed } = migrateAndRepair(defs, contents)
     if (changed) {
       emit('update:sectionDefs', migrated)
-      saveShowSectionDefs(props.showId, migrated)
+      props.saveSectionDefsFn()
     }
   },
   { immediate: true }
@@ -296,7 +301,7 @@ function initSectionsSortable() {
         return { ...sec, order: i }
       })
       emit('update:sectionDefs', reordered)
-      persistSectionDefs(reordered)
+      props.saveSectionDefsFn()
     }
   })
 }
@@ -345,7 +350,7 @@ watch(
             return { ...s, rows }
           })
           emit('update:sectionDefs', newDefs)
-          persistSectionDefs(newDefs)
+          props.saveSectionDefsFn()
         }
       })
       kvSortableInstances.set(sec.id, instance)
@@ -369,7 +374,7 @@ function onSectionChange(id, value) {
 
 // ── kv-table row persistence ───────────────────────────────────────────────
 // Rows werden direkt in sectionDefs gehalten (sec.rows).
-// Persistenz läuft über saveShowSectionDefs (section_defs + section_fields wird
+// Persistenz läuft über saveSectionDefsFn (section_defs + section_fields wird
 // nicht mehr verwendet – der Server speichert rows über section_contents als JSON-Array).
 function persistKvRows(sec) {
   // rows sind schon in-place mutiert (v-model-ähnlich über @input).
@@ -377,20 +382,16 @@ function persistKvRows(sec) {
   // und triggern sectionChange für den debounced save.
   const newDefs = props.sectionDefs.map(s => s.id === sec.id ? { ...s, rows: sec.rows } : s)
   emit('update:sectionDefs', newDefs)
-  persistSectionDefs(newDefs)
+  props.saveSectionDefsFn()
 }
 
 // ── Section def management ─────────────────────────────────────────────────
-async function persistSectionDefs(sectionDefs = props.sectionDefs) {
-  await saveShowSectionDefs(props.showId, sectionDefs)
-}
-
 async function addMarkdownSection() {
   emit('pushSnapshot')
   const id = uuid()
   const newDefs = [...props.sectionDefs, { id, title: '', type: 'markdown', order: props.sectionDefs.length }]
   emit('update:sectionDefs', newDefs)
-  await saveShowSectionDefs(props.showId, newDefs)
+  await props.saveSectionDefsFn()
 }
 
 async function addKvTableSection() {
@@ -398,7 +399,7 @@ async function addKvTableSection() {
   const id = uuid()
   const newDefs = [...props.sectionDefs, { id, title: '', type: 'kv-table', order: props.sectionDefs.length, rows: [] }]
   emit('update:sectionDefs', newDefs)
-  await saveShowSectionDefs(props.showId, newDefs)
+  await props.saveSectionDefsFn()
 }
 
 async function deleteSectionDef(idx) {
@@ -411,7 +412,7 @@ async function deleteSectionDef(idx) {
     .filter(s => s.id !== targetId)
     .map((s, i) => ({ ...s, order: i }))
   emit('update:sectionDefs', newDefs)
-  await saveShowSectionDefs(props.showId, newDefs)
+  await props.saveSectionDefsFn()
 }
 
 function addKvRow(sec) {
@@ -422,7 +423,7 @@ function addKvRow(sec) {
     return { ...s, rows: [...(s.rows ?? []), newRow] }
   })
   emit('update:sectionDefs', newDefs)
-  persistSectionDefs(newDefs)
+  props.saveSectionDefsFn()
 }
 
 async function deleteKvRow(sec, rowId) {
@@ -437,7 +438,7 @@ async function deleteKvRow(sec, rowId) {
     return { ...s, rows }
   })
   emit('update:sectionDefs', newDefs)
-  persistSectionDefs(newDefs)
+  props.saveSectionDefsFn()
 }
 
 function hasKvTableType() {

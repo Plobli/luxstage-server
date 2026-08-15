@@ -237,6 +237,15 @@ if (!showCols.includes('eos_excluded_channels')) {
 if (!showCols.includes('channels_version')) {
   database.exec('ALTER TABLE shows ADD COLUMN channels_version INTEGER NOT NULL DEFAULT 0')
 }
+// section_contents_version / section_defs_version: gleiches Prinzip wie
+// channels_version, für die beiden unabhängigen Sections-PUT-Endpunkte
+// (Inhalte vs. Struktur/Definitionen).
+if (!showCols.includes('section_contents_version')) {
+  database.exec('ALTER TABLE shows ADD COLUMN section_contents_version INTEGER NOT NULL DEFAULT 0')
+}
+if (!showCols.includes('section_defs_version')) {
+  database.exec('ALTER TABLE shows ADD COLUMN section_defs_version INTEGER NOT NULL DEFAULT 0')
+}
 if (showCols.includes('untertitel')) {
   database.exec('ALTER TABLE shows DROP COLUMN untertitel')
 }

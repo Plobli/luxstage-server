@@ -14,29 +14,56 @@ export async function sectionRoutes(req, res, pathname) {
     const slug = m[1]
     if (method === 'GET') {
       const map = db.readShowSections(slug)
-      return json(res, 200, [...map.entries()].map(([id, content]) => ({ id, content })))
+      const version = db.getSectionContentsVersion(slug)
+      return json(res, 200, [...map.entries()].map(([id, content]) => ({ id, content })), version !== null ? { 'X-Show-Version': version } : {})
     }
     if (method === 'PUT') {
       const user = req.user
       const sections = await readJsonBody(req, res); if (sections === null) return
+
+      // Konflikterkennung wie bei Channels: eigene Versionsspalte, weil
+      // updated_at auch von anderen Show-Writes verändert wird.
+      const baseVersion = req.headers['if-match']
+      if (baseVersion) {
+        const currentVersion = db.getSectionContentsVersion(slug)
+        if (currentVersion !== null && currentVersion !== baseVersion) {
+          const map = db.readShowSections(slug)
+          const serverSections = [...map.entries()].map(([id, content]) => ({ id, content }))
+          return json(res, 409, { error: 'conflict', serverVersion: currentVersion, serverSections })
+        }
+      }
+
       const map = new Map(sections.map(s => [s.id, s.content]))
       db.writeShowSections(slug, map, user.username)
       broadcast(slug, 'sections-updated', { updatedBy: user.username })
-      return json(res, 200, { ok: true })
+      const version = db.getSectionContentsVersion(slug)
+      return json(res, 200, { ok: true }, version !== null ? { 'X-Show-Version': version } : {})
     }
   }
 
   if (m = SHOW_SECTION_DEFS.exec(pathname)) {
     const slug = m[1]
     if (method === 'GET') {
-      return json(res, 200, db.readShowSectionDefs(slug))
+      const version = db.getSectionDefsVersion(slug)
+      return json(res, 200, db.readShowSectionDefs(slug), version !== null ? { 'X-Show-Version': version } : {})
     }
     if (method === 'PUT') {
       const user = requireAdmin(req, res); if (!user) return
       const body = await readJsonBody(req, res); if (body === null) return
+
+      const baseVersion = req.headers['if-match']
+      if (baseVersion) {
+        const currentVersion = db.getSectionDefsVersion(slug)
+        if (currentVersion !== null && currentVersion !== baseVersion) {
+          const serverSections = db.readShowSectionDefs(slug)
+          return json(res, 409, { error: 'conflict', serverVersion: currentVersion, serverSections })
+        }
+      }
+
       db.writeShowSectionDefs(slug, body.sections, user.username)
       broadcast(slug, 'sections-updated', { updatedBy: user.username })
-      return json(res, 200, { ok: true })
+      const version = db.getSectionDefsVersion(slug)
+      return json(res, 200, { ok: true }, version !== null ? { 'X-Show-Version': version } : {})
     }
   }
 

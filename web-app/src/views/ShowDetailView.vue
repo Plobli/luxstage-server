@@ -224,6 +224,7 @@
                 :sectionContents="sectionContents"
                 :setupMarkdown="setupMarkdown"
                 :singleSectionId="sub.sectionId"
+                :saveSectionDefsFn="persistSectionDefs"
                 :labels="{
                   titlePlaceholder: t('sections.title.placeholder'),
                   fieldLabel: t('sections.field.label'),
@@ -343,6 +344,21 @@
         <DialogFooter>
           <Button variant="outline" @click="resolveConflictForce">{{ t('show.channels.conflict.force') }}</Button>
           <Button @click="resolveConflictReload">{{ t('show.channels.conflict.reload') }}</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+
+    <Dialog :open="!!sectionsConflict" @update:open="val => { if (!val) resolveSectionsConflictReload() }">
+      <DialogContent class="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>{{ t('show.sections.conflict.title') }}</DialogTitle>
+        </DialogHeader>
+        <DialogBody>
+          <p class="text-sm text-muted-foreground">{{ t('show.sections.conflict.text') }}</p>
+        </DialogBody>
+        <DialogFooter>
+          <Button variant="outline" @click="resolveSectionsConflictForce">{{ t('show.sections.conflict.force') }}</Button>
+          <Button @click="resolveSectionsConflictReload">{{ t('show.sections.conflict.reload') }}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -524,7 +540,6 @@ import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { fetchShow, updateMeta, createSnapshot } from '../api/shows.js'
 import { invalidate } from '../api/cache.js'
-import { saveShowSectionDefs } from '../api/sections.ts'
 import { uuid } from '../utils/uuid.js'
 import { downloadChannelsCsv } from '../api/channels.js'
 import { generateHangereiEntries, generateGassenturmEntries } from '../utils/generateHangerei'
@@ -582,7 +597,8 @@ watch(() => floorplan.value.image_url, async (path) => {
 const {
   sectionDefs, sectionContents, sectionsSaving,
   persistSectionsDebounced, persistSections, persistSectionDefs,
-  loadSections, handleSectionsSse
+  loadSections, handleSectionsSse,
+  sectionsConflict, resolveSectionsConflictReload, resolveSectionsConflictForce
 } = useShowSections(props.id, meta)
 
 const aufbauFixedTabs = computed(() => [
@@ -938,7 +954,7 @@ async function confirmNewSection() {
   const id = uuid()
   const newDefs = [...sectionDefs.value, { id, title, type: newSectionType.value, order: sectionDefs.value.length, rows: newSectionType.value === 'kv-table' ? [] : undefined }]
   sectionDefs.value = newDefs
-  await saveShowSectionDefs(props.id, newDefs)
+  await persistSectionDefs()
   aufbauTab.value = `section:${id}`
 }
 
@@ -965,7 +981,7 @@ onMounted(async () => {
       const id = uuid()
       const newDefs = [...sectionDefs.value, { id, title: t('section.setup.default_title'), type: 'markdown', icon: 'setup', order: sectionDefs.value.length }]
       sectionDefs.value = newDefs
-      await saveShowSectionDefs(props.id, newDefs)
+      await persistSectionDefs()
     }
   } catch (e) {
     console.error('Ladefehler:', e)
