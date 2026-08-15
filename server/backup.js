@@ -8,6 +8,8 @@ import Database from 'better-sqlite3'
 import { config } from './config.js'
 import { dbContainer } from './db-init.js'
 
+let restoreInProgress = false
+
 export async function streamBackup(res) {
   const backupPath = path.join(config.dataPath, 'luxstage-backup.db')
 
@@ -38,150 +40,186 @@ export async function streamBackup(res) {
 }
 
 export async function restoreBackup(req, res) {
-  const restorePath = path.join(config.dataPath, 'luxstage-restore.zip')
-  const dbRestorePath = path.join(config.dataPath, 'luxstage-restore.db')
   const dbPath = path.join(config.dataPath, 'luxstage.db')
   const photosPath = path.join(config.dataPath, 'photos')
-
   const MAX_BACKUP_BYTES = 500 * 1024 * 1024 // 500 MB
 
-  // Step 1: Receive and write ZIP to disk
+  if (restoreInProgress) {
+    res.writeHead(409, { 'Content-Type': 'application/json' })
+    res.end(JSON.stringify({ error: 'Eine Wiederherstellung läuft bereits' }))
+    return
+  }
+  restoreInProgress = true
+
+  let workDir
   try {
-    const writeStream = createWriteStream(restorePath)
-    await new Promise((resolve, reject) => {
-      const cleanupTmp = async () => {
-        writeStream.destroy()
-        await fs.unlink(restorePath).catch(() => {})
-      }
-      let received = 0
-      req.on('data', chunk => {
-        received += chunk.length
-        if (received > MAX_BACKUP_BYTES) { req.destroy(); cleanupTmp(); reject(new Error('Upload zu groß')) }
-      })
-      req.pipe(writeStream)
-      writeStream.on('finish', resolve)
-      writeStream.on('error', (err) => { cleanupTmp(); reject(err) })
-      req.on('error', (err) => { cleanupTmp(); reject(err) })
-    })
-  } catch (err) {
-    console.error('Restore: Datei-Upload fehlgeschlagen:', err)
-    res.writeHead(500, { 'Content-Type': 'application/json' })
-    res.end(JSON.stringify({ error: 'Upload fehlgeschlagen' }))
-    return
-  }
+    workDir = await fs.mkdtemp(path.join(config.dataPath, '.restore-'))
+    const restorePath = path.join(workDir, 'backup.zip')
+    const dbRestorePath = path.join(workDir, 'luxstage.db')
+    const stagedPhotosPath = path.join(workDir, 'photos')
 
-  // Step 2: Extract DB file only from ZIP into luxstage-restore.db
-  let hasDb = false
-  try {
-    const zip = createReadStream(restorePath).pipe(unzipper.Parse({ forceStream: true }))
-    for await (const entry of zip) {
-      const fileName = entry.path
-      if (fileName === 'luxstage.db') {
-        hasDb = true
-        await new Promise((resolve, reject) => {
-          const out = createWriteStream(dbRestorePath)
-          entry.pipe(out)
-          out.on('finish', resolve)
-          out.on('error', reject)
-        })
-      } else {
-        // Skip everything else during this pass
-        entry.autodrain()
-      }
-    }
-  } catch (err) {
-    console.error('Restore: ZIP-Verarbeitung fehlgeschlagen:', err)
-    await fs.unlink(restorePath).catch(() => {})
-    await fs.unlink(dbRestorePath).catch(() => {})
-    res.writeHead(400, { 'Content-Type': 'application/json' })
-    res.end(JSON.stringify({ error: 'Ungültiges ZIP-Archiv' }))
-    return
-  }
+    // Step 1: Upload in ein request-eigenes Arbeitsverzeichnis schreiben.
+    await writeRequestToFile(req, restorePath, MAX_BACKUP_BYTES)
 
-  if (!hasDb) {
-    await fs.unlink(restorePath).catch(() => {})
-    res.writeHead(400, { 'Content-Type': 'application/json' })
-    res.end(JSON.stringify({ error: 'ZIP enthält keine luxstage.db' }))
-    return
-  }
+    // Step 2: DB isoliert extrahieren und prüfen.
+    const hasDb = await extractDatabase(restorePath, dbRestorePath)
+    if (!hasDb) throw new RestoreError(400, 'ZIP enthält keine luxstage.db')
+    await verifyDatabase(dbRestorePath)
 
-  // Step 3: Run PRAGMA integrity_check on temporary connection
-  let integrityCheckOk = false
-  let tempDb = null
-  try {
-    tempDb = new Database(dbRestorePath, { readonly: true })
-    const integrityResult = tempDb.prepare('PRAGMA integrity_check').all()
-    // If result is single row with 'ok', integrity is good. Otherwise, it failed.
-    integrityCheckOk = integrityResult.length === 1 && integrityResult[0]['integrity_check'] === 'ok'
-    tempDb.close()
-  } catch (err) {
-    console.error('Restore: DB-Integritätsprüfung fehlgeschlagen:', err)
-    if (tempDb) tempDb.close()
-    await fs.unlink(restorePath).catch(() => {})
-    await fs.unlink(dbRestorePath).catch(() => {})
-    res.writeHead(400, { 'Content-Type': 'application/json' })
-    res.end(JSON.stringify({ error: 'Datenbank-Integritätsprüfung fehlgeschlagen' }))
-    return
-  }
+    // Step 3: Fotos ebenfalls isoliert extrahieren. Live-Daten bleiben unberührt.
+    await extractPhotos(restorePath, stagedPhotosPath)
 
-  if (!integrityCheckOk) {
-    console.error('Restore: Integritätsprüfung fehlgeschlagen — DB ist beschädigt')
-    await fs.unlink(restorePath).catch(() => {})
-    await fs.unlink(dbRestorePath).catch(() => {})
-    res.writeHead(400, { 'Content-Type': 'application/json' })
-    res.end(JSON.stringify({ error: 'Datenbank ist beschädigt oder ungültig' }))
-    return
-  }
+    // Step 4: Alte Daten sichern, dann DB und Fotos als Paar aktivieren.
+    await activateRestore({ workDir, dbRestorePath, stagedPhotosPath, dbPath, photosPath })
 
-  // Step 4: Extract photos from ZIP (now that DB is valid)
-  try {
-    const zip = createReadStream(restorePath).pipe(unzipper.Parse({ forceStream: true }))
-    for await (const entry of zip) {
-      const fileName = entry.path
-      if (fileName.startsWith('photos/')) {
-        const relPath = fileName.slice('photos/'.length).replace(/\\/g, '/')
-        if (!relPath || relPath.endsWith('/') || entry.type === 'Directory') { entry.autodrain(); continue }
-        if (relPath.includes('..') || path.isAbsolute(relPath)) { entry.autodrain(); continue }
-        if (relPath.length > 255) { entry.autodrain(); continue }
-        if (!/\.(jpg|jpeg|png|gif|webp)$/i.test(relPath)) { entry.autodrain(); continue }
-        const destPath = path.resolve(photosPath, relPath)
-        if (!destPath.startsWith(photosPath + path.sep)) { entry.autodrain(); continue }
-        await fs.mkdir(path.dirname(destPath), { recursive: true })
-        await new Promise((resolve, reject) => {
-          const out = createWriteStream(destPath)
-          entry.pipe(out)
-          out.on('finish', resolve)
-          out.on('error', (err) => { out.destroy(); reject(err) })
-          entry.on('error', (err) => { out.destroy(); reject(err) })
-        })
-      } else {
-        entry.autodrain()
-      }
-    }
-  } catch (err) {
-    console.error('Restore: Foto-Extraktion fehlgeschlagen:', err)
-    await fs.unlink(restorePath).catch(() => {})
-    await fs.unlink(dbRestorePath).catch(() => {})
-    res.writeHead(400, { 'Content-Type': 'application/json' })
-    res.end(JSON.stringify({ error: 'Foto-Extraktion fehlgeschlagen' }))
-    return
-  }
-
-  await fs.unlink(restorePath).catch(() => {})
-
-  // Step 5: Atomic DB swap
-  try {
-    dbContainer.db.close()
-    await fs.rename(dbRestorePath, dbPath)
     res.writeHead(200, { 'Content-Type': 'application/json' })
     res.end(JSON.stringify({ ok: true, restart: true }))
-    // Step 6: Exit process
     setTimeout(() => process.exit(0), 500)
   } catch (err) {
     console.error('Restore: DB-Austausch fehlgeschlagen:', err)
-    await fs.unlink(dbRestorePath).catch(() => {})
-    res.writeHead(500, { 'Content-Type': 'application/json' })
-    res.end(JSON.stringify({ error: 'Datenbank konnte nicht ersetzt werden' }))
+    const status = err instanceof RestoreError ? err.status : 500
+    const error = err instanceof RestoreError ? err.message : 'Wiederherstellung fehlgeschlagen'
+    if (!res.headersSent) {
+      res.writeHead(status, { 'Content-Type': 'application/json' })
+      res.end(JSON.stringify({ error }))
+    }
+  } finally {
+    restoreInProgress = false
+    if (workDir) await fs.rm(workDir, { recursive: true, force: true }).catch(() => {})
+  }
+}
+
+class RestoreError extends Error {
+  constructor(status, message) {
+    super(message)
+    this.status = status
+  }
+}
+
+function writeRequestToFile(req, target, maxBytes) {
+  return new Promise((resolve, reject) => {
+    const output = createWriteStream(target)
+    let received = 0
+    req.on('data', chunk => {
+      received += chunk.length
+      if (received > maxBytes) {
+        req.destroy()
+        output.destroy()
+        reject(new RestoreError(413, 'Upload zu groß'))
+      }
+    })
+    req.pipe(output)
+    output.on('finish', resolve)
+    output.on('error', reject)
+    req.on('error', reject)
+  })
+}
+
+async function extractDatabase(archivePath, targetPath) {
+  let hasDb = false
+  try {
+    const zip = createReadStream(archivePath).pipe(unzipper.Parse({ forceStream: true }))
+    for await (const entry of zip) {
+      if (entry.path === 'luxstage.db' && !hasDb) {
+        hasDb = true
+        await pipeEntry(entry, targetPath)
+      } else {
+        entry.autodrain()
+      }
+    }
+    return hasDb
+  } catch {
+    throw new RestoreError(400, 'Ungültiges ZIP-Archiv')
+  }
+}
+
+async function verifyDatabase(dbPath) {
+  let database
+  try {
+    database = new Database(dbPath, { readonly: true })
+    const result = database.prepare('PRAGMA integrity_check').all()
+    if (result.length !== 1 || result[0].integrity_check !== 'ok') {
+      throw new Error('integrity_check failed')
+    }
+  } catch {
+    throw new RestoreError(400, 'Datenbank-Integritätsprüfung fehlgeschlagen')
+  } finally {
+    database?.close()
+  }
+}
+
+async function extractPhotos(archivePath, photosPath) {
+  await fs.mkdir(photosPath, { recursive: true })
+  try {
+    const zip = createReadStream(archivePath).pipe(unzipper.Parse({ forceStream: true }))
+    for await (const entry of zip) {
+      const relativePath = entry.path.startsWith('photos/')
+        ? entry.path.slice('photos/'.length).replace(/\\/g, '/')
+        : null
+      if (!isSafePhotoPath(relativePath, entry.type)) {
+        entry.autodrain()
+        continue
+      }
+      const targetPath = path.resolve(photosPath, relativePath)
+      if (!targetPath.startsWith(photosPath + path.sep)) {
+        entry.autodrain()
+        continue
+      }
+      await fs.mkdir(path.dirname(targetPath), { recursive: true })
+      await pipeEntry(entry, targetPath)
+    }
+  } catch (err) {
+    if (err instanceof RestoreError) throw err
+    throw new RestoreError(400, 'Foto-Extraktion fehlgeschlagen')
+  }
+}
+
+function isSafePhotoPath(relativePath, entryType) {
+  return Boolean(
+    relativePath &&
+    !relativePath.endsWith('/') &&
+    entryType !== 'Directory' &&
+    !relativePath.includes('..') &&
+    !path.isAbsolute(relativePath) &&
+    relativePath.length <= 255 &&
+    /\.(jpg|jpeg|png|gif|webp)$/i.test(relativePath)
+  )
+}
+
+function pipeEntry(entry, targetPath) {
+  return new Promise((resolve, reject) => {
+    const output = createWriteStream(targetPath)
+    entry.pipe(output)
+    output.on('finish', resolve)
+    output.on('error', reject)
+    entry.on('error', reject)
+  })
+}
+
+async function activateRestore({ workDir, dbRestorePath, stagedPhotosPath, dbPath, photosPath }) {
+  const previousDbPath = path.join(workDir, 'previous-luxstage.db')
+  const previousPhotosPath = path.join(workDir, 'previous-photos')
+  let dbMoved = false
+  let photosMoved = false
+
+  try {
+    dbContainer.db.close()
+    await fs.rename(dbPath, previousDbPath)
+    dbMoved = true
+    await fs.rename(dbRestorePath, dbPath)
+    await fs.rename(photosPath, previousPhotosPath).catch(err => {
+      if (err.code !== 'ENOENT') throw err
+    })
+    photosMoved = true
+    await fs.rename(stagedPhotosPath, photosPath)
+  } catch (err) {
+    await fs.rm(dbPath, { force: true }).catch(() => {})
+    if (dbMoved) await fs.rename(previousDbPath, dbPath).catch(() => {})
+    if (photosMoved) {
+      await fs.rm(photosPath, { recursive: true, force: true }).catch(() => {})
+      await fs.rename(previousPhotosPath, photosPath).catch(() => {})
+    }
+    throw err
   }
 }
 

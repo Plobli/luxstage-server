@@ -56,7 +56,7 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 | `./server/auth.js` | JWT-Token, Passwort-Hashing und kurzlebige Download-Token-Verwaltung. |
 | `./server/helpers.js` | Utility-Funktionen für Body-Parsing, JSON, Fehlerbehandlung. |
 | `./server/history.js` | Periodische Snapshots von Show-State zur Versionierung; sichert vor dem Wiederherstellen den aktuellen Stand. |
-| `./server/backup.js` | ZIP-basierte Backup- und Wiederherstellungsfunktionen. |
+| `./server/backup.js` | ZIP-basierte Backup- und Wiederherstellungsfunktionen mit request-isoliertem Staging, Restore-Lock und Rollback bei fehlerhaftem Daten-Swap. |
 | `./server/photos.js` | Foto-Upload mit Skalierung und Thumbnail-Generierung. |
 | `./server/floorplan.js` | Grundrissbild-Verwaltung mit Format-Validierung. |
 | `./server/pdf.js` | PDF-Export für Einleuchtpläne mit Filter-Farbcodierung, inkl. Punktzug-Sonderlayout und Traverse-Innen/Außen-Kennzeichnung. |
