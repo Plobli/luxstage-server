@@ -85,6 +85,15 @@ Extra-Konfiguration je Mandant.
 > intern spricht Caddy per HTTP mit dem Container. Der durchgereichte `Host`-Header
 > ist die Quelle der Mandanten-Auflösung.
 
+### Alternative: On-Demand-TLS
+
+Auf einem bestehenden Caddy-Host ohne DNS-Plugin kann Caddy Zertifikate auch
+pro bekannter Mandanten-Domain bei der ersten Anfrage ausstellen. LuxStage stellt
+dafür den eingeschränkten `GET /api/tls-check`-Endpoint bereit. Diese Variante
+verwendet keinen Wildcard-Zertifikatsblock und ist als konkrete Anleitung in
+`docs/deploy-cx43.md` beschrieben. Pro Deployment genau **eine** TLS-Variante
+konfigurieren: Wildcard per DNS-Challenge oder On-Demand-TLS.
+
 ## 4. Start
 
 ```sh

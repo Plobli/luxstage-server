@@ -35,7 +35,7 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 | `./.github/workflows/saas-image.yml` | GitHub Action: baut SaaS-Image nach GHCR bei `v*`-Tags. |
 | `./Dev-Server-App/LuxStageMenu.swift` | macOS-Menüleisten-App; startet/stoppt Dev-Server via `dev.sh`. |
 | `./Dev-Server-App/LuxStageMenu` | Kompilierte macOS-Executable der Menüleisten-App. |
-| `./docs/saas-betrieb.md` | Dokumentation für Multi-Mandanten-SaaS-Betrieb. |
+| `./docs/saas-betrieb.md` | Dokumentation für Multi-Mandanten-SaaS-Betrieb mit alternativem Wildcard- oder On-Demand-TLS. |
 | `./docs/deploy-cx43.md` | Deployment-Anleitung für Hetzner-CX43-Server. |
 | `./shared/locales/de.json` | Übersetzungen für deutsche Oberfläche. |
 | `./shared/locales/en.json` | Übersetzungen für englische Oberfläche. |
