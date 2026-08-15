@@ -14,6 +14,7 @@ export const config = {
   dataPath: process.env.DATA_PATH || path.join(__dirname, '..', 'data'),
   jwtSecret,
   appUrl: process.env.APP_URL || 'http://localhost:5173',
+  trustProxy: process.env.TRUST_PROXY === 'true',
   // SaaS: Basis-Domain, unter der Mandanten als Subdomain laufen (z. B. luxstage.app
   // für team-a.luxstage.app). Leer = Single-Tenant/Self-Hosted (keine Subdomain-Auflösung).
   baseDomain: process.env.BASE_DOMAIN || '',
