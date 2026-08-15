@@ -213,6 +213,27 @@ const PUBLIC_ROUTES = new Set([
   'GET /api/register/confirm',
 ])
 
+const API_ROUTE_HANDLERS = [
+  { matches: pathname => pathname.startsWith('/api/auth/'), handler: authRoutes },
+  { matches: pathname => pathname.startsWith('/api/me/') || pathname.startsWith('/api/users'), handler: userRoutes },
+  { matches: pathname => pathname.startsWith('/api/smtp'), handler: smtpRoutes },
+  { matches: pathname => pathname.startsWith('/api/settings/'), handler: displayRoutes },
+  { matches: pathname => pathname.startsWith('/api/update'), handler: updateRoutes },
+  { matches: pathname => pathname.startsWith('/api/floorplans/'), handler: floorplanRoutes },
+  { matches: pathname => pathname.startsWith('/api/templates'), handler: templateRoutes },
+]
+
+const SHOW_ROUTE_HANDLERS = [
+  { matches: pathname => /\/channels(\/|$)|\/checks(\/|$)/.test(pathname), handler: channelRoutes },
+  { matches: pathname => /\/photos(\/|$)|\/photo-/.test(pathname), handler: photoRoutes },
+  { matches: pathname => /\/sections(\/|$)|\/section-defs/.test(pathname), handler: sectionRoutes },
+  { matches: pathname => /\/floorplan(\/|$)/.test(pathname), handler: floorplanRoutes },
+  { matches: pathname => /\/towers(\/|$)/.test(pathname), handler: towerRoutes },
+  { matches: pathname => /\/bars(\/|$)/.test(pathname), handler: barRoutes },
+  { matches: pathname => /\/history(\/|$)/.test(pathname), handler: historyRoutes },
+  { matches: pathname => /\/pdf$/.test(pathname), handler: pdfRoutes },
+]
+
 async function handleApi(req, res, pathname, params) {
   if (!PUBLIC_ROUTES.has(`${req.method} ${pathname}`)) {
     const user = authenticate(req)
@@ -229,30 +250,29 @@ async function handleApi(req, res, pathname, params) {
 }
 
 async function dispatchApi(req, res, pathname, params) {
-      // Reihenfolge: spezifische Prefixe zuerst
-      if (saasEnabled && pathname.startsWith('/api/register')) { const r = await getSaas().registerRoutes(req, res, pathname); if (nil(r)) notFound(res); return }
-      if (pathname.startsWith('/api/auth/'))         { const r = await authRoutes(req, res, pathname);          if (nil(r)) notFound(res); return }
-      if (pathname.startsWith('/api/me/'))            { const r = await userRoutes(req, res, pathname);          if (nil(r)) notFound(res); return }
-      if (pathname.startsWith('/api/users'))          { const r = await userRoutes(req, res, pathname);          if (nil(r)) notFound(res); return }
-      if (pathname.startsWith('/api/smtp'))           { const r = await smtpRoutes(req, res, pathname);          if (nil(r)) notFound(res); return }
-      if (pathname.startsWith('/api/settings/'))      { const r = await displayRoutes(req, res, pathname);       if (nil(r)) notFound(res); return }
-      if (pathname.startsWith('/api/update'))         { const r = await updateRoutes(req, res, pathname, params); if (nil(r)) notFound(res); return }
-      if (pathname.startsWith('/api/floorplans/'))    { const r = await floorplanRoutes(req, res, pathname);     if (nil(r)) notFound(res); return }
-      if (pathname.startsWith('/api/templates'))      { const r = await templateRoutes(req, res, pathname);      if (nil(r)) notFound(res); return }
-      if (pathname.startsWith('/api/shows/')) {
-        // Sub-Ressourcen vor dem Show-Handler (spezifischer zuerst)
-        if (/\/channels(\/|$)|\/checks(\/|$)/.test(pathname)) { const r = await channelRoutes(req, res, pathname);   if (!nil(r)) return }
-        if (/\/photos(\/|$)|\/photo-/.test(pathname)) { const r = await photoRoutes(req, res, pathname, params);     if (!nil(r)) return }
-        if (/\/sections(\/|$)|\/section-defs/.test(pathname)) { const r = await sectionRoutes(req, res, pathname);  if (!nil(r)) return }
-        if (/\/floorplan(\/|$)/.test(pathname))       { const r = await floorplanRoutes(req, res, pathname);        if (!nil(r)) return }
-        if (/\/towers(\/|$)/.test(pathname))           { const r = await towerRoutes(req, res, pathname);            if (!nil(r)) return }
-        if (/\/bars(\/|$)/.test(pathname))             { const r = await barRoutes(req, res, pathname);              if (!nil(r)) return }
-        if (/\/history(\/|$)/.test(pathname))         { const r = await historyRoutes(req, res, pathname);          if (!nil(r)) return }
-        if (/\/pdf$/.test(pathname))                  { const r = await pdfRoutes(req, res, pathname);              if (nil(r)) notFound(res); return }
-        { const r = await showRoutes(req, res, pathname, params); if (nil(r)) notFound(res); return }
-      }
-      if (pathname === '/api/shows' || pathname === '/api/shows/archived') {
-        const r = await showRoutes(req, res, pathname, params); if (nil(r)) notFound(res); return
-      }
-      { const r = await systemRoutes(req, res, pathname); if (nil(r)) notFound(res); return }
+  if (saasEnabled && pathname.startsWith('/api/register')) {
+    return dispatchRoute(getSaas().registerRoutes, req, res, pathname, params)
+  }
+
+  const directRoute = API_ROUTE_HANDLERS.find(route => route.matches(pathname))
+  if (directRoute) return dispatchRoute(directRoute.handler, req, res, pathname, params)
+
+  if (pathname.startsWith('/api/shows/')) {
+    const showRoute = SHOW_ROUTE_HANDLERS.find(route => route.matches(pathname))
+    if (showRoute) {
+      const handled = await showRoute.handler(req, res, pathname, params)
+      if (!nil(handled)) return
+    }
+    return dispatchRoute(showRoutes, req, res, pathname, params)
+  }
+
+  if (pathname === '/api/shows' || pathname === '/api/shows/archived') {
+    return dispatchRoute(showRoutes, req, res, pathname, params)
+  }
+  return dispatchRoute(systemRoutes, req, res, pathname, params)
+}
+
+async function dispatchRoute(handler, req, res, pathname, params) {
+  const result = await handler(req, res, pathname, params)
+  if (nil(result)) notFound(res)
 }

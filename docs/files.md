@@ -47,7 +47,7 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 | Datei | Beschreibung |
 |---|---|
 | `./server/index.js` | HTTP-Server-Einstieg mit CORS, Security-Headern und Job-Starter. |
-| `./server/router.js` | HTTP-Router für API-Endpunkte und Datei-Serving; öffentliche API-Ausnahmen sind an Methode und Pfad gebunden. |
+| `./server/router.js` | HTTP-Router für API-Endpunkte und Datei-Serving; öffentliche API-Ausnahmen sind an Methode und Pfad gebunden, API- und Show-Unterressourcen laufen über geordnete Handler-Listen. |
 | `./server/config.js` | Lädt Umgebungsvariablen und Konfigurationsdefaults. |
 | `./server/bootstrap.js` | Einmaliges Setup-Skript; legt den ersten Admin an (Login = `ADMIN_EMAIL`). |
 | `./server/db.js` | Re-Export der Datenbank-Funktionen aus `db/index.js`. |
