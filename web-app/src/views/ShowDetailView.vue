@@ -484,6 +484,7 @@ import { saveShowFloorplanSnapshot } from '../api/floorplan.js'
 import { useShowTowers } from '../composables/useShowTowers.js'
 import { restoreTowersSnapshot } from '../api/towers.js'
 import { useShowBars } from '../composables/useShowBars.js'
+import { useShowHistory } from '../composables/useShowHistory.js'
 import { useMeasureUnit } from '../composables/useMeasureUnit'
 import { useShowTabs } from '../composables/useShowTabs.js'
 
@@ -505,7 +506,7 @@ import Checkbox from '@/components/ui/checkbox/Checkbox.vue'
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
-import { fetchShow, updateMeta, restoreHistory, createSnapshot, applyTemplateToShow, saveShowItemsToTemplate } from '../api/shows.js'
+import { fetchShow, updateMeta, createSnapshot, applyTemplateToShow, saveShowItemsToTemplate } from '../api/shows.js'
 import { invalidate } from '../api/cache.js'
 import { saveShowSectionDefs } from '../api/sections.ts'
 import { uuid } from '../utils/uuid.js'
@@ -551,7 +552,6 @@ const showDateFormatted = computed(() => {
 })
 const setupMarkdown = ref('')
 const setupSaving = ref(false)
-const historyOpen = ref(false)
 
 // ── Composables ────────────────────────────────────────────────────────────
 const photoGalleryRef = ref(null)
@@ -616,6 +616,12 @@ const {
 
 const { loadTowers, addTower, saveTower, removeTower, assignSlot } = useShowTowers(props.id, channels, towers)
 const { bars, loadBars, addBar, saveBar, removeBar, assignFixture, updateFixtureNotes, unassignFixture, reorderBars } = useShowBars(props.id, channels)
+
+const { historyOpen, openHistory, restore: doRestoreHistory } = useShowHistory(props.id, {
+  pushSnapshot,
+  loadChannels,
+  loadSections,
+})
 
 const { mobileTab, aufbauTab, tabMounted } = useShowTabs(props.id, aufbauSubTabs, {
   onLeaveChannels: () => {
@@ -699,17 +705,6 @@ async function onUpdateMeta(fields) {
   meta.value = { ...meta.value, ...fields }
   await updateMeta(props.id, { ...meta.value })
   invalidate('shows')
-}
-
-function openHistory() {
-  historyOpen.value = true
-}
-
-async function doRestoreHistory(entry) {
-  pushSnapshot()
-  await restoreHistory(props.id, entry.id)
-  await Promise.all([loadChannels(), loadSections()])
-  historyOpen.value = false
 }
 
 // ── PDF ────────────────────────────────────────────────────────────────────
