@@ -4,9 +4,11 @@
   "compilerOptions": {
     "composite": true,
     "ignoreDeprecations": "6.0",
+    "allowArbitraryExtensions": true,
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@shared/*": ["../shared/*"]
     }
   }
 }

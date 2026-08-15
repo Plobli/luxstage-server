@@ -6,7 +6,7 @@ import { tolgee } from './tolgee'
 import './style.css'
 
 // System-Theme anwenden und bei Änderungen aktualisieren
-function applyTheme(dark) {
+function applyTheme(dark: boolean) {
   document.documentElement.classList.toggle('dark', dark)
 }
 const mq = window.matchMedia('(prefers-color-scheme: dark)')
