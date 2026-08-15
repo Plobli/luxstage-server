@@ -1,6 +1,8 @@
 // LuxStage/server/backup.js
 import fs from 'node:fs/promises'
 import { createWriteStream, createReadStream } from 'node:fs'
+import { Transform } from 'node:stream'
+import { pipeline } from 'node:stream/promises'
 import archiver from 'archiver'
 import unzipper from 'unzipper'
 import path from 'node:path'
@@ -9,6 +11,11 @@ import { config } from './config.js'
 import { dbContainer } from './db-init.js'
 
 let restoreInProgress = false
+const MAX_BACKUP_BYTES = 500 * 1024 * 1024
+const MAX_ARCHIVE_ENTRIES = 10_000
+const MAX_EXTRACTED_BYTES = 2 * 1024 * 1024 * 1024
+const MAX_DATABASE_BYTES = 500 * 1024 * 1024
+const MAX_PHOTO_BYTES = 50 * 1024 * 1024
 
 export async function streamBackup(res) {
   const backupPath = path.join(config.dataPath, 'luxstage-backup.db')
@@ -42,7 +49,6 @@ export async function streamBackup(res) {
 export async function restoreBackup(req, res) {
   const dbPath = path.join(config.dataPath, 'luxstage.db')
   const photosPath = path.join(config.dataPath, 'photos')
-  const MAX_BACKUP_BYTES = 500 * 1024 * 1024 // 500 MB
 
   if (restoreInProgress) {
     res.writeHead(409, { 'Content-Type': 'application/json' })
@@ -62,12 +68,13 @@ export async function restoreBackup(req, res) {
     await writeRequestToFile(req, restorePath, MAX_BACKUP_BYTES)
 
     // Step 2: DB isoliert extrahieren und prüfen.
-    const hasDb = await extractDatabase(restorePath, dbRestorePath)
+    const limits = { entries: 0, extractedBytes: 0 }
+    const hasDb = await extractDatabase(restorePath, dbRestorePath, limits)
     if (!hasDb) throw new RestoreError(400, 'ZIP enthält keine luxstage.db')
     await verifyDatabase(dbRestorePath)
 
     // Step 3: Fotos ebenfalls isoliert extrahieren. Live-Daten bleiben unberührt.
-    await extractPhotos(restorePath, stagedPhotosPath)
+    await extractPhotos(restorePath, stagedPhotosPath, limits)
 
     // Step 4: Alte Daten sichern, dann DB und Fotos als Paar aktivieren.
     await activateRestore({ workDir, dbRestorePath, stagedPhotosPath, dbPath, photosPath })
@@ -115,14 +122,15 @@ function writeRequestToFile(req, target, maxBytes) {
   })
 }
 
-async function extractDatabase(archivePath, targetPath) {
+async function extractDatabase(archivePath, targetPath, limits) {
   let hasDb = false
   try {
     const zip = createReadStream(archivePath).pipe(unzipper.Parse({ forceStream: true }))
     for await (const entry of zip) {
+      countArchiveEntry(limits)
       if (entry.path === 'luxstage.db' && !hasDb) {
         hasDb = true
-        await pipeEntry(entry, targetPath)
+        await pipeEntry(entry, targetPath, limits, MAX_DATABASE_BYTES)
       } else {
         entry.autodrain()
       }
@@ -148,11 +156,12 @@ async function verifyDatabase(dbPath) {
   }
 }
 
-async function extractPhotos(archivePath, photosPath) {
+async function extractPhotos(archivePath, photosPath, limits) {
   await fs.mkdir(photosPath, { recursive: true })
   try {
     const zip = createReadStream(archivePath).pipe(unzipper.Parse({ forceStream: true }))
     for await (const entry of zip) {
+      countArchiveEntry(limits)
       const relativePath = entry.path.startsWith('photos/')
         ? entry.path.slice('photos/'.length).replace(/\\/g, '/')
         : null
@@ -166,7 +175,7 @@ async function extractPhotos(archivePath, photosPath) {
         continue
       }
       await fs.mkdir(path.dirname(targetPath), { recursive: true })
-      await pipeEntry(entry, targetPath)
+      await pipeEntry(entry, targetPath, limits, MAX_PHOTO_BYTES)
     }
   } catch (err) {
     if (err instanceof RestoreError) throw err
@@ -186,14 +195,29 @@ function isSafePhotoPath(relativePath, entryType) {
   )
 }
 
-function pipeEntry(entry, targetPath) {
-  return new Promise((resolve, reject) => {
-    const output = createWriteStream(targetPath)
-    entry.pipe(output)
-    output.on('finish', resolve)
-    output.on('error', reject)
-    entry.on('error', reject)
+function countArchiveEntry(limits) {
+  limits.entries += 1
+  if (limits.entries > MAX_ARCHIVE_ENTRIES) {
+    throw new RestoreError(400, 'ZIP enthält zu viele Dateien')
+  }
+}
+
+async function pipeEntry(entry, targetPath, limits, maxEntryBytes) {
+  let entryBytes = 0
+  const limiter = new Transform({
+    transform(chunk, encoding, callback) {
+      entryBytes += chunk.length
+      limits.extractedBytes += chunk.length
+      if (entryBytes > maxEntryBytes) {
+        callback(new RestoreError(400, 'ZIP enthält eine zu große Datei'))
+      } else if (limits.extractedBytes > MAX_EXTRACTED_BYTES) {
+        callback(new RestoreError(400, 'ZIP enthält zu viele entpackte Daten'))
+      } else {
+        callback(null, chunk)
+      }
+    },
   })
+  await pipeline(entry, limiter, createWriteStream(targetPath))
 }
 
 async function activateRestore({ workDir, dbRestorePath, stagedPhotosPath, dbPath, photosPath }) {
