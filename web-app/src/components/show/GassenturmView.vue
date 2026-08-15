@@ -51,24 +51,21 @@
         <div class="h-px bg-border mx-4" />
 
         <!-- Slots -->
-        <!-- BUG: Drag-Reorder verschiebt sich, weil dieses <template v-for> pro Slot
-             6 einzelne Grid-Zellen als direkte Geschwister-Kinder rendert (Handle,
-             Kanalnummer, Farbe, Separator, Device, Aktionen). Sortable.js (initSortable
-             unten) zählt DOM-Kindelemente des Containers als oldIndex/newIndex, sieht also
-             24 Items bei 4 Slots statt 4 — ein Drag verschiebt eine einzelne Grid-Zelle,
-             nicht den zusammenhängenden Slot. Fix: pro Slot einen echten Wrapper-Div mit
-             `display:contents` (oder Grid via CSS-Subgrid) verwenden, damit Sortable exakt
-             einen Kindknoten pro Slot sieht, das 6-Spalten-Layout aber erhalten bleibt. -->
         <div
           :key="slotRenderKey"
           :ref="el => initSortable(el, tower)"
           class="flex-1"
           style="display: grid; grid-template-columns: auto 3.5rem 3rem auto 1fr auto; grid-auto-rows: 3.25rem;"
         >
-          <template
+          <!-- CSS-Subgrid: ein echter DOM-Knoten pro Slot mit eigener Box, damit
+               Sortable.js ihn als Drag-Ziel erkennt (display:contents hat keine
+               Box und macht den Handle unklickbar) — subgrid übernimmt trotzdem
+               die 6 Spalten des äußeren Grids, das Layout bleibt unverändert. -->
+          <div
             v-for="slot in slotsFor(tower)"
             :key="slot.slot_index"
             :data-slot-index="slot.slot_index"
+            style="display: grid; grid-template-columns: subgrid; grid-column: 1 / -1;"
           >
             <!-- Drag handle + Slot-Nr -->
             <div class="flex items-center gap-1 pl-4 pr-2 py-3.5 border-b border-border/60 hover:bg-muted/20 transition-colors" @click.stop>
@@ -119,7 +116,7 @@
                 <ChevronsUpDown class="size-3" />
               </Button>
             </div>
-          </template>
+          </div>
         </div>
 
         <!-- Slot hinzufügen -->
