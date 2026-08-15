@@ -56,10 +56,12 @@ export function useShowSections(showId: string, meta: Ref<any>) {
 
   async function handleSectionsSse(): Promise<void> {
     if (ignoreSectionsSseCount > 0) { ignoreSectionsSseCount--; return }
-    const sections = await fetchShowSections(showId)
-    for (const { id, content } of (Array.isArray(sections) ? sections : [])) {
-      sectionContents.value.set(id, content)
-    }
+    const [sections, defs] = await Promise.all([
+      fetchShowSections(showId),
+      fetchShowSectionDefs(showId),
+    ])
+    sectionContents.value = new Map((Array.isArray(sections) ? sections : []).map(section => [section.id, section.content]))
+    sectionDefs.value = Array.isArray(defs) ? defs : []
   }
 
   async function persistSectionDefs(): Promise<void> {

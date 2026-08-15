@@ -35,6 +35,7 @@ export async function sectionRoutes(req, res, pathname) {
       const user = requireAdmin(req, res); if (!user) return
       const body = await readJsonBody(req, res); if (body === null) return
       db.writeShowSectionDefs(slug, body.sections, user.username)
+      broadcast(slug, 'sections-updated', { updatedBy: user.username })
       return json(res, 200, { ok: true })
     }
   }
