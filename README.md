@@ -111,8 +111,8 @@ Nach der Installation erreichbar unter:
 - **Extern:** Falls Domain angegeben, über diese erreichbar
 
 **Login-Daten:**
-- Admin: `admin` / Passwort (vom Installer)
-- Techniker: `tech` / Techniker-Passwort (vom Installer generiert)
+- Admin: E-Mail-Adresse aus dem Installer / gewähltes Admin-Passwort
+- Weitere Administratoren und Techniker: nach der Anmeldung unter **Einstellungen → Benutzer** anlegen
 
 ### Troubleshooting
 

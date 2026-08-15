@@ -17,7 +17,7 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 | `./entrypoint.saas.sh` | SaaS-Startskript; lädt Server ohne Bootstrap. |
 | `./install.sh` | Bash-Installer für Bare-Metal; richtet nvm, PM2, Caddy und Benutzer ein; übergibt Bootstrap-Secrets nur über kurzlebige, restriktiv berechtigte Umgebungsdatei. |
 | `./dev.sh` | Startet Server + Web-App lokal für Entwicklung. |
-| `./README.md` | Projekt-Übersicht, Features, Installation (Bare-Metal/Docker). |
+| `./README.md` | Projekt-Übersicht, Features und Installation (Bare-Metal/Docker) mit E-Mail-basiertem Admin-Login. |
 | `./package.json` | Monorepo-Root; Workspaces, better-sqlite3-Dependency, Versionsstand. |
 | `./package-lock.json` | Lock-Datei für Monorepo-Dependencies (server, web-app). |
 | `./.gitignore` | Ignoriert node_modules, dist, .env, Daten, iOS-Xcode-Artefakte. |
