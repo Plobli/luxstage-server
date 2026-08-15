@@ -25,12 +25,18 @@ export async function photoRoutes(req, res, pathname, params) {
     }
     if (method === 'POST') {
       const ct = req.headers['content-type'] || ''
-      const boundaryMatch = ct.match(/boundary=(.+)/)
-      if (!boundaryMatch) return json(res, 400, { error: 'Kein Boundary' })
-      const body = await photosLib.parseMultipart(req)
-      const parts = photosLib.extractFileFromMultipart(body, boundaryMatch[1])
-      const saved = await Promise.all(parts.map(part => photosLib.savePhoto(id, part.filename, part.data)))
-      return json(res, 201, { saved })
+      if (!ct.startsWith('multipart/form-data')) return json(res, 400, { error: 'Ungültiger Upload' })
+      let upload
+      try {
+        upload = await photosLib.parseMultipart(req)
+        const saved = await Promise.all(upload.files.map(file => photosLib.savePhoto(id, file.filename, file.path)))
+        return json(res, 201, { saved })
+      } catch (error) {
+        const status = /zu groß|zu viele/i.test(error.message) ? 413 : 400
+        return json(res, status, { error: error.message || 'Foto-Upload fehlgeschlagen' })
+      } finally {
+        await upload?.cleanup()
+      }
     }
   }
 
