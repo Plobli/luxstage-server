@@ -65,8 +65,8 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 | `./server/package.json` | NPM-Abhängigkeiten (sqlite, pdfkit, sharp, bcrypt, jwt). |
 | `./server/.env` | Server-Development-Umgebungsvariablen. |
 | `./server/saas.js` | Kapsel für SaaS-Funktionalität, lädt Module nur im SaaS-Modus. |
-| `./server/registry.js` | Zentrale Registrierung für Mandantenverzeichnis und Doppel-Opt-In. |
-| `./server/tenants.js` | Mandantenverzeichnis mit separaten SQLite-DBs pro Kunde. |
+| `./server/registry.js` | Zentrale Registrierung für Mandantenverzeichnis und Doppel-Opt-In; aktiviert Tenant-Eintrag und verbraucht Bestätigungslink atomar. |
+| `./server/tenants.js` | Mandantenverzeichnis mit separaten SQLite-DBs pro Kunde und Kompensation fehlgeschlagener Registrierungen. |
 | `./server/tenant-resolve.js` | Host-Header-Parsing für Subdomain-basierte Mandantenauflösung. |
 | `./server/tenant-backup.js` | Tägliche Snapshots pro Mandant mit Retention-Policy. |
 | `./server/operator.js` | Separater Admin-Login für Betreiber-Panel mit JWT. |

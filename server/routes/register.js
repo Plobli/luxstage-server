@@ -10,9 +10,9 @@ import { randomBytes } from 'node:crypto'
 import { json, readJsonBody } from '../helpers.js'
 import { hashPassword } from '../auth.js'
 import { config } from '../config.js'
-import { isValidTenantId, createTenant, tenantExists } from '../tenants.js'
+import { isValidTenantId, createTenant, deleteTenant, tenantExists } from '../tenants.js'
 import { isReservedSubdomain } from '../tenant-resolve.js'
-import { getRegistry, tenantIdTaken, emailTaken, recordTenant, addPending, takePending, hasPendingForTenant } from '../registry.js'
+import { getRegistry, tenantIdTaken, emailTaken, addPending, getPending, confirmPending, hasPendingForTenant } from '../registry.js'
 import { runWithDb } from '../db-context.js'
 import { sendConfirmEmail } from '../email.js'
 import { PASSWORD_MIN_LENGTH } from '../../shared/constants.js'
@@ -68,7 +68,7 @@ export async function registerRoutes(req, res, pathname) {
   if (method === 'GET' && pathname === '/api/register/confirm') {
     const url = new URL(req.url, 'http://localhost')
     const token = url.searchParams.get('token') || ''
-    const row = takePending(token)
+    const row = getPending(token)
     if (!row) return json(res, 400, { error: 'Bestätigungslink ungültig oder abgelaufen' })
 
     // Race/Doppelklick: Mandant könnte seit dem pending-Eintrag entstanden sein.
@@ -76,14 +76,25 @@ export async function registerRoutes(req, res, pathname) {
       return json(res, 409, { error: 'Team-Kürzel inzwischen vergeben' })
     }
 
-    // Mandanten-DB anlegen und ersten Admin direkt mit gewähltem Passwort-Hash schreiben.
-    const tdb = createTenant(row.tenant_id)
-    runWithDb(tdb, () => {
-      tdb.prepare(
-        'INSERT INTO users (username, password, role, email, requires_password_change) VALUES (?, ?, ?, ?, 0)'
-      ).run(row.email, row.password_hash, 'admin', row.email)
-    })
-    recordTenant(row.tenant_id, row.email)
+    let tenantCreated = false
+    try {
+      // Der Token bleibt gültig, bis Tenant-DB, erster Admin und Registry-Commit
+      // vollständig gelungen sind. Jeder Fehler räumt die vorbereitete DB weg.
+      const tdb = createTenant(row.tenant_id)
+      tenantCreated = true
+      runWithDb(tdb, () => {
+        tdb.prepare(
+          'INSERT INTO users (username, password, role, email, requires_password_change) VALUES (?, ?, ?, ?, 0)'
+        ).run(row.email, row.password_hash, 'admin', row.email)
+      })
+      if (!confirmPending(token, row.tenant_id, row.email)) {
+        throw new Error('Bestätigung wurde parallel verarbeitet')
+      }
+    } catch (err) {
+      if (tenantCreated) deleteTenant(row.tenant_id)
+      console.error(`[register] Bestätigung fehlgeschlagen: team=${row.tenant_id}`, err)
+      return json(res, 409, { error: 'Bestätigungslink wurde bereits verarbeitet. Bitte erneut versuchen.' })
+    }
 
     console.log(`[register] bestätigt: team=${row.tenant_id} email=${row.email}`)
     return json(res, 200, { ok: true, tenantId: row.tenant_id, loginUrl: tenantBaseUrl(row.tenant_id) })

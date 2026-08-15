@@ -53,12 +53,6 @@ export function emailTaken(email) {
   return !!getRegistry().prepare('SELECT 1 FROM tenants WHERE email = ?').get(email.toLowerCase())
 }
 
-export function recordTenant(tenantId, email) {
-  getRegistry().prepare(
-    'INSERT INTO tenants (tenant_id, email, created_at) VALUES (?, ?, ?)'
-  ).run(tenantId, email.toLowerCase(), now())
-}
-
 // Alle bestätigten Mandanten — für mandantenübergreifende Jobs (z. B. History).
 export function listTenantIds() {
   return getRegistry().prepare('SELECT tenant_id FROM tenants').all().map(r => r.tenant_id)
@@ -115,13 +109,27 @@ export function hasPendingForTenant(tenantId) {
   ).get(tenantId, now())
 }
 
-export function takePending(token) {
-  const reg = getRegistry()
-  const row = reg.prepare('SELECT * FROM pending_registrations WHERE token = ?').get(token)
-  if (!row) return null
-  reg.prepare('DELETE FROM pending_registrations WHERE token = ?').run(token) // einmalig
-  if (row.expires_at < now()) return null
+export function getPending(token) {
+  const row = getRegistry().prepare('SELECT * FROM pending_registrations WHERE token = ?').get(token)
+  if (!row || row.expires_at < now()) return null
   return row
+}
+
+// Aktiviert einen vorbereiteten Mandanten und verbraucht den Bestätigungslink
+// gemeinsam. Die Tenant-DB muss vorher vollständig angelegt worden sein.
+export function confirmPending(token, tenantId, email) {
+  const reg = getRegistry()
+  return reg.transaction(() => {
+    const row = reg.prepare('SELECT * FROM pending_registrations WHERE token = ?').get(token)
+    if (!row || row.expires_at < now() || row.tenant_id !== tenantId || row.email !== email.toLowerCase()) {
+      return false
+    }
+    reg.prepare(
+      'INSERT INTO tenants (tenant_id, email, created_at) VALUES (?, ?, ?)'
+    ).run(tenantId, email.toLowerCase(), now())
+    reg.prepare('DELETE FROM pending_registrations WHERE token = ?').run(token)
+    return true
+  })()
 }
 
 // ── Betreiber-Panel: Pending-Verwaltung ──────────────────────────────────────
