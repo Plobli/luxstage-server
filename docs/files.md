@@ -15,7 +15,7 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 | `./Dockerfile.saas` | Multi-Stage Build für SaaS-Image (baut Web-App, Module separat). |
 | `./entrypoint.sh` | Self-Hosted-Startskript; Bootstrap-Nutzer falls `.bootstrap-done` fehlt. |
 | `./entrypoint.saas.sh` | SaaS-Startskript; lädt Server ohne Bootstrap. |
-| `./install.sh` | Bash-Installer für Bare-Metal; richtet nvm, PM2, Caddy, Benutzer ein. |
+| `./install.sh` | Bash-Installer für Bare-Metal; richtet nvm, PM2, Caddy und Benutzer ein; übergibt Bootstrap-Secrets nur über kurzlebige, restriktiv berechtigte Umgebungsdatei. |
 | `./dev.sh` | Startet Server + Web-App lokal für Entwicklung. |
 | `./README.md` | Projekt-Übersicht, Features, Installation (Bare-Metal/Docker). |
 | `./package.json` | Monorepo-Root; Workspaces, better-sqlite3-Dependency, Versionsstand. |

@@ -202,20 +202,25 @@ ok "Datenverzeichnis bereit: $DATA_DIR"
 
 # ── Nutzer in DB anlegen ──────────────────────────────────────────────────────
 step "Lege Nutzer in Datenbank an..."
-BOOTSTRAPSCRIPT=$(mktemp /tmp/luxstage-bootstrap.XXXXXX.sh)
-chmod 755 "$BOOTSTRAPSCRIPT"
-cat > "$BOOTSTRAPSCRIPT" << BSEOF
-#!/usr/bin/env bash
-set -e
-export ADMIN_EMAIL='$ADMIN_EMAIL'
-export ADMIN_PASSWORD='$ADMIN_PASSWORD'
-export JWT_SECRET='$JWT_SECRET'
-export DATA_PATH='$DATA_DIR'
-. "\$HOME/.nvm/nvm.sh"
-node '$INSTALL_DIR/server/bootstrap.js'
-BSEOF
-sudo -i -u "$SERVICE_USER" bash "$BOOTSTRAPSCRIPT"
-rm -f "$BOOTSTRAPSCRIPT"
+BOOTSTRAP_ENV=$(mktemp /tmp/luxstage-bootstrap.XXXXXX.env)
+chmod 600 "$BOOTSTRAP_ENV"
+trap 'rm -f "$USERSCRIPT" "$BOOTSTRAP_ENV"' EXIT
+{
+  printf 'ADMIN_EMAIL=%q\n' "$ADMIN_EMAIL"
+  printf 'ADMIN_PASSWORD=%q\n' "$ADMIN_PASSWORD"
+  printf 'JWT_SECRET=%q\n' "$JWT_SECRET"
+  printf 'DATA_PATH=%q\n' "$DATA_DIR"
+} > "$BOOTSTRAP_ENV"
+chown "$SERVICE_USER:$SERVICE_USER" "$BOOTSTRAP_ENV"
+sudo -i -u "$SERVICE_USER" bash -c '
+  set -a
+  . "$1"
+  set +a
+  . "$HOME/.nvm/nvm.sh"
+  node "$2"
+' -- "$BOOTSTRAP_ENV" "$INSTALL_DIR/server/bootstrap.js"
+rm -f "$BOOTSTRAP_ENV"
+trap - EXIT
 ok "Nutzer angelegt"
 
 # ── CORS_ORIGINS zusammenstellen ─────────────────────────────────────────────
