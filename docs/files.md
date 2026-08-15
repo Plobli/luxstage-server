@@ -265,5 +265,5 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 | `./web-app/src/components/ui/badge/` | Badge/Tag-Komponente für Labels. |
 | `./web-app/src/components/ui/HelpIcon.vue` | Kleines Tooltip-Icon mit Hilfetext. |
 | `./web-app/src/components/ui/ToolBtn.vue` | Icon-Button für Toolbar-Aktionen. |
-| `./web-app/src/components/ui/SidebarBtn.vue` | Adaptive Button-Komponente für die Sidebar. |
+| `./web-app/src/components/ui/SidebarBtn.vue` | Adaptive Button-Komponente für Sidebar und horizontale Ribbon-Toolbar (icon-only oder mit Label). |
 | `./web-app/src/components/ui/PanelBtn.vue` | Kleine Button-Komponente für Panel-Aktionen. |

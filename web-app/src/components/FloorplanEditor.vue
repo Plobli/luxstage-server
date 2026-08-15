@@ -1,8 +1,8 @@
 <template>
-  <div class="relative flex h-full overflow-hidden bg-background text-foreground">
+  <div class="relative flex flex-col h-full overflow-hidden bg-background text-foreground">
     <!-- Placement status banner -->
     <Transition name="placement-banner">
-      <div v-if="pendingChannelForPlacement" class="absolute top-0 right-0 z-30 flex items-center gap-3 px-4 py-2 bg-destructive text-white text-sm font-medium shadow-md" :style="{ left: (sidebarExpanded ? 152 : 56) + 'px' }">
+      <div v-if="pendingChannelForPlacement" class="absolute top-0 right-0 z-30 flex items-center gap-3 px-4 py-2 bg-destructive text-white text-sm font-medium shadow-md">
         <span>
           <span class="font-bold">{{ t('floorplan.place.channel', { channel: pendingChannelForPlacement.channel }) }}</span>
           <span v-if="pendingChannelForPlacement.device" class="opacity-80"> · {{ pendingChannelForPlacement.device }}</span>
@@ -12,94 +12,82 @@
         </span>
       </div>
     </Transition>
-    <!-- Left Toolbar -->
-    <div
-      class="bg-muted/30 border-r border-border flex flex-col py-2 gap-0.5 z-10 shrink-0 overflow-y-auto transition-[width]"
-      :style="sidebarExpanded ? 'width:168px' : 'width:48px'"
-    >
-      <!-- Toggle -->
-      <button
-        class="flex items-center justify-center w-8 h-8 rounded-md hover:bg-muted mx-auto mb-1 text-muted-foreground shrink-0"
-        :title="sidebarExpanded ? t('floorplan.sidebar.collapse') : t('floorplan.sidebar.expand')"
-        @click="sidebarExpanded = !sidebarExpanded"
-      >
-        <PanelLeft v-if="sidebarExpanded" class="w-4 h-4" />
-        <PanelRight v-else class="w-4 h-4" />
-      </button>
-
+    <!-- Top Ribbon Toolbar -->
+    <div class="bg-muted/30 border-b border-border flex items-stretch py-1 px-1 gap-1 z-10 shrink-0 overflow-x-auto">
       <!-- Gruppe: Navigation -->
-      <div v-if="sidebarExpanded" class="px-3 pt-1 pb-0.5"><span class="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/50">{{ t('floorplan.group.navigation') }}</span></div>
-      <SidebarBtn :active="activeTool === 'select'" :expanded="sidebarExpanded" :title="t('floorplan.tool.select.title')" @click="activeTool = 'select'">
-        <MousePointer2 class="w-4 h-4 shrink-0" /><span v-if="sidebarExpanded" class="truncate">{{ t('floorplan.tool.select') }}</span>
-      </SidebarBtn>
-      <SidebarBtn :active="activeTool === 'pan'" :expanded="sidebarExpanded" :title="t('floorplan.tool.pan.title')" @click="activeTool = 'pan'">
-        <Hand class="w-4 h-4 shrink-0" /><span v-if="sidebarExpanded" class="truncate">{{ t('floorplan.tool.pan') }}</span>
-      </SidebarBtn>
+      <div class="flex items-center gap-0.5 px-1">
+        <SidebarBtn horizontal icon-only :active="activeTool === 'select'" :title="t('floorplan.tool.select.title')" @click="activeTool = 'select'">
+          <MousePointer2 class="w-4 h-4 shrink-0" />
+        </SidebarBtn>
+        <SidebarBtn horizontal icon-only :active="activeTool === 'pan'" :title="t('floorplan.tool.pan.title')" @click="activeTool = 'pan'">
+          <Hand class="w-4 h-4 shrink-0" />
+        </SidebarBtn>
+      </div>
+      <div class="w-px bg-border my-1 shrink-0"></div>
 
       <!-- Gruppe: Zeichnen -->
-      <div v-if="sidebarExpanded" class="px-3 pt-3 pb-0.5"><span class="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/50">{{ t('floorplan.group.draw') }}</span></div>
-      <div v-else class="h-2"></div>
-      <SidebarBtn :active="activeTool === 'line'" :expanded="sidebarExpanded" :title="t('floorplan.tool.line.title')" @click="activeTool = 'line'">
-        <Minus class="w-4 h-4 shrink-0 rotate-45" /><span v-if="sidebarExpanded" class="truncate">{{ t('floorplan.tool.line') }}</span>
-      </SidebarBtn>
-      <SidebarBtn :active="activeTool === 'rect'" :expanded="sidebarExpanded" :title="t('floorplan.tool.rect.title')" @click="activeTool = 'rect'">
-        <Square class="w-4 h-4 shrink-0" /><span v-if="sidebarExpanded" class="truncate">{{ t('floorplan.tool.rect') }}</span>
-      </SidebarBtn>
-      <SidebarBtn :active="activeTool === 'ellipse'" :expanded="sidebarExpanded" :title="t('floorplan.tool.ellipse.title')" @click="activeTool = 'ellipse'">
-        <Circle class="w-4 h-4 shrink-0" /><span v-if="sidebarExpanded" class="truncate">{{ t('floorplan.tool.ellipse') }}</span>
-      </SidebarBtn>
-      <SidebarBtn :active="activeTool === 'text'" :expanded="sidebarExpanded" :title="t('floorplan.tool.text.title')" @click="activeTool = 'text'">
-        <Type class="w-4 h-4 shrink-0" /><span v-if="sidebarExpanded" class="truncate">{{ t('floorplan.tool.text') }}</span>
-      </SidebarBtn>
+      <div class="flex items-center gap-0.5 px-1">
+        <SidebarBtn horizontal icon-only :active="activeTool === 'line'" :title="t('floorplan.tool.line.title')" @click="activeTool = 'line'">
+          <Minus class="w-4 h-4 shrink-0 rotate-45" />
+        </SidebarBtn>
+        <SidebarBtn horizontal icon-only :active="activeTool === 'rect'" :title="t('floorplan.tool.rect.title')" @click="activeTool = 'rect'">
+          <Square class="w-4 h-4 shrink-0" />
+        </SidebarBtn>
+        <SidebarBtn horizontal icon-only :active="activeTool === 'ellipse'" :title="t('floorplan.tool.ellipse.title')" @click="activeTool = 'ellipse'">
+          <Circle class="w-4 h-4 shrink-0" />
+        </SidebarBtn>
+        <SidebarBtn horizontal icon-only :active="activeTool === 'text'" :title="t('floorplan.tool.text.title')" @click="activeTool = 'text'">
+          <Type class="w-4 h-4 shrink-0" />
+        </SidebarBtn>
+      </div>
+      <div class="w-px bg-border my-1 shrink-0"></div>
 
       <!-- Gruppe: Lichttechnik -->
-      <div v-if="sidebarExpanded" class="px-3 pt-3 pb-0.5"><span class="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/50">{{ t('floorplan.group.lighting') }}</span></div>
-      <div v-else class="h-2"></div>
-      <SidebarBtn :active="activeTool === 'channel' || activeTool === 'channel-pending'" :expanded="sidebarExpanded" :title="t('floorplan.tool.channel.title')" @click="activeTool = 'channel'">
-        <CircleDot class="w-4 h-4 shrink-0" /><span v-if="sidebarExpanded" class="truncate">{{ t('floorplan.tool.channel') }}</span>
-      </SidebarBtn>
-      <SidebarBtn :active="activeTool === 'tower'" :expanded="sidebarExpanded" :title="t('floorplan.tool.tower.title')" @click="openTowerPlacer">
-        <Layers class="w-4 h-4 shrink-0" /><span v-if="sidebarExpanded" class="truncate">{{ t('floorplan.tool.tower') }}</span>
-      </SidebarBtn>
-      <SidebarBtn :active="activeTool === 'bar'" :expanded="sidebarExpanded" :title="t('floorplan.tool.bar.title')" @click="openBarPlacer">
-        <AlignJustify class="w-4 h-4 shrink-0" /><span v-if="sidebarExpanded" class="truncate">{{ t('floorplan.tool.bar') }}</span>
-      </SidebarBtn>
-      <SidebarBtn :active="activeTool === 'ruler'" :expanded="sidebarExpanded" :title="t('floorplan.tool.ruler.title')" @click="activeTool = 'ruler'">
-        <Ruler class="w-4 h-4 shrink-0" /><span v-if="sidebarExpanded" class="truncate">{{ t('floorplan.tool.ruler') }}</span>
-      </SidebarBtn>
+      <div class="flex items-stretch gap-0.5 px-1">
+        <SidebarBtn horizontal :active="activeTool === 'channel' || activeTool === 'channel-pending'" :title="t('floorplan.tool.channel.title')" @click="activeTool = 'channel'">
+          <CircleDot class="w-4 h-4 shrink-0" /><span class="w-full whitespace-normal wrap-break-word">{{ t('floorplan.tool.channel') }}</span>
+        </SidebarBtn>
+        <SidebarBtn horizontal :active="activeTool === 'tower'" :title="t('floorplan.tool.tower.title')" @click="openTowerPlacer">
+          <Layers class="w-4 h-4 shrink-0" /><span class="w-full whitespace-normal wrap-break-word">{{ t('floorplan.tool.tower') }}</span>
+        </SidebarBtn>
+        <SidebarBtn horizontal :active="activeTool === 'bar'" :title="t('floorplan.tool.bar.title')" @click="openBarPlacer">
+          <AlignJustify class="w-4 h-4 shrink-0" /><span class="w-full whitespace-normal wrap-break-word">{{ t('floorplan.tool.bar') }}</span>
+        </SidebarBtn>
+        <SidebarBtn horizontal :active="activeTool === 'ruler'" :title="t('floorplan.tool.ruler.title')" @click="activeTool = 'ruler'">
+          <Ruler class="w-4 h-4 shrink-0" /><span class="w-full whitespace-normal wrap-break-word">{{ t('floorplan.tool.ruler') }}</span>
+        </SidebarBtn>
+      </div>
+      <div class="w-px bg-border my-1 shrink-0"></div>
 
       <!-- Gruppe: Hintergrund -->
-      <div v-if="sidebarExpanded" class="px-3 pt-3 pb-0.5"><span class="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/50">{{ t('floorplan.group.background') }}</span></div>
-      <div v-else class="h-2"></div>
-      <SidebarBtn :expanded="sidebarExpanded" :title="t('floorplan.image.upload.title')" @click="imageUploadInput?.click()">
-        <Upload class="w-4 h-4 shrink-0" /><span v-if="sidebarExpanded" class="truncate">{{ t('floorplan.image.upload') }}</span>
-      </SidebarBtn>
-      <SidebarBtn v-if="bgImageSrc" variant="danger" :expanded="sidebarExpanded" :title="t('floorplan.image.remove.title')" @click="emit('delete-image')">
-        <ImageOff class="w-4 h-4 shrink-0" /><span v-if="sidebarExpanded" class="truncate">{{ t('floorplan.image.remove') }}</span>
-      </SidebarBtn>
-      <input ref="imageUploadInput" type="file" accept="image/*" class="hidden" @change="onImageFileSelected" />
+      <div class="flex items-center gap-0.5 px-1">
+        <SidebarBtn horizontal icon-only :title="t('floorplan.image.upload.title')" @click="imageUploadInput?.click()">
+          <Upload class="w-4 h-4 shrink-0" />
+        </SidebarBtn>
+        <SidebarBtn v-if="bgImageSrc" horizontal icon-only variant="danger" :title="t('floorplan.image.remove.title')" @click="emit('delete-image')">
+          <ImageOff class="w-4 h-4 shrink-0" />
+        </SidebarBtn>
+        <input ref="imageUploadInput" type="file" accept="image/*" class="hidden" @change="onImageFileSelected" />
+      </div>
+      <div class="w-px bg-border my-1 shrink-0"></div>
 
       <!-- Gruppe: Export -->
-      <div v-if="sidebarExpanded" class="px-3 pt-3 pb-0.5"><span class="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/50">{{ t('floorplan.group.export') }}</span></div>
-      <div v-else class="h-2"></div>
-      <SidebarBtn :expanded="sidebarExpanded" :title="t('floorplan.export.png.title')" @click="exportPNG">
-        <Download class="w-4 h-4 shrink-0" /><span v-if="sidebarExpanded" class="truncate">{{ t('floorplan.export.png') }}</span>
-      </SidebarBtn>
+      <div class="flex items-center gap-0.5 px-1">
+        <SidebarBtn horizontal icon-only :title="t('floorplan.export.png.title')" @click="exportPNG">
+          <Download class="w-4 h-4 shrink-0" />
+        </SidebarBtn>
+      </div>
+      <div class="w-px bg-border my-1 shrink-0"></div>
 
       <!-- Gruppe: Bearbeiten -->
-      <div v-if="sidebarExpanded" class="px-3 pt-3 pb-0.5"><span class="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/50">{{ t('floorplan.group.edit') }}</span></div>
-      <div v-else class="h-2"></div>
-      <SidebarBtn :disabled="historyIndex <= 0" :expanded="sidebarExpanded" :title="t('floorplan.undo.title')" @click="undo">
-        <Undo2 class="w-4 h-4 shrink-0" /><span v-if="sidebarExpanded" class="truncate">{{ t('floorplan.undo') }}</span>
-      </SidebarBtn>
-      <SidebarBtn :disabled="historyIndex >= history.length - 1" :expanded="sidebarExpanded" :title="t('floorplan.redo.title')" @click="redo">
-        <Redo2 class="w-4 h-4 shrink-0" /><span v-if="sidebarExpanded" class="truncate">{{ t('floorplan.redo') }}</span>
-      </SidebarBtn>
-      <SidebarBtn :disabled="selectedIds.size === 0" variant="danger" :expanded="sidebarExpanded" :title="t('floorplan.delete_selection.title')" @click="deleteSelected">
-        <Trash2 class="w-4 h-4 shrink-0" /><span v-if="sidebarExpanded" class="truncate">{{ t('floorplan.delete_selection') }}</span>
-      </SidebarBtn>
+      <div class="flex items-center gap-0.5 px-1">
+        <SidebarBtn horizontal icon-only :disabled="selectedIds.size === 0" variant="danger" :title="t('floorplan.delete_selection.title')" @click="deleteSelected">
+          <Trash2 class="w-4 h-4 shrink-0" />
+        </SidebarBtn>
+      </div>
     </div>
 
+    <div class="relative flex flex-1 min-h-0 overflow-hidden">
     <!-- Center Canvas -->
     <div
       ref="containerEl"
@@ -475,6 +463,7 @@
     </Transition>
 
     </div><!-- /Center Canvas -->
+    </div><!-- /flex row wrapper -->
 
     <!-- Reassign Dialog -->
     <Dialog :open="!!reassignTargetId" @update:open="val => { if (!val) reassignTargetId = null }">
@@ -569,8 +558,8 @@ import { getToken } from '@/api/client'
 import { uuid } from '../utils/uuid.js'
 import {
   Copy, MousePointer2, Hand, Minus, Square, Circle, Type, CircleDot,
-  Upload, ImageOff, Download, Undo2, Redo2, Trash2, Layers, AlignJustify, Ruler,
-  PanelLeft, PanelRight, X
+  Upload, ImageOff, Download, Trash2, Layers, AlignJustify, Ruler,
+  X
 } from 'lucide-vue-next'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -588,7 +577,6 @@ const props = defineProps({
 })
 const emit = defineEmits(['change', 'jump-to-channel', 'upload-image', 'delete-image', 'snapshot', 'open-tower', 'open-bar'])
 
-const sidebarExpanded = ref(true)
 const activeTool = ref('select')
 const elements = ref([])
 const selectedIds = ref(new Set())
