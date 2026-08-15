@@ -556,6 +556,7 @@ const { t } = useLocale()
 const { formatLength } = useMeasureUnit()
 import { getToken } from '@/api/client'
 import { uuid } from '../utils/uuid.js'
+import { captureFloorplanSnapshot, exportFloorplanPNG } from '../utils/floorplanSnapshot.js'
 import {
   Copy, MousePointer2, Hand, Minus, Square, Circle, Type, CircleDot,
   Upload, ImageOff, Download, Trash2, Layers, AlignJustify, Ruler,
@@ -1299,90 +1300,8 @@ function pushHistory() {
   h.push(snap); if (h.length > 100) h = h.slice(-100)
   history.value = h; historyIndex.value = history.value.length - 1
 }
-// Helle Fallback-Werte für CSS-Variablen im Snapshot (Theme-unabhängig)
-const SNAPSHOT_CSS_VARS = {
-  '--color-card': '#ffffff',
-  '--color-card-foreground': '#0a0a0a',
-  '--color-foreground': '#0a0a0a',
-  '--color-muted-foreground': '#6b7280',
-  '--color-accent': '#dc3740',
-  '--color-accent-foreground': '#ffffff',
-  '--color-ring': '#dc3740',
-  '--color-background': '#ffffff',
-  '--color-border': '#e5e7eb',
-  '--text-xs': '10px',
-  '--text-sm': '12px',
-  '--text-base': '14px',
-  '--text-xl': '18px',
-}
-
-function resolveCssVarsInSvg(svgEl) {
-  const resolve = (val) => {
-    if (!val) return val
-    return val.replace(/var\(([^),]+)(?:,[^)]+)?\)/g, (_, name) => {
-      return SNAPSHOT_CSS_VARS[name.trim()] ?? '#000000'
-    })
-  }
-  svgEl.querySelectorAll('*').forEach(el => {
-    for (const attr of ['fill', 'stroke', 'color']) {
-      const v = el.getAttribute(attr)
-      if (v && v.includes('var(')) el.setAttribute(attr, resolve(v))
-    }
-    if (el.style?.fill?.includes('var(')) el.style.fill = resolve(el.style.fill)
-    if (el.style?.stroke?.includes('var(')) el.style.stroke = resolve(el.style.stroke)
-    const fs = el.getAttribute('font-size')
-    if (fs && fs.includes('var(')) el.setAttribute('font-size', resolve(fs))
-  })
-}
-
-const SNAPSHOT_OVERFLOW = 120 // CSS-px Rand für overflow-visible Elemente am Stage-Rand
-
-async function captureSnapshot() {
-  if (!svgRef.value) return null
-  const SCALE = 3
-  const OV = SNAPSHOT_OVERFLOW
-  const w = stageSize.value.width
-  const h = stageSize.value.height
-  const canvas = document.createElement('canvas')
-  canvas.width = (w + OV * 2) * SCALE
-  canvas.height = (h + OV * 2) * SCALE
-  const ctx = canvas.getContext('2d')
-  ctx.scale(SCALE, SCALE)
-  ctx.fillStyle = '#ffffff'
-  ctx.fillRect(0, 0, w + OV * 2, h + OV * 2)
-  if (bgImage.value) ctx.drawImage(bgImage.value, OV, OV, w, h)
-  await new Promise(resolve => {
-    const svg = svgRef.value.cloneNode(true)
-    const bgImgNode = svg.querySelector('#bg-image')
-    if (bgImgNode) bgImgNode.remove()
-    resolveCssVarsInSvg(svg)
-    svg.setAttribute('width', String(w + OV * 2))
-    svg.setAttribute('height', String(h + OV * 2))
-    svg.setAttribute('viewBox', `${-OV} ${-OV} ${w + OV * 2} ${h + OV * 2}`)
-    const styleEl = document.createElementNS('http://www.w3.org/2000/svg', 'style')
-    styleEl.textContent = '* { font-family: Arial, Helvetica, sans-serif !important; }'
-    svg.insertBefore(styleEl, svg.firstChild)
-    let svgStr = new XMLSerializer().serializeToString(svg)
-    if (!svgStr.match(/^<svg[^>]+xmlns="http:\/\/www\.w3\.org\/2000\/svg"/)) {
-      svgStr = svgStr.replace(/^<svg/, '<svg xmlns="http://www.w3.org/2000/svg"')
-    }
-    const blob = new Blob([svgStr], { type: 'image/svg+xml' })
-    const url = URL.createObjectURL(blob)
-    const img = new Image()
-    img.onload = () => {
-      ctx.drawImage(img, 0, 0, w + OV * 2, h + OV * 2)
-      URL.revokeObjectURL(url)
-      resolve()
-    }
-    img.onerror = () => { URL.revokeObjectURL(url); resolve() }
-    img.src = url
-  })
-  return await new Promise(res => canvas.toBlob(blob => {
-    if (!blob) return res(null)
-    const reader = new FileReader()
-    reader.onload = () => res(reader.result)
-    reader.readAsDataURL(blob)
-  }, 'image/jpeg', 0.92))
+function captureSnapshot() {
+  return captureFloorplanSnapshot(svgRef.value, stageSize.value, bgImage.value)
 }
 function undo() {
   if (historyIndex.value <= 0) return
@@ -1400,26 +1319,7 @@ function emitChange() {
   captureSnapshot().then(snap => emit('change', data, snap))
 }
 function exportPNG() {
-  const canvas = document.createElement('canvas')
-  canvas.width = stageSize.value.width * 2; canvas.height = stageSize.value.height * 2
-  const ctx = canvas.getContext('2d'); ctx.scale(2, 2)
-  if (bgImage.value) ctx.drawImage(bgImage.value, 0, 0, stageSize.value.width, stageSize.value.height)
-  
-  const svg = svgRef.value.cloneNode(true)
-  const bgImgNode = svg.querySelector('#bg-image')
-  if (bgImgNode) bgImgNode.remove()
-  resolveCssVarsInSvg(svg)
-  svg.setAttribute('width', stageSize.value.width)
-  svg.setAttribute('height', stageSize.value.height)
-  let svgStr = new XMLSerializer().serializeToString(svg)
-  if (!svgStr.match(/^<svg[^>]+xmlns="http\:\/\/www\.w3\.org\/2000\/svg"/)) svgStr = svgStr.replace(/^<svg/, '<svg xmlns="http://www.w3.org/2000/svg"')
-
-  const img = new Image()
-  img.onload = () => {
-    ctx.drawImage(img, 0, 0)
-    const a = document.createElement('a'); a.href = canvas.toDataURL('image/png'); a.download = 'grundriss.png'; a.click()
-  }
-  img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svgStr)
+  exportFloorplanPNG(svgRef.value, stageSize.value, bgImage.value)
 }
 
 function isInputFocused() { const el = document.activeElement; return el?.tagName === 'INPUT' || el?.tagName === 'TEXTAREA' || !!el?.isContentEditable }
