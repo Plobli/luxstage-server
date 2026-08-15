@@ -4,6 +4,7 @@ import { createWriteStream } from 'node:fs'
 import path from 'node:path'
 import { randomUUID } from 'node:crypto'
 import Busboy from 'busboy'
+import { Transform } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
 import sharp from 'sharp'
 import { config } from './config.js'
@@ -151,6 +152,7 @@ const MAX_PHOTO_UPLOAD_FILES = 20
 export async function parseMultipart(req) {
   const uploadDir = await fs.mkdtemp(path.join(config.dataPath, '.upload-'))
   const files = []
+  let totalBytes = 0
   try {
     await new Promise((resolve, reject) => {
       let rejected = false
@@ -167,7 +169,14 @@ export async function parseMultipart(req) {
 
       parser.on('file', (fieldname, stream, info) => {
         const tempPath = path.join(uploadDir, randomUUID())
-        writes.push(pipeline(stream, createWriteStream(tempPath)).then(() => {
+        const totalLimit = new Transform({
+          transform(chunk, encoding, callback) {
+            totalBytes += chunk.length
+            if (totalBytes > MAX_PHOTO_UPLOAD_BYTES) callback(new Error('Upload zu groß'))
+            else callback(null, chunk)
+          },
+        })
+        writes.push(pipeline(stream, totalLimit, createWriteStream(tempPath)).then(() => {
           if (stream.truncated) throw new Error('Upload zu groß')
           files.push({ fieldname, filename: info.filename, path: tempPath })
         }))
