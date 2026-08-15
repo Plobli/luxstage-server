@@ -21,28 +21,13 @@ export function useUndoRedo<T>(
   getState: () => T, 
   applyState: (snapshot: T) => void, 
   cancelPendingSaves: () => void, 
-  saveNow: () => void = () => {}, 
-  storageKey: string | null = null
+  saveNow: () => void = () => {}
 ): UseUndoRedoReturn {
   // Use unknown as intermediate to avoid deep nested ref issues if T is complex
   const past = ref<T[]>([]) as Ref<T[]>
   const future = ref<T[]>([]) as Ref<T[]>
 
   let focusSnapshot: T | null = null  // Zustand beim letzten @focus
-
-  // ── sessionStorage ────────────────────────────────────────────────────────
-
-  function _saveToStorage(): void {
-    if (!storageKey) return
-    try {
-      sessionStorage.setItem(storageKey, JSON.stringify({ past: past.value, future: future.value }))
-    } catch { /* QuotaExceededError — ignorieren */ }
-  }
-
-  function _clearStorage(): void {
-    if (!storageKey) return
-    sessionStorage.removeItem(storageKey)
-  }
 
   // ── Hilfsfunktionen ───────────────────────────────────────────────────────
 
@@ -65,14 +50,12 @@ export function useUndoRedo<T>(
     future.value = []
     past.value.push(snapshot)
     if (past.value.length > MAX_HISTORY) past.value.shift()
-    _saveToStorage()
   }
 
   // ── Öffentliche API ───────────────────────────────────────────────────────
 
   /** Beim Öffnen einer Show: sauberer Ausgangspunkt. */
   function initSnapshot(): void {
-    _clearStorage()
     focusSnapshot = null
     try {
       past.value = [_cloneState()]
@@ -81,7 +64,6 @@ export function useUndoRedo<T>(
       past.value = []
     }
     future.value = []
-    _saveToStorage()
   }
 
   /** @focus auf einem Textfeld — merkt sich den Zustand VOR der Eingabe. */
@@ -124,7 +106,6 @@ export function useUndoRedo<T>(
     cancelPendingSaves()
     if (prev !== undefined) applyState(prev)
     saveNow()
-    _saveToStorage()
   }
 
   function redo(): void {
@@ -136,7 +117,6 @@ export function useUndoRedo<T>(
     cancelPendingSaves()
     if (next !== undefined) applyState(next)
     saveNow()
-    _saveToStorage()
   }
 
   const canUndo = computed(() => past.value.length > 1)

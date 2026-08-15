@@ -119,8 +119,7 @@ export function useShowChannels({
         persistSetupDebounced()
         persistSections()
         persistSectionDefs()
-      },
-      `undoredo-${showId}`
+      }
     )
 
   function onUndoRedoKeydown(e: KeyboardEvent): void {

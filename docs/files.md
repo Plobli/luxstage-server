@@ -163,7 +163,7 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 | `./web-app/src/composables/useShowHistory.js` | Verwaltet Öffnen und Wiederherstellen des Show-Versionsverlaufs inklusive Daten-Reload. |
 | `./web-app/src/composables/useShowTowers.ts` | Verwaltet Türme (Lichtstative) mit Slot-Zuweisungen. |
 | `./web-app/src/composables/useShowPhotos.ts` | Lädt Fotos-Liste pro Show. |
-| `./web-app/src/composables/useUndoRedo.ts` | Allgemeines Undo/Redo mit SessionStorage und Focus-Tracking. |
+| `./web-app/src/composables/useUndoRedo.ts` | Allgemeines speicherinternes Undo/Redo mit Focus-Tracking für die aktuelle Show-Sitzung. |
 | `./web-app/src/composables/useShowBars.ts` | Verwaltet Obermaschinerie-Elemente mit Fixtures (inkl. side/positionText) und Kanal-Zuordnungen. |
 
 ### web-app/src/utils/
