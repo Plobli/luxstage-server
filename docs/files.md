@@ -133,6 +133,7 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 | `./web-app/.env.development.local` | Lokale Tolgee-Server-URL und API-Key (nicht versioniert). |
 | `./web-app/.tolgeerc.json` | Tolgee-CLI-Config für `npm run tolgee:push`/`tolgee:pull`. |
 | `./web-app/src/main.ts` | Bootstrap: erstellt Vue-App, registriert Router und Tolgee, wendet System-Theme an. |
+| `./web-app/src/env.d.ts` | Vite-Umgebungs- und Build-Konstanten-Typen für den Typecheck. |
 | `./web-app/src/tolgee.ts` | Zentrale Tolgee-Instanz: Dev lädt live vom Server (In-Context-Editor), Prod nutzt shared/locales als staticData. |
 | `./web-app/src/App.vue` | Root-Komponente: TolgeeProvider, Sidebar, Top-Bar, Routing, globale Dialoge und Status-Updates. |
 | `./web-app/src/style.css` | Tailwind, Theme-Variablen, Print-Styles für Tabellen und Foto-Galerien. |
