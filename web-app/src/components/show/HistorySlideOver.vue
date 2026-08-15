@@ -27,7 +27,8 @@
 
       <!-- Snapshot list -->
       <div v-else-if="!currentEntry" class="flex-1 overflow-y-auto">
-        <p v-if="entries.length === 0" class="px-4 py-6 text-sm text-muted-foreground">{{ labels.empty }}</p>
+        <p v-if="error" class="px-4 py-6 text-sm text-destructive">{{ error }}</p>
+        <p v-else-if="entries.length === 0" class="px-4 py-6 text-sm text-muted-foreground">{{ labels.empty }}</p>
         <Button
           v-for="entry in entries"
           :key="entry.id"
@@ -106,6 +107,8 @@ const loading = ref(false)
 const entries = ref([])
 const currentEntry = ref(null)
 const confirmOpen = ref(false)
+const error = ref('')
+let requestVersion = 0
 
 function doRestore() {
   confirmOpen.value = false
@@ -113,17 +116,33 @@ function doRestore() {
 }
 
 watch(() => props.open, async (val) => {
+  const version = ++requestVersion
   confirmOpen.value = false
   if (!val) { currentEntry.value = null; return }
   loading.value = true
   currentEntry.value = null
-  entries.value = await fetchHistory(props.showId)
-  loading.value = false
+  error.value = ''
+  try {
+    const nextEntries = await fetchHistory(props.showId)
+    if (version === requestVersion) entries.value = nextEntries
+  } catch {
+    if (version === requestVersion) error.value = 'Versionsverlauf konnte nicht geladen werden.'
+  } finally {
+    if (version === requestVersion) loading.value = false
+  }
 })
 
 async function loadEntry(id) {
+  const version = ++requestVersion
   loading.value = true
-  currentEntry.value = await fetchHistoryEntry(props.showId, id)
-  loading.value = false
+  error.value = ''
+  try {
+    const entry = await fetchHistoryEntry(props.showId, id)
+    if (version === requestVersion) currentEntry.value = entry
+  } catch {
+    if (version === requestVersion) error.value = 'Version konnte nicht geladen werden.'
+  } finally {
+    if (version === requestVersion) loading.value = false
+  }
 }
 </script>
