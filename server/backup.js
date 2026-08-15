@@ -32,6 +32,7 @@ export async function streamBackup(res) {
   res.writeHead(200, {
     'Content-Type': 'application/zip',
     'Content-Disposition': `attachment; filename="luxstage-backup-${timestamp()}.zip"`,
+    'Referrer-Policy': 'no-referrer',
   })
 
   const archive = archiver('zip', { zlib: { level: 6 } })

@@ -133,6 +133,7 @@ export async function photoRoutes(req, res, pathname, params) {
           'Content-Type': 'image/jpeg',
           'Content-Length': stat.size,
           'Cache-Control': 'public, max-age=86400',
+          'Referrer-Policy': 'no-referrer',
         })
         fs.createReadStream(resolvedPath).pipe(res)
       } catch { return notFound(res) }

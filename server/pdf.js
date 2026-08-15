@@ -77,6 +77,7 @@ export async function generatePDF(show, channels, sectionsMap, templateSections,
   res.writeHead(200, {
     'Content-Type': 'application/pdf',
     'Content-Disposition': `inline; filename="einleuchtplan-${fm.name || 'show'}.pdf"`,
+    'Referrer-Policy': 'no-referrer',
   })
   doc.pipe(res)
 
