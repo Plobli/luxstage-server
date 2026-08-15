@@ -101,7 +101,7 @@ export async function operatorRoutes(req, res, pathname) {
     if (!getTenant(id)) return json(res, 404, { error: 'Mandant nicht gefunden' })
     const body = await readJsonBody(req, res); if (body === null) return
     try {
-      restoreSnapshot(id, String(body.name || ''))
+      await restoreSnapshot(id, String(body.name || ''))
       console.log(`[operator] Snapshot wiederhergestellt: ${id}/${body.name}`)
       return json(res, 200, { ok: true })
     } catch (err) {

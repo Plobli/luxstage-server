@@ -73,9 +73,10 @@ function isValidSnapshot(file) {
   }
 }
 
-// Stellt einen Snapshot wieder her: aktuelle DB durch den Snapshot ersetzen.
-// Ohne Prozess-Neustart — nur die eine Mandanten-Verbindung wird neu geöffnet.
-export function restoreSnapshot(tenantId, name) {
+// Stellt einen Snapshot wieder her: Vorher wird der Ist-Zustand gesichert.
+// Die Aktivierung erfolgt per Rename im Tenant-Verzeichnis und wird bei einem
+// Fehler beim Wiederöffnen der DB auf den vorherigen Stand zurückgedreht.
+export async function restoreSnapshot(tenantId, name) {
   if (!isValidTenantId(tenantId)) throw new Error('Ungültige tenantId')
   // Pfad-Traversal ausschließen: nur Dateinamen aus dem Backup-Verzeichnis.
   if (name.includes('/') || name.includes('..') || !name.endsWith('.db')) {
@@ -86,15 +87,54 @@ export function restoreSnapshot(tenantId, name) {
   if (!isValidSnapshot(src)) throw new Error('Snapshot ist keine gültige LuxStage-Datenbank')
 
   const dbPath = tenantDbPath(tenantId)
-  // Vor dem Ersetzen sicherheitshalber einen Snapshot des Ist-Zustands ziehen wäre möglich;
-  // hier: Verbindung schließen, Datei atomar ersetzen, WAL/SHM-Reste entfernen.
-  closeTenantDb(tenantId)
-  fs.copyFileSync(src, dbPath)
-  for (const ext of ['-wal', '-shm']) {
-    fs.rmSync(dbPath + ext, { force: true })
+  await createSnapshot(tenantId)
+
+  const suffix = `.restore-${process.pid}-${Date.now()}`
+  const stagedPath = dbPath + suffix
+  const previousPath = dbPath + '.before-restore'
+  const previousWalPath = previousPath + '-wal'
+  const previousShmPath = previousPath + '-shm'
+
+  fs.copyFileSync(src, stagedPath)
+  if (!isValidSnapshot(stagedPath)) {
+    fs.rmSync(stagedPath, { force: true })
+    throw new Error('Snapshot konnte nicht vorbereitet werden')
   }
-  // Nächster openTenantDb() öffnet die wiederhergestellte Datei frisch.
-  openTenantDb(tenantId)
+
+  closeTenantDb(tenantId)
+  let previousMoved = false
+  try {
+    fs.renameSync(dbPath, previousPath)
+    previousMoved = true
+    moveIfExists(dbPath + '-wal', previousWalPath)
+    moveIfExists(dbPath + '-shm', previousShmPath)
+    fs.renameSync(stagedPath, dbPath)
+    openTenantDb(tenantId)
+  } catch (err) {
+    if (!previousMoved) {
+      fs.rmSync(stagedPath, { force: true })
+      openTenantDb(tenantId)
+      throw new Error(`Snapshot konnte nicht vorbereitet werden: ${err.message}`)
+    }
+    closeTenantDb(tenantId)
+    fs.rmSync(dbPath, { force: true })
+    fs.rmSync(dbPath + '-wal', { force: true })
+    fs.rmSync(dbPath + '-shm', { force: true })
+    moveIfExists(previousPath, dbPath)
+    moveIfExists(previousWalPath, dbPath + '-wal')
+    moveIfExists(previousShmPath, dbPath + '-shm')
+    fs.rmSync(stagedPath, { force: true })
+    openTenantDb(tenantId)
+    throw new Error(`Snapshot konnte nicht aktiviert werden: ${err.message}`)
+  }
+
+  fs.rmSync(previousPath, { force: true })
+  fs.rmSync(previousWalPath, { force: true })
+  fs.rmSync(previousShmPath, { force: true })
+}
+
+function moveIfExists(source, target) {
+  if (fs.existsSync(source)) fs.renameSync(source, target)
 }
 
 // Snapshot einer Datei zum Download bereitstellen (absoluter Pfad oder null).
