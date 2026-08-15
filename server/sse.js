@@ -89,7 +89,7 @@ export function getPresence(showId) {
 }
 
 // Heartbeat: tote Sockets entfernen, Verbindungsabbrüche durch Reverse-Proxies verhindern
-setInterval(() => {
+const heartbeat = setInterval(() => {
   for (const map of clients.values()) {
     for (const res of map.keys()) {
       res.write(':\n\n', (err) => {
@@ -98,3 +98,4 @@ setInterval(() => {
     }
   }
 }, 15_000)
+heartbeat.unref()

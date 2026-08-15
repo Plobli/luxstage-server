@@ -201,18 +201,20 @@ const PUBLIC_SPA_PATHS = new Set([
 ])
 
 // Öffentliche API-Endpunkte ohne Auth (im jeweiligen DB-Kontext ausgeführt).
-const PUBLIC_ENDPOINTS = new Set([
-  '/api/auth/login',
-  '/api/auth/capabilities',
-  '/api/auth/forgot-password',
-  '/api/auth/reset-password/confirm',
-  '/api/health',
-  '/api/register',
-  '/api/register/confirm',
+// Methode und Pfad gehören zusammen, damit etwa ein POST auf den Health-Pfad
+// nicht unabsichtlich dieselbe Ausnahme wie sein öffentlicher GET-Check erhält.
+const PUBLIC_ROUTES = new Set([
+  'POST /api/auth/login',
+  'GET /api/auth/capabilities',
+  'POST /api/auth/forgot-password',
+  'POST /api/auth/reset-password/confirm',
+  'GET /api/health',
+  'POST /api/register',
+  'GET /api/register/confirm',
 ])
 
 async function handleApi(req, res, pathname, params) {
-  if (!PUBLIC_ENDPOINTS.has(pathname)) {
+  if (!PUBLIC_ROUTES.has(`${req.method} ${pathname}`)) {
     const user = authenticate(req)
     if (!user) return json(res, 401, { error: 'Nicht angemeldet' })
     // Token an Subdomain binden: ein für Mandant A ausgestellter Token darf nicht

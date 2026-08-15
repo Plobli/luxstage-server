@@ -47,7 +47,7 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 | Datei | Beschreibung |
 |---|---|
 | `./server/index.js` | HTTP-Server-Einstieg mit CORS, Security-Headern und Job-Starter. |
-| `./server/router.js` | HTTP-Router für API-Endpunkte und Datei-Serving. |
+| `./server/router.js` | HTTP-Router für API-Endpunkte und Datei-Serving; öffentliche API-Ausnahmen sind an Methode und Pfad gebunden. |
 | `./server/config.js` | Lädt Umgebungsvariablen und Konfigurationsdefaults. |
 | `./server/bootstrap.js` | Einmaliges Setup-Skript; legt den ersten Admin an (Login = `ADMIN_EMAIL`). |
 | `./server/db.js` | Re-Export der Datenbank-Funktionen aus `db/index.js`. |
@@ -60,11 +60,12 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 | `./server/photos.js` | Foto-Upload mit Skalierung und Thumbnail-Generierung. |
 | `./server/floorplan.js` | Grundrissbild-Verwaltung mit Format-Validierung. |
 | `./server/pdf.js` | PDF-Export für Einleuchtpläne mit Filter-Farbcodierung, inkl. Punktzug-Sonderlayout und Traverse-Innen/Außen-Kennzeichnung. |
-| `./server/sse.js` | Server-Sent Events für Echtzeit-Kanal-Updates und Präsenz, pro Mandant gescopt. |
+| `./server/sse.js` | Server-Sent Events für Echtzeit-Kanal-Updates und Präsenz, pro Mandant gescopt; Heartbeat blockiert keine Einmalprozesse. |
 | `./server/email.js` | SMTP-Konfiguration und Email-Versand mit Fallback-Support. |
 | `./server/package.json` | NPM-Abhängigkeiten (sqlite, pdfkit, sharp, bcrypt, jwt). |
 | `./server/test/helpers/test-env.js` | Isolierte Testumgebung mit temporärem Datenpfad und HTTP-Response-Stub für Backend-Tests. |
 | `./server/test/register.test.js` | Regressionstests für atomare SaaS-Registrierungsbestätigung und Cleanup bei Registry-Konflikten. |
+| `./server/test/router.test.js` | Regressionstests für öffentliche API-Methoden und Authentifizierungsgrenzen des HTTP-Routers. |
 | `./server/test/tenant-backup.test.js` | Regressionstests für Tenant-Snapshot-Restore und Rollback bei fehlgeschlagener Aktivierung. |
 | `./server/.env` | Server-Development-Umgebungsvariablen. |
 | `./server/saas.js` | Kapsel für SaaS-Funktionalität, lädt Module nur im SaaS-Modus. |
