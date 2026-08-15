@@ -53,7 +53,7 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 | `./server/db.js` | Re-Export der Datenbank-Funktionen aus `db/index.js`. |
 | `./server/db-init.js` | Datenbankverbindung und Schema-Initialisierung. |
 | `./server/db-context.js` | Request-gebundener DB-Kontext für Multi-Tenancy (AsyncLocalStorage). |
-| `./server/auth.js` | JWT-Token, Passwort-Hashing und kurzlebige Download-Token-Verwaltung. |
+| `./server/auth.js` | JWT-Token, Passwort-Hashing und kurzlebige Download-Token-Verwaltung; Cleanup-Timer blockiert keine Einmalprozesse. |
 | `./server/helpers.js` | Utility-Funktionen für Body-Parsing, JSON, Fehlerbehandlung. |
 | `./server/history.js` | Periodische Snapshots von Show-State zur Versionierung; sichert vor dem Wiederherstellen den aktuellen Stand. |
 | `./server/backup.js` | ZIP-basierte Backup- und Wiederherstellungsfunktionen mit request-isoliertem Staging, Restore-Lock und Rollback bei fehlerhaftem Daten-Swap. |
@@ -63,6 +63,9 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 | `./server/sse.js` | Server-Sent Events für Echtzeit-Kanal-Updates und Präsenz, pro Mandant gescopt. |
 | `./server/email.js` | SMTP-Konfiguration und Email-Versand mit Fallback-Support. |
 | `./server/package.json` | NPM-Abhängigkeiten (sqlite, pdfkit, sharp, bcrypt, jwt). |
+| `./server/test/helpers/test-env.js` | Isolierte Testumgebung mit temporärem Datenpfad und HTTP-Response-Stub für Backend-Tests. |
+| `./server/test/register.test.js` | Regressionstests für atomare SaaS-Registrierungsbestätigung und Cleanup bei Registry-Konflikten. |
+| `./server/test/tenant-backup.test.js` | Regressionstests für Tenant-Snapshot-Restore und Rollback bei fehlgeschlagener Aktivierung. |
 | `./server/.env` | Server-Development-Umgebungsvariablen. |
 | `./server/saas.js` | Kapsel für SaaS-Funktionalität, lädt Module nur im SaaS-Modus. |
 | `./server/registry.js` | Zentrale Registrierung für Mandantenverzeichnis und Doppel-Opt-In; aktiviert Tenant-Eintrag und verbraucht Bestätigungslink atomar. |

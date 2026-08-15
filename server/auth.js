@@ -15,13 +15,15 @@ export function issueDownloadToken(username, role) {
   return token
 }
 
-// Abgelaufene Token periodisch bereinigen (verhindert Memory-Leak bei abgebrochenen Downloads)
-setInterval(() => {
+// Abgelaufene Token periodisch bereinigen (verhindert Memory-Leak bei abgebrochenen Downloads).
+// Der Timer darf Einmalprozesse wie Tests oder Bootstrap nicht am Beenden hindern.
+const downloadTokenCleanup = setInterval(() => {
   const now = Date.now()
   for (const [token, entry] of downloadTokens) {
     if (now > entry.expiresAt) downloadTokens.delete(token)
   }
 }, 60_000)
+downloadTokenCleanup.unref()
 
 function redeemDownloadToken(token) {
   const entry = downloadTokens.get(token)

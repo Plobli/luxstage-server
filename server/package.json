@@ -5,7 +5,7 @@
   "scripts": {
     "start": "node index.js",
     "dev": "node --env-file=.env --watch-path=. --watch index.js",
-    "test": "echo 'No tests'"
+    "test": "node --test test/*.test.js"
   },
   "dependencies": {
     "archiver": "^7.0.1",
