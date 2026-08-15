@@ -485,6 +485,7 @@ import { useShowTowers } from '../composables/useShowTowers.js'
 import { restoreTowersSnapshot } from '../api/towers.js'
 import { useShowBars } from '../composables/useShowBars.js'
 import { useMeasureUnit } from '../composables/useMeasureUnit'
+import { useShowTabs } from '../composables/useShowTabs.js'
 
 import ShowHeader from '../components/show/ShowHeader.vue'
 const ShowActionBar = defineAsyncComponent(() => import('../components/show/ShowActionBar.vue'))
@@ -552,31 +553,6 @@ const setupMarkdown = ref('')
 const setupSaving = ref(false)
 const historyOpen = ref(false)
 
-const TAB_KEY = `show-tab-${props.id}`
-const SUBTAB_KEY = `show-subtab-${props.id}`
-const TAB_TIME_KEY = `show-tab-time-${props.id}`
-const TAB_TIMEOUT_MS = 24 * 60 * 60 * 1000 // 24 Stunden
-
-const isTimedOut = Date.now() - Number(localStorage.getItem(TAB_TIME_KEY) || 0) > TAB_TIMEOUT_MS
-
-const mobileTab = ref(isTimedOut ? 'channels' : (sessionStorage.getItem(TAB_KEY) || 'channels'))
-if (!localStorage.getItem(TAB_TIME_KEY)) localStorage.setItem(TAB_TIME_KEY, String(Date.now()))
-
-const visitedTabs = ref(new Set([mobileTab.value]))
-watch(mobileTab, tab => visitedTabs.value.add(tab))
-function tabMounted(tab) { return visitedTabs.value.has(tab) }
-watch(mobileTab, (tab) => {
-  sessionStorage.setItem(TAB_KEY, tab)
-  localStorage.setItem(TAB_TIME_KEY, String(Date.now()))
-  if (tab === 'floorplan' || (tab === 'gassenturm' && !aufbauTab.value)) aufbauTab.value = aufbauSubTabs.value[0]?.key ?? null
-  if (tab !== 'channels') { search.value = ''; activateHealthFilter(null) }
-})
-
-const aufbauTab = ref(isTimedOut ? null : (sessionStorage.getItem(SUBTAB_KEY) ?? null))
-watch(aufbauTab, (tab) => {
-  if (tab) sessionStorage.setItem(SUBTAB_KEY, tab)
-})
-
 // ── Composables ────────────────────────────────────────────────────────────
 const photoGalleryRef = ref(null)
 const { photos, loadPhotos } = useShowPhotos(props.id)
@@ -597,12 +573,6 @@ const aufbauSubTabs = computed(() => {
     .sort((a, b) => a.order - b.order)
     .map(s => ({ key: `section:${s.id}`, label: s.title || '(kein Titel)', sectionId: s.id }))
   return [...sectionTabs, ...aufbauFixedTabs.value]
-})
-
-watch(aufbauSubTabs, (tabs) => {
-  if (!tabs.find(t => t.key === aufbauTab.value)) {
-    aufbauTab.value = tabs[0]?.key ?? null
-  }
 })
 
 let pendingSetupMd = null
@@ -646,6 +616,13 @@ const {
 
 const { loadTowers, addTower, saveTower, removeTower, assignSlot } = useShowTowers(props.id, channels, towers)
 const { bars, loadBars, addBar, saveBar, removeBar, assignFixture, updateFixtureNotes, unassignFixture, reorderBars } = useShowBars(props.id, channels)
+
+const { mobileTab, aufbauTab, tabMounted } = useShowTabs(props.id, aufbauSubTabs, {
+  onLeaveChannels: () => {
+    search.value = ''
+    activateHealthFilter(null)
+  },
+})
 
 const { unit, cmToDisplay, formatLength } = useMeasureUnit()
 const channelByIdForHangerei = computed(() => new Map(channels.value.map(c => [c.id, c])))
