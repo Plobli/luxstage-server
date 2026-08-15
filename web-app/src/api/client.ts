@@ -16,49 +16,64 @@ export function setToken(t: string): void { localStorage.setItem(TOKEN_KEY, t) }
 export function clearToken(): void { localStorage.removeItem(TOKEN_KEY) }
 export function isLoggedIn(): boolean { return !!getToken() }
 
-function headers(extra: Record<string, string> = {}): Record<string, string> {
-  const h: Record<string, string> = { 'Content-Type': 'application/json', ...extra }
-  const t = getToken()
-  if (t) h['Authorization'] = 'Bearer ' + t
-  return h
+export class ApiError extends Error {
+  constructor(message: string, public readonly status: number) {
+    super(message)
+  }
 }
 
-async function request(method: string, path: string, body?: any): Promise<any> {
-  const hadToken = !!getToken()
+type RequestOptions = {
+  body?: unknown;
+  authenticated?: boolean;
+  contentType?: string | null;
+}
+
+function headers({ authenticated, contentType }: Pick<RequestOptions, 'authenticated' | 'contentType'>): Record<string, string> {
+  const result: Record<string, string> = {}
+  if (contentType) result['Content-Type'] = contentType
+  const token = getToken()
+  if (authenticated && token) result['Authorization'] = 'Bearer ' + token
+  return result
+}
+
+async function request<T>(method: string, path: string, {
+  body,
+  authenticated = true,
+  contentType = 'application/json',
+}: RequestOptions = {}): Promise<T> {
+  const hadToken = authenticated && !!getToken()
   let res: Response
   try {
     res = await fetch(BASE() + path, {
       method,
-      headers: headers(),
-      body: body !== undefined ? JSON.stringify(body) : undefined,
+      headers: headers({ authenticated, contentType }),
+      body: body === undefined ? undefined : contentType === 'application/json' ? JSON.stringify(body) : body as BodyInit,
     })
   } catch (e) {
-    // fetch wirft nur bei echten Netzwerkfehlern — ein HTTP-Fehlercode landet
-    // hier nicht. Ohne diesen Zweig fiele der Banner erst beim nächsten Ping
-    // auf, also bis zu 30 s später; solange tippt der Nutzer ins Leere.
     isOnline.value = false
     throw e
   }
-  // Der Server hat geantwortet, also besteht Verbindung — auch bei 4xx/5xx.
   isOnline.value = true
-  // Nur bei tatsächlich abgelaufener/ungültiger Session umleiten — nicht wenn
-  // der Call von vornherein ohne Token lief (z. B. Pings auf öffentlichen
-  // Seiten wie /register/confirm), sonst reißt der Redirect diese Seiten weg.
-  if (res.status === 401) { clearToken(); if (hadToken && location.pathname !== '/login') location.href = '/login'; return }
+  if (res.status === 401) {
+    clearToken()
+    if (hadToken && location.pathname !== '/login') location.href = '/login'
+  }
   if (!res.ok) {
     const err = await res.json().catch(() => ({}))
-    throw new Error(err.error || `HTTP ${res.status}`)
+    throw new ApiError(err.error || `HTTP ${res.status}`, res.status)
   }
-  if (res.status === 204) return null
-  return res.json()
+  if (res.status === 204) return null as T
+  return res.json() as Promise<T>
 }
 
 export const api = {
-  get:    (path: string)        => request('GET', path),
-  post:   (path: string, body: any)  => request('POST', path, body),
-  put:    (path: string, body: any)  => request('PUT', path, body),
-  patch:  (path: string, body: any)  => request('PATCH', path, body),
-  delete: (path: string)        => request('DELETE', path),
+  get: <T = unknown>(path: string) => request<T>('GET', path),
+  post: <T = unknown>(path: string, body: unknown) => request<T>('POST', path, { body }),
+  put: <T = unknown>(path: string, body: unknown) => request<T>('PUT', path, { body }),
+  patch: <T = unknown>(path: string, body: unknown) => request<T>('PATCH', path, { body }),
+  delete: <T = unknown>(path: string) => request<T>('DELETE', path),
+  send: <T = unknown>(method: string, path: string, body: BodyInit, contentType: string) =>
+    request<T>(method, path, { body, contentType }),
 
   /** Synchrone URL mit langlebigem JWT — nur für Inline-Ressourcen (img src, SSE).
    *  Für einmalige Downloads (PDF, Backup) stattdessen downloadUrl() nutzen. */
@@ -67,24 +82,16 @@ export const api = {
   /** Async URL mit kurzlebigem Einmal-Token (60s TTL) für Downloads (PDF, Backup).
    *  Verhindert, dass der langlebige JWT in Server-Logs landet. */
   downloadUrl: async (path: string): Promise<string> => {
-    const res = await fetch(BASE() + '/api/auth/download-token', {
-      method: 'POST',
-      headers: headers(),
-    })
-    if (!res.ok) throw new Error('Download-Token konnte nicht ausgestellt werden')
-    const { token } = await res.json()
+    const { token } = await request<{ token: string }>('POST', '/api/auth/download-token')
     return BASE() + path + (path.includes('?') ? '&' : '?') + 'token=' + token
   },
 }
 
 export async function login(username: string, password: string): Promise<{ requiresPasswordChange: boolean }> {
-  const res = await fetch(BASE() + '/api/auth/login', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ username, password }),
+  const { token, requiresPasswordChange } = await request<{ token: string, requiresPasswordChange: boolean }>('POST', '/api/auth/login', {
+    body: { username, password },
+    authenticated: false,
   })
-  if (!res.ok) throw new Error('Ungültige Anmeldedaten')
-  const { token, requiresPasswordChange } = await res.json()
   setToken(token)
   return { requiresPasswordChange: !!requiresPasswordChange }
 }
@@ -93,64 +100,26 @@ export async function logout(): Promise<void> { clearToken() }
 
 /** SaaS-Registrierung: legt eine unbestätigte Anmeldung an, Server verschickt Opt-In-Mail. */
 export async function register(teamId: string, email: string, password: string): Promise<void> {
-  const res = await fetch(BASE() + '/api/register', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ teamId, email, password }),
-  })
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}))
-    throw new Error(err.error || `HTTP ${res.status}`)
-  }
+  await request('POST', '/api/register', { body: { teamId, email, password }, authenticated: false })
 }
 
 /** Fordert einen Passwort-Reset-Link an (neutrale Antwort, kein Existenz-Leak). */
 export async function requestPasswordReset(email: string): Promise<void> {
-  const res = await fetch(BASE() + '/api/auth/forgot-password', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email }),
-  })
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}))
-    throw new Error(err.error || `HTTP ${res.status}`)
-  }
+  await request('POST', '/api/auth/forgot-password', { body: { email }, authenticated: false })
 }
 
 /** Setzt ein neues Passwort mit dem Reset-Token aus der Mail. */
 export async function confirmPasswordReset(token: string, newPassword: string): Promise<void> {
-  const res = await fetch(BASE() + '/api/auth/reset-password/confirm', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ token, newPassword }),
-  })
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}))
-    throw new Error(err.error || `HTTP ${res.status}`)
-  }
+  await request('POST', '/api/auth/reset-password/confirm', { body: { token, newPassword }, authenticated: false })
 }
 
 /** Bestätigt die Registrierung über den Token aus der Opt-In-Mail. */
 export async function confirmRegistration(token: string): Promise<{ tenantId: string, loginUrl: string }> {
-  const res = await fetch(BASE() + '/api/register/confirm?token=' + encodeURIComponent(token))
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}))
-    throw new Error(err.error || `HTTP ${res.status}`)
-  }
-  return res.json()
+  return request('GET', '/api/register/confirm?token=' + encodeURIComponent(token), { authenticated: false })
 }
 
 export async function changePassword(currentPassword: string, newPassword: string): Promise<any> {
-  const res = await fetch(BASE() + '/api/auth/change-password', {
-    method: 'POST',
-    headers: headers(),
-    body: JSON.stringify({ currentPassword, newPassword }),
-  })
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}))
-    throw new Error(err.error || `HTTP ${res.status}`)
-  }
-  return res.json()
+  return api.post('/api/auth/change-password', { currentPassword, newPassword })
 }
 
 export function listUsers(): Promise<any[]> { return api.get('/api/users') }
@@ -162,16 +131,7 @@ export function saveSmtpConfig(cfg: object): Promise<any> { return api.post('/ap
 export function testSmtpConfig(to: string): Promise<any> { return api.post('/api/smtp/test', { to }) }
 
 export async function resetPassword(username: string): Promise<any> {
-  const res = await fetch(BASE() + '/api/auth/reset-password', {
-    method: 'POST',
-    headers: headers(),
-    body: JSON.stringify({ username }),
-  })
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}))
-    throw new Error(err.error || `HTTP ${res.status}`)
-  }
-  return res.json()
+  return api.post('/api/auth/reset-password', { username })
 }
 
 export function setServerUrl(url: string): void {

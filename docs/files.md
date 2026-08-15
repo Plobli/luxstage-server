@@ -180,7 +180,7 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 
 | Datei | Beschreibung |
 |---|---|
-| `./web-app/src/api/client.ts` | HTTP-Client mit Auth, SSE-Abos und Server-Verbindungsverwaltung. |
+| `./web-app/src/api/client.ts` | Typisierter HTTP-Client mit einheitlicher Auth-, Fehler-, Download- und SSE-Verwaltung. |
 | `./web-app/src/api/jwtDecode.ts` | Dekodiert JWT-Payload ohne externe Abhängigkeit. |
 | `./web-app/src/api/cache.ts` | Einfacher In-Memory-Cache mit TTL-Support. |
 | `./web-app/src/api/shows.ts` | CRUD-API für Shows, Meta-Daten, History und Snapshots. |
