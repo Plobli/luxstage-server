@@ -35,8 +35,8 @@ export async function readJsonBody(req, res, maxBytes) {
   }
 }
 
-export function json(res, status, data) {
-  res.writeHead(status, { 'Content-Type': 'application/json' })
+export function json(res, status, data, extraHeaders = {}) {
+  res.writeHead(status, { 'Content-Type': 'application/json', ...extraHeaders })
   res.end(JSON.stringify(data))
 }
 

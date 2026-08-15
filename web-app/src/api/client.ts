@@ -24,7 +24,7 @@ export function clearToken(): void { localStorage.removeItem(TOKEN_KEY); inlineT
 export function isLoggedIn(): boolean { return !!getToken() }
 
 export class ApiError extends Error {
-  constructor(message: string, public readonly status: number) {
+  constructor(message: string, public readonly status: number, public readonly body: any = null) {
     super(message)
   }
 }
@@ -33,10 +33,11 @@ type RequestOptions = {
   body?: unknown;
   authenticated?: boolean;
   contentType?: string | null;
+  extraHeaders?: Record<string, string>;
 }
 
-function headers({ authenticated, contentType }: Pick<RequestOptions, 'authenticated' | 'contentType'>): Record<string, string> {
-  const result: Record<string, string> = {}
+function headers({ authenticated, contentType, extraHeaders }: Pick<RequestOptions, 'authenticated' | 'contentType' | 'extraHeaders'>): Record<string, string> {
+  const result: Record<string, string> = { ...extraHeaders }
   if (contentType) result['Content-Type'] = contentType
   const token = getToken()
   if (authenticated && token) result['Authorization'] = 'Bearer ' + token
@@ -47,13 +48,14 @@ async function request<T>(method: string, path: string, {
   body,
   authenticated = true,
   contentType = 'application/json',
+  extraHeaders,
 }: RequestOptions = {}): Promise<T> {
   const hadToken = authenticated && !!getToken()
   let res: Response
   try {
     res = await fetch(BASE() + path, {
       method,
-      headers: headers({ authenticated, contentType }),
+      headers: headers({ authenticated, contentType, extraHeaders }),
       body: body === undefined ? undefined : contentType === 'application/json' ? JSON.stringify(body) : body as BodyInit,
     })
   } catch (e) {
@@ -67,7 +69,7 @@ async function request<T>(method: string, path: string, {
   }
   if (!res.ok) {
     const err = await res.json().catch(() => ({}))
-    throw new ApiError(err.error || `HTTP ${res.status}`, res.status)
+    throw new ApiError(err.error || `HTTP ${res.status}`, res.status, err)
   }
   if (res.status === 204) return null as T
   return res.json() as Promise<T>
@@ -92,6 +94,34 @@ export const api = {
   delete: <T = unknown>(path: string) => request<T>('DELETE', path),
   send: <T = unknown>(method: string, path: string, body: BodyInit, contentType: string) =>
     request<T>(method, path, { body, contentType }),
+
+  /** GET, das auch Response-Header zurückgibt (z.B. X-Show-Version) —
+   *  request<T>() gibt nur den geparsten Body zurück. */
+  getWithHeaders: async <T = unknown>(path: string): Promise<{ data: T, headers: Headers }> => {
+    const res = await fetch(BASE() + path, { headers: headers({ authenticated: true, contentType: null }) })
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}))
+      throw new ApiError(err.error || `HTTP ${res.status}`, res.status, err)
+    }
+    return { data: await res.json(), headers: res.headers }
+  },
+
+  /** PUT mit optimistischer Konflikterkennung: baseVersion geht als If-Match-
+   *  Header mit, die neue Version kommt per X-Show-Version zurück. Weicht
+   *  baseVersion vom Serverstand ab, wirft dies eine ApiError mit status 409
+   *  und body.serverVersion/body.serverChannels. */
+  putWithVersion: async <T = unknown>(path: string, body: unknown, baseVersion: string | null): Promise<{ data: T, version: string | null }> => {
+    const res = await fetch(BASE() + path, {
+      method: 'PUT',
+      headers: headers({ authenticated: true, contentType: 'application/json', extraHeaders: baseVersion ? { 'If-Match': baseVersion } : undefined }),
+      body: JSON.stringify(body),
+    })
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}))
+      throw new ApiError(err.error || `HTTP ${res.status}`, res.status, err)
+    }
+    return { data: await res.json(), version: res.headers.get('X-Show-Version') }
+  },
 
   /** URL mit kurzlebigem, wiederverwendbarem Token (15 Min TTL) für Inline-
    *  Ressourcen (img src). Für einmalige Downloads (PDF, Backup) stattdessen

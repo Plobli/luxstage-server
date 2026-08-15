@@ -231,6 +231,12 @@ if (!showCols.includes('use_towers')) {
 if (!showCols.includes('eos_excluded_channels')) {
   database.exec('ALTER TABLE shows ADD COLUMN eos_excluded_channels TEXT')
 }
+// channels_version: eigener Versionszähler nur für Channel-Writes, getrennt
+// von updated_at (das auch von Meta-Updates, Archivieren etc. verändert
+// wird und deshalb für Channels-Konflikterkennung ungeeignet ist).
+if (!showCols.includes('channels_version')) {
+  database.exec('ALTER TABLE shows ADD COLUMN channels_version INTEGER NOT NULL DEFAULT 0')
+}
 if (showCols.includes('untertitel')) {
   database.exec('ALTER TABLE shows DROP COLUMN untertitel')
 }

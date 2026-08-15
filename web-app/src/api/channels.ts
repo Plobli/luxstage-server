@@ -10,12 +10,23 @@ export interface Channel {
   [key: string]: any;
 }
 
-export async function fetchChannels(showId: string): Promise<Channel[]> {
-  return api.get(`/api/shows/${showId}/channels`)
+export interface ChannelsConflictError {
+  serverVersion: string;
+  serverChannels: Channel[];
 }
 
-export async function saveChannels(showId: string, channels: Channel[]): Promise<any> {
-  return api.put(`/api/shows/${showId}/channels`, channels)
+export async function fetchChannels(showId: string): Promise<{ channels: Channel[], version: string | null }> {
+  const { data, headers } = await api.getWithHeaders<Channel[]>(`/api/shows/${showId}/channels`)
+  return { channels: data, version: headers.get('X-Show-Version') }
+}
+
+/** Wirft ApiError mit status 409 und body {serverVersion, serverChannels}, falls
+ *  baseVersion nicht mehr dem Serverstand entspricht (jemand anders hat
+ *  inzwischen gespeichert). baseVersion === null überspringt die Prüfung
+ *  (z.B. beim allerersten Save nach dem Laden, falls keine Version vorliegt). */
+export async function saveChannels(showId: string, channels: Channel[], baseVersion: string | null = null): Promise<{ version: string | null }> {
+  const { version } = await api.putWithVersion<{ ok: true }>(`/api/shows/${showId}/channels`, channels, baseVersion)
+  return { version }
 }
 
 export function parseChannelsCsv(text: string): Channel[] {

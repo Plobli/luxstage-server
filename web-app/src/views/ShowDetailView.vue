@@ -332,6 +332,21 @@
     />
 
     <!-- Neuer Tab Dialog -->
+    <Dialog :open="!!channelsConflict" @update:open="val => { if (!val) resolveConflictReload() }">
+      <DialogContent class="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>{{ t('show.channels.conflict.title') }}</DialogTitle>
+        </DialogHeader>
+        <DialogBody>
+          <p class="text-sm text-muted-foreground">{{ t('show.channels.conflict.text') }}</p>
+        </DialogBody>
+        <DialogFooter>
+          <Button variant="outline" @click="resolveConflictForce">{{ t('show.channels.conflict.force') }}</Button>
+          <Button @click="resolveConflictReload">{{ t('show.channels.conflict.reload') }}</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+
     <Dialog :open="newSectionDialog" @update:open="newSectionDialog = $event">
       <DialogContent class="sm:max-w-lg">
         <DialogHeader>
@@ -602,7 +617,8 @@ const {
   channelStatus, toggleChannelStatus,
   initSnapshot, recordFocus, commitFocus, pushSnapshot,
   undo, redo, canUndo, canRedo, onUndoRedoKeydown,
-  loadChannels, handleChannelsSse
+  loadChannels, handleChannelsSse,
+  channelsConflict, resolveConflictReload, resolveConflictForce
 } = useShowChannels({
   showId: props.id,
   meta,

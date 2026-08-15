@@ -3,6 +3,7 @@ import { useDebounceFn } from '@vueuse/core'
 import { fetchChannels, saveChannels, mergeChannels, parseChannelsCsv, type Channel } from '../api/channels'
 import { updateMeta } from '../api/shows'
 import { invalidate } from '../api/cache'
+import { ApiError } from '../api/client'
 import { useUndoRedo } from './useUndoRedo'
 import { type SectionDef } from './useShowSections'
 import type { Tower } from '../api/towers'
@@ -60,6 +61,11 @@ export function useShowChannels({
   const channels = ref<Channel[]>([])
   const channelsSaving = ref(false)
   const search = ref('')
+  // Serverstand, auf dem die aktuelle channels.value-Kopie basiert. Wird bei
+  // jedem erfolgreichen Laden/Speichern aktualisiert; weicht der Server beim
+  // nächsten Save davon ab, hat jemand anders inzwischen gespeichert.
+  const channelsVersion = ref<string | null>(null)
+  const channelsConflict = ref<{ serverVersion: string, serverChannels: Channel[] } | null>(null)
   const healthFilter = ref<'noDevice' | 'noPosition' | 'noAddress' | null>(null)
   // Eingefrorene Kanal-IDs beim Aktivieren des Filters — reagiert nicht auf Tipp-Änderungen
   const healthFilterSnapshot = ref<Set<string> | null>(null)
@@ -73,16 +79,42 @@ export function useShowChannels({
   const persistChannels = useDebounceFn(async () => {
     ignoreSseCount++
     try {
-      await saveChannels(showId, channels.value)
+      const { version } = await saveChannels(showId, channels.value, channelsVersion.value)
+      channelsVersion.value = version
       if (meta.value) {
         meta.value.datum = new Date().toISOString().split('T')[0]
         await updateMeta(showId, { ...meta.value })
       }
       invalidate('shows')
+    } catch (e) {
+      if (e instanceof ApiError && e.status === 409) {
+        ignoreSseCount = Math.max(0, ignoreSseCount - 1) // kein SSE-Update zu erwarten, das übersprungen werden müsste
+        channelsConflict.value = { serverVersion: e.body.serverVersion, serverChannels: e.body.serverChannels }
+        return
+      }
+      throw e
     } finally {
       channelsSaving.value = false
     }
   }, 50)
+
+  /** Konfliktauflösung: eigene Änderung verwerfen, Serverstand übernehmen. */
+  function resolveConflictReload(): void {
+    if (!channelsConflict.value) return
+    channels.value = channelsConflict.value.serverChannels
+    channelsVersion.value = channelsConflict.value.serverVersion
+    channelsConflict.value = null
+  }
+
+  /** Konfliktauflösung: eigene Änderung trotzdem erzwingen (überschreibt den
+   *  fremden Zwischenstand — bewusste Entscheidung, kein stiller Verlust mehr). */
+  async function resolveConflictForce(): Promise<void> {
+    if (!channelsConflict.value) return
+    const target = channelsConflict.value.serverVersion
+    channelsConflict.value = null
+    channelsVersion.value = target
+    scheduleChannelsSave()
+  }
 
   function scheduleChannelsSave(): void {
     channelsSaving.value = true
@@ -510,7 +542,8 @@ export function useShowChannels({
     }
 
     if (channelsChanged) {
-      await saveChannels(showId, channels.value)
+      const { version } = await saveChannels(showId, channels.value, channelsVersion.value)
+      channelsVersion.value = version
     }
 
     eosActiveChannels.value = [
@@ -558,14 +591,16 @@ export function useShowChannels({
   }
 
   async function loadChannels(): Promise<void> {
-    const chs = await fetchChannels(showId)
+    const { channels: chs, version } = await fetchChannels(showId)
     channels.value = Array.isArray(chs) ? chs : []
+    channelsVersion.value = version
   }
 
   async function handleChannelsSse(): Promise<void> {
     if (ignoreSseCount > 0) { ignoreSseCount--; return }
-    const chs = await fetchChannels(showId)
+    const { channels: chs, version } = await fetchChannels(showId)
     channels.value = Array.isArray(chs) ? chs : []
+    channelsVersion.value = version
   }
 
   return {
@@ -600,7 +635,10 @@ export function useShowChannels({
     canRedo,
     onUndoRedoKeydown,
     loadChannels,
-    handleChannelsSse
+    handleChannelsSse,
+    channelsConflict,
+    resolveConflictReload,
+    resolveConflictForce
   }
 }
 

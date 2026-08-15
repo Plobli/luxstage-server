@@ -11,11 +11,13 @@ process.env.BASE_DOMAIN = 'luxstage.test'
 export function createResponse() {
   let status = null
   let body = null
+  let headers = {}
   return {
-    writeHead(code) { status = code },
+    writeHead(code, h) { status = code; if (h) headers = h },
     end(content) { body = content ? JSON.parse(content) : null },
     get status() { return status },
     get body() { return body },
+    get headers() { return headers },
   }
 }
 
