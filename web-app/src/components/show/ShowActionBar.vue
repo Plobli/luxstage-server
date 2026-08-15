@@ -109,7 +109,7 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { Search, Undo2, Redo2, AlertTriangle, CircleHelp } from 'lucide-vue-next'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -136,6 +136,14 @@ const props = defineProps({
 const emit = defineEmits(['update:search', 'undo', 'redo', 'healthFilter'])
 
 const colorMap = ['#3b82f6', '#a855f7', '#22c55e', '#f97316', '#ec4899', '#14b8a6', '#6366f1', '#06b6d4']
+const currentTime = ref(Date.now())
+let presenceTimer
+
+onMounted(() => {
+  presenceTimer = window.setInterval(() => { currentTime.value = Date.now() }, 10_000)
+})
+
+onBeforeUnmount(() => clearInterval(presenceTimer))
 
 function userColor(username) {
   let hash = 0
@@ -149,7 +157,7 @@ function userColor(username) {
 const presenceWithActivity = computed(() =>
   props.presence.map(u => ({
     ...u,
-    isActive: u.lastActivityAt && Date.now() - new Date(u.lastActivityAt).getTime() < 30000
+    isActive: u.lastActivityAt && currentTime.value - new Date(u.lastActivityAt).getTime() < 30000
   }))
 )
 </script>
