@@ -98,6 +98,11 @@ export function exportFloorplanPNG(svgEl, stageSize, bgImage, filename = 'grundr
   resolveCssVarsInSvg(svg)
   svg.setAttribute('width', stageSize.width)
   svg.setAttribute('height', stageSize.height)
+  // BUG: anders als captureFloorplanSnapshot() oben fehlt hier der
+  // <style>font-family Arial...</style>-Block. Ohne ihn übernimmt der Browser
+  // beim SVG->Canvas-Rendering die System-Serifenschrift statt der sans-serif
+  // Schrift der WebApp, darum ist der PNG-Export immer Serif. Fix: denselben
+  // styleEl-Block wie in captureFloorplanSnapshot() vor svg.firstChild einfügen.
   let svgStr = new XMLSerializer().serializeToString(svg)
   if (!svgStr.match(/^<svg[^>]+xmlns="http\:\/\/www\.w3\.org\/2000\/svg"/)) {
     svgStr = svgStr.replace(/^<svg/, '<svg xmlns="http://www.w3.org/2000/svg"')
