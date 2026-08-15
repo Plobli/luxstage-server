@@ -47,7 +47,7 @@
         </div>
 
         <!-- Zeilen -->
-        <table class="w-full table-fixed border-collapse bg-card" :data-kv-sortable="sec.id">
+        <table :ref="el => setKvTableRef(sec.id, el)" class="w-full table-fixed border-collapse bg-card">
           <colgroup>
             <col class="w-8" />
             <col />
@@ -306,6 +306,12 @@ watch(sortableSectionsEl, (el) => { if (el) nextTick(initSectionsSortable) })
 
 // ── SortableJS for kv-table rows ───────────────────────────────────────────
 const kvSortableInstances = new Map()
+const kvTableRefs = new Map()
+
+function setKvTableRef(sectionId, element) {
+  if (element) kvTableRefs.set(sectionId, element)
+  else kvTableRefs.delete(sectionId)
+}
 
 watch(
   () => props.sectionDefs.map(s => s.type === 'kv-table' ? (s.rows?.length ?? 0) : 0).join(','),
@@ -320,8 +326,8 @@ watch(
     }
     // Neue/geänderte Sections initialisieren
     for (const sec of props.sectionDefs.filter(s => s.type === 'kv-table')) {
-      const tableEl = document.querySelector(`[data-kv-sortable="${sec.id}"]`)
-      const el = tableEl?.querySelector('tbody') ?? tableEl
+      const tableEl = kvTableRefs.get(sec.id)
+      const el = tableEl?.tBodies[0] ?? tableEl
       if (!el) continue
       kvSortableInstances.get(sec.id)?.destroy()
       const instance = Sortable.create(el, {
