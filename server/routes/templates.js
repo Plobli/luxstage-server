@@ -1,9 +1,10 @@
 import { randomUUID } from 'node:crypto'
+import fs from 'node:fs'
 import * as db from '../db.js'
 import * as floorplan from '../floorplan.js'
 import * as photosLib from '../photos.js'
 import { requireAdmin } from '../auth.js'
-import { readJsonBody, readBodyBuffer, json, notFound } from '../helpers.js'
+import { readJsonBody, json, notFound } from '../helpers.js'
 
 const TPL_LIST             = /^\/api\/templates$/
 const TPL_CHANNELS         = /^\/api\/templates\/([^/]+)\/channels$/
@@ -200,23 +201,23 @@ export async function templateRoutes(req, res, pathname) {
     if (!tpl) return notFound(res)
 
     if (method === 'POST') {
-      let body
-      try { body = await readBodyBuffer(req, 50 * 1024 * 1024) } catch {
-        return json(res, 413, { error: 'Bild zu groß (max. 50 MB)' })
-      }
       const ct = req.headers['content-type'] || ''
-      const boundaryMatch = ct.match(/boundary=(.+)/)
-      if (!boundaryMatch) return json(res, 400, { error: 'Kein Boundary' })
-      const parts = photosLib.extractFileFromMultipart(body, boundaryMatch[1])
-      const part = parts?.[0]
-      if (!part?.data) return json(res, 400, { error: 'Kein Bild gefunden' })
-      const mimeType = part.mimeType || mimeFromFilename(part.filename)
+      if (!ct.startsWith('multipart/form-data')) return json(res, 400, { error: 'Ungültiger Upload' })
+      let upload
       try {
-        const imgPath = await floorplan.saveFloorplanImage(tpl.id, part.filename, part.data, mimeType)
+        upload = await photosLib.parseMultipart(req)
+        const file = upload.files[0]
+        if (!file) return json(res, 400, { error: 'Kein Bild gefunden' })
+        const mimeType = mimeFromFilename(file.filename)
+        const buffer = await fs.promises.readFile(file.path)
+        const imgPath = await floorplan.saveFloorplanImage(tpl.id, file.filename, buffer, mimeType)
         db.upsertTemplateFloorplan(tpl.id, imgPath)
         return json(res, 200, { image_url: floorplan.floorplanUrl(imgPath) })
       } catch (e) {
-        return json(res, 400, { error: e.message })
+        const status = /zu groß|zu viele/i.test(e.message) ? 413 : 400
+        return json(res, status, { error: e.message || 'Bild-Upload fehlgeschlagen' })
+      } finally {
+        await upload?.cleanup()
       }
     }
 

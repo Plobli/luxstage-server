@@ -2,7 +2,7 @@ import fs from 'node:fs'
 import * as db from '../db.js'
 import * as floorplanLib from '../floorplan.js'
 import * as photosLib from '../photos.js'
-import { readJsonBody, readBodyBuffer, json, notFound } from '../helpers.js'
+import { readJsonBody, json, notFound } from '../helpers.js'
 
 const FP_IMAGES       = /^\/api\/floorplans\/images\/(.+)$/
 const SHOW_FP         = /^\/api\/shows\/([^/]+)\/floorplan$/
@@ -60,23 +60,23 @@ export async function floorplanRoutes(req, res, pathname) {
     if (method === 'POST') {
       const show = db.readShow(showId)
       if (!show) return notFound(res)
-      let body
-      try { body = await readBodyBuffer(req, 50 * 1024 * 1024) } catch {
-        return json(res, 413, { error: 'Bild zu groß (max. 50 MB)' })
-      }
       const ct = req.headers['content-type'] || ''
-      const boundaryMatch = ct.match(/boundary=(.+)/)
-      if (!boundaryMatch) return json(res, 400, { error: 'Kein Boundary' })
-      const parts = photosLib.extractFileFromMultipart(body, boundaryMatch[1])
-      const part = parts?.[0]
-      if (!part?.data) return json(res, 400, { error: 'Kein Bild gefunden' })
-      const mimeType = part.mimeType || mimeFromExt(part.filename)
+      if (!ct.startsWith('multipart/form-data')) return json(res, 400, { error: 'Ungültiger Upload' })
+      let upload
       try {
-        const imgPath = await floorplanLib.saveFloorplanImage(show.id, part.filename, part.data, mimeType)
+        upload = await photosLib.parseMultipart(req)
+        const file = upload.files[0]
+        if (!file) return json(res, 400, { error: 'Kein Bild gefunden' })
+        const mimeType = mimeFromExt(file.filename)
+        const buffer = await fs.promises.readFile(file.path)
+        const imgPath = await floorplanLib.saveFloorplanImage(show.id, file.filename, buffer, mimeType)
         db.upsertShowFloorplanImage(show.id, imgPath)
         return json(res, 200, { image_url: floorplanLib.floorplanUrl(imgPath) })
       } catch (e) {
-        return json(res, 400, { error: e.message })
+        const status = /zu groß|zu viele/i.test(e.message) ? 413 : 400
+        return json(res, status, { error: e.message || 'Bild-Upload fehlgeschlagen' })
+      } finally {
+        await upload?.cleanup()
       }
     }
     if (method === 'DELETE') {
