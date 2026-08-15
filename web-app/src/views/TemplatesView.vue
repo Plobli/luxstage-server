@@ -674,7 +674,7 @@ async function persist() {
 async function loadFloorplan() {
   if (!editingName.value) return
   const data = await fetchTemplateFloorplan(editingName.value).catch(() => null)
-  floorplanImageUrl.value = data?.image_url ? api.url(data.image_url) + '&t=' + Date.now() : null
+  floorplanImageUrl.value = data?.image_url ? (await api.url(data.image_url)) + '&t=' + Date.now() : null
   floorplanCanvasData.value = data?.canvas_data ?? null
 }
 
@@ -690,7 +690,7 @@ async function onFloorplanImageUpload(e) {
   floorplanError.value = ''
   try {
     const result = await uploadTemplateFloorplanImage(editingName.value, file)
-    floorplanImageUrl.value = result.image_url ? api.url(result.image_url) : null
+    floorplanImageUrl.value = result.image_url ? await api.url(result.image_url) : null
     e.target.value = ''
   } catch (err) {
     floorplanError.value = err?.message || 'Upload fehlgeschlagen'

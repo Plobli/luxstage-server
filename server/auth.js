@@ -33,6 +33,35 @@ function redeemDownloadToken(token) {
   return { username: entry.username, role: entry.role }
 }
 
+// ── Kurzlebige, wiederverwendbare Token für Inline-Ressourcen (img src) ──────
+// Anders als Download-Token nicht Einmalnutzung: dasselbe Bild wird vom
+// Browser mehrfach geladen/gecached, ein Einmal-Token würde beim zweiten
+// Request scheitern. Kürzere Lebensdauer als das 72h-JWT begrenzt den
+// Schaden, falls die URL in Browser-History oder Proxy-Logs landet.
+const inlineTokens = new Map()
+const INLINE_TOKEN_TTL_MS = 15 * 60 * 1000 // 15 Minuten
+
+export function issueInlineToken(username, role) {
+  const token = randomBytes(24).toString('hex')
+  inlineTokens.set(token, { username, role, expiresAt: Date.now() + INLINE_TOKEN_TTL_MS })
+  return { token, expiresAt: Date.now() + INLINE_TOKEN_TTL_MS }
+}
+
+const inlineTokenCleanup = setInterval(() => {
+  const now = Date.now()
+  for (const [token, entry] of inlineTokens) {
+    if (now > entry.expiresAt) inlineTokens.delete(token)
+  }
+}, 60_000)
+inlineTokenCleanup.unref()
+
+function verifyInlineToken(token) {
+  const entry = inlineTokens.get(token)
+  if (!entry) return null
+  if (Date.now() > entry.expiresAt) { inlineTokens.delete(token); return null }
+  return { username: entry.username, role: entry.role }
+}
+
 const BCRYPT_COST = 12
 
 export async function hashPassword(plain) {
@@ -80,12 +109,14 @@ export function authenticate(req) {
     try { return jwt.verify(jwtToken, config.jwtSecret) } catch {}
   }
 
-  // 2. Kurzlebige Download-Token aus URL prüfen (für SSE, PDF, Foto- und Backup-URLs)
+  // 2. Kurzlebige Download-Token aus URL prüfen (für SSE, PDF, Backup-URLs)
   const url = new URL(req.url, 'http://localhost')
   const downloadToken = url.searchParams.get('token')
   if (downloadToken) {
     const redeemed = redeemDownloadToken(downloadToken)
     if (redeemed) return redeemed
+    const inline = verifyInlineToken(downloadToken)
+    if (inline) return inline
     try { return jwt.verify(downloadToken, config.jwtSecret) } catch {}
   }
 

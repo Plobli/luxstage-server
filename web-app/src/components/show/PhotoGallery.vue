@@ -169,8 +169,24 @@ const photoCols = computed(() => {
   return 3
 })
 
+// getPhotoUrl() ist async (kurzlebiges Token muss ggf. vom Server geholt
+// werden), <img :src> braucht aber einen synchronen Wert — resolvedUrls hält
+// pro "showId:filename:thumb"-Schlüssel den zuletzt aufgelösten String, den
+// photoUrl() synchron zurückgibt. Nur beim ersten Zugriff je Schlüssel wird
+// nachgeladen, danach bleibt der Wert bis zum nächsten showId/photos-Wechsel
+// stehen (das darunterliegende Token erneuert sich unabhängig im Client).
+const resolvedUrls = ref({})
+const pendingUrls = new Set()
+
 function photoUrl(filename, { thumb = false } = {}) {
-  return getPhotoUrl(props.showId, filename, { thumb })
+  const key = `${props.showId}:${filename}:${thumb ? 1 : 0}`
+  if (!(key in resolvedUrls.value) && !pendingUrls.has(key)) {
+    pendingUrls.add(key)
+    getPhotoUrl(props.showId, filename, { thumb })
+      .then(url => { resolvedUrls.value[key] = url })
+      .finally(() => pendingUrls.delete(key))
+  }
+  return resolvedUrls.value[key] ?? ''
 }
 
 watch(() => [props.showId, ...props.photos], () => {

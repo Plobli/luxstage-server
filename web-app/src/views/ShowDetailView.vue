@@ -173,7 +173,7 @@
         >
           <div class="flex-1 min-h-0">
             <FloorplanEditor
-              :image-url="floorplan.image_url ? api.url(floorplan.image_url) : null"
+              :image-url="floorplanImageUrl"
               :initial-canvas-data="floorplan.canvas_data"
               :channels="channels"
               :towers="towers"
@@ -556,6 +556,13 @@ const setupSaving = ref(false)
 const photoGalleryRef = ref(null)
 const { photos, loadPhotos } = useShowPhotos(props.id)
 const { floorplan, loadFloorplan, onFloorplanChange, onFloorplanImageUpload, onFloorplanImageDelete } = useShowFloorplan(props.id)
+
+// api.url() ist async (kurzlebiges Token muss ggf. nachgeladen werden) —
+// floorplanImageUrl hält den zuletzt aufgelösten String für :image-url.
+const floorplanImageUrl = ref(null)
+watch(() => floorplan.value.image_url, async (path) => {
+  floorplanImageUrl.value = path ? await api.url(path) : null
+}, { immediate: true })
 
 const {
   sectionDefs, sectionContents, sectionsSaving,

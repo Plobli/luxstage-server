@@ -11,9 +11,16 @@ const DEV_SERVER = import.meta.env.VITE_SERVER_URL || null
 export const BASE = (): string => localStorage.getItem('server_url') || DEV_SERVER || window.location.origin
 const TOKEN_KEY = 'luxstage_token'
 
+// Kurzlebiges, wiederverwendbares Token für Inline-Ressourcen (img src) —
+// im Speicher gecached und kurz vor Ablauf automatisch erneuert, damit
+// mehrere gleichzeitig sichtbare Bilder dasselbe Token teilen können (anders
+// als das Einmal-Download-Token) und trotzdem nicht das langlebige JWT in
+// Browser-History/Proxy-Logs landet.
+let inlineTokenCache: { token: string, expiresAt: number } | null = null
+
 export function getToken(): string | null { return localStorage.getItem(TOKEN_KEY) }
 export function setToken(t: string): void { localStorage.setItem(TOKEN_KEY, t) }
-export function clearToken(): void { localStorage.removeItem(TOKEN_KEY) }
+export function clearToken(): void { localStorage.removeItem(TOKEN_KEY); inlineTokenCache = null }
 export function isLoggedIn(): boolean { return !!getToken() }
 
 export class ApiError extends Error {
@@ -66,6 +73,17 @@ async function request<T>(method: string, path: string, {
   return res.json() as Promise<T>
 }
 
+const INLINE_TOKEN_REFRESH_MARGIN_MS = 60 * 1000
+
+async function getInlineToken(): Promise<string> {
+  if (inlineTokenCache && inlineTokenCache.expiresAt - INLINE_TOKEN_REFRESH_MARGIN_MS > Date.now()) {
+    return inlineTokenCache.token
+  }
+  const { token, expiresAt } = await request<{ token: string, expiresAt: number }>('POST', '/api/auth/inline-token')
+  inlineTokenCache = { token, expiresAt }
+  return token
+}
+
 export const api = {
   get: <T = unknown>(path: string) => request<T>('GET', path),
   post: <T = unknown>(path: string, body: unknown) => request<T>('POST', path, { body }),
@@ -75,9 +93,13 @@ export const api = {
   send: <T = unknown>(method: string, path: string, body: BodyInit, contentType: string) =>
     request<T>(method, path, { body, contentType }),
 
-  /** Synchrone URL mit langlebigem JWT — nur für Inline-Ressourcen (img src, SSE).
-   *  Für einmalige Downloads (PDF, Backup) stattdessen downloadUrl() nutzen. */
-  url: (path: string): string => BASE() + path + (path.includes('?') ? '&' : '?') + 'token=' + (getToken() || ''),
+  /** URL mit kurzlebigem, wiederverwendbarem Token (15 Min TTL) für Inline-
+   *  Ressourcen (img src). Für einmalige Downloads (PDF, Backup) stattdessen
+   *  downloadUrl() nutzen. */
+  url: async (path: string): Promise<string> => {
+    const token = await getInlineToken()
+    return BASE() + path + (path.includes('?') ? '&' : '?') + 'token=' + token
+  },
 
   /** Async URL mit kurzlebigem Einmal-Token (60s TTL) für Downloads (PDF, Backup).
    *  Verhindert, dass der langlebige JWT in Server-Logs landet. */

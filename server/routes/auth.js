@@ -1,5 +1,5 @@
 import { randomBytes } from 'node:crypto'
-import { login, signToken, requireAdmin, issueDownloadToken } from '../auth.js'
+import { login, signToken, requireAdmin, issueDownloadToken, issueInlineToken } from '../auth.js'
 import * as db from '../db.js'
 import { readJsonBody, json } from '../helpers.js'
 import { sendPasswordResetEmail, sendPasswordResetLink, isSmtpConfigured } from '../email.js'
@@ -83,6 +83,11 @@ export async function authRoutes(req, res, pathname) {
   if (method === 'POST' && pathname === '/api/auth/download-token') {
     const user = req.user
     return json(res, 200, { token: issueDownloadToken(user.username, user.role) })
+  }
+
+  if (method === 'POST' && pathname === '/api/auth/inline-token') {
+    const user = req.user
+    return json(res, 200, issueInlineToken(user.username, user.role))
   }
 
   if (method === 'POST' && pathname === '/api/auth/change-password') {
