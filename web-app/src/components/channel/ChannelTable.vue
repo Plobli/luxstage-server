@@ -77,7 +77,7 @@
           <!-- Channel row -->
           <ChannelRow
             :ch="item.ch"
-            :rowIndex="rowIndexOf(item.ch)"
+            :rowIndex="item.rowIndex"
             :dupChannelNrs="dupChannelNrs"
             :channelStatus="channelStatus(item.ch)"
             :colorPlaceholder="labels.color"
@@ -399,7 +399,7 @@ const virtualItems = computed(() => {
     items.push({ id: `header-${group.position}`, type: 'header', group })
     for (const ch of group.channels) {
       if (channelsSeen < limit) {
-        items.push({ id: ensureStableChannelKey(ch), type: 'channel', ch, group })
+        items.push({ id: ensureStableChannelKey(ch), type: 'channel', ch, group, rowIndex: channelsSeen })
       }
       channelsSeen++
     }
@@ -412,13 +412,6 @@ const virtualItems = computed(() => {
   }
   return items
 })
-
-// ── Row index helpers ──────────────────────────────────────────────────────
-const flatChannels = computed(() => props.groupedChannels.flatMap(g => g.channels))
-
-function rowIndexOf(ch) {
-  return flatChannels.value.findIndex(c => c === ch)
-}
 
 function channelStatus(ch) {
   return props.channelStatusFn(ch)
