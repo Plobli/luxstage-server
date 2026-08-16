@@ -91,7 +91,11 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 | `./server/db/sections.js` | DB-Zugriff für Show-Sections und deren Definitionen. |
 | `./server/db/photos.js` | DB-Zugriff für Fotos, Beschreibungen, Reihenfolge, Channel-Fotos. |
 | `./server/db/floorplan.js` | DB-Zugriff für Template- und Show-Grundrisse (Bilder, Canvas-Daten). |
-| `./server/db/templates.js` | DB-Zugriff für Spielort-Vorlagen und deren Komponenten (Kanäle, Bars, Towers). |
+| `./server/db/templates.js` | DB-Zugriff für Spielort-Vorlagen (Stammdaten, Kanäle). |
+| `./server/db/template-sections.js` | DB-Zugriff für Template-Sections und deren Definitionen. |
+| `./server/db/template-bars.js` | DB-Zugriff für Template-Bars und deren Fixtures. |
+| `./server/db/template-towers.js` | DB-Zugriff für Template-Towers und deren Slots. |
+| `./server/db/template-apply.js` | Anwendung von Templates auf Shows (einzeln und auf alle Shows eines Templates) sowie Rück-Speichern von Show-Items als Template-Einträge. |
 | `./server/db/locks.js` | DB-Zugriff für Bearbeitungs-Sperren (Optimistic Locking). |
 | `./server/db/settings.js` | DB-Zugriff für generische Key-Value-Settings-Tabelle (SMTP-Konfig, Anzeige-Einstellungen). |
 | `./server/db/migrations/index.js` | Geordnete Liste aller Schema-Migrationen. |
