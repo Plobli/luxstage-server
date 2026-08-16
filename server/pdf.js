@@ -97,7 +97,7 @@ export async function generatePDF(show, channels, sectionsMap, templateSections,
       doc.moveDown(1)
     }
   } else {
-    const setupBlocks = parseSetupSection(showContent.replace(/^---\n[\s\S]*?\n---\n/, ''))
+    const setupBlocks = parseSetupSection((show.setup_markdown ?? '').replace(/^---\n[\s\S]*?\n---\n/, ''))
     if (setupBlocks.length) {
       doc.font(FONT_BOLD).fontSize(11).text('Aufbau', PAGE_MARGIN, doc.y)
       doc.moveDown(0.5)
