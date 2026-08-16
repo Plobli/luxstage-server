@@ -26,11 +26,12 @@ import * as m025 from './025-template-towers.js'
 import * as m026 from './026-template-bar-fixtures.js'
 import * as m027 from './027-template-bar-fixtures-side.js'
 import * as m028 from './028-template-bar-fixtures-position-text.js'
+import * as m029 from './029-photo-channels-migrate.js'
 
 // Reihenfolge ist bindend — manche Migrationen setzen das Ergebnis vorheriger
 // voraus (z.B. 024 liest Titel, die erst durch 023 umbenannt wurden).
 export const migrations = [
   m001, m002, m003, m004, m005, m006, m007, m008, m009, m010,
   m011, m012, m013, m014, m015, m016, m017, m018, m019, m020,
-  m021, m022, m023, m024, m025, m026, m027, m028,
+  m021, m022, m023, m024, m025, m026, m027, m028, m029,
 ]

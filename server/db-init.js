@@ -125,7 +125,6 @@ function _initSchema(database) {
       show_id        TEXT NOT NULL REFERENCES shows(id) ON DELETE CASCADE,
       filename       TEXT NOT NULL,
       caption        TEXT NOT NULL DEFAULT '',
-      channel_number TEXT NOT NULL DEFAULT '',
       PRIMARY KEY (show_id, filename)
     );
 

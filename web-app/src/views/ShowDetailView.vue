@@ -148,18 +148,24 @@
               ref="photoGalleryRef"
               :showId="props.id"
               :photos="photos"
+              :channels="channels"
               :labels="{
                 add: t('photo.add'),
                 empty: t('photo.empty'),
+                emptyDesc: t('photo.empty.desc'),
                 delete: t('action.delete'),
                 captionPlaceholder: t('photo.caption.placeholder'),
                 channelLabel: t('photo.channel_label'),
-                channelPlaceholder: t('photo.channel_placeholder'),
+                channelInputPlaceholder: t('photo.channel_input_placeholder'),
+                channelUnknown: t('photo.channel_unknown'),
+                channelPick: t('photo.channel_pick'),
+                channelSearchPlaceholder: t('photo.channel_search_placeholder'),
+                channelNone: t('gassenturm.channel.none'),
               }"
               @update:photos="photos = $event"
             />
           </div>
-          <label class="absolute bottom-20 right-6 md:bottom-6 h-11 px-5 rounded-full shadow-lg bg-accent hover:bg-accent/90 text-accent-foreground flex items-center gap-2 cursor-pointer text-sm font-medium">
+          <label v-if="photos.length > 0" class="absolute bottom-20 right-6 md:bottom-6 h-11 px-5 rounded-full shadow-lg bg-accent hover:bg-accent/90 text-accent-foreground flex items-center gap-2 cursor-pointer text-sm font-medium">
             <Plus class="size-4" /> {{ t('photo.add') }}
             <input type="file" accept="image/*" multiple class="sr-only" @change="photoGalleryRef?.onFileInput($event)" />
           </label>

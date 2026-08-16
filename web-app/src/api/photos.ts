@@ -37,8 +37,16 @@ export async function fetchPhotoCaptions(showId: string): Promise<any> {
   return api.get(`/api/shows/${showId}/photo-captions`)
 }
 
-export async function savePhotoCaption(showId: string, filename: string, caption: string, channelNumber: string | number = ''): Promise<any> {
-  return api.put(`/api/shows/${showId}/photo-captions/${encodeURIComponent(filename)}`, { caption, channelNumber })
+export async function savePhotoCaption(showId: string, filename: string, caption: string): Promise<any> {
+  return api.put(`/api/shows/${showId}/photo-captions/${encodeURIComponent(filename)}`, { caption })
+}
+
+export async function fetchAllPhotoChannels(showId: string): Promise<Record<string, string[]>> {
+  return api.get(`/api/shows/${showId}/photo-channels`)
+}
+
+export async function savePhotoChannels(showId: string, filename: string, channelIds: string[]): Promise<any> {
+  return api.put(`/api/shows/${showId}/photos/${encodeURIComponent(filename)}/channels`, { channelIds })
 }
 
 export async function getPhotoUrl(showId: string, filename: string, { thumb = false } = {}): Promise<string> {

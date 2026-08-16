@@ -7,20 +7,19 @@ function now() { return Date.now() }
 export function readPhotoDescriptions(slug) {
   const show = readShow(slug)
   if (!show) return {}
-  const rows = getDb().prepare('SELECT filename, caption, channel_number FROM photo_descriptions WHERE show_id = ?').all(show.id)
-  return Object.fromEntries(rows.map(r => [r.filename, { caption: r.caption, channelNumber: r.channel_number ?? '' }]))
+  const rows = getDb().prepare('SELECT filename, caption FROM photo_descriptions WHERE show_id = ?').all(show.id)
+  return Object.fromEntries(rows.map(r => [r.filename, { caption: r.caption }]))
 }
 
-export function writePhotoDescription(slug, filename, caption, channelNumber = '') {
+export function writePhotoDescription(slug, filename, caption) {
   const show = readShow(slug)
   if (!show) throw new Error(`Show not found: ${slug}`)
   getDb().prepare(`
-    INSERT INTO photo_descriptions (show_id, filename, caption, channel_number)
-    VALUES (?, ?, ?, ?)
+    INSERT INTO photo_descriptions (show_id, filename, caption)
+    VALUES (?, ?, ?)
     ON CONFLICT(show_id, filename) DO UPDATE SET
-      caption = excluded.caption,
-      channel_number = excluded.channel_number
-  `).run(show.id, filename, caption, channelNumber)
+      caption = excluded.caption
+  `).run(show.id, filename, caption)
 }
 
 export function deletePhotoDescription(slug, filename) {
@@ -78,6 +77,46 @@ export function reorderChannelPhotos(channelId, filenames) {
   const updateOrder = getDb().prepare('UPDATE channel_photos SET sort_order = ? WHERE channel_id = ? AND filename = ?')
   const tx = getDb().transaction(() => {
     for (let i = 0; i < filenames.length; i++) updateOrder.run(i, channelId, filenames[i])
+  })
+  tx()
+}
+
+export function readAllPhotoChannels(slug) {
+  const show = readShow(slug)
+  if (!show) return {}
+  const rows = getDb().prepare(`
+    SELECT cp.filename, cp.channel_id AS id FROM channel_photos cp
+    JOIN channels c ON c.id = cp.channel_id
+    WHERE c.show_id = ?
+    ORDER BY cp.filename, cp.sort_order
+  `).all(show.id)
+  const map = {}
+  for (const r of rows) (map[r.filename] ??= []).push(r.id)
+  return map
+}
+
+export function deletePhotoChannels(slug, filename) {
+  const show = readShow(slug)
+  if (!show) return
+  getDb().prepare(`
+    DELETE FROM channel_photos
+    WHERE filename = ? AND channel_id IN (SELECT id FROM channels WHERE show_id = ?)
+  `).run(filename, show.id)
+}
+
+export function setPhotoChannels(slug, filename, channelIds) {
+  const show = readShow(slug)
+  if (!show) throw new Error(`Show not found: ${slug}`)
+  const tx = getDb().transaction(() => {
+    getDb().prepare(`
+      DELETE FROM channel_photos
+      WHERE filename = ? AND channel_id IN (SELECT id FROM channels WHERE show_id = ?)
+    `).run(filename, show.id)
+    const insert = getDb().prepare(`
+      INSERT OR IGNORE INTO channel_photos (id, channel_id, filename, sort_order)
+      SELECT ?, ?, ?, ? WHERE EXISTS (SELECT 1 FROM channels WHERE id = ? AND show_id = ?)
+    `)
+    for (let i = 0; i < channelIds.length; i++) insert.run(randomUUID(), channelIds[i], filename, i, channelIds[i], show.id)
   })
   tx()
 }

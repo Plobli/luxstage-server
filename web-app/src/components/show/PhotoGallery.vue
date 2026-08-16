@@ -21,8 +21,18 @@
       @dragleave="dragging = false"
       @drop.prevent="onDrop"
     >
-      <p v-if="photos.length === 0 && !dragging" class="rounded-xl border border-dashed border-border bg-muted/10 px-4 py-8 text-sm text-muted-foreground text-center">{{ labels.empty }}</p>
-      <ul role="list" class="grid grid-cols-1 sm:grid-cols-2 gap-3 xl:grid-cols-3">
+      <div v-if="photos.length === 0 && !dragging" class="flex flex-col items-center justify-center gap-3 text-center px-8 py-16">
+        <ImageIcon class="size-8 text-muted-foreground/40" />
+        <div class="max-w-150">
+          <p class="text-base font-medium text-foreground/70">{{ labels.empty }}</p>
+          <p class="text-sm text-muted-foreground mt-1">{{ labels.emptyDesc }}</p>
+        </div>
+        <label class="mt-1 h-11 px-5 rounded-full shadow-lg bg-accent hover:bg-accent/90 text-accent-foreground flex items-center gap-2 cursor-pointer text-sm font-medium">
+          <Plus class="size-4" /> {{ labels.add }}
+          <input type="file" accept="image/*" multiple class="sr-only" @change="onFileInput" />
+        </label>
+      </div>
+      <ul role="list" class="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3">
         <li v-for="filename in photos" :key="filename" class="relative group flex flex-col gap-2 rounded-xl border border-border bg-card p-2">
           <div class="aspect-[4/3] block w-full overflow-hidden rounded-lg bg-muted cursor-pointer" @click="openLightbox(filename)">
             <img :src="photoUrl(filename, { thumb: true })" :alt="filename" loading="lazy" class="pointer-events-none h-full w-full object-cover transition-opacity duration-200 group-hover:opacity-80" />
@@ -42,21 +52,65 @@
             @keydown.enter="$event.target.blur()"
             class="mt-2 text-xs"
           />
-          <div class="flex items-center gap-2 mt-1">
-            <span class="text-xs text-muted-foreground shrink-0">{{ labels.channelLabel }}</span>
-            <Input
-              type="text"
-              :value="photoCaptions[filename]?.channelNumber ?? ''"
-              :placeholder="labels.channelPlaceholder"
-              @blur="onChannelNumberBlur(filename, $event)"
-              @keydown.enter="$event.target.blur()"
-              class="text-xs"
-            />
+          <div class="flex flex-col gap-1 mt-1">
+            <div class="flex items-center gap-2">
+              <span class="text-xs text-muted-foreground shrink-0">{{ labels.channelLabel }}</span>
+              <Input
+                type="text"
+                :value="channelInputValue(filename)"
+                :placeholder="labels.channelInputPlaceholder"
+                :class="channelInputInvalid[filename] ? 'border-destructive' : ''"
+                @focus="beginChannelInput(filename, $event)"
+                @input="onChannelInputTyping(filename, $event)"
+                @blur="commitChannelInput(filename, $event)"
+                @keydown.enter="$event.target.blur()"
+                class="text-xs font-mono"
+              />
+              <button
+                type="button"
+                class="text-xs text-muted-foreground/50 hover:text-muted-foreground shrink-0"
+                :title="labels.channelPick"
+                @click="openChannelPicker(filename)"
+              ><Search class="size-3.5" /></button>
+            </div>
+            <p v-if="channelInputInvalid[filename]" class="text-[10px] text-destructive">
+              {{ labels.channelUnknown }}: {{ channelInputInvalid[filename].join(', ') }}
+            </p>
           </div>
         </li>
       </ul>
     </div>
   </section>
+
+  <!-- Kreis-Zuordnung Picker -->
+  <Dialog :open="channelPickerOpen" @update:open="channelPickerOpen = $event">
+    <DialogContent class="sm:max-w-lg">
+      <DialogHeader>
+        <DialogTitle>{{ labels.channelPick }}</DialogTitle>
+      </DialogHeader>
+      <DialogBody>
+        <Input v-model="channelSearch" :placeholder="labels.channelSearchPlaceholder" autofocus />
+        <div class="max-h-72 overflow-y-auto flex flex-col">
+          <label
+            v-for="ch in filteredChannelsForPicker"
+            :key="ch.id"
+            class="flex items-center gap-3 px-2 py-2 text-left rounded-lg cursor-pointer hover:bg-muted/40"
+          >
+            <Checkbox :model-value="pickerSelectedIds.includes(ch.id)" @update:model-value="toggleChannelSelection(ch.id)" />
+            <span class="font-mono font-bold text-sm w-8 shrink-0">{{ ch.channel }}</span>
+            <span class="text-sm text-foreground truncate">{{ ch.device }}</span>
+          </label>
+          <div v-if="filteredChannelsForPicker.length === 0" class="text-xs text-muted-foreground px-2 py-4 text-center">
+            {{ labels.channelNone }}
+          </div>
+        </div>
+      </DialogBody>
+      <DialogFooter>
+        <Button variant="ghost" @click="channelPickerOpen = false">{{ t('action.cancel') }}</Button>
+        <Button @click="confirmChannelPicker">{{ t('action.done') }}</Button>
+      </DialogFooter>
+    </DialogContent>
+  </Dialog>
 
   <!-- Print pages (only visible when printing) -->
   <div v-if="photos.length > 0" class="photo-print-pages">
@@ -124,19 +178,22 @@
 
 <script setup>
 import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue'
-import { ChevronLeft, ChevronRight, X } from 'lucide-vue-next'
+import { ChevronLeft, ChevronRight, X, Plus, Search, Image as ImageIcon } from 'lucide-vue-next'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Progress } from '@/components/ui/progress'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogBody } from '@/components/ui/dialog'
+import Checkbox from '@/components/ui/checkbox/Checkbox.vue'
 import { useConfirm } from '../../composables/useConfirm.js'
 import { useLocale } from '../../composables/useLocale.js'
 import { usePhotoSettings } from '../../composables/usePhotoSettings.js'
-import { uploadPhoto, deletePhoto, fetchPhotos, fetchPhotoCaptions, savePhotoCaption } from '../../api/photos.js'
+import { uploadPhoto, deletePhoto, fetchPhotos, fetchPhotoCaptions, savePhotoCaption, fetchAllPhotoChannels, savePhotoChannels } from '../../api/photos.js'
 import { getPhotoUrl } from '../../api/photos.js'
 
 const props = defineProps({
   showId: { type: String, required: true },
   photos: { type: Array, required: true },
+  channels: { type: Array, required: true },
   labels: { type: Object, required: true },
 })
 
@@ -150,6 +207,77 @@ const dragging = ref(false)
 const lightboxPhoto = ref(null)
 const uploadQueue = ref([])
 const photoCaptions = ref({})
+const photoChannels = ref({})
+
+const channelById = computed(() => {
+  const map = new Map()
+  for (const ch of props.channels) map.set(ch.id, ch)
+  return map
+})
+
+function channelsForPhoto(filename) {
+  return (photoChannels.value[filename] ?? []).map(id => channelById.value.get(id)).filter(Boolean)
+}
+
+const channelIdByNumber = computed(() => {
+  const map = new Map()
+  for (const ch of props.channels) {
+    const key = (ch.channel ?? '').trim().toLowerCase()
+    if (key) map.set(key, ch.id)
+  }
+  return map
+})
+
+// Freitext-Eingabe der Kreisnummern direkt unters Foto: solange das Feld
+// fokussiert ist, zeigt es den zuletzt getippten Rohtext (channelInputDrafts);
+// erst beim Verlassen wird gegen die Kreisliste gematcht und gespeichert.
+const channelInputDrafts = ref({})
+const channelInputInvalid = ref({})
+
+function channelInputValue(filename) {
+  if (filename in channelInputDrafts.value) return channelInputDrafts.value[filename]
+  return channelsForPhoto(filename).map(ch => ch.channel).join(', ')
+}
+
+function beginChannelInput(filename, event) {
+  channelInputDrafts.value[filename] = channelInputValue(filename)
+  event.target.value = channelInputDrafts.value[filename]
+}
+
+function setInvalidTokens(filename, unknown) {
+  if (unknown.length) channelInputInvalid.value = { ...channelInputInvalid.value, [filename]: unknown }
+  else { const { [filename]: _, ...rest } = channelInputInvalid.value; channelInputInvalid.value = rest }
+}
+
+// Live-Validierung während des Tippens: nur abgeschlossene Tokens (gefolgt von
+// Trennzeichen) werden geprüft, das zuletzt getippte, noch offene Token bleibt
+// neutral — sonst würde z.B. "1" schon als ungültig markiert, bevor "12" fertig ist.
+function onChannelInputTyping(filename, event) {
+  const raw = event.target.value
+  channelInputDrafts.value[filename] = raw
+  const endsOpen = raw.length > 0 && !/[,\s]$/.test(raw)
+  const tokens = raw.split(/[,\s]+/).map(s => s.trim()).filter(Boolean)
+  const checkTokens = endsOpen ? tokens.slice(0, -1) : tokens
+  const unknown = checkTokens.filter(token => !channelIdByNumber.value.has(token.toLowerCase()))
+  setInvalidTokens(filename, unknown)
+}
+
+async function commitChannelInput(filename, event) {
+  const raw = event.target.value
+  delete channelInputDrafts.value[filename]
+  const tokens = raw.split(/[,\s]+/).map(s => s.trim()).filter(Boolean)
+  const channelIds = []
+  const unknown = []
+  const seen = new Set()
+  for (const token of tokens) {
+    const id = channelIdByNumber.value.get(token.toLowerCase())
+    if (id) { if (!seen.has(id)) { seen.add(id); channelIds.push(id) } }
+    else unknown.push(token)
+  }
+  setInvalidTokens(filename, unknown)
+  photoChannels.value[filename] = channelIds
+  await savePhotoChannels(props.showId, filename, channelIds)
+}
 
 const photoPages = computed(() => {
   const n = photosPerPage.value
@@ -209,18 +337,55 @@ onMounted(async () => {
   } catch (e) {
     console.error('Fehler beim Laden der Fotobeschriftungen:', e)
   }
+  try {
+    photoChannels.value = await fetchAllPhotoChannels(props.showId)
+  } catch (e) {
+    console.error('Fehler beim Laden der Foto-Kreiszuordnungen:', e)
+  }
 })
 
 async function onCaptionBlur(filename, event) {
   const caption = event.target.value
   photoCaptions.value[filename] = { ...(photoCaptions.value[filename] ?? {}), caption }
-  await savePhotoCaption(props.showId, filename, caption, photoCaptions.value[filename]?.channelNumber ?? '')
+  await savePhotoCaption(props.showId, filename, caption)
 }
 
-async function onChannelNumberBlur(filename, event) {
-  const channelNumber = event.target.value
-  photoCaptions.value[filename] = { ...(photoCaptions.value[filename] ?? {}), channelNumber }
-  await savePhotoCaption(props.showId, filename, photoCaptions.value[filename]?.caption ?? '', channelNumber)
+// Kreis-Zuordnung
+const channelPickerOpen = ref(false)
+const channelPickerFilename = ref(null)
+const channelSearch = ref('')
+const pickerSelectedIds = ref([])
+
+const filteredChannelsForPicker = computed(() => {
+  const q = channelSearch.value.trim().toLowerCase()
+  return props.channels.filter(ch => {
+    if (!q) return true
+    return (
+      (ch.channel ?? '').toLowerCase().includes(q) ||
+      (ch.device ?? '').toLowerCase().includes(q)
+    )
+  }).slice(0, 50)
+})
+
+function openChannelPicker(filename) {
+  channelPickerFilename.value = filename
+  channelSearch.value = ''
+  pickerSelectedIds.value = [...(photoChannels.value[filename] ?? [])]
+  channelPickerOpen.value = true
+}
+
+function toggleChannelSelection(id) {
+  const idx = pickerSelectedIds.value.indexOf(id)
+  if (idx === -1) pickerSelectedIds.value.push(id)
+  else pickerSelectedIds.value.splice(idx, 1)
+}
+
+async function confirmChannelPicker() {
+  const filename = channelPickerFilename.value
+  const channelIds = [...pickerSelectedIds.value]
+  photoChannels.value[filename] = channelIds
+  channelPickerOpen.value = false
+  await savePhotoChannels(props.showId, filename, channelIds)
 }
 
 async function uploadFiles(files) {
@@ -252,6 +417,7 @@ async function onDeletePhoto(filename) {
   await deletePhoto(props.showId, filename)
   emit('update:photos', props.photos.filter(f => f !== filename))
   delete photoCaptions.value[filename]
+  delete photoChannels.value[filename]
 }
 
 const lightboxIndex = computed(() => props.photos.indexOf(lightboxPhoto.value))

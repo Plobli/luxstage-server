@@ -10,6 +10,8 @@ const SHOW_PHOTO_FILE    = /^\/api\/shows\/([^/]+)\/photos\/(.+)$/
 const SHOW_PHOTO_ORDER   = /^\/api\/shows\/([^/]+)\/photo-order$/
 const SHOW_PHOTO_CAPS    = /^\/api\/shows\/([^/]+)\/photo-captions$/
 const SHOW_PHOTO_CAP     = /^\/api\/shows\/([^/]+)\/photo-captions\/(.+)$/
+const SHOW_PHOTO_CHANNELS_ALL = /^\/api\/shows\/([^/]+)\/photo-channels$/
+const SHOW_PHOTO_CHANNELS = /^\/api\/shows\/([^/]+)\/photos\/([^/]+)\/channels$/
 const CHAN_PHOTOS         = /^\/api\/shows\/([^/]+)\/channels\/([^/]+)\/photos$/
 const CHAN_PHOTO_REORDER  = /^\/api\/shows\/([^/]+)\/channels\/([^/]+)\/photos\/reorder$/
 const CHAN_PHOTO_FILE     = /^\/api\/shows\/([^/]+)\/channels\/([^/]+)\/photos\/(.+)$/
@@ -64,8 +66,8 @@ export async function photoRoutes(req, res, pathname, params) {
         return json(res, 400, { error: 'Ungültiger Dateiname' })
       }
       const body = await readJsonBody(req, res); if (body === null) return
-      const { caption, channelNumber } = body
-      db.writePhotoDescription(id, filename, caption ?? '', channelNumber ?? '')
+      const { caption } = body
+      db.writePhotoDescription(id, filename, caption ?? '')
       return json(res, 200, { ok: true })
     }
   }
@@ -106,6 +108,25 @@ export async function photoRoutes(req, res, pathname, params) {
     }
   }
 
+  if (m = SHOW_PHOTO_CHANNELS_ALL.exec(pathname)) {
+    if (method === 'GET') {
+      return json(res, 200, db.readAllPhotoChannels(m[1]))
+    }
+  }
+
+  if (m = SHOW_PHOTO_CHANNELS.exec(pathname)) {
+    const id = m[1]
+    const filename = path.basename(decodeURIComponent(m[2]))
+    if (method === 'PUT') {
+      const user = requireAdmin(req, res); if (!user) return
+      const body = await readJsonBody(req, res); if (body === null) return
+      const { channelIds } = body
+      if (!Array.isArray(channelIds)) return json(res, 400, { error: 'channelIds muss ein Array sein' })
+      db.setPhotoChannels(id, filename, channelIds)
+      return json(res, 200, { ok: true })
+    }
+  }
+
   if (m = SHOW_PHOTO_FILE.exec(pathname)) {
     const slug = m[1]
     const filename = path.basename(decodeURIComponent(m[2]))
@@ -113,6 +134,7 @@ export async function photoRoutes(req, res, pathname, params) {
       const user = requireAdmin(req, res); if (!user) return
       await photosLib.deletePhoto(slug, filename)
       db.deletePhotoDescription(slug, filename)
+      db.deletePhotoChannels(slug, filename)
       return json(res, 200, { ok: true })
     }
     if (method === 'GET') {
