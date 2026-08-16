@@ -1,11 +1,11 @@
 import { requireAdmin } from '../auth.js'
 import { readJsonBody, json } from '../helpers.js'
-import { getDb } from '../db-context.js'
+import { getSettingsByPrefix, setSetting } from '../db/settings.js'
 import { config } from '../config.js'
 import { sendTestEmail } from '../email.js'
 
 function getSmtpConfig() {
-  const rows = getDb().prepare("SELECT key, value FROM settings WHERE key LIKE 'smtp.%'").all()
+  const rows = getSettingsByPrefix('smtp.')
   const cfg = { host: '', port: '587', secure: false, user: '', pass: '', from: '' }
   for (const { key, value } of rows) {
     const k = key.replace('smtp.', '')
@@ -15,10 +15,9 @@ function getSmtpConfig() {
 }
 
 function saveSmtpConfig(cfg) {
-  const set = getDb().prepare("INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value")
   const fields = ['host', 'port', 'secure', 'user', 'pass', 'from']
   for (const field of fields) {
-    set.run(`smtp.${field}`, String(cfg[field] ?? ''))
+    setSetting(`smtp.${field}`, String(cfg[field] ?? ''))
   }
 }
 
