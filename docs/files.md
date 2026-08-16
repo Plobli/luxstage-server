@@ -59,7 +59,14 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 | `./server/backup.js` | ZIP-basierte Backup- und Wiederherstellungsfunktionen mit request-isoliertem Staging, Restore-Lock, Rollback und Grenzen für ZIP-Einträge sowie entpackte Daten. |
 | `./server/photos.js` | Gestreamter Foto-Upload mit Gesamt-, Datei- und Dateianzahlgrenzen, Skalierung und Thumbnail-Generierung. |
 | `./server/floorplan.js` | Grundrissbild-Verwaltung mit Format-Validierung. |
-| `./server/pdf.js` | PDF-Export für Einleuchtpläne mit Filter-Farbcodierung, inkl. Punktzug-Sonderlayout, Traverse-Innen/Außen-Kennzeichnung und Referrer-Schutz. |
+| `./server/pdf.js` | PDF-Export für Einleuchtpläne: Orchestrierung (Titel, Sections, Kanalliste, Grundriss, Fotos), Referrer-Schutz; Rendering-Details in `pdf/`. |
+| `./server/pdf/constants.js` | Gemeinsame Layout-Konstanten (Maße, Farben, Fonts) für den PDF-Export. |
+| `./server/pdf/filter-colors.js` | Lee/Rosco-Filter-Code zu Hex-Farbe, Kontrastfarben-Berechnung. |
+| `./server/pdf/layout-primitives.js` | Low-Level-Zeichenhelfer für Tabellenzeilen und Key-Value-Sections. |
+| `./server/pdf/tiptap-parse.js` | Parsen von Tiptap-JSON/Markdown-Setup-Text in Render-Blöcke, inkl. Zeichnen. |
+| `./server/pdf/towers.js` | Rendering von Beleuchtungsgestellen (Karten-Grid und Textliste). |
+| `./server/pdf/bars.js` | Rendering von Zugstangen/Traversen/Punktzug (Skala, Fixture-Kreise, Textliste). |
+| `./server/pdf/utils.js` | Kanalgruppierung, Datumsformat, Bildgrößen-Ermittlung aus PNG/JPEG-Buffer. |
 | `./server/sse.js` | Server-Sent Events für Echtzeit-Kanal-Updates und Präsenz, pro Mandant gescopt; Heartbeat blockiert keine Einmalprozesse. |
 | `./server/email.js` | SMTP-Konfiguration und Email-Versand mit Fallback-Support. |
 | `./server/package.json` | NPM-Abhängigkeiten (sqlite, pdfkit, sharp, bcrypt, jwt). |
