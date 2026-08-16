@@ -36,6 +36,14 @@ export function resolveCssVarsInSvg(svgEl) {
 
 const SNAPSHOT_OVERFLOW = 120 // CSS-px Rand für overflow-visible Elemente am Stage-Rand
 
+// Bild unverzerrt (wie CSS object-fit: contain) in ein Zielrechteck einpassen, zentriert.
+function containRect(imgW, imgH, boxW, boxH) {
+  const scale = Math.min(boxW / imgW, boxH / imgH)
+  const w = imgW * scale
+  const h = imgH * scale
+  return { x: (boxW - w) / 2, y: (boxH - h) / 2, w, h }
+}
+
 export async function captureFloorplanSnapshot(svgEl, stageSize, bgImage) {
   if (!svgEl) return null
   const SCALE = 3
@@ -49,7 +57,10 @@ export async function captureFloorplanSnapshot(svgEl, stageSize, bgImage) {
   ctx.scale(SCALE, SCALE)
   ctx.fillStyle = '#ffffff'
   ctx.fillRect(0, 0, w + OV * 2, h + OV * 2)
-  if (bgImage) ctx.drawImage(bgImage, OV, OV, w, h)
+  if (bgImage) {
+    const r = containRect(bgImage.naturalWidth || bgImage.width, bgImage.naturalHeight || bgImage.height, w, h)
+    ctx.drawImage(bgImage, OV + r.x, OV + r.y, r.w, r.h)
+  }
   await new Promise(resolve => {
     const svg = svgEl.cloneNode(true)
     const bgImgNode = svg.querySelector('#bg-image')
@@ -90,7 +101,10 @@ export function exportFloorplanPNG(svgEl, stageSize, bgImage, filename = 'grundr
   canvas.height = stageSize.height * 2
   const ctx = canvas.getContext('2d')
   ctx.scale(2, 2)
-  if (bgImage) ctx.drawImage(bgImage, 0, 0, stageSize.width, stageSize.height)
+  if (bgImage) {
+    const r = containRect(bgImage.naturalWidth || bgImage.width, bgImage.naturalHeight || bgImage.height, stageSize.width, stageSize.height)
+    ctx.drawImage(bgImage, r.x, r.y, r.w, r.h)
+  }
 
   const svg = svgEl.cloneNode(true)
   const bgImgNode = svg.querySelector('#bg-image')

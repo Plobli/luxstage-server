@@ -13,14 +13,17 @@
 
     <!-- Zugstangen-Liste -->
     <div class="flex-1 overflow-y-auto pb-14 md:pb-0">
-      <div v-if="bars.length === 0" class="flex flex-col items-center justify-center gap-3 h-64 text-center px-8">
+      <div v-if="bars.length === 0" class="flex flex-col items-center justify-center gap-3 h-full text-center px-8 -mt-5">
         <AlignJustify class="size-8 text-muted-foreground/40" />
         <div class="max-w-150">
           <p class="text-base font-medium text-foreground/70">{{ t('zugstange.empty') }}</p>
           <p class="text-sm text-muted-foreground mt-1">{{ t('zugstange.empty.desc') }}</p>
         </div>
+        <Button variant="accent" @click="openNewBarDialog" class="mt-1 h-11 px-5 rounded-full shadow-lg flex items-center gap-2">
+          <Plus class="size-4" /> {{ t('zugstange.new') }}
+        </Button>
       </div>
-      <div v-else-if="filteredBars.length === 0" class="flex flex-col items-center justify-center gap-3 h-64 text-center px-8">
+      <div v-else-if="filteredBars.length === 0" class="flex flex-col items-center justify-center gap-3 h-full text-center px-8 -mt-5">
         <AlignJustify class="size-8 text-muted-foreground/40" />
         <p class="text-sm text-muted-foreground">{{ t('zugstange.empty') }}</p>
       </div>
@@ -108,7 +111,7 @@
     </div>
 
     <!-- Neue Zugstange -->
-    <Button variant="accent" @click="openNewBarDialog" class="absolute bottom-20 right-6 md:bottom-6 h-11 px-5 rounded-full shadow-lg flex items-center gap-2">
+    <Button v-if="bars.length > 0" variant="accent" @click="openNewBarDialog" class="absolute bottom-20 right-6 md:bottom-6 h-11 px-5 rounded-full shadow-lg flex items-center gap-2">
       <Plus class="size-4" /> {{ t('zugstange.new') }}
     </Button>
   </div>
@@ -208,21 +211,19 @@
       </DialogHeader>
       <DialogBody>
         <Input v-if="!pickerChannel" size="lg" v-model="fixtureSearch" :placeholder="t('zugstange.fixture.search.placeholder')" autofocus @keydown.enter="selectFirstAndConfirm" />
-        <TooltipProvider v-if="!pickerChannel" :delay-duration="200">
-          <div class="w-full max-h-96 overflow-y-auto grid! gap-2 pt-1" style="grid-template-columns: repeat(auto-fill, minmax(3rem, 1fr));">
-            <Tooltip v-for="ch in filteredChannelsForPicker" :key="ch.channel">
-              <TooltipTrigger asChild>
-                <button
-                  class="aspect-square max-w-14 rounded-lg border flex items-center justify-center text-base font-bold tabular-nums transition-colors border-border/40 text-foreground hover:bg-accent/15 hover:border-accent/50"
-                  @click="pickerChannel = ch; fixtureSearch = ''"
-                >{{ ch.channel }}</button>
-              </TooltipTrigger>
-              <TooltipContent v-if="ch.device || ch.address || ch.color">
-                <p class="text-sm">{{ [ch.device, ch.address ? `DMX ${ch.address}` : null, ch.color].filter(Boolean).join(' · ') }}</p>
-              </TooltipContent>
-            </Tooltip>
-          </div>
-        </TooltipProvider>
+        <div v-if="!pickerChannel" class="w-full max-h-96 overflow-y-auto grid! gap-2 pt-1" style="grid-template-columns: repeat(auto-fill, minmax(3rem, 1fr));">
+          <Tooltip v-for="ch in filteredChannelsForPicker" :key="ch.channel">
+            <TooltipTrigger asChild>
+              <button
+                class="aspect-square max-w-14 rounded-lg border flex items-center justify-center text-base font-bold tabular-nums transition-colors border-border/40 text-foreground hover:bg-accent/15 hover:border-accent/50"
+                @click="pickerChannel = ch; fixtureSearch = ''"
+              >{{ ch.channel }}</button>
+            </TooltipTrigger>
+            <TooltipContent v-if="ch.device || ch.address || ch.color">
+              <p class="text-sm">{{ [ch.device, ch.address ? `DMX ${ch.address}` : null, ch.color].filter(Boolean).join(' · ') }}</p>
+            </TooltipContent>
+          </Tooltip>
+        </div>
         <div v-if="pickerChannel" class="flex flex-col gap-3">
           <button
             type="button"
@@ -358,7 +359,7 @@ import { Label } from '@/components/ui/label'
 import HelpIcon from '@/components/ui/HelpIcon.vue'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogBody } from '@/components/ui/dialog'
 import Checkbox from '@/components/ui/checkbox/Checkbox.vue'
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import BarVisualization from './BarVisualization.vue'
 
 const props = defineProps({

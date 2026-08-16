@@ -13,77 +13,121 @@
       </div>
     </Transition>
     <!-- Top Ribbon Toolbar -->
-    <div class="bg-muted/30 border-b border-border flex items-stretch py-1 px-1 gap-1 z-10 shrink-0 overflow-x-auto">
+    <div class="bg-muted/30 border-b border-border flex items-stretch py-1.5 px-1 gap-1 z-10 shrink-0 overflow-x-auto">
       <!-- Gruppe: Navigation -->
-      <div class="flex items-center gap-0.5 px-1">
-        <SidebarBtn horizontal icon-only :active="activeTool === 'select'" :title="t('floorplan.tool.select.title')" @click="activeTool = 'select'">
-          <MousePointer2 class="w-4 h-4 shrink-0" />
-        </SidebarBtn>
-        <SidebarBtn horizontal icon-only :active="activeTool === 'pan'" :title="t('floorplan.tool.pan.title')" @click="activeTool = 'pan'">
-          <Hand class="w-4 h-4 shrink-0" />
-        </SidebarBtn>
+      <div class="flex flex-col items-center gap-0.5 px-1.5">
+        <span class="text-[10px] font-medium text-muted-foreground/70 uppercase tracking-wide text-center">{{ t('floorplan.toolbar.group.navigate') }}</span>
+        <div class="flex items-center gap-0.5">
+          <SidebarBtn horizontal icon-only :active="activeTool === 'select'" :title="t('floorplan.tool.select.title')" @click="activeTool = 'select'">
+            <MousePointer2 class="w-4 h-4 shrink-0" />
+          </SidebarBtn>
+          <SidebarBtn horizontal icon-only :active="activeTool === 'pan'" :title="t('floorplan.tool.pan.title')" @click="activeTool = 'pan'">
+            <Hand class="w-4 h-4 shrink-0" />
+          </SidebarBtn>
+        </div>
       </div>
       <div class="w-px bg-border my-1 shrink-0"></div>
 
       <!-- Gruppe: Zeichnen -->
-      <div class="flex items-center gap-0.5 px-1">
-        <SidebarBtn horizontal icon-only :active="activeTool === 'line'" :title="t('floorplan.tool.line.title')" @click="activeTool = 'line'">
-          <Minus class="w-4 h-4 shrink-0 rotate-45" />
-        </SidebarBtn>
-        <SidebarBtn horizontal icon-only :active="activeTool === 'rect'" :title="t('floorplan.tool.rect.title')" @click="activeTool = 'rect'">
-          <Square class="w-4 h-4 shrink-0" />
-        </SidebarBtn>
-        <SidebarBtn horizontal icon-only :active="activeTool === 'ellipse'" :title="t('floorplan.tool.ellipse.title')" @click="activeTool = 'ellipse'">
-          <Circle class="w-4 h-4 shrink-0" />
-        </SidebarBtn>
-        <SidebarBtn horizontal icon-only :active="activeTool === 'text'" :title="t('floorplan.tool.text.title')" @click="activeTool = 'text'">
-          <Type class="w-4 h-4 shrink-0" />
-        </SidebarBtn>
+      <div class="flex flex-col items-center gap-0.5 px-1.5">
+        <span class="text-[10px] font-medium text-muted-foreground/70 uppercase tracking-wide text-center">{{ t('floorplan.toolbar.group.draw') }}</span>
+        <div class="flex items-center gap-0.5">
+          <SidebarBtn horizontal icon-only :active="activeTool === 'line'" :title="t('floorplan.tool.line.title')" @click="activeTool = 'line'">
+            <Minus class="w-4 h-4 shrink-0 rotate-45" />
+          </SidebarBtn>
+          <SidebarBtn horizontal icon-only :active="activeTool === 'rect'" :title="t('floorplan.tool.rect.title')" @click="activeTool = 'rect'">
+            <Square class="w-4 h-4 shrink-0" />
+          </SidebarBtn>
+          <SidebarBtn horizontal icon-only :active="activeTool === 'ellipse'" :title="t('floorplan.tool.ellipse.title')" @click="activeTool = 'ellipse'">
+            <Circle class="w-4 h-4 shrink-0" />
+          </SidebarBtn>
+          <SidebarBtn horizontal icon-only :active="activeTool === 'text'" :title="t('floorplan.tool.text.title')" @click="activeTool = 'text'">
+            <Type class="w-4 h-4 shrink-0" />
+          </SidebarBtn>
+        </div>
       </div>
       <div class="w-px bg-border my-1 shrink-0"></div>
 
       <!-- Gruppe: Lichttechnik -->
-      <div class="flex items-stretch gap-0.5 px-1">
-        <SidebarBtn horizontal :active="activeTool === 'channel' || activeTool === 'channel-pending'" :title="t('floorplan.tool.channel.title')" @click="activeTool = 'channel'">
-          <CircleDot class="w-4 h-4 shrink-0" /><span class="w-full whitespace-normal wrap-break-word">{{ t('floorplan.tool.channel') }}</span>
-        </SidebarBtn>
-        <SidebarBtn horizontal :active="activeTool === 'tower'" :title="t('floorplan.tool.tower.title')" @click="openTowerPlacer">
-          <Layers class="w-4 h-4 shrink-0" /><span class="w-full whitespace-normal wrap-break-word">{{ t('floorplan.tool.tower') }}</span>
-        </SidebarBtn>
-        <SidebarBtn horizontal :active="activeTool === 'bar'" :title="t('floorplan.tool.bar.title')" @click="openBarPlacer">
-          <AlignJustify class="w-4 h-4 shrink-0" /><span class="w-full whitespace-normal wrap-break-word">{{ t('floorplan.tool.bar') }}</span>
-        </SidebarBtn>
-        <SidebarBtn horizontal :active="activeTool === 'ruler'" :title="t('floorplan.tool.ruler.title')" @click="activeTool = 'ruler'">
-          <Ruler class="w-4 h-4 shrink-0" /><span class="w-full whitespace-normal wrap-break-word">{{ t('floorplan.tool.ruler') }}</span>
-        </SidebarBtn>
+      <div class="flex flex-col items-center gap-0.5 px-1.5">
+        <span class="text-[10px] font-medium text-muted-foreground/70 uppercase tracking-wide text-center">{{ t('floorplan.toolbar.group.lighting') }}</span>
+        <div class="flex items-stretch gap-0.5">
+          <SidebarBtn horizontal icon-only :active="activeTool === 'channel' || activeTool === 'channel-pending'" :title="t('floorplan.tool.channel.title')" @click="activeTool = 'channel'">
+            <CircleDot class="w-4 h-4 shrink-0" />
+          </SidebarBtn>
+          <SidebarBtn horizontal icon-only :active="activeTool === 'tower'" :title="t('floorplan.tool.tower.title')" @click="openTowerPlacer">
+            <Layers class="w-4 h-4 shrink-0" />
+          </SidebarBtn>
+          <SidebarBtn horizontal icon-only :active="activeTool === 'bar'" :title="t('floorplan.tool.bar.title')" @click="openBarPlacer">
+            <AlignJustify class="w-4 h-4 shrink-0" />
+          </SidebarBtn>
+        </div>
+      </div>
+      <div class="w-px bg-border my-1 shrink-0"></div>
+
+      <!-- Gruppe: Maßstab -->
+      <div class="flex flex-col items-center gap-0.5 px-1.5">
+        <span class="text-[10px] font-medium text-muted-foreground/70 uppercase tracking-wide text-center">{{ t('floorplan.toolbar.group.scale') }}</span>
+        <div class="flex items-center gap-0.5">
+          <SidebarBtn horizontal icon-only :active="activeTool === 'ruler'" :title="t('floorplan.tool.ruler.title')" @click="activeTool = 'ruler'">
+            <Ruler class="w-4 h-4 shrink-0" />
+          </SidebarBtn>
+        </div>
       </div>
       <div class="w-px bg-border my-1 shrink-0"></div>
 
       <!-- Gruppe: Hintergrund -->
-      <div class="flex items-center gap-0.5 px-1">
-        <SidebarBtn horizontal icon-only :title="t('floorplan.image.upload.title')" @click="imageUploadInput?.click()">
-          <Upload class="w-4 h-4 shrink-0" />
-        </SidebarBtn>
-        <SidebarBtn v-if="bgImageSrc" horizontal icon-only variant="danger" :title="t('floorplan.image.remove.title')" @click="emit('delete-image')">
-          <ImageOff class="w-4 h-4 shrink-0" />
-        </SidebarBtn>
-        <input ref="imageUploadInput" type="file" accept="image/*" class="hidden" @change="onImageFileSelected" />
+      <div class="flex flex-col items-center gap-0.5 px-1.5">
+        <span class="text-[10px] font-medium text-muted-foreground/70 uppercase tracking-wide text-center">{{ t('floorplan.toolbar.group.background') }}</span>
+        <div class="flex items-center gap-0.5">
+          <SidebarBtn horizontal icon-only :title="t('floorplan.image.upload.title')" @click="imageUploadInput?.click()">
+            <Upload class="w-4 h-4 shrink-0" />
+          </SidebarBtn>
+          <SidebarBtn v-if="bgImageSrc" horizontal icon-only variant="danger" :title="t('floorplan.image.remove.title')" @click="emit('delete-image')">
+            <ImageOff class="w-4 h-4 shrink-0" />
+          </SidebarBtn>
+          <input ref="imageUploadInput" type="file" accept="image/png,image/jpeg" class="hidden" @change="onImageFileSelected" />
+        </div>
       </div>
       <div class="w-px bg-border my-1 shrink-0"></div>
 
       <!-- Gruppe: Export -->
-      <div class="flex items-center gap-0.5 px-1">
-        <SidebarBtn horizontal icon-only :title="t('floorplan.export.png.title')" @click="exportPNG">
-          <Download class="w-4 h-4 shrink-0" />
-        </SidebarBtn>
+      <div class="flex flex-col items-center gap-0.5 px-1.5">
+        <span class="text-[10px] font-medium text-muted-foreground/70 uppercase tracking-wide text-center">{{ t('floorplan.toolbar.group.export') }}</span>
+        <div class="flex items-center gap-0.5">
+          <SidebarBtn horizontal icon-only :title="t('floorplan.export.png.title')" @click="exportPNG">
+            <Download class="w-4 h-4 shrink-0" />
+          </SidebarBtn>
+        </div>
       </div>
       <div class="w-px bg-border my-1 shrink-0"></div>
 
       <!-- Gruppe: Bearbeiten -->
-      <div class="flex items-center gap-0.5 px-1">
-        <SidebarBtn horizontal icon-only :disabled="selectedIds.size === 0" variant="danger" :title="t('floorplan.delete_selection.title')" @click="deleteSelected">
-          <Trash2 class="w-4 h-4 shrink-0" />
-        </SidebarBtn>
+      <div class="flex flex-col items-center gap-0.5 px-1.5">
+        <span class="text-[10px] font-medium text-muted-foreground/70 uppercase tracking-wide text-center">{{ t('floorplan.toolbar.group.edit') }}</span>
+        <div class="flex items-center gap-0.5">
+          <SidebarBtn horizontal icon-only :disabled="selectedIds.size === 0" variant="danger" :title="t('floorplan.delete_selection.title')" @click="deleteSelected">
+            <Trash2 class="w-4 h-4 shrink-0" />
+          </SidebarBtn>
+        </div>
+      </div>
+      <div class="w-px bg-border my-1 shrink-0 ml-auto"></div>
+
+      <!-- Gruppe: Gitter -->
+      <div class="flex flex-col items-center gap-0.5 px-1.5">
+        <span class="text-[10px] font-medium text-muted-foreground/70 uppercase tracking-wide text-center">{{ t('floorplan.toolbar.group.grid') }}</span>
+        <div class="flex items-center gap-0.5">
+          <button
+            :class="['select-none font-medium transition-colors rounded-md h-9 px-2.5 text-xs', showGrid ? 'bg-accent/85 text-accent-foreground' : 'text-foreground hover:bg-muted']"
+            :title="t('floorplan.grid.show.title')"
+            @click="showGrid = !showGrid"
+          >{{ t('floorplan.grid') }}</button>
+          <button
+            :class="['select-none font-medium transition-colors rounded-md h-9 px-2.5 text-xs', snapToGrid ? 'bg-accent/85 text-accent-foreground' : 'text-foreground hover:bg-muted']"
+            :title="t('floorplan.grid.snap.title')"
+            @click="snapToGrid = !snapToGrid"
+          >{{ t('floorplan.snap') }}</button>
+        </div>
       </div>
     </div>
 
@@ -99,12 +143,6 @@
       @mouseup="onContainerMouseUp"
       @dblclick="onContainerDblClick"
     >
-      <!-- Gitter/Einrasten oben links im Canvas -->
-      <div class="absolute top-2 left-2 z-20 flex items-center gap-1 bg-background/80 backdrop-blur border border-border rounded p-1 pointer-events-auto">
-        <Button size="sm" :variant="showGrid ? 'default' : 'ghost'" @click="showGrid = !showGrid" class="h-7 px-2 text-xs" :title="t('floorplan.grid.show.title')">{{ t('floorplan.grid') }}</Button>
-        <Button size="sm" :variant="snapToGrid ? 'default' : 'ghost'" @click="snapToGrid = !snapToGrid" class="h-7 px-2 text-xs" :title="t('floorplan.grid.snap.title')">{{ t('floorplan.snap') }}</Button>
-      </div>
-
       <div
         class="absolute origin-top-left" 
         :style="{ transform: `translate(${containerOffsetX}px, ${containerOffsetY}px) scale(${stageScale}) translate(${panOffset.x}px, ${panOffset.y}px)`, width: stageSize.width + 'px', height: stageSize.height + 'px' }"
@@ -117,12 +155,18 @@
           </defs>
 
           <!-- Background image -->
-          <image v-if="bgImageSrc" id="bg-image" :href="bgImageSrc" x="0" y="0" :width="stageSize.width" :height="stageSize.height" preserveAspectRatio="none" style="pointer-events: none;" />
+          <image v-if="bgImageSrc" id="bg-image" :href="bgImageSrc" x="0" y="0" :width="stageSize.width" :height="stageSize.height" preserveAspectRatio="xMidYMid meet" style="pointer-events: none;" />
 
           <!-- Grid -->
           <g v-if="showGrid" stroke="rgba(100,100,100,0.3)" stroke-width="1" style="pointer-events: none;">
             <line v-for="x in gridVerticalLines" :key="'gv'+x" :x1="x" :y1="gridTop" :x2="x" :y2="gridBottom" />
             <line v-for="y in gridHorizontalLines" :key="'gh'+y" :x1="gridLeft" :y1="y" :x2="gridRight" :y2="y" />
+          </g>
+
+          <!-- A4-Querformat Druckbereich (Guide) -->
+          <g style="pointer-events: none;">
+            <path :d="a4GuideMaskPath" fill="rgba(0,0,0,0.45)" fill-rule="evenodd" />
+            <rect :x="a4Guide.x" :y="a4Guide.y" :width="a4Guide.w" :height="a4Guide.h" fill="none" stroke="#f59e0b" stroke-width="1.5" stroke-dasharray="8,5" opacity="0.85" />
           </g>
 
           <!-- Elements -->
@@ -294,6 +338,18 @@
             </g>
           </g>
         </svg>
+      </div>
+
+      <!-- Empty State -->
+      <div v-if="!bgImageSrc && elements.length === 0" class="absolute inset-0 flex flex-col items-center justify-center gap-3 text-center px-8 pointer-events-none -mt-5">
+        <Layers class="size-8 text-muted-foreground/40" />
+        <div class="max-w-100 pointer-events-auto select-text">
+          <p class="text-base font-medium text-foreground/70">{{ t('floorplan.empty') }}</p>
+          <p class="text-sm text-muted-foreground mt-1">{{ t('floorplan.empty.desc') }}</p>
+        </div>
+        <Button variant="accent" class="pointer-events-auto mt-1 rounded-full shadow-lg" @click="imageUploadInput?.click()">
+          <Upload class="size-4" />{{ t('floorplan.image.upload') }}
+        </Button>
       </div>
 
       <!-- Hover Tooltip -->
@@ -605,6 +661,7 @@ const bgImage = ref(null)
 const bgImageSrc = ref('')
 const containerSize = ref({ width: 1200, height: 800 })
 const stageSize = ref({ width: 1200, height: 800 })
+let nextImageIsFreshUpload = false
 
 const stageScale = computed(() => {
   const sx = containerSize.value.width / stageSize.value.width
@@ -613,6 +670,20 @@ const stageScale = computed(() => {
 })
 const containerOffsetX = computed(() => Math.round((containerSize.value.width - stageSize.value.width * stageScale.value) / 2))
 const containerOffsetY = computed(() => Math.round((containerSize.value.height - stageSize.value.height * stageScale.value) / 2))
+
+// Druckbereich im PDF-Export (A4 quer, minus Seitenränder/Titel/Fußzeile, siehe server/pdf.js)
+const PDF_PRINT_AREA_RATIO = 267 / 160
+const a4Guide = computed(() => {
+  const { width: sw, height: sh } = stageSize.value
+  let w = sw, h = sw / PDF_PRINT_AREA_RATIO
+  if (h > sh) { h = sh; w = sh * PDF_PRINT_AREA_RATIO }
+  return { x: Math.round((sw - w) / 2), y: Math.round((sh - h) / 2), w: Math.round(w), h: Math.round(h) }
+})
+const a4GuideMaskPath = computed(() => {
+  const { width: sw, height: sh } = stageSize.value
+  const g = a4Guide.value
+  return `M0,0 H${sw} V${sh} H0 Z M${g.x},${g.y} H${g.x + g.w} V${g.y + g.h} H${g.x} Z`
+})
 
 const showGrid = ref(false)
 const snapToGrid = ref(false)
@@ -823,10 +894,20 @@ async function loadBackground(url) {
   const blob = await fetch(url, { cache: 'reload', headers: { Authorization: 'Bearer ' + (getToken() || '') } }).then(r => r.blob())
   const blobUrl = URL.createObjectURL(blob)
   const img = new Image()
+  const isFreshUpload = nextImageIsFreshUpload
+  nextImageIsFreshUpload = false
   img.onload = () => {
-    const MAX = 2000
-    const scale = Math.min(1, MAX / img.naturalWidth, MAX / img.naturalHeight)
-    stageSize.value = { width: Math.round(img.naturalWidth * scale), height: Math.round(img.naturalHeight * scale) }
+    if (isFreshUpload) {
+      // Neu hochgeladene Bilder: Stage fest auf den PDF-Druckbereich (A4 quer), Bild wird
+      // unverzerrt eingepasst (siehe bg-image preserveAspectRatio). Bestehende, bereits
+      // gespeicherte Grundrisse behalten ihre bisherige Stage=Bildgröße-Darstellung.
+      const REF_W = 2000
+      stageSize.value = { width: REF_W, height: Math.round(REF_W / PDF_PRINT_AREA_RATIO) }
+    } else {
+      const MAX = 2000
+      const scale = Math.min(1, MAX / img.naturalWidth, MAX / img.naturalHeight)
+      stageSize.value = { width: Math.round(img.naturalWidth * scale), height: Math.round(img.naturalHeight * scale) }
+    }
     bgImage.value = img
     bgImageSrc.value = blobUrl
     nextTick(() => { fitToContainer(); captureSnapshot().then(snap => { if (snap) emit('snapshot', snap) }) })
@@ -1226,7 +1307,9 @@ function placeChannelCircle(ch) {
   showChannelPicker.value = false; pendingDirectionId.value = id; activeTool.value = 'channel-direction'; emitChange()
 }
 function onImageFileSelected(e) {
-  const file = e.target.files?.[0]; if (file) emit('upload-image', file); e.target.value = ''
+  const file = e.target.files?.[0]
+  if (file) { nextImageIsFreshUpload = true; emit('upload-image', file) }
+  e.target.value = ''
 }
 function jumpToChannel() { if (selectedElement.value?.type === 'channel') emit('jump-to-channel', selectedElement.value.channel) }
 function openReassignPicker() { if (selectedElement.value?.type === 'channel') { reassignTargetId.value = selectedElement.value.id; channelSearch.value = '' } }

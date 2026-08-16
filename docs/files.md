@@ -16,8 +16,8 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 | `./entrypoint.sh` | Self-Hosted-Startskript; Bootstrap-Nutzer falls `.bootstrap-done` fehlt. |
 | `./entrypoint.saas.sh` | SaaS-Startskript; lädt Server ohne Bootstrap. |
 | `./install.sh` | Bash-Installer für Bare-Metal; richtet nvm, PM2, Caddy und Benutzer ein; übergibt Bootstrap-Secrets nur über kurzlebige, restriktiv berechtigte Umgebungsdatei. |
-| `./dev.sh` | Startet Server + Web-App lokal für Entwicklung. |
 | `./README.md` | Projekt-Übersicht, Features und Installation (Bare-Metal/Docker) mit E-Mail-basiertem Admin-Login. |
+| `./DEV-SERVER.md` | Anleitung für lokalen Dev-Server: Start via LuxStage-Dev-App (empfohlen) oder manuell, Login, Konfiguration, Warnung vor Doppelstart (SQLite-Korruptionsrisiko). |
 | `./package.json` | Monorepo-Root; Workspaces, better-sqlite3-Dependency, Versionsstand. |
 | `./package-lock.json` | Lock-Datei für Monorepo-Dependencies (server, web-app). |
 | `./.gitignore` | Ignoriert node_modules, dist, .env, Daten, iOS-Xcode-Artefakte. |
@@ -33,8 +33,9 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 | `./.github/workflows/release.yml` | GitHub Action: baut Release-ZIP bei `v*`-Tags. |
 | `./.github/workflows/codeql.yml` | GitHub Action: CodeQL-Sicherheitsanalyse. |
 | `./.github/workflows/saas-image.yml` | GitHub Action: baut SaaS-Image nach GHCR bei `v*`-Tags. |
-| `./Dev-Server-App/LuxStageMenu.swift` | macOS-Menüleisten-App; startet/stoppt Dev-Server via `dev.sh`. |
+| `./Dev-Server-App/LuxStageMenu.swift` | macOS-Menüleisten-App; startet/stoppt/restartet Dev-Server via `dev.sh`, zeigt Live-Status (Backend/Web-App erreichbar, Version, PID, Laufzeit), Web-App- und Log-Öffnen-Aktionen. |
 | `./Dev-Server-App/LuxStageMenu` | Kompilierte macOS-Executable der Menüleisten-App. |
+| `./Dev-Server-App/dev.sh` | Startet Server + Web-App lokal für Entwicklung; von der Menüleisten-App aufgerufen. |
 | `./docs/saas-betrieb.md` | Dokumentation für Multi-Mandanten-SaaS-Betrieb mit alternativem Wildcard- oder On-Demand-TLS. |
 | `./docs/deploy-cx43.md` | Deployment-Anleitung für Hetzner-CX43-Server. |
 | `./shared/locales/de.json` | Übersetzungen für deutsche Oberfläche. |
@@ -58,7 +59,7 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 | `./server/history.js` | Periodische Snapshots von Show-State zur Versionierung; sichert vor dem Wiederherstellen den aktuellen Stand. |
 | `./server/backup.js` | ZIP-basierte Backup- und Wiederherstellungsfunktionen mit request-isoliertem Staging, Restore-Lock, Rollback und Grenzen für ZIP-Einträge sowie entpackte Daten. |
 | `./server/photos.js` | Gestreamter Foto-Upload mit Gesamt-, Datei- und Dateianzahlgrenzen, Skalierung und Thumbnail-Generierung. |
-| `./server/floorplan.js` | Grundrissbild-Verwaltung mit Format-Validierung. |
+| `./server/floorplan.js` | Grundrissbild-Verwaltung mit Format-Validierung (nur PNG/JPEG). |
 | `./server/pdf.js` | PDF-Export für Einleuchtpläne: Orchestrierung (Titel, Sections, Kanalliste, Grundriss, Fotos), Referrer-Schutz; Rendering-Details in `pdf/`. |
 | `./server/pdf/constants.js` | Gemeinsame Layout-Konstanten (Maße, Farben, Fonts) für den PDF-Export. |
 | `./server/pdf/filter-colors.js` | Lee/Rosco-Filter-Code zu Hex-Farbe, Kontrastfarben-Berechnung. |
@@ -151,7 +152,7 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 | `./web-app/src/shims-vue.d.ts` | Globale TypeScript-Deklaration für lokale Vue-Single-File-Komponenten. |
 | `./web-app/src/shared.d.ts` | TypeScript-Deklarationen für Shared-JavaScript-Module außerhalb des WebApp-Projekts. |
 | `./web-app/src/tolgee.ts` | Zentrale Tolgee-Instanz: Dev lädt live vom Server (In-Context-Editor), Prod nutzt shared/locales als staticData. |
-| `./web-app/src/App.vue` | Root-Komponente: TolgeeProvider, Sidebar, Top-Bar, Routing, globale Dialoge und Status-Updates. |
+| `./web-app/src/App.vue` | Root-Komponente: TolgeeProvider, globaler TooltipProvider, Sidebar, Top-Bar, Routing, globale Dialoge und Status-Updates. |
 | `./web-app/src/style.css` | Tailwind, Theme-Variablen, Print-Styles für Tabellen und Foto-Galerien. |
 | `./web-app/src/router/index.ts` | Vue Router mit Auth-Guards, Admin-Checks und Route-Definitionen. |
 
@@ -193,6 +194,7 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 | `./web-app/src/utils/templateName.ts` | Entfernt `.csv`-Suffix und ersetzt Bindestriche in Namen. |
 | `./web-app/src/utils/index.ts` | Exportiert `cn()`-Utility für Tailwind/clsx Klassenkombination. |
 | `./web-app/src/utils/filterColors.ts` | Normalisiert und validiert Filterfarben-Codes (Lee/Rosco). |
+| `./web-app/src/utils/floorplanSnapshot.js` | Rendert Floorplan-SVG+Hintergrundbild in Canvas für PNG-Export und History-Snapshot; Bild wird unverzerrt (contain) eingepasst. |
 
 ### web-app/src/api/ (HTTP-Client-Layer zum Server)
 
@@ -244,16 +246,16 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 | `./web-app/src/components/MarkdownEditor.vue` | Rich-Text-Editor mit Toolbar für Fett, Kursiv, Überschriften, Listen und Tabellen. |
 | `./web-app/src/components/EosMergePreviewDialog.vue` | Vorschau neu aktiver, verschwundener und unberührter Kanäle bei EOS-Import. |
 | `./web-app/src/components/Spinner.vue` | Animiertes Lade-Icon mit konfigurierbarer Größe. |
-| `./web-app/src/components/FloorplanEditor.vue` | Interaktiver Zeichnungseditor mit Drag-Drop für Kanäle, Gestelle, Stangen und Formen. |
+| `./web-app/src/components/FloorplanEditor.vue` | Interaktiver Zeichnungseditor mit Drag-Drop für Kanäle, Gestelle, Stangen und Formen; gruppierte Ribbon-Toolbar mit Tooltips, Empty-State mit Upload (nur PNG/JPEG), A4-Druckbereich-Guide, neue Uploads unverzerrt ins A4-Format eingepasst. |
 | `./web-app/src/components/ColorAutocomplete.vue` | Farbfilter-Autocomplete mit Lee- und Rosco-Codes und Vorschau. |
 | `./web-app/src/components/show/ShowHeader.vue` | Titel-Editor, Show-Metadaten, Import/Export (EOS, CSV, PDF) und Verlauf. |
 | `./web-app/src/components/show/ShowActionBar.vue` | Undo/Redo, Live-Präsenz-Avatare mit zeitbasierter Aktivitätsanzeige und Kanal-Datenqualitäts-Badges oben. |
 | `./web-app/src/components/show/ShowHealthBadge.vue` | Dropdown-Anzeige fehlender Geräte-, Positions-, Noten- und Adressdaten in Kanälen. |
 | `./web-app/src/components/show/PhotoGallery.vue` | Fotogalerie mit Upload, Beschriftungen, Kanalnummern und Lightbox-Vorschau. |
 | `./web-app/src/components/show/HistorySlideOver.vue` | Snapshots älterer Kanalkonfigurationen zum Durchsuchen und Wiederherstellen; behandelt Ladefehler und verwirft veraltete Antworten nach dem Schließen. |
-| `./web-app/src/components/show/ZugstangenView.vue` | Drag-Drop-Liste für Obermaschinerie-Elemente (Zugstange/Traverse/Punktzug, per Typ-Filter und -Auswahl) mit Scheinwerfer-Positionen und Vorlagen. |
+| `./web-app/src/components/show/ZugstangenView.vue` | Drag-Drop-Liste für Obermaschinerie-Elemente (Zugstange/Traverse/Punktzug, per Typ-Filter und -Auswahl) mit Scheinwerfer-Positionen und Vorlagen; vertikal zentrierter Empty-State mit Hinzufügen-Button, FAB nur bei vorhandenen Einträgen. |
 | `./web-app/src/components/show/SectionEditor.vue` | Bearbeitbare Markdown- oder Tabellen-Abschnitte mit Drag-Drop, komponentenlokalen KV-Table-Refs und Migrations-Fallback. |
-| `./web-app/src/components/show/GassenturmView.vue` | Beleuchtungsgestelle mit Slots und Kanalbelegung, Vorlagen und Drag-Drop. |
+| `./web-app/src/components/show/GassenturmView.vue` | Beleuchtungsgestelle mit Slots und Kanalbelegung, Vorlagen und Drag-Drop; vertikal zentrierter Empty-State mit Hinzufügen-Button, FAB nur bei vorhandenen Einträgen. |
 | `./web-app/src/components/show/GeneratedTextAccordion.vue` | Read-only-Bereich mit automatisch generierten Zusammenfassungen zu Beleuchtungsgestellen und Obermaschinerie. |
 | `./web-app/src/components/channel/ChannelTable.vue` | Virtuelle Kanaltabelle mit Suche, Gruppierung, Drag-Drop-Sortierung und Inline-Bearbeitung. |
 | `./web-app/src/components/channel/ChannelRow.vue` | Einzelne Kanalzeile mit Nummer, Farbe, Gerät, Notizen, Montage-Referenz und Assign-Menü. |
@@ -266,8 +268,8 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 | `./web-app/src/components/icons/IconObermaschinerie.vue` | Icon für Zugstangen-Verwaltung. |
 | `./web-app/src/components/template/TemplateDetailPanel.vue` | Detail-Editor einer Vorlage: Kanaltabelle, Sections, Grundriss, Zugstangen, Beleuchtungsgestelle in Tabs; Umbenennen, OSC-Host, Übertragen auf alle Shows. |
 | `./web-app/src/components/template/TemplateUploadDialog.vue` | Dialog für CSV-Upload neuer Vorlagen mit Vorschau der Kanäle. |
-| `./web-app/src/components/template/TemplateBarsPanel.vue` | Zugstangen-Verwaltung innerhalb einer Vorlage mit Drag-Drop und Scheinwerfer-Zuordnung. |
-| `./web-app/src/components/template/TemplateTowersPanel.vue` | Beleuchtungsgestelle-Verwaltung innerhalb einer Vorlage mit Slots und Kanalbelegung. |
+| `./web-app/src/components/template/TemplateBarsPanel.vue` | Zugstangen-Verwaltung innerhalb einer Vorlage mit Drag-Drop und Scheinwerfer-Zuordnung; zentrierter Empty-State mit Hinzufügen-Button. |
+| `./web-app/src/components/template/TemplateTowersPanel.vue` | Beleuchtungsgestelle-Verwaltung innerhalb einer Vorlage mit Slots und Kanalbelegung; zentrierter Empty-State mit Hinzufügen-Button. |
 
 ### web-app/src/components/ui/ (Generische UI-Bausteine, shadcn-vue-Stil)
 
@@ -295,5 +297,5 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 | `./web-app/src/components/ui/badge/` | Badge/Tag-Komponente für Labels. |
 | `./web-app/src/components/ui/HelpIcon.vue` | Kleines Tooltip-Icon mit Hilfetext. |
 | `./web-app/src/components/ui/ToolBtn.vue` | Icon-Button für Toolbar-Aktionen. |
-| `./web-app/src/components/ui/SidebarBtn.vue` | Adaptive Button-Komponente für Sidebar und horizontale Ribbon-Toolbar (icon-only oder mit Label). |
+| `./web-app/src/components/ui/SidebarBtn.vue` | Adaptive Button-Komponente für Sidebar und horizontale Ribbon-Toolbar (icon-only oder mit Label); zeigt bei gesetztem `title` automatisch ein Tooltip. |
 | `./web-app/src/components/ui/PanelBtn.vue` | Kleine Button-Komponente für Panel-Aktionen. |

@@ -2,7 +2,7 @@
 import { TooltipProvider } from "reka-ui";
 
 const props = defineProps({
-  delayDuration: { type: Number, required: false },
+  delayDuration: { type: Number, required: false, default: 200 },
   skipDelayDuration: { type: Number, required: false },
   disableHoverableContent: { type: Boolean, required: false },
   disableClosingTrigger: { type: Boolean, required: false },

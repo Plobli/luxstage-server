@@ -45,7 +45,6 @@ Procfile
 
 # Local dev scripts
 start.sh
-dev.sh
 ecosystem.config.cjs
 Dev-Server-App/
 DEV-SERVER.md

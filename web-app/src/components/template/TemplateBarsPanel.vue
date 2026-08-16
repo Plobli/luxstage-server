@@ -3,8 +3,12 @@
     <div class="text-sm text-muted-foreground whitespace-pre-line">
       {{ t('zugstange.hint') }}
     </div>
-    <div v-if="bars.length === 0" class="text-sm text-muted-foreground border border-dashed border-border rounded-lg px-4 py-6 text-center">
-      {{ t('zugstange.empty') }}
+    <div v-if="bars.length === 0" class="flex flex-col items-center justify-center gap-3 border border-dashed border-border rounded-lg px-4 py-8 text-center">
+      <AlignJustify class="size-8 text-muted-foreground/40" />
+      <p class="text-sm text-muted-foreground">{{ t('zugstange.empty') }}</p>
+      <Button variant="accent" size="sm" class="mt-1 rounded-full shadow-lg" @click="openNew">
+        <Plus class="size-3.5" /> {{ t('zugstange.add') }}
+      </Button>
     </div>
     <div
       v-for="(bar, idx) in bars" :key="bar.id"
@@ -54,7 +58,7 @@
         </Button>
       </div>
     </div>
-    <Button variant="outline" size="sm" class="w-full border-dashed" @click="openNew">
+    <Button v-if="bars.length > 0" variant="outline" size="sm" class="w-full border-dashed" @click="openNew">
       <Plus class="size-3 mr-1.5" /> {{ t('zugstange.add') }}
     </Button>
 
@@ -126,7 +130,7 @@
 
 <script setup lang="ts">
 import { computed, toRef } from 'vue'
-import { Pencil, Plus, X } from 'lucide-vue-next'
+import { Pencil, Plus, X, AlignJustify } from 'lucide-vue-next'
 import { useLocale } from '../../composables/useLocale.js'
 import { useMeasureUnit } from '../../composables/useMeasureUnit'
 import { useTemplateBars } from '../../composables/useTemplateBars'

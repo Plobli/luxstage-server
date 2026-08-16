@@ -6,8 +6,12 @@
       </Button>
     </div>
     <div class="text-sm text-muted-foreground">{{ t('template.tower.hint') }}</div>
-    <div v-if="towers.length === 0" class="text-sm text-muted-foreground border border-dashed border-border rounded-lg px-4 py-6 text-center">
-      {{ t('template.tower.empty') }}
+    <div v-if="towers.length === 0" class="flex flex-col items-center justify-center gap-3 border border-dashed border-border rounded-lg px-4 py-8 text-center">
+      <Layers class="size-8 text-muted-foreground/40" />
+      <p class="text-sm text-muted-foreground">{{ t('template.tower.empty') }}</p>
+      <Button variant="accent" size="sm" class="mt-1 rounded-full shadow-lg" @click="openNew">
+        <Plus class="size-3.5" /> {{ t('template.tower.add') }}
+      </Button>
     </div>
     <div
       v-for="(tower, idx) in towers" :key="tower.id"
@@ -57,7 +61,7 @@
         </div>
       </div>
     </div>
-    <Button variant="outline" size="sm" class="w-full border-dashed" @click="openNew">
+    <Button v-if="towers.length > 0" variant="outline" size="sm" class="w-full border-dashed" @click="openNew">
       <Plus class="size-3 mr-1.5" /> {{ t('template.tower.add') }}
     </Button>
 
@@ -122,7 +126,7 @@
 
 <script setup lang="ts">
 import { toRef } from 'vue'
-import { Pencil, Plus, X, ChevronDown } from 'lucide-vue-next'
+import { Pencil, Plus, X, ChevronDown, Layers } from 'lucide-vue-next'
 import { useLocale } from '../../composables/useLocale.js'
 import { useTemplateTowers } from '../../composables/useTemplateTowers'
 import { Button } from '@/components/ui/button'

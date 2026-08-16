@@ -3,6 +3,7 @@
     <template v-slot:fallback>
       <div class="h-dvh flex items-center justify-center bg-background text-muted-foreground">Loading...</div>
     </template>
+  <TooltipProvider>
   <div class="h-full bg-background pt-[env(safe-area-inset-top)]">
     <!-- Login-Route: kein Sidebar-Layout -->
     <RouterView v-if="route.meta.public" />
@@ -215,6 +216,7 @@
       @cancel="resolveConfirm(false)"
     />
   </div>
+  </TooltipProvider>
   </TolgeeProvider>
 </template>
 
@@ -222,6 +224,7 @@
 import { ref, watch, onMounted, onUnmounted, computed } from 'vue'
 import { RouterView, RouterLink, useRoute, useRouter } from 'vue-router'
 import { TolgeeProvider } from '@tolgee/vue'
+import { TooltipProvider } from '@/components/ui/tooltip'
 import { Button } from '@/components/ui/button'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import {

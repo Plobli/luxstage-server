@@ -1,12 +1,15 @@
 <template>
   <div class="relative flex flex-col h-full overflow-hidden">
 <div class="flex-1 overflow-y-auto pb-14 md:pb-0">
-    <div v-if="towers.length === 0" class="flex flex-col items-center justify-center gap-3 h-64 text-center px-8">
+    <div v-if="towers.length === 0" class="flex flex-col items-center justify-center gap-3 h-full text-center px-8 -mt-5">
       <Layers class="size-8 text-muted-foreground/40" />
       <div class="max-w-150">
         <p class="text-base font-medium text-foreground/70">{{ t('gassenturm.empty') }}</p>
         <p class="text-sm text-muted-foreground mt-1">{{ t('gassenturm.empty.desc') }}</p>
       </div>
+      <Button variant="accent" @click="openNewTowerDialog" class="mt-1 h-11 px-5 rounded-full shadow-lg flex items-center gap-2">
+        <Plus class="size-4" /> {{ t('gassenturm.new') }}
+      </Button>
     </div>
 
     <div class="flex flex-wrap gap-3 p-4">
@@ -152,7 +155,7 @@
   </div>
 
   <!-- Neues Beleuchtungsgestell -->
-  <Button variant="accent" @click="openNewTowerDialog" class="absolute bottom-20 right-6 md:bottom-6 h-11 px-5 rounded-full shadow-lg flex items-center gap-2">
+  <Button v-if="towers.length > 0" variant="accent" @click="openNewTowerDialog" class="absolute bottom-20 right-6 md:bottom-6 h-11 px-5 rounded-full shadow-lg flex items-center gap-2">
     <Plus class="size-4" /> {{ t('gassenturm.new') }}
   </Button>
   </div>

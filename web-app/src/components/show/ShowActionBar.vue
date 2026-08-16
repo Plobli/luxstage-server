@@ -2,24 +2,22 @@
   <div class="shrink-0 flex min-h-10 items-center border-b border-border bg-surface-raised">
     <!-- Undo/Redo + Saving -->
     <div class="flex items-center gap-x-1 shrink-0 px-4 sm:px-6 lg:px-5">
-      <TooltipProvider>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button variant="ghost" size="icon" :disabled="!canUndo" class="no-print h-11 w-11 md:h-8 md:w-8 text-muted-foreground" @click="emit('undo')">
-              <Undo2 class="size-4" /><span class="sr-only">{{ labels.undo }}</span>
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent side="bottom"><p>{{ labels.undo }}</p></TooltipContent>
-        </Tooltip>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button variant="ghost" size="icon" :disabled="!canRedo" class="no-print h-11 w-11 md:h-8 md:w-8 text-muted-foreground" @click="emit('redo')">
-              <Redo2 class="size-4" /><span class="sr-only">{{ labels.redo }}</span>
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent side="bottom"><p>{{ labels.redo }}</p></TooltipContent>
-        </Tooltip>
-      </TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button variant="ghost" size="icon" :disabled="!canUndo" class="no-print h-11 w-11 md:h-8 md:w-8 text-muted-foreground" @click="emit('undo')">
+            <Undo2 class="size-4" /><span class="sr-only">{{ labels.undo }}</span>
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="bottom"><p>{{ labels.undo }}</p></TooltipContent>
+      </Tooltip>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button variant="ghost" size="icon" :disabled="!canRedo" class="no-print h-11 w-11 md:h-8 md:w-8 text-muted-foreground" @click="emit('redo')">
+            <Redo2 class="size-4" /><span class="sr-only">{{ labels.redo }}</span>
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="bottom"><p>{{ labels.redo }}</p></TooltipContent>
+      </Tooltip>
       <span v-if="saving" class="text-xs text-muted-foreground">…</span>
     </div>
     <div v-if="activeTab === 'channels'" class="relative flex-1 self-stretch">
@@ -37,29 +35,27 @@
     <div class="flex items-center gap-x-3 shrink-0 pr-4 sm:pr-6 lg:pr-8">
       <!-- Presence -->
       <div v-if="presenceWithActivity.length > 1" class="hidden sm:flex items-center -space-x-1.5">
-        <TooltipProvider>
-          <Tooltip v-for="u in presenceWithActivity.slice(0, 4)" :key="u.username">
-            <TooltipTrigger asChild>
-              <div
-                :style="{ backgroundColor: userColor(u.username) }"
-                :class="{ 'ring-2 ring-green-400/80': u.isActive }"
-                class="size-6 rounded-full ring-2 ring-background flex items-center justify-center text-[10px] font-semibold text-white uppercase relative transition-all"
-              >
-                {{ u.username[0] }}
-                <div v-if="u.isActive" class="absolute -bottom-0.5 -right-0.5 size-2.5 rounded-full bg-green-400 ring-1 ring-background" />
-                <span v-if="u.devices.includes('ios')" class="absolute -top-0.5 -right-0.5 text-xs">📱</span>
-              </div>
-            </TooltipTrigger>
-            <TooltipContent side="bottom">
-              <div class="text-sm">
-                <p class="font-semibold">{{ u.username }}</p>
-                <p class="text-xs text-muted-foreground">
-                  {{ u.devices.includes('ios') ? 'iOS' : 'Web' }}{{ u.devices.length > 1 ? ' + ' + (u.devices.length - 1) : '' }}
-                </p>
-              </div>
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
+        <Tooltip v-for="u in presenceWithActivity.slice(0, 4)" :key="u.username">
+          <TooltipTrigger asChild>
+            <div
+              :style="{ backgroundColor: userColor(u.username) }"
+              :class="{ 'ring-2 ring-green-400/80': u.isActive }"
+              class="size-6 rounded-full ring-2 ring-background flex items-center justify-center text-[10px] font-semibold text-white uppercase relative transition-all"
+            >
+              {{ u.username[0] }}
+              <div v-if="u.isActive" class="absolute -bottom-0.5 -right-0.5 size-2.5 rounded-full bg-green-400 ring-1 ring-background" />
+              <span v-if="u.devices.includes('ios')" class="absolute -top-0.5 -right-0.5 text-xs">📱</span>
+            </div>
+          </TooltipTrigger>
+          <TooltipContent side="bottom">
+            <div class="text-sm">
+              <p class="font-semibold">{{ u.username }}</p>
+              <p class="text-xs text-muted-foreground">
+                {{ u.devices.includes('ios') ? 'iOS' : 'Web' }}{{ u.devices.length > 1 ? ' + ' + (u.devices.length - 1) : '' }}
+              </p>
+            </div>
+          </TooltipContent>
+        </Tooltip>
         <div v-if="presenceWithActivity.length > 4" class="size-6 rounded-full bg-muted ring-2 ring-background flex items-center justify-center text-[9px] text-muted-foreground">+{{ presenceWithActivity.length - 4 }}</div>
       </div>
 
@@ -114,7 +110,7 @@ import { Search, Undo2, Redo2, AlertTriangle, CircleHelp } from 'lucide-vue-next
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import ShowHealthBadge from './ShowHealthBadge.vue'
 

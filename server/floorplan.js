@@ -4,7 +4,7 @@ import fsSync from 'node:fs'
 import path from 'node:path'
 import { config } from './config.js'
 
-const ALLOWED_TYPES = ['image/png', 'image/jpeg', 'image/svg+xml', 'image/webp']
+const ALLOWED_TYPES = ['image/png', 'image/jpeg']
 
 function floorplansDir() {
   return path.join(config.dataPath, 'floorplans')
@@ -12,7 +12,7 @@ function floorplansDir() {
 
 export async function saveFloorplanImage(templateId, filename, buffer, mimeType) {
   if (!ALLOWED_TYPES.includes(mimeType)) {
-    throw new Error('Ungültiger Dateityp. Erlaubt: PNG, JPG, SVG, WebP')
+    throw new Error('Ungültiger Dateityp. Erlaubt: PNG, JPG')
   }
   const dir = path.join(floorplansDir(), templateId)
   await fs.mkdir(dir, { recursive: true })
