@@ -3,6 +3,7 @@ import Database from 'better-sqlite3'
 import fs from 'node:fs'
 import path from 'node:path'
 import { config } from './config.js'
+import { migrations } from './db/migrations/index.js'
 
 export const dbContainer = { db: null }
 
@@ -186,423 +187,37 @@ function _initSchema(database) {
   `)
 }
 
-// Nachträgliche Migrationen. Alle idempotent (Spalten-/Tabellen-Checks, settings-Flags).
+function _ensureMigrationsTable(database) {
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS schema_migrations (
+      id         TEXT PRIMARY KEY,
+      applied_at INTEGER NOT NULL
+    );
+  `)
+}
+
+// Führt jede Migration aus db/migrations/ genau einmal aus, getrackt in
+// schema_migrations. Für DBs, die vor Einführung dieser Tabelle entstanden,
+// erkennt alreadyApplied() bereits vorhandenes Schema und markiert die
+// Migration als erledigt, statt sie erneut auszuführen.
 function _runMigrations(database) {
-// lighting_checks: Einleucht-Status pro Show (TTL 6h, kein FK-Constraint damit alte Shows sauber bleiben)
-const lightingChecksExists = database.prepare(
-  "SELECT name FROM sqlite_master WHERE type='table' AND name='lighting_checks'"
-).get()
-if (!lightingChecksExists) {
-  database.exec(`
-    CREATE TABLE lighting_checks (
-      show_id    TEXT NOT NULL,
-      channel_id TEXT NOT NULL,
-      checked_by TEXT NOT NULL,
-      checked_at INTEGER NOT NULL,
-      PRIMARY KEY (show_id, channel_id)
-    );
-    CREATE INDEX idx_lighting_checks_show ON lighting_checks(show_id);
-  `)
-}
+  _ensureMigrationsTable(database)
+  const isApplied = database.prepare('SELECT 1 FROM schema_migrations WHERE id = ?')
+  const markApplied = database.prepare('INSERT INTO schema_migrations (id, applied_at) VALUES (?, ?)')
 
-// sidebar_pinned: User-Preference, nachträglich hinzugefügt
-const userCols = database.pragma('table_info(users)').map(c => c.name)
-if (!userCols.includes('sidebar_pinned')) {
-  database.exec('ALTER TABLE users ADD COLUMN sidebar_pinned INTEGER NOT NULL DEFAULT 0')
-}
-if (!userCols.includes('griddeck_config')) {
-  database.exec('ALTER TABLE users ADD COLUMN griddeck_config TEXT')
-}
+  for (const migration of migrations) {
+    if (isApplied.get(migration.id)) continue
 
-// last_edited_by/at: nachträglich hinzugefügt, fehlt in älteren DBs
-const showCols = database.pragma('table_info(shows)').map(c => c.name)
-if (!showCols.includes('last_edited_by')) {
-  database.exec('ALTER TABLE shows ADD COLUMN last_edited_by TEXT')
-}
-if (!showCols.includes('last_edited_at')) {
-  database.exec('ALTER TABLE shows ADD COLUMN last_edited_at INTEGER')
-}
-if (!showCols.includes('use_bars')) {
-  database.exec('ALTER TABLE shows ADD COLUMN use_bars INTEGER NOT NULL DEFAULT 1')
-}
-if (!showCols.includes('use_towers')) {
-  database.exec('ALTER TABLE shows ADD COLUMN use_towers INTEGER NOT NULL DEFAULT 1')
-}
-if (!showCols.includes('eos_excluded_channels')) {
-  database.exec('ALTER TABLE shows ADD COLUMN eos_excluded_channels TEXT')
-}
-// channels_version: eigener Versionszähler nur für Channel-Writes, getrennt
-// von updated_at (das auch von Meta-Updates, Archivieren etc. verändert
-// wird und deshalb für Channels-Konflikterkennung ungeeignet ist).
-if (!showCols.includes('channels_version')) {
-  database.exec('ALTER TABLE shows ADD COLUMN channels_version INTEGER NOT NULL DEFAULT 0')
-}
-// section_contents_version / section_defs_version: gleiches Prinzip wie
-// channels_version, für die beiden unabhängigen Sections-PUT-Endpunkte
-// (Inhalte vs. Struktur/Definitionen).
-if (!showCols.includes('section_contents_version')) {
-  database.exec('ALTER TABLE shows ADD COLUMN section_contents_version INTEGER NOT NULL DEFAULT 0')
-}
-if (!showCols.includes('section_defs_version')) {
-  database.exec('ALTER TABLE shows ADD COLUMN section_defs_version INTEGER NOT NULL DEFAULT 0')
-}
-if (showCols.includes('untertitel')) {
-  database.exec('ALTER TABLE shows DROP COLUMN untertitel')
-}
-// section_kv_rows: Zeilen für kv-table Sections
-const kvRowsTableExists = database.prepare(
-  "SELECT name FROM sqlite_master WHERE type='table' AND name='section_kv_rows'"
-).get()
-if (!kvRowsTableExists) {
-  database.exec(`
-    CREATE TABLE section_kv_rows (
-      id         TEXT PRIMARY KEY,
-      section_id TEXT NOT NULL REFERENCES section_defs(id) ON DELETE CASCADE,
-      label      TEXT NOT NULL DEFAULT '',
-      value      TEXT NOT NULL DEFAULT '',
-      sort_order INTEGER NOT NULL DEFAULT 0
-    );
-    CREATE INDEX idx_section_kv_rows_section ON section_kv_rows(section_id);
-  `)
-}
+    if (migration.alreadyApplied(database)) {
+      markApplied.run(migration.id, Date.now())
+      continue
+    }
 
-// template_section_kv_rows: wie section_kv_rows, aber für Templates
-const tplKvRowsTableExists = database.prepare(
-  "SELECT name FROM sqlite_master WHERE type='table' AND name='template_section_kv_rows'"
-).get()
-if (!tplKvRowsTableExists) {
-  database.exec(`
-    CREATE TABLE template_section_kv_rows (
-      id         TEXT PRIMARY KEY,
-      section_id TEXT NOT NULL REFERENCES template_section_defs(id) ON DELETE CASCADE,
-      label      TEXT NOT NULL DEFAULT '',
-      value      TEXT NOT NULL DEFAULT '',
-      sort_order INTEGER NOT NULL DEFAULT 0
-    );
-    CREATE INDEX idx_tpl_section_kv_rows_section ON template_section_kv_rows(section_id);
-  `)
-}
-
-const templateCols = database.pragma('table_info(templates)').map(c => c.name)
-if (!templateCols.includes('osc_host')) {
-  database.exec("ALTER TABLE templates ADD COLUMN osc_host TEXT NOT NULL DEFAULT ''")
-}
-if (!templateCols.includes('updated_at')) {
-  database.exec('ALTER TABLE templates ADD COLUMN updated_at INTEGER NOT NULL DEFAULT 0')
-}
-
-// channel_photos: Mehrere Fotos pro Kanal zuordnen
-const channelPhotosExists = database.prepare(
-  "SELECT name FROM sqlite_master WHERE type='table' AND name='channel_photos'"
-).get()
-if (!channelPhotosExists) {
-  database.exec(`
-    CREATE TABLE channel_photos (
-      id         TEXT PRIMARY KEY,
-      channel_id TEXT NOT NULL REFERENCES channels(id) ON DELETE CASCADE,
-      filename   TEXT NOT NULL,
-      sort_order INTEGER NOT NULL DEFAULT 0,
-      UNIQUE(channel_id, filename)
-    );
-    CREATE INDEX idx_channel_photos_channel ON channel_photos(channel_id);
-  `)
-}
-
-// template_floorplans: canvas_data nachträglich hinzugefügt
-const tplFloorplanCols = database.prepare("PRAGMA table_info(template_floorplans)").all().map(c => c.name)
-if (!tplFloorplanCols.includes('canvas_data')) {
-  database.exec('ALTER TABLE template_floorplans ADD COLUMN canvas_data TEXT')
-}
-
-// show_floorplan_layers: image_path + canvas_data nachträglich hinzugefügt
-{
-  const showFloorplanCols = database.pragma('table_info(show_floorplan_layers)').map(c => c.name)
-  if (!showFloorplanCols.includes('image_path')) {
-    database.exec('ALTER TABLE show_floorplan_layers ADD COLUMN image_path TEXT')
+    database.transaction(() => {
+      migration.up(database)
+      markApplied.run(migration.id, Date.now())
+    })()
   }
-  if (!showFloorplanCols.includes('canvas_data')) {
-    database.exec(`
-      CREATE TABLE show_floorplan_layers_new (
-        id         TEXT PRIMARY KEY,
-        show_id    TEXT NOT NULL REFERENCES shows(id) ON DELETE CASCADE,
-        canvas_data TEXT,
-        image_path TEXT,
-        updated_at INTEGER NOT NULL
-      );
-      INSERT INTO show_floorplan_layers_new (id, show_id, image_path, updated_at)
-        SELECT id, show_id, image_path, updated_at FROM show_floorplan_layers;
-      DROP TABLE show_floorplan_layers;
-      ALTER TABLE show_floorplan_layers_new RENAME TO show_floorplan_layers;
-    `)
-  }
-}
-
-// towers: Gassenturm-Instanzen pro Show
-const towersTableExists = database.prepare(
-  "SELECT name FROM sqlite_master WHERE type='table' AND name='towers'"
-).get()
-if (!towersTableExists) {
-  database.exec(`
-    CREATE TABLE towers (
-      id           TEXT PRIMARY KEY,
-      show_id      TEXT NOT NULL REFERENCES shows(id) ON DELETE CASCADE,
-      name         TEXT NOT NULL DEFAULT '',
-      side         TEXT NOT NULL DEFAULT '',
-      stage_area   TEXT NOT NULL DEFAULT '',
-      slot_count   INTEGER NOT NULL DEFAULT 4,
-      sort_order   INTEGER NOT NULL DEFAULT 0,
-      created_at   INTEGER NOT NULL
-    );
-    CREATE INDEX idx_towers_show ON towers(show_id);
-
-    CREATE TABLE tower_slots (
-      id         TEXT PRIMARY KEY,
-      tower_id   TEXT NOT NULL REFERENCES towers(id) ON DELETE CASCADE,
-      slot_index INTEGER NOT NULL,
-      channel_id TEXT,
-      UNIQUE(tower_id, slot_index)
-    );
-    CREATE INDEX idx_tower_slots_tower ON tower_slots(tower_id);
-  `)
-}
-
-// mount_ref in channels: JSON-Feld { type, towerId, slotIndex } oder null
-const channelCols = database.pragma('table_info(channels)').map(c => c.name)
-if (!channelCols.includes('mount_ref')) {
-  database.exec("ALTER TABLE channels ADD COLUMN mount_ref TEXT")
-}
-if (!channelCols.includes('quantity')) {
-  database.exec("ALTER TABLE channels ADD COLUMN quantity INTEGER NOT NULL DEFAULT 1")
-}
-
-// bars: Zugstangen pro Show
-const barsTableExists = database.prepare(
-  "SELECT name FROM sqlite_master WHERE type='table' AND name='bars'"
-).get()
-if (!barsTableExists) {
-  database.exec(`
-    CREATE TABLE bars (
-      id           TEXT PRIMARY KEY,
-      show_id      TEXT NOT NULL REFERENCES shows(id) ON DELETE CASCADE,
-      name         TEXT NOT NULL DEFAULT '',
-      zug_nr       TEXT NOT NULL DEFAULT '',
-      length_cm    INTEGER NOT NULL DEFAULT 600,
-      sort_order   INTEGER NOT NULL DEFAULT 0,
-      created_at   INTEGER NOT NULL
-    );
-    CREATE INDEX idx_bars_show ON bars(show_id);
-
-    CREATE TABLE bar_fixtures (
-      id         TEXT PRIMARY KEY,
-      bar_id     TEXT NOT NULL REFERENCES bars(id) ON DELETE CASCADE,
-      channel_id TEXT,
-      position   REAL NOT NULL DEFAULT 0,
-      UNIQUE(bar_id, channel_id)
-    );
-    CREATE INDEX idx_bar_fixtures_bar ON bar_fixtures(bar_id);
-  `)
-}
-
-// Migration: height_cm + notes auf bars
-{
-  const cols = database.prepare("PRAGMA table_info(bars)").all().map(c => c.name)
-  if (!cols.includes('height_cm'))
-    database.exec("ALTER TABLE bars ADD COLUMN height_cm REAL")
-  if (!cols.includes('notes'))
-    database.exec("ALTER TABLE bars ADD COLUMN notes TEXT NOT NULL DEFAULT ''")
-}
-
-// Migration: hide_scale auf bars
-{
-  const cols = database.prepare("PRAGMA table_info(bars)").all().map(c => c.name)
-  if (!cols.includes('hide_scale'))
-    database.exec("ALTER TABLE bars ADD COLUMN hide_scale INTEGER NOT NULL DEFAULT 0")
-}
-
-// Migration: notes auf bar_fixtures
-{
-  const cols = database.prepare("PRAGMA table_info(bar_fixtures)").all().map(c => c.name)
-  if (!cols.includes('notes'))
-    database.exec("ALTER TABLE bar_fixtures ADD COLUMN notes TEXT NOT NULL DEFAULT ''")
-}
-
-// Migration: UNIQUE(bar_id, channel_id) entfernen → mehrfache Kanäle auf einer Stange erlauben
-{
-  const done = database.prepare(
-    "SELECT value FROM settings WHERE key = 'migration_bar_fixtures_no_unique_2026'"
-  ).get()
-  if (!done) {
-    database.exec(`
-      CREATE TABLE bar_fixtures_new (
-        id         TEXT PRIMARY KEY,
-        bar_id     TEXT NOT NULL REFERENCES bars(id) ON DELETE CASCADE,
-        channel_id TEXT,
-        position   REAL NOT NULL DEFAULT 0,
-        notes      TEXT NOT NULL DEFAULT ''
-      );
-      INSERT INTO bar_fixtures_new (id, bar_id, channel_id, position, notes)
-        SELECT id, bar_id, channel_id, position, notes FROM bar_fixtures;
-      DROP TABLE bar_fixtures;
-      ALTER TABLE bar_fixtures_new RENAME TO bar_fixtures;
-      CREATE INDEX IF NOT EXISTS idx_bar_fixtures_bar ON bar_fixtures(bar_id);
-      INSERT INTO settings (key, value) VALUES ('migration_bar_fixtures_no_unique_2026', '1');
-    `)
-  }
-}
-
-// Migration: notes auf towers
-{
-  const cols = database.prepare("PRAGMA table_info(towers)").all().map(c => c.name)
-  if (!cols.includes('notes'))
-    database.exec("ALTER TABLE towers ADD COLUMN notes TEXT NOT NULL DEFAULT ''")
-}
-
-// Migration: bar_type auf bars — unterscheidet Zugstange/Traverse/Punktzug
-{
-  const cols = database.prepare("PRAGMA table_info(bars)").all().map(c => c.name)
-  if (!cols.includes('bar_type'))
-    database.exec("ALTER TABLE bars ADD COLUMN bar_type TEXT NOT NULL DEFAULT 'zugstange'")
-}
-
-// Migration: side auf bar_fixtures — innen/außen bei Traversen
-{
-  const cols = database.prepare("PRAGMA table_info(bar_fixtures)").all().map(c => c.name)
-  if (!cols.includes('side'))
-    database.exec("ALTER TABLE bar_fixtures ADD COLUMN side TEXT NOT NULL DEFAULT 'out'")
-}
-
-// Migration: position_text auf bar_fixtures — Freitext-Position bei Punktzug
-{
-  const cols = database.prepare("PRAGMA table_info(bar_fixtures)").all().map(c => c.name)
-  if (!cols.includes('position_text'))
-    database.exec("ALTER TABLE bar_fixtures ADD COLUMN position_text TEXT NOT NULL DEFAULT ''")
-}
-
-// template_bars: Zugstangen-Definitionen pro Bühnen-Template
-const templateBarsTableExists = database.prepare(
-  "SELECT name FROM sqlite_master WHERE type='table' AND name='template_bars'"
-).get()
-if (!templateBarsTableExists) {
-  database.exec(`
-    CREATE TABLE template_bars (
-      id          TEXT PRIMARY KEY,
-      template_id TEXT NOT NULL REFERENCES templates(id) ON DELETE CASCADE,
-      name        TEXT NOT NULL DEFAULT '',
-      zug_nr      TEXT NOT NULL DEFAULT '',
-      length_cm   INTEGER NOT NULL DEFAULT 600,
-      sort_order  INTEGER NOT NULL DEFAULT 0,
-      bar_type    TEXT NOT NULL DEFAULT 'zugstange'
-    );
-    CREATE INDEX idx_template_bars_tpl ON template_bars(template_id);
-  `)
-}
-
-// Migration: bar_type auf template_bars
-{
-  const cols = database.prepare("PRAGMA table_info(template_bars)").all().map(c => c.name)
-  if (!cols.includes('bar_type'))
-    database.exec("ALTER TABLE template_bars ADD COLUMN bar_type TEXT NOT NULL DEFAULT 'zugstange'")
-}
-
-// Migration: section_defs Umbenennung (Stände→Raum, Besonderheiten→Hinweise)
-{
-  const done = database.prepare(
-    "SELECT value FROM settings WHERE key = 'migration_section_rename_2026'"
-  ).get()
-  if (!done) {
-    database.exec(`
-      UPDATE section_defs SET title = 'Raum'     WHERE title = 'Stände';
-      UPDATE section_defs SET title = 'Hinweise' WHERE title = 'Besonderheiten';
-      UPDATE template_section_defs SET title = 'Raum'     WHERE title = 'Stände';
-      UPDATE template_section_defs SET title = 'Hinweise' WHERE title = 'Besonderheiten';
-      INSERT INTO settings (key, value) VALUES ('migration_section_rename_2026', '1');
-    `)
-  }
-}
-
-// icon: stabiler Bezeichner für das Sidebar-Symbol. Vorher wurde es aus dem
-// deutschen Titel abgeleitet — beim Umbenennen oder auf Englisch war es weg.
-// Muss nach der Titel-Umbenennung oben laufen, weil aus den Titeln abgeleitet wird.
-for (const table of ['section_defs', 'template_section_defs']) {
-  const cols = database.pragma(`table_info(${table})`).map(c => c.name)
-  if (!cols.includes('icon')) {
-    database.exec(`ALTER TABLE ${table} ADD COLUMN icon TEXT NOT NULL DEFAULT ''`)
-    // Einmalige Zuordnung nach dem heutigen Stand. Danach bleibt icon stabil,
-    // auch wenn der Nutzer den Abschnitt umbenennt.
-    // 'setup' ist mehr als ein Symbol: daran hängt auch der generierte Text
-    // (Beleuchtungsgestelle/Obermaschinerie) und die Erkennung, ob der
-    // Aufbau-Abschnitt schon existiert.
-    database.exec(`
-      UPDATE ${table} SET icon = 'warning' WHERE title = 'Hinweise';
-      UPDATE ${table} SET icon = 'room'    WHERE title = 'Raum';
-      UPDATE ${table} SET icon = 'setup'   WHERE title = 'Aufbau';
-    `)
-  }
-}
-
-// template_towers: Gassenturm-Definitionen pro Bühnen-Template
-const templateTowersTableExists = database.prepare(
-  "SELECT name FROM sqlite_master WHERE type='table' AND name='template_towers'"
-).get()
-if (!templateTowersTableExists) {
-  database.exec(`
-    CREATE TABLE template_towers (
-      id          TEXT PRIMARY KEY,
-      template_id TEXT NOT NULL REFERENCES templates(id) ON DELETE CASCADE,
-      name        TEXT NOT NULL DEFAULT '',
-      side        TEXT NOT NULL DEFAULT '',
-      stage_area  TEXT NOT NULL DEFAULT '',
-      slot_count  INTEGER NOT NULL DEFAULT 4,
-      sort_order  INTEGER NOT NULL DEFAULT 0
-    );
-    CREATE INDEX idx_template_towers_tpl ON template_towers(template_id);
-
-    CREATE TABLE template_tower_slots (
-      id         TEXT PRIMARY KEY,
-      tower_id   TEXT NOT NULL REFERENCES template_towers(id) ON DELETE CASCADE,
-      slot_index INTEGER NOT NULL,
-      channel    TEXT,
-      device     TEXT,
-      color      TEXT,
-      UNIQUE(tower_id, slot_index)
-    );
-    CREATE INDEX idx_template_tower_slots_tower ON template_tower_slots(tower_id);
-  `)
-}
-
-// template_bar_fixtures: Scheinwerfer-Positionen auf Template-Bars
-const templateBarFixturesTableExists = database.prepare(
-  "SELECT name FROM sqlite_master WHERE type='table' AND name='template_bar_fixtures'"
-).get()
-if (!templateBarFixturesTableExists) {
-  database.exec(`
-    CREATE TABLE template_bar_fixtures (
-      id         TEXT PRIMARY KEY,
-      bar_id     TEXT NOT NULL REFERENCES template_bars(id) ON DELETE CASCADE,
-      position   REAL NOT NULL DEFAULT 0,
-      channel    TEXT,
-      device     TEXT,
-      color      TEXT,
-      notes      TEXT NOT NULL DEFAULT '',
-      UNIQUE(bar_id, position)
-    );
-    CREATE INDEX idx_template_bar_fixtures_bar ON template_bar_fixtures(bar_id);
-  `)
-}
-
-// Migration: side auf template_bar_fixtures — innen/außen bei Traversen
-{
-  const cols = database.prepare("PRAGMA table_info(template_bar_fixtures)").all().map(c => c.name)
-  if (!cols.includes('side'))
-    database.exec("ALTER TABLE template_bar_fixtures ADD COLUMN side TEXT NOT NULL DEFAULT 'out'")
-}
-
-// Migration: position_text auf template_bar_fixtures — Freitext-Position bei Punktzug
-{
-  const cols = database.prepare("PRAGMA table_info(template_bar_fixtures)").all().map(c => c.name)
-  if (!cols.includes('position_text'))
-    database.exec("ALTER TABLE template_bar_fixtures ADD COLUMN position_text TEXT NOT NULL DEFAULT ''")
-}
 }
 
 // Vollständige Initialisierung einer DB: Basis-Schema + alle Migrationen.
