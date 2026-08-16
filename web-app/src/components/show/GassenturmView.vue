@@ -339,6 +339,7 @@
 import { ref, computed, watch, onBeforeUnmount, nextTick } from 'vue'
 import { useLocale } from '@/composables/useLocale.js'
 import { useConfirm } from '@/composables/useConfirm.js'
+import { useSaveToTemplateDialog } from '@/composables/useSaveToTemplateDialog'
 const { t } = useLocale()
 const { confirm } = useConfirm()
 import { Plus, Pencil, Trash2, X, ChevronsUpDown, GripVertical, BookmarkPlus, Loader2, Layers } from 'lucide-vue-next'
@@ -405,51 +406,11 @@ function slotsFor(tower) {
 const editingNoteId = ref(null)
 
 // Als Vorlage speichern
-const saveDialogOpen = ref(false)
-const savingTowerId = ref(null)
-const saveDialogTower = ref(null)
-const saveFields = ref({ channel: true, device: true, color: true })
-const saveName = ref('')
-const existingTemplateNames = ref(new Set())
-const saveNameConflict = ref(false)
-const saveConfirmOverwrite = ref(false)
-
-async function openSaveDialog(tower) {
-  saveDialogTower.value = tower
-  saveFields.value = { channel: true, device: true, color: true }
-  saveName.value = tower.name
-  saveNameConflict.value = false
-  saveConfirmOverwrite.value = false
-  saveDialogOpen.value = true
-  if (props.fetchTemplateNamesFn) {
-    const names = await props.fetchTemplateNamesFn()
-    existingTemplateNames.value = new Set(names)
-  }
-}
-
-watch(saveName, () => {
-  saveNameConflict.value = false
-  saveConfirmOverwrite.value = false
-})
-
-async function confirmSaveDialog() {
-  const tower = saveDialogTower.value
-  if (!tower || !saveName.value.trim()) return
-  const name = saveName.value.trim()
-  if (!saveConfirmOverwrite.value && existingTemplateNames.value.has(name)) {
-    saveNameConflict.value = true
-    return
-  }
-  savingTowerId.value = tower.id
-  try {
-    await props.saveToTemplateFn(tower, { ...saveFields.value }, name)
-    saveDialogOpen.value = false
-    saveNameConflict.value = false
-    saveConfirmOverwrite.value = false
-  } finally {
-    savingTowerId.value = null
-  }
-}
+const {
+  saveDialogOpen, savingId: savingTowerId, saveDialogItem: saveDialogTower,
+  saveFields, saveName, saveNameConflict, saveConfirmOverwrite,
+  openSaveDialog, confirmSaveDialog,
+} = useSaveToTemplateDialog(props.saveToTemplateFn, props.fetchTemplateNamesFn, { channel: true, device: true, color: true })
 
 async function saveNotes(tower, value) {
   await props.saveTowerFn(tower.id, { notes: value })

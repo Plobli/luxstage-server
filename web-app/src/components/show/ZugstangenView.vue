@@ -342,10 +342,11 @@
 </template>
 
 <script setup>
-import { ref, computed, watch } from 'vue'
+import { ref, computed } from 'vue'
 import { useLocale } from '@/composables/useLocale.js'
 import { useMeasureUnit } from '@/composables/useMeasureUnit'
 import { useConfirm } from '@/composables/useConfirm.js'
+import { useSaveToTemplateDialog } from '@/composables/useSaveToTemplateDialog'
 const { t } = useLocale()
 const { confirm } = useConfirm()
 
@@ -392,51 +393,11 @@ const typeFilterOptions = computed(() => [
 ].filter(opt => opt.value === 'all' || opt.count > 0))
 
 // Als Vorlage speichern
-const saveDialogOpen = ref(false)
-const savingBarId = ref(null)
-const saveDialogBar = ref(null)
-const saveFields = ref({ position: true, channel: true, device: true, color: true, notes: false })
-const saveName = ref('')
-const existingTemplateNames = ref(new Set())
-const saveNameConflict = ref(false)
-const saveConfirmOverwrite = ref(false)
-
-async function openSaveDialog(bar) {
-  saveDialogBar.value = bar
-  saveFields.value = { position: true, channel: true, device: true, color: true, notes: false }
-  saveName.value = bar.name
-  saveNameConflict.value = false
-  saveConfirmOverwrite.value = false
-  saveDialogOpen.value = true
-  if (props.fetchTemplateNamesFn) {
-    const names = await props.fetchTemplateNamesFn()
-    existingTemplateNames.value = new Set(names)
-  }
-}
-
-watch(saveName, () => {
-  saveNameConflict.value = false
-  saveConfirmOverwrite.value = false
-})
-
-async function confirmSaveDialog() {
-  const bar = saveDialogBar.value
-  if (!bar || !saveName.value.trim()) return
-  const name = saveName.value.trim()
-  if (!saveConfirmOverwrite.value && existingTemplateNames.value.has(name)) {
-    saveNameConflict.value = true
-    return
-  }
-  savingBarId.value = bar.id
-  try {
-    await props.saveToTemplateFn(bar, { ...saveFields.value }, name)
-    saveDialogOpen.value = false
-    saveNameConflict.value = false
-    saveConfirmOverwrite.value = false
-  } finally {
-    savingBarId.value = null
-  }
-}
+const {
+  saveDialogOpen, savingId: savingBarId, saveDialogItem: saveDialogBar,
+  saveFields, saveName, saveNameConflict, saveConfirmOverwrite,
+  openSaveDialog, confirmSaveDialog,
+} = useSaveToTemplateDialog(props.saveToTemplateFn, props.fetchTemplateNamesFn, { position: true, channel: true, device: true, color: true, notes: false })
 
 // Drag & Drop — arbeitet auf einer lokalen Kopie, Prop-Array bleibt readonly
 const localBars = computed(() => props.bars)
