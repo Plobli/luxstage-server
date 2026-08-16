@@ -332,174 +332,38 @@
       @restore="doRestoreHistory($event)"
     />
 
-    <!-- Neuer Tab Dialog -->
-    <Dialog :open="!!channelsConflict" @update:open="val => { if (!val) resolveConflictReload() }">
-      <DialogContent class="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>{{ t('show.channels.conflict.title') }}</DialogTitle>
-        </DialogHeader>
-        <DialogBody>
-          <p class="text-sm text-muted-foreground">{{ t('show.channels.conflict.text') }}</p>
-        </DialogBody>
-        <DialogFooter>
-          <Button variant="outline" @click="resolveConflictForce">{{ t('show.channels.conflict.force') }}</Button>
-          <Button @click="resolveConflictReload">{{ t('show.channels.conflict.reload') }}</Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-
-    <Dialog :open="!!sectionsConflict" @update:open="val => { if (!val) resolveSectionsConflictReload() }">
-      <DialogContent class="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>{{ t('show.sections.conflict.title') }}</DialogTitle>
-        </DialogHeader>
-        <DialogBody>
-          <p class="text-sm text-muted-foreground">{{ t('show.sections.conflict.text') }}</p>
-        </DialogBody>
-        <DialogFooter>
-          <Button variant="outline" @click="resolveSectionsConflictForce">{{ t('show.sections.conflict.force') }}</Button>
-          <Button @click="resolveSectionsConflictReload">{{ t('show.sections.conflict.reload') }}</Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-
-    <Dialog :open="newSectionDialog" @update:open="newSectionDialog = $event">
-      <DialogContent class="sm:max-w-lg">
-        <DialogHeader>
-          <DialogTitle>{{ t('section.dialog.title') }}</DialogTitle>
-        </DialogHeader>
-        <DialogBody>
-          <div>
-            <Label for="newSectionName">{{ t('field.name') }}</Label>
-            <Input
-              size="lg"
-              id="newSectionName"
-              v-model="newSectionName"
-              :placeholder="t('section.dialog.name.placeholder')"
-              @keydown.enter.prevent="confirmNewSection"
-              @keydown.esc.prevent="newSectionDialog = false"
-            />
-          </div>
-          <div>
-            <Label>{{ t('section.dialog.type') }}</Label>
-            <div class="flex flex-col gap-2">
-              <button
-                :class="['flex items-center gap-4 rounded-xl border p-4 text-left transition-colors', newSectionType === 'markdown' ? 'border-white/20 bg-white/6' : 'border-white/8 hover:border-white/12 hover:bg-white/3']"
-                @click="newSectionType = 'markdown'"
-              >
-                <div :class="['size-4 shrink-0 rounded-full border-2 transition-colors', newSectionType === 'markdown' ? 'border-white bg-white' : 'border-white/30']" />
-                <div>
-                  <div class="text-sm font-semibold text-foreground">{{ t('section.type.markdown.title') }}</div>
-                  <div class="text-xs text-muted-foreground mt-1">{{ t('section.type.markdown.desc') }}</div>
-                </div>
-              </button>
-              <button
-                :class="['flex items-center gap-4 rounded-xl border p-4 text-left transition-colors', newSectionType === 'kv-table' ? 'border-white/20 bg-white/6' : 'border-white/8 hover:border-white/12 hover:bg-white/3']"
-                @click="newSectionType = 'kv-table'"
-              >
-                <div :class="['size-4 shrink-0 rounded-full border-2 transition-colors', newSectionType === 'kv-table' ? 'border-white bg-white' : 'border-white/30']" />
-                <div>
-                  <div class="text-sm font-semibold text-foreground">{{ t('section.type.fields.title') }}</div>
-                  <div class="text-xs text-muted-foreground mt-1">{{ t('section.type.fields.desc') }}</div>
-                </div>
-              </button>
-            </div>
-          </div>
-        </DialogBody>
-        <DialogFooter>
-          <Button variant="outline" @click="newSectionDialog = false">{{ t('action.cancel') }}</Button>
-          <Button :disabled="!newSectionName.trim()" @click="confirmNewSection">{{ t('action.create') }}</Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-
-    <EosMergePreviewDialog
-      :open="eosMergePreview.open"
-      :newActive="eosMergePreview.newActive"
-      :nowGone="eosMergePreview.nowGone"
-      :untouched="eosMergePreview.untouched"
-      :addressMismatch="eosMergePreview.addressMismatch"
-      :deviceMismatch="eosMergePreview.deviceMismatch"
-      :previouslyExcluded="eosMergePreview.previouslyExcluded"
-      @confirm="(applyAddresses, excludedChannels, applyDevices) => resolveEosMergePreview(true, applyAddresses, excludedChannels, applyDevices)"
-      @cancel="resolveEosMergePreview(false)"
+    <ShowDetailDialogs
+      :channelsConflict="channelsConflict"
+      :sectionsConflict="sectionsConflict"
+      v-model:newSectionDialog="newSectionDialog"
+      v-model:newSectionName="newSectionName"
+      v-model:newSectionType="newSectionType"
+      :eosMergePreview="eosMergePreview"
+      v-model:fromTemplateDialogOpen="fromTemplateDialogOpen"
+      :fromTemplateScope="fromTemplateScope"
+      :fromTemplateItemsLoading="fromTemplateItemsLoading"
+      :fromTemplateItems="fromTemplateItems"
+      :fromTemplateSelectedIds="fromTemplateSelectedIds"
+      v-model:fromTemplateWithChannels="fromTemplateWithChannels"
+      :fromTemplateLoading="fromTemplateLoading"
+      :formatLength="formatLength"
+      @resolveConflictReload="resolveConflictReload"
+      @resolveConflictForce="resolveConflictForce"
+      @resolveSectionsConflictReload="resolveSectionsConflictReload"
+      @resolveSectionsConflictForce="resolveSectionsConflictForce"
+      @confirmNewSection="confirmNewSection"
+      @resolveEosMergePreview="(...args) => resolveEosMergePreview(...args)"
+      @fromTemplateSelectAll="fromTemplateSelectAll"
+      @fromTemplateSelectNone="fromTemplateSelectNone"
+      @fromTemplateToggleId="fromTemplateToggleId"
+      @confirmFromTemplate="confirmFromTemplate"
     />
-
-    <!-- Vorlage einfügen Dialog -->
-    <Dialog :open="fromTemplateDialogOpen" @update:open="fromTemplateDialogOpen = $event">
-      <DialogContent class="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>{{ fromTemplateScope === 'bars' ? t('from_template.bars.title') : t('from_template.towers.title') }}</DialogTitle>
-        </DialogHeader>
-        <DialogBody>
-          <div v-if="fromTemplateItemsLoading" class="text-sm text-muted-foreground">…</div>
-          <template v-else>
-            <!-- Auswahl-Kopfzeile -->
-            <div class="flex items-center justify-between pb-1 border-b border-border">
-              <span class="text-xs text-muted-foreground">{{ t('from_template.selected', { selected: fromTemplateSelectedIds.size, total: fromTemplateItems.length }) }}</span>
-              <div class="flex gap-2">
-                <button class="text-xs text-accent hover:underline" @click="fromTemplateSelectAll">{{ t('from_template.select_all') }}</button>
-                <button class="text-xs text-muted-foreground hover:underline" @click="fromTemplateSelectNone">{{ t('from_template.select_none') }}</button>
-              </div>
-            </div>
-
-            <!-- Item-Liste -->
-            <div class="max-h-64 overflow-y-auto flex flex-col divide-y divide-border/50">
-              <label
-                v-for="item in fromTemplateItems"
-                :key="item.id"
-                class="flex items-center gap-3 py-2.5 cursor-pointer hover:bg-muted/30 transition-colors px-1 rounded"
-                :class="fromTemplateSelectedIds.has(item.id) ? '' : 'opacity-50'"
-              >
-                <Checkbox
-                  :model-value="fromTemplateSelectedIds.has(item.id)"
-                  @update:model-value="fromTemplateToggleId(item.id)"
-                />
-                <span class="flex-1 min-w-0">
-                  <span class="text-sm font-medium text-foreground">{{ item.name }}</span>
-                  <span v-if="fromTemplateScope === 'bars'" class="text-xs text-muted-foreground ml-2">
-                    <span v-if="item.zug_nr">{{ t('from_template.bar.zug', { nr: item.zug_nr }) }} · </span>{{ formatLength(item.length_cm) }}
-                    <span v-if="item._fixtureCount" class="ml-1">· {{ t('from_template.bar.fixtures', { count: item._fixtureCount }) }}</span>
-                  </span>
-                  <span v-else class="text-xs text-muted-foreground ml-2">
-                    <span v-if="item.side">{{ item.side }} · </span>
-                    {{ t('from_template.tower.slots', { count: item.slot_count }) }}
-                  </span>
-                </span>
-              </label>
-            </div>
-
-            <!-- Mit Kanalzuordnung -->
-            <div class="flex items-start gap-3 rounded-lg border border-border p-3 mt-1">
-              <Checkbox
-                v-model="fromTemplateWithChannels"
-                class="mt-0.5"
-              />
-              <label for="withChannelsCb" class="flex flex-col gap-0.5 cursor-pointer">
-                <span class="text-sm font-medium text-foreground">{{ t('from_template.with_channels') }}</span>
-                <span class="text-xs text-muted-foreground">
-                  {{ fromTemplateScope === 'bars'
-                    ? t('from_template.with_channels.bars.desc')
-                    : t('from_template.with_channels.towers.desc') }}
-                </span>
-              </label>
-            </div>
-          </template>
-        </DialogBody>
-        <DialogFooter>
-          <Button variant="ghost" @click="fromTemplateDialogOpen = false">{{ t('action.cancel') }}</Button>
-          <Button :disabled="fromTemplateLoading || fromTemplateSelectedIds.size === 0" @click="confirmFromTemplate">
-            {{ fromTemplateLoading ? '…' : `${fromTemplateSelectedIds.size} einfügen` }}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
 
   </div>
 </template>
 
 <script setup>
-import { ref, computed, watch, nextTick, onMounted, onBeforeUnmount, onUnmounted, defineAsyncComponent } from 'vue'
+import { ref, computed, watch, nextTick, onMounted, onBeforeUnmount, defineAsyncComponent } from 'vue'
 import { Loader2, Radio, Layers, Images, Map as MapIcon, Construction, Plus } from 'lucide-vue-next'
 import { useDebounceFn } from '@vueuse/core'
 import { useLocale } from '../composables/useLocale.js'
@@ -522,21 +386,7 @@ import { useTemplateInsertion } from '../composables/useTemplateInsertion.js'
 
 import ShowHeader from '../components/show/ShowHeader.vue'
 const ShowActionBar = defineAsyncComponent(() => import('../components/show/ShowActionBar.vue'))
-import { useShowNav } from '../composables/useShowNav.js'
-import {
-  Image as NavPhotosIcon,
-  Map as NavFloorplanIcon,
-  TriangleAlert as IconHinweise,
-} from 'lucide-vue-next'
-import IconKanaele from '@/components/icons/IconKanaele.vue'
-import IconBeleuchtungsgestelle from '@/components/icons/IconBeleuchtungsgestelle.vue'
-import IconObermaschinerie from '@/components/icons/IconObermaschinerie.vue'
-import IconAufbau from '@/components/icons/IconAufbau.vue'
-import IconRaum from '@/components/icons/IconRaum.vue'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogBody } from '@/components/ui/dialog'
-import Checkbox from '@/components/ui/checkbox/Checkbox.vue'
-import { Label } from '@/components/ui/label'
-import { Input } from '@/components/ui/input'
+import { useShowSidebarNav } from '../composables/useShowSidebarNav.js'
 import { Button } from '@/components/ui/button'
 import { fetchShow, updateMeta, createSnapshot } from '../api/shows.js'
 import { invalidate } from '../api/cache.js'
@@ -545,28 +395,18 @@ import { downloadChannelsCsv } from '../api/channels.js'
 import { generateHangereiEntries, generateGassenturmEntries } from '../utils/generateHangerei'
 const PhotoGallery = defineAsyncComponent(() => import('../components/show/PhotoGallery.vue'))
 const HistorySlideOver = defineAsyncComponent(() => import('../components/show/HistorySlideOver.vue'))
+const ShowDetailDialogs = defineAsyncComponent(() => import('../components/show/ShowDetailDialogs.vue'))
 import { isOnline, api } from '../api/client.js'
 
 const ChannelTable = defineAsyncComponent(() => import('../components/channel/ChannelTable.vue'))
 const SectionEditor = defineAsyncComponent(() => import('../components/show/SectionEditor.vue'))
-const EosMergePreviewDialog = defineAsyncComponent(() => import('../components/EosMergePreviewDialog.vue'))
 const FloorplanEditor = defineAsyncComponent(() => import('../components/FloorplanEditor.vue'))
 const GassenturmView = defineAsyncComponent(() => import('../components/show/GassenturmView.vue'))
 const ZugstangenView = defineAsyncComponent(() => import('../components/show/ZugstangenView.vue'))
 const GeneratedTextAccordion = defineAsyncComponent(() => import('../components/show/GeneratedTextAccordion.vue'))
 
-// Abschnitts-Symbole über den stabilen icon-Bezeichner aus der DB, nicht über
-// den Titel: der ist frei editierbar und sprachabhängig. Unbekannte oder leere
-// Werte fallen auf IconAufbau zurück.
-const SECTION_ICONS = {
-  warning: IconHinweise,
-  room: IconRaum,
-  setup: IconAufbau,
-}
-
 const props = defineProps({ id: { type: String, required: true } })
 const { t, locale, ready: localeReady } = useLocale()
-const { setNav, clearNav, navigate: navNavigate } = useShowNav()
 const { confirm } = useConfirm()
 const { onKeydown } = useKeyboardNav()
 
@@ -816,86 +656,11 @@ function onSidebarNavigate({ tab, subTab }) {
 }
 
 // ── Haupt-Sidebar Nav-Items ────────────────────────────────────────────────
-const sidebarNavItems = computed(() => {
-  const activeTab = mobileTab.value
-  const activeSubTab = aufbauTab.value
-  const items = []
-
-  items.push({
-    key: 'channels',
-    label: t('tab.channels'),
-    icon: IconKanaele,
-    iconClass: 'size-6',
-    active: activeTab === 'channels',
-    navigate: () => onSidebarNavigate({ tab: 'channels' }),
-  })
-
-  if (meta.value.use_towers !== false) {
-    items.push({
-      key: 'gassenturm',
-      label: t('tab.towers'),
-      icon: IconBeleuchtungsgestelle,
-      iconClass: 'size-6',
-      active: activeTab === 'gassenturm' && activeSubTab === 'gassenturm',
-      navigate: () => onSidebarNavigate({ tab: 'gassenturm', subTab: 'gassenturm' }),
-    })
-  }
-  if (meta.value.use_bars !== false) {
-    items.push({
-      key: 'zugstangen',
-      label: t('tab.obermaschinerie'),
-      icon: IconObermaschinerie,
-      iconClass: 'size-6',
-      active: activeTab === 'gassenturm' && activeSubTab === 'zugstangen',
-      navigate: () => onSidebarNavigate({ tab: 'gassenturm', subTab: 'zugstangen' }),
-    })
-  }
-  for (const s of [...sectionDefs.value].sort((a, b) => a.order - b.order)) {
-    items.push({
-      key: `section:${s.id}`,
-      label: s.title || t('sections.untitled'),
-      icon: SECTION_ICONS[s.icon] ?? IconAufbau,
-      iconClass: s.icon === 'warning' ? 'size-5' : 'size-6',
-      active: activeTab === 'gassenturm' && activeSubTab === `section:${s.id}`,
-      navigate: () => onSidebarNavigate({ tab: 'gassenturm', subTab: `section:${s.id}` }),
-    })
-  }
-  items.push({ type: 'addSection', label: t('sections.add') })
-
-  items.push({ type: 'group', label: t('show.nav.media') })
-
-  items.push({
-    key: 'photos',
-    label: t('tab.photos'),
-    icon: NavPhotosIcon,
-    active: activeTab === 'photos',
-    navigate: () => onSidebarNavigate({ tab: 'photos' }),
-  })
-  items.push({
-    key: 'floorplan',
-    label: t('tab.floorplan'),
-    icon: NavFloorplanIcon,
-    active: activeTab === 'floorplan',
-    navigate: () => onSidebarNavigate({ tab: 'floorplan' }),
-  })
-
-  return items
+const { aufbauNavVisible } = useShowSidebarNav({
+  t, meta, mobileTab, aufbauTab, sectionDefs,
+  onSidebarNavigate,
+  addSectionFromSubtab: () => addSectionFromSubtab(),
 })
-
-watch(sidebarNavItems, (items) => {
-  setNav({
-    items,
-    activeKey: mobileTab.value,
-    navigate: (item) => item.navigate?.(),
-    addSection: addSectionFromSubtab,
-  })
-}, { immediate: true })
-
-onUnmounted(() => clearNav())
-
-const aufbauNavVisible = computed(() =>
-  meta.value.use_towers !== false || meta.value.use_bars !== false || sectionDefs.value.length > 0
-)
 
 const bottomNavItems = computed(() => [
   {

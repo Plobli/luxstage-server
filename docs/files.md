@@ -210,7 +210,7 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 | `./web-app/src/views/ShowsView.vue` | Übersicht aller Produktionen mit Sortierung und Erstellung. |
 | `./web-app/src/views/ShowDetailView.vue` | Hauptansicht einer Show mit Kanaltabelle und Editoren. |
 | `./web-app/src/views/ArchiveView.vue` | Anzeige und Verwaltung archivierter Produktionen mit Wiederherstellung. |
-| `./web-app/src/views/TemplatesView.vue` | Erstellung, Bearbeitung, Upload von Beleuchtungs-Vorlagen. |
+| `./web-app/src/views/TemplatesView.vue` | Vorlagenliste, Neu-Anlegen, Löschen; Detail-Bearbeitung an TemplateDetailPanel, Upload an TemplateUploadDialog delegiert. |
 | `./web-app/src/views/SettingsView.vue` | Sub-Navigation zu verschiedenen Einstellungsbereichen. |
 | `./web-app/src/views/settings/AccountView.vue` | Passwort-Änderung, Druckeinstellungen, Abmelden. |
 | `./web-app/src/views/settings/UsersView.vue` | Benutzerverwaltung, Rollen, Passwort-Reset für Admin. |
@@ -249,6 +249,10 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 | `./web-app/src/components/icons/IconBeleuchtungsgestelle.vue` | Icon für Beleuchtungsgestelle/Racks. |
 | `./web-app/src/components/icons/IconAufbau.vue` | Icon für Aufbauplan/Bühnenaufbau. |
 | `./web-app/src/components/icons/IconObermaschinerie.vue` | Icon für Zugstangen-Verwaltung. |
+| `./web-app/src/components/template/TemplateDetailPanel.vue` | Detail-Editor einer Vorlage: Kanaltabelle, Sections, Grundriss, Zugstangen, Beleuchtungsgestelle in Tabs; Umbenennen, OSC-Host, Übertragen auf alle Shows. |
+| `./web-app/src/components/template/TemplateUploadDialog.vue` | Dialog für CSV-Upload neuer Vorlagen mit Vorschau der Kanäle. |
+| `./web-app/src/components/template/TemplateBarsPanel.vue` | Zugstangen-Verwaltung innerhalb einer Vorlage mit Drag-Drop und Scheinwerfer-Zuordnung. |
+| `./web-app/src/components/template/TemplateTowersPanel.vue` | Beleuchtungsgestelle-Verwaltung innerhalb einer Vorlage mit Slots und Kanalbelegung. |
 
 ### web-app/src/components/ui/ (Generische UI-Bausteine, shadcn-vue-Stil)
 
