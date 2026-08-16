@@ -661,7 +661,6 @@ const bgImage = ref(null)
 const bgImageSrc = ref('')
 const containerSize = ref({ width: 1200, height: 800 })
 const stageSize = ref({ width: 1200, height: 800 })
-let nextImageIsFreshUpload = false
 
 const stageScale = computed(() => {
   const sx = containerSize.value.width / stageSize.value.width
@@ -859,32 +858,9 @@ async function loadBackground(url) {
     || url.startsWith('data:image/svg')
 
   if (isSvg) {
-    // Fetch SVG text to read viewBox dimensions — naturalWidth/Height is unreliable for SVGs with width="100%"
-    let svgText
-    if (url.startsWith('data:')) {
-      const base64 = url.split(',')[1]
-      svgText = atob(base64)
-    } else {
-      const res = await fetch(url, { cache: 'reload', headers: { Authorization: 'Bearer ' + (getToken() || '') } })
-      svgText = await res.text()
-    }
-    const parser = new DOMParser()
-    const doc = parser.parseFromString(svgText, 'image/svg+xml')
-    const svgEl = doc.querySelector('svg')
-    let w = 0, h = 0
-    const vb = svgEl?.getAttribute('viewBox')
-    if (vb) {
-      const parts = vb.trim().split(/[\s,]+/)
-      w = parseFloat(parts[2]) || 0
-      h = parseFloat(parts[3]) || 0
-    }
-    if (!w || !h) {
-      w = parseFloat(svgEl?.getAttribute('width')) || 1200
-      h = parseFloat(svgEl?.getAttribute('height')) || 800
-    }
-    const MAX = 2000
-    const scale = Math.min(1, MAX / w, MAX / h)
-    stageSize.value = { width: Math.round(w * scale), height: Math.round(h * scale) }
+    // Stage ist immer fest auf den PDF-Druckbereich (A4 quer) fixiert (siehe unten).
+    const REF_W = 2000
+    stageSize.value = { width: REF_W, height: Math.round(REF_W / PDF_PRINT_AREA_RATIO) }
     bgImage.value = null
     bgImageSrc.value = url
     nextTick(() => { fitToContainer(); captureSnapshot().then(snap => { if (snap) emit('snapshot', snap) }) })
@@ -894,20 +870,13 @@ async function loadBackground(url) {
   const blob = await fetch(url, { cache: 'reload', headers: { Authorization: 'Bearer ' + (getToken() || '') } }).then(r => r.blob())
   const blobUrl = URL.createObjectURL(blob)
   const img = new Image()
-  const isFreshUpload = nextImageIsFreshUpload
-  nextImageIsFreshUpload = false
   img.onload = () => {
-    if (isFreshUpload) {
-      // Neu hochgeladene Bilder: Stage fest auf den PDF-Druckbereich (A4 quer), Bild wird
-      // unverzerrt eingepasst (siehe bg-image preserveAspectRatio). Bestehende, bereits
-      // gespeicherte Grundrisse behalten ihre bisherige Stage=Bildgröße-Darstellung.
-      const REF_W = 2000
-      stageSize.value = { width: REF_W, height: Math.round(REF_W / PDF_PRINT_AREA_RATIO) }
-    } else {
-      const MAX = 2000
-      const scale = Math.min(1, MAX / img.naturalWidth, MAX / img.naturalHeight)
-      stageSize.value = { width: Math.round(img.naturalWidth * scale), height: Math.round(img.naturalHeight * scale) }
-    }
+    // Stage ist immer fest auf den PDF-Druckbereich (A4 quer) fixiert, unabhängig
+    // vom Bildseitenverhältnis; das Bild wird unverzerrt eingepasst (siehe
+    // bg-image preserveAspectRatio). So bleibt die Darstellung nach jedem Laden
+    // (Upload wie Seiten-Reload) konsistent.
+    const REF_W = 2000
+    stageSize.value = { width: REF_W, height: Math.round(REF_W / PDF_PRINT_AREA_RATIO) }
     bgImage.value = img
     bgImageSrc.value = blobUrl
     nextTick(() => { fitToContainer(); captureSnapshot().then(snap => { if (snap) emit('snapshot', snap) }) })
@@ -1308,7 +1277,7 @@ function placeChannelCircle(ch) {
 }
 function onImageFileSelected(e) {
   const file = e.target.files?.[0]
-  if (file) { nextImageIsFreshUpload = true; emit('upload-image', file) }
+  if (file) emit('upload-image', file)
   e.target.value = ''
 }
 function jumpToChannel() { if (selectedElement.value?.type === 'channel') emit('jump-to-channel', selectedElement.value.channel) }
