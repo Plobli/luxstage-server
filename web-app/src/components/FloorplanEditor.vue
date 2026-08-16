@@ -100,17 +100,6 @@
           </SidebarBtn>
         </div>
       </div>
-      <div class="w-px bg-border my-1 shrink-0"></div>
-
-      <!-- Gruppe: Bearbeiten -->
-      <div class="flex flex-col items-center gap-0.5 px-1.5">
-        <span class="text-[10px] font-medium text-muted-foreground/70 uppercase tracking-wide text-center">{{ t('floorplan.toolbar.group.edit') }}</span>
-        <div class="flex items-center gap-0.5">
-          <SidebarBtn horizontal icon-only :disabled="selectedIds.size === 0" variant="danger" :title="t('floorplan.delete_selection.title')" @click="deleteSelected">
-            <Trash2 class="w-4 h-4 shrink-0" />
-          </SidebarBtn>
-        </div>
-      </div>
       <div class="w-px bg-border my-1 shrink-0 ml-auto"></div>
 
       <!-- Gruppe: Gitter -->
