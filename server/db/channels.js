@@ -43,7 +43,12 @@ export function writeChannels(slug, channels, editedBy = null) {
 
     for (let i = 0; i < channels.length; i++) {
       const ch = channels[i]
-      const id = idByNumber.get(ch.channel) ?? (ch.id || randomUUID())
+      // Nie ch.id übernehmen: Channel-Objekte können von einem Template oder
+      // einer anderen Show stammen (z.B. beim Vorlagen-Import) und würden mit
+      // einer fremden ID kollidieren (ON CONFLICT überschreibt dann die Zeile
+      // der ursprünglichen Show). Nur IDs verwenden, die bereits dieser Show
+      // gehören — alles andere bekommt eine frische, show-lokale UUID.
+      const id = idByNumber.get(ch.channel) ?? randomUUID()
       incomingIds.add(id)
       const mountRef = ch.mount_ref ? (typeof ch.mount_ref === 'string' ? ch.mount_ref : JSON.stringify(ch.mount_ref)) : null
       upsert.run(id, show.id, ch.channel ?? '', ch.address ?? '', ch.device ?? '', ch.position ?? '', ch.color ?? '', ch.notes ?? '', mountRef, ch.quantity ?? 1, i)

@@ -2,10 +2,11 @@ import { getDb } from '../db-context.js'
 import { randomUUID } from 'node:crypto'
 import { ensureTemplateTowerSlots } from './template-towers.js'
 
-// Wendet Template-Bars oder Template-Towers auf eine einzelne Show an.
+// Wendet Template-Bars, Template-Towers oder Template-Bereiche (Sections) auf
+// eine einzelne Show an.
 // withChannels: true → Fixtures/Slot-Belegungen aus Template werden mit übernommen und per Kanalnummer den Show-Kanälen zugeordnet.
-// withChannels: false → nur leere Bars/Towers ohne Fixtures/Kanäle werden angelegt.
-// Die Funktion fügt nur fehlende Einträge hinzu (nach Name/Position).
+// withChannels: false → nur leere Bars/Towers ohne Fixtures/Kanäle werden angelegt (ohne Wirkung bei scope 'sections').
+// Die Funktion fügt nur fehlende Einträge hinzu (nach Name/Position/Titel).
 export function applyTemplateToShow(templateName, showSlug, scope, withChannels, selectedIds = null) {
   const tpl = getDb().prepare('SELECT * FROM templates WHERE name = ?').get(templateName)
   if (!tpl) throw new Error('Template not found')
@@ -14,6 +15,43 @@ export function applyTemplateToShow(templateName, showSlug, scope, withChannels,
   const idSet = selectedIds ? new Set(selectedIds) : null
 
   const tx = getDb().transaction(() => {
+    if (scope === 'sections') {
+      const tDefs = getDb().prepare('SELECT * FROM template_section_defs WHERE template_id = ? ORDER BY sort_order').all(tpl.id)
+      const selectedDefs = idSet ? tDefs.filter(d => idSet.has(d.id)) : tDefs
+      if (!selectedDefs.length) return
+      const defIds = selectedDefs.map(d => d.id)
+      const ph = defIds.map(() => '?').join(',')
+      const tRowsAll   = getDb().prepare(`SELECT * FROM template_section_kv_rows WHERE section_id IN (${ph}) ORDER BY sort_order`).all(defIds)
+      const tFieldsAll = getDb().prepare(`SELECT * FROM template_section_fields WHERE section_id IN (${ph}) ORDER BY sort_order`).all(defIds)
+      const tRowsBySection   = Map.groupBy(tRowsAll, r => r.section_id)
+      const tFieldsBySection = Map.groupBy(tFieldsAll, f => f.section_id)
+
+      const existingDefs = getDb().prepare('SELECT title FROM section_defs WHERE show_id = ?').all(show.id)
+      const existingTitles = new Set(existingDefs.map(d => d.title))
+      let sortBase = existingDefs.length
+
+      const insertDef     = getDb().prepare('INSERT INTO section_defs (id, show_id, title, type, icon, sort_order) VALUES (?, ?, ?, ?, ?, ?)')
+      const insertKvRow   = getDb().prepare('INSERT INTO section_kv_rows (id, section_id, label, value, sort_order) VALUES (?, ?, ?, ?, ?)')
+      const insertField   = getDb().prepare('INSERT INTO section_fields (id, section_id, key, label, unit, sort_order) VALUES (?, ?, ?, ?, ?, ?)')
+      const insertContent = getDb().prepare('INSERT INTO section_contents (section_id, show_id, content) VALUES (?, ?, ?)')
+
+      for (const tDef of selectedDefs) {
+        if (existingTitles.has(tDef.title)) continue
+        const newDefId = randomUUID()
+        insertDef.run(newDefId, show.id, tDef.title, tDef.type, tDef.icon ?? '', sortBase++)
+        if (tDef.type === 'kv-table') {
+          for (const tRow of (tRowsBySection.get(tDef.id) ?? [])) {
+            insertKvRow.run(randomUUID(), newDefId, tRow.label, tRow.value, tRow.sort_order)
+          }
+        } else {
+          for (const tField of (tFieldsBySection.get(tDef.id) ?? [])) {
+            insertField.run(randomUUID(), newDefId, tField.key, tField.label, tField.unit, tField.sort_order)
+          }
+          insertContent.run(newDefId, show.id, tDef.type === 'fields' ? '{}' : '')
+        }
+      }
+      return
+    }
     if (scope === 'bars') {
       const tBars = getDb().prepare('SELECT * FROM template_bars WHERE template_id = ? ORDER BY sort_order').all(tpl.id)
       const existingBars = getDb().prepare('SELECT * FROM bars WHERE show_id = ?').all(show.id)

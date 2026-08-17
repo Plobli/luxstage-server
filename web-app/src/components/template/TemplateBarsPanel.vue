@@ -129,7 +129,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, toRef } from 'vue'
+import { computed, onMounted, toRef } from 'vue'
 import { Pencil, Plus, X, AlignJustify } from 'lucide-vue-next'
 import { useLocale } from '../../composables/useLocale.js'
 import { useMeasureUnit } from '../../composables/useMeasureUnit'
@@ -155,6 +155,10 @@ const formDisplay = computed({
   get: () => ({ length: cmToDisplay(form.value.length_cm) }),
   set: (v) => { form.value.length_cm = parseToCm(v.length) },
 })
+
+// TabsContent mountet dieses Panel erst beim Aktivieren des Tabs (unmountOnHide) —
+// hier selbst laden statt auf einen externen loadBars()-Aufruf zu vertrauen.
+onMounted(loadBars)
 
 defineExpose({ loadBars, bars })
 </script>

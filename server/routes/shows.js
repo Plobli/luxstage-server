@@ -31,9 +31,9 @@ export async function showRoutes(req, res, pathname, params) {
 
   if (method === 'POST' && SHOW_LIST.test(pathname)) {
     const body = await readJsonBody(req, res); if (body === null) return
-    const { id, name, datum, template, spielzeit, channels, use_bars, use_towers } = body
+    const { id, name, datum, template, spielzeit, channels, use_bars, use_towers, importSections } = body
     if (!id || !/^[a-z0-9_-]+$/i.test(id)) return json(res, 400, { error: 'Ungültige ID' })
-    db.createShow(id, { name, datum, template, spielzeit, use_bars: use_bars !== false, use_towers: use_towers !== false })
+    db.createShow(id, { name, datum, template, spielzeit, use_bars: use_bars !== false, use_towers: use_towers !== false, importSections })
     if (Array.isArray(channels) && channels.length) db.writeChannels(id, channels)
     return json(res, 201, { id })
   }
@@ -61,13 +61,13 @@ export async function showRoutes(req, res, pathname, params) {
     const slug = m[1]
     if (method === 'POST') {
       const body = await readJsonBody(req, res); if (body === null) return
-      const validScopes = ['bars', 'towers']
+      const validScopes = ['bars', 'towers', 'sections']
       const scope = validScopes.includes(body.scope) ? body.scope : 'bars'
       const withChannels = body.withChannels === true
       const selectedIds = Array.isArray(body.selectedIds) ? body.selectedIds : null
       try {
         db.applyTemplateToShow(body.templateName, slug, scope, withChannels, selectedIds)
-        broadcast(slug, scope === 'bars' ? 'bars' : 'towers', {})
+        if (scope !== 'sections') broadcast(slug, scope === 'bars' ? 'bars' : 'towers', {})
         return json(res, 200, { ok: true })
       } catch (e) {
         return json(res, 404, { error: e.message })

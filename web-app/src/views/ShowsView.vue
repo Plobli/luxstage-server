@@ -13,10 +13,16 @@
     <!-- Leerer Zustand -->
     <div v-else-if="shows.length === 0" class="flex flex-col items-center justify-center py-24 gap-4 text-center">
       <p class="text-muted-foreground text-sm">{{ t('show.list.empty') }}</p>
-      <Button variant="accent" @click="openCreate" class="flex items-center gap-2">
-        <Plus class="size-4" />
-        {{ t('show.create') }}
-      </Button>
+      <div class="flex items-center gap-2">
+        <Button variant="accent" @click="openCreate" class="flex items-center gap-2">
+          <Plus class="size-4" />
+          {{ t('show.create') }}
+        </Button>
+        <Button variant="outline" @click="wizardOpen = true" class="flex items-center gap-2">
+          <Sparkles class="size-4" />
+          {{ t('show.wizard.open') }}
+        </Button>
+      </div>
     </div>
 
     <!-- Sortier-Header -->
@@ -125,17 +131,32 @@
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  <!-- Neue Show: Assistent -->
+  <ShowWizardDialog v-model:open="wizardOpen" :templates="templates" @created="onWizardCreated" />
+
   <!-- FAB -->
-  <Button variant="accent" @click="openCreate" class="fixed bottom-6 right-6 h-11 px-5 shadow-lg border-0 flex items-center gap-2">
-    <Plus class="size-4" /> {{ t('show.new') }}
-  </Button>
+  <DropdownMenu>
+    <DropdownMenuTrigger asChild>
+      <Button variant="accent" class="fixed bottom-6 right-6 h-11 px-5 shadow-lg border-0 flex items-center gap-2">
+        <Plus class="size-4" /> {{ t('show.new') }}
+      </Button>
+    </DropdownMenuTrigger>
+    <DropdownMenuContent align="end" class="w-56">
+      <DropdownMenuItem class="cursor-pointer" @click="openCreate">
+        <Plus class="size-4 mr-2" /> {{ t('show.create.quick') }}
+      </DropdownMenuItem>
+      <DropdownMenuItem class="cursor-pointer" @click="wizardOpen = true">
+        <Sparkles class="size-4 mr-2" /> {{ t('show.wizard.open') }}
+      </DropdownMenuItem>
+    </DropdownMenuContent>
+  </DropdownMenu>
   </div>
 </template>
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { Archive, Loader2, Plus } from 'lucide-vue-next'
+import { Archive, Loader2, Plus, Sparkles } from 'lucide-vue-next'
 import { useLocale } from '../composables/useLocale.js'
 import { fetchShows, createShow, archiveShow } from '../api/shows.js'
 import { fetchTemplates, fetchTemplateChannels } from '../api/templates.js'
@@ -156,6 +177,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/components/ui/dropdown-menu'
+import ShowWizardDialog from '@/components/show/ShowWizardDialog.vue'
 
 const router = useRouter()
 const { t } = useLocale()
@@ -177,6 +200,7 @@ function setSort(key) {
 }
 const creating = ref(false)
 const drawerOpen = ref(false)
+const wizardOpen = ref(false)
 
 function currentSpielzeit() {
   const now = new Date()
@@ -260,6 +284,13 @@ async function handleCreate() {
   } finally {
     creating.value = false
   }
+}
+
+function onWizardCreated(newShow) {
+  invalidate('shows')
+  shows.value.push(newShow)
+  wizardOpen.value = false
+  router.push(`/shows/${newShow.id}`)
 }
 
 function openCreate() {

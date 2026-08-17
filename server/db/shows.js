@@ -49,7 +49,7 @@ export function createShow(slug, fields) {
       ts,
     })
 
-    if (fields.template) {
+    if (fields.template && fields.importSections !== false) {
       const tpl = getDb().prepare('SELECT * FROM templates WHERE name = ?').get(fields.template)
       if (tpl) _copyTemplateToShow(tpl.id, id)
     }

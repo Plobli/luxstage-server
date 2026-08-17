@@ -125,7 +125,7 @@
 </template>
 
 <script setup lang="ts">
-import { toRef } from 'vue'
+import { onMounted, toRef } from 'vue'
 import { Pencil, Plus, X, ChevronDown, Layers } from 'lucide-vue-next'
 import { useLocale } from '../../composables/useLocale.js'
 import { useTemplateTowers } from '../../composables/useTemplateTowers'
@@ -145,6 +145,10 @@ const {
   dialogOpen, editing, form, openNew, openEdit, save, remove,
   slotDialogOpen, editingSlot, slotForm, openEditSlot, saveSlot, clearSlot,
 } = useTemplateTowers(templateNameRef)
+
+// TabsContent mountet dieses Panel erst beim Aktivieren des Tabs (unmountOnHide) —
+// hier selbst laden statt auf einen externen loadTowers()-Aufruf zu vertrauen.
+onMounted(loadTowers)
 
 defineExpose({ loadTowers })
 </script>
