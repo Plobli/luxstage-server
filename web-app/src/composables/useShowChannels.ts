@@ -66,7 +66,7 @@ export function useShowChannels({
   // nächsten Save davon ab, hat jemand anders inzwischen gespeichert.
   const channelsVersion = ref<string | null>(null)
   const channelsConflict = ref<{ serverVersion: string, serverChannels: Channel[] } | null>(null)
-  const healthFilter = ref<'noDevice' | 'noPosition' | 'noAddress' | null>(null)
+  const healthFilter = ref<'noDevice' | 'noPosition' | 'noAddress' | 'incomplete' | null>(null)
   // Eingefrorene Kanal-IDs beim Aktivieren des Filters — reagiert nicht auf Tipp-Änderungen
   const healthFilterSnapshot = ref<Set<string> | null>(null)
   
@@ -213,9 +213,10 @@ export function useShowChannels({
     noDevice:   ch => !(ch.device ?? '').trim(),
     noPosition: ch => !(ch.position ?? '').trim(),
     noAddress:  ch => !(ch.address ?? '').trim(),
+    incomplete: ch => !(ch.device ?? '').trim() || !(ch.position ?? '').trim() || !(ch.address ?? '').trim(),
   }
 
-  function activateHealthFilter(type: 'noDevice' | 'noPosition' | 'noAddress' | null): void {
+  function activateHealthFilter(type: 'noDevice' | 'noPosition' | 'noAddress' | 'incomplete' | null): void {
     healthFilter.value = type
     if (type && healthFilterFns[type]) {
       healthFilterSnapshot.value = new Set(
@@ -232,6 +233,14 @@ export function useShowChannels({
     if (dupFilter.value === 'address' && addrDups.size === 0) dupFilter.value = null
     if (dupFilter.value === 'channel' && chDups.size === 0) dupFilter.value = null
   })
+
+  watch(channels, () => {
+    const type = healthFilter.value
+    if (type && healthFilterFns[type] && !channels.value.some(healthFilterFns[type])) {
+      healthFilter.value = null
+      healthFilterSnapshot.value = null
+    }
+  }, { deep: true })
 
   const groupedChannels = computed(() => {
     const q = search.value.toLowerCase()

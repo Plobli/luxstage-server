@@ -251,8 +251,7 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 | `./web-app/src/components/ColorAutocomplete.vue` | Farbfilter-Autocomplete mit Lee- und Rosco-Codes, Vorschau, Sortierung nach Nutzungshäufigkeit und Aufklapp-Richtung je nach verfügbarem Platz. |
 | `./web-app/src/components/show/ShowHeader.vue` | Titel-Editor, Show-Metadaten, Import/Export (EOS, CSV, PDF) und Verlauf. |
 | `./web-app/src/components/show/ShowWizardDialog.vue` | Mehrstufiger Assistent zum Anlegen einer Show: Vorlage, Name/Datum, Bereiche (Türme/Bars), dynamische Einzelauswahl-Schritte für Vorlagen-Bereiche/Obermaschinerie/Beleuchtungsgestelle, Zusammenfassung. |
-| `./web-app/src/components/show/ShowActionBar.vue` | Undo/Redo, Live-Präsenz-Avatare mit zeitbasierter Aktivitätsanzeige und Kanal-Datenqualitäts-Badges oben. |
-| `./web-app/src/components/show/ShowHealthBadge.vue` | Dropdown-Anzeige fehlender Geräte-, Positions-, Noten- und Adressdaten in Kanälen. |
+| `./web-app/src/components/show/ShowActionBar.vue` | Undo/Redo, Live-Präsenz-Avatare mit zeitbasierter Aktivitätsanzeige und klickbare Warn-Badges (doppelte Adresse/Kreisnummer, unvollständige Kreise) die die Kanalliste filtern. |
 | `./web-app/src/components/show/ChannelPickerGrid.vue` | Wiederverwendbares Kreisauswahl-Grid (Suchfeld + nummerierte Buttons) für Scheinwerfer-/Kreis-hinzufügen-Modale; unterstützt Einzel- und Mehrfachauswahl. |
 | `./web-app/src/components/show/PhotoGallery.vue` | Fotogalerie mit Upload, Beschriftungen, Mehrfachauswahl von Kreisen aus der Kreisliste (ChannelPickerGrid) und Lightbox-Vorschau. |
 | `./web-app/src/components/show/HistorySlideOver.vue` | Snapshots älterer Kanalkonfigurationen zum Durchsuchen und Wiederherstellen; behandelt Ladefehler und verwirft veraltete Antworten nach dem Schließen. |

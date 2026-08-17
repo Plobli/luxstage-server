@@ -66,6 +66,29 @@
       <Badge v-if="dupChannelWarning" variant="outline" role="button" tabindex="0" @click="emit('filterDup', 'channel')" @keydown.enter="emit('filterDup', 'channel')" class="text-yellow-400 border-yellow-500/30 bg-yellow-500/10 text-xs hidden sm:flex cursor-pointer hover:bg-yellow-500/20">
         <AlertTriangle class="size-3 mr-1" />{{ labels.dupChannel }}
       </Badge>
+      <DropdownMenu v-if="healthStats.incomplete > 0 && activeTab === 'channels'">
+        <DropdownMenuTrigger asChild>
+          <Badge variant="outline" role="button" tabindex="0" class="text-yellow-400 border-yellow-500/30 bg-yellow-500/10 text-xs hidden sm:flex cursor-pointer hover:bg-yellow-500/20">
+            <AlertTriangle class="size-3 mr-1" />{{ healthStats.incomplete }} {{ healthLabels?.incomplete }}
+          </Badge>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" class="w-56">
+          <DropdownMenuLabel class="text-xs font-semibold">{{ healthLabels?.title }}</DropdownMenuLabel>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem v-if="healthStats.noDevice > 0" class="cursor-pointer flex items-center justify-between gap-2 text-xs focus:bg-accent focus:[&>span]:!text-accent-foreground" @click="emit('healthFilter', 'noDevice')">
+            <span class="text-muted-foreground">{{ healthLabels?.noDevice }}</span>
+            <span class="tabular-nums font-semibold text-yellow-400 shrink-0">{{ healthStats.noDevice }}</span>
+          </DropdownMenuItem>
+          <DropdownMenuItem v-if="healthStats.noPosition > 0" class="cursor-pointer flex items-center justify-between gap-2 text-xs focus:bg-accent focus:[&>span]:!text-accent-foreground" @click="emit('healthFilter', 'noPosition')">
+            <span class="text-muted-foreground">{{ healthLabels?.noPosition }}</span>
+            <span class="tabular-nums font-semibold text-yellow-400 shrink-0">{{ healthStats.noPosition }}</span>
+          </DropdownMenuItem>
+          <DropdownMenuItem v-if="healthStats.noAddress > 0" class="cursor-pointer flex items-center justify-between gap-2 text-xs focus:bg-accent focus:[&>span]:!text-accent-foreground" @click="emit('healthFilter', 'noAddress')">
+            <span class="text-muted-foreground">{{ healthLabels?.noAddress }}</span>
+            <span class="tabular-nums font-semibold text-yellow-400 shrink-0">{{ healthStats.noAddress }}</span>
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
 
       <!-- Farb-Legende der Kanalnummer, hinter Klick-Popover statt dauerhaft sichtbar. -->
       <DropdownMenu v-if="activeTab === 'channels'">
@@ -83,22 +106,6 @@
         </DropdownMenuContent>
       </DropdownMenu>
 
-      <!-- Health Badge -->
-      <ShowHealthBadge
-        v-if="healthLabels && activeTab === 'channels'"
-        :noNotes="healthStats.noNotes"
-        :noDevice="healthStats.noDevice"
-        :noPosition="healthStats.noPosition"
-        :noAddress="healthStats.noAddress"
-        :incomplete="healthStats.incomplete"
-        :activeFilter="activeHealthFilter"
-        :labels="healthLabels"
-        @filterNoNotes="emit('healthFilter', 'noNotes')"
-        @filterNoDevice="emit('healthFilter', 'noDevice')"
-        @filterNoPosition="emit('healthFilter', 'noPosition')"
-        @filterNoAddress="emit('healthFilter', 'noAddress')"
-        @clearFilter="emit('healthFilter', null)"
-      />
     </div>
 
   </div>
@@ -111,8 +118,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
-import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
-import ShowHealthBadge from './ShowHealthBadge.vue'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 
 const props = defineProps({
   activeTab: { type: String, default: 'gassenturm' },
@@ -125,7 +131,6 @@ const props = defineProps({
   search: { type: String, default: '' },
   healthStats: { type: Object, default: () => ({ noNotes: 0, noDevice: 0, noPosition: 0, noAddress: 0, incomplete: 0 }) },
   healthLabels: { type: Object, default: null },
-  activeHealthFilter: { type: String, default: null },
   labels: { type: Object, required: true },
 })
 

@@ -55,7 +55,6 @@
         :dupChannelWarning="dupChannelWarning"
         :healthStats="healthStats"
         :healthLabels="healthLabels"
-        :activeHealthFilter="healthFilter"
         :labels="{
           undo: t('action.undo'),
           redo: t('action.redo'),
@@ -75,6 +74,10 @@
       <div v-if="dupFilter" class="shrink-0 flex items-center justify-between gap-2 px-4 py-1.5 border-b border-yellow-500/30 bg-yellow-500/10 text-xs text-yellow-400">
         <span>{{ dupFilter === 'address' ? t('channel.dup_address') : t('channel.dup_channel') }}</span>
         <Button size="sm" variant="outline" class="h-6 px-2 text-xs" @click="dupFilter = null">{{ t('action.done') }}</Button>
+      </div>
+      <div v-if="healthFilter" class="shrink-0 flex items-center justify-between gap-2 px-4 py-1.5 border-b border-yellow-500/30 bg-yellow-500/10 text-xs text-yellow-400">
+        <span>{{ healthLabels[healthFilter] }}</span>
+        <Button size="sm" variant="outline" class="h-6 px-2 text-xs" @click="onHealthFilter(null)">{{ t('action.done') }}</Button>
       </div>
 
       <!-- ── Loading ──────────────────────────────────────────────────── -->
