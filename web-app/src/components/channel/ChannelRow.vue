@@ -21,7 +21,7 @@
             v-model="ch.channel"
             @focus="emit('recordFocus')"
             @input="emit('change')"
-            @blur="emit('commitFocus')"
+            @blur="onChannelBlur"
             :data-nav-row="rowIndex"
             data-nav-col="0"
             @keydown="onKeydownCol0"
@@ -161,7 +161,7 @@
                 v-model="ch.channel"
                 @focus="emit('recordFocus')"
                 @input="emit('change')"
-                @blur="emit('commitFocus')"
+                @blur="onChannelBlur"
                 :data-nav-row="rowIndex"
                 data-nav-col="0"
                 @keydown="onKeydownCol0"
@@ -253,6 +253,15 @@ const emit = defineEmits([
 
 const deleteDialogOpen = ref(false)
 const quantityFlash = ref(false)
+
+function onChannelBlur() {
+  const ch = props.ch
+  if ((ch.channel ?? '').trim() && !(ch.color ?? '').trim()) {
+    ch.color = 'NC'
+    emit('change')
+  }
+  emit('commitFocus')
+}
 
 function onDeviceBlur() {
   emit('commitFocus')

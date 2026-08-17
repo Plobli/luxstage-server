@@ -19,7 +19,7 @@ for (const f of filters as FilterEntry[]) {
  * Normalizes user input to a primary filter code.
  * Handles: "201", "L201", "R44", "l201", "r44"
  */
-function normalizeInput(input: string | null | undefined): string | null {
+export function normalizeInput(input: string | null | undefined): string | null {
   if (!input) return null
   const s = input.trim().toUpperCase()
   if (BY_CODE[s]) return s

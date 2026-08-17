@@ -20,6 +20,11 @@ export async function fetchChannels(showId: string): Promise<{ channels: Channel
   return { channels: data, version: headers.get('X-Show-Version') }
 }
 
+/** Häufigkeit verwendeter Farbcodes über alle Shows hinweg, absteigend sortiert. */
+export async function fetchColorUsage(): Promise<{ color: string, count: number }[]> {
+  return api.get<{ color: string, count: number }[]>('/api/channels/color-usage')
+}
+
 /** Wirft ApiError mit status 409 und body {serverVersion, serverChannels}, falls
  *  baseVersion nicht mehr dem Serverstand entspricht (jemand anders hat
  *  inzwischen gespeichert). baseVersion === null überspringt die Prüfung

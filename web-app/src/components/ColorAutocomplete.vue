@@ -1,5 +1,5 @@
 <template>
-  <div class="relative h-full min-h-10 w-full flex items-center px-1.5">
+  <div ref="rootEl" class="relative h-full min-h-10 w-full flex items-center px-1.5">
     <Input
       :model-value="displayValue"
       @input="onInput"
@@ -18,7 +18,8 @@
     />
     <ul
       v-if="open && (showNcOption || filtered.length > 0)"
-      class="absolute left-0 top-full mt-1 z-50 w-72 max-h-48 overflow-y-auto rounded-md bg-popover text-popover-foreground border border-border shadow-xl text-sm"
+      class="absolute left-0 z-50 w-72 max-h-96 overflow-y-auto rounded-md bg-popover text-popover-foreground border border-border shadow-xl text-sm"
+      :class="openUpward ? 'bottom-full mb-1' : 'top-full mt-1'"
     >
       <li
         v-if="showNcOption"
@@ -57,7 +58,9 @@ import { ref, computed, watch } from 'vue'
 import { Input } from '@/components/ui/input'
 import { ALL_FILTERS, filterBadgeStyle } from '../utils/filterColors.js'
 import { useLocale } from '@/composables/useLocale.js'
+import { useColorUsage } from '@/composables/useColorUsage.js'
 const { t } = useLocale()
+const { colorUsageRank } = useColorUsage()
 
 const props = defineProps({
   modelValue: { type: String, default: '' },
@@ -69,6 +72,10 @@ const emit = defineEmits(['update:modelValue', 'change', 'keydown'])
 const open = ref(false)
 const activeIdx = ref(0)
 const isEditing = ref(false)
+const hasTyped = ref(false)
+const rootEl = ref(null)
+const openUpward = ref(false)
+const DROPDOWN_MAX_HEIGHT = 384 // max-h-96
 
 // Lokaler Eingabe-Buffer: wird nur während der Eingabe verwendet
 const localInput = ref('')
@@ -116,9 +123,24 @@ watch(() => props.modelValue, (val) => {
   if (!isEditing.value) localInput.value = resolveDisplayCode(val)
 })
 
+// Niedrigster (bester) Nutzungsrang eines Filters über beide Codes (LEE/Rosco);
+// Infinity, wenn der Filter noch nie verwendet wurde (landet hinten).
+function usageRank(f) {
+  const a = colorUsageRank.value.get(f.code.toUpperCase())
+  const b = f.altCode ? colorUsageRank.value.get(f.altCode.toUpperCase()) : undefined
+  const ranks = [a, b].filter(r => r !== undefined)
+  return ranks.length ? Math.min(...ranks) : Infinity
+}
+
 const filtered = computed(() => {
-  const q = (props.modelValue || '').toUpperCase()
-  if (!q) return ALL_FILTERS.slice(0, 12)
+  // Solange der Nutzer nicht tatsächlich tippt, zeigt das Dropdown die volle
+  // Liste (nach Häufigkeit sortiert) statt gegen den evtl. schon gesetzten
+  // Wert (z.B. "NC") zu filtern — sonst verschwinden beim Fokussieren eines
+  // bereits befüllten Felds fast alle Farben aus der Trefferliste.
+  const q = hasTyped.value ? (props.modelValue || '').toUpperCase() : ''
+  if (!q) {
+    return [...ALL_FILTERS].sort((a, b) => usageRank(a) - usageRank(b))
+  }
 
   const results = ALL_FILTERS.filter(f =>
     f.code.includes(q) ||
@@ -147,7 +169,11 @@ const filtered = computed(() => {
     const sa = matchScore(a)
     const sb = matchScore(b)
     if (sa !== sb) return sa - sb
-    // Bei gleichem Score: LEE vor Rosco (außer explizit R-Prefix)
+    // Bei gleichem Score: häufiger verwendete Farbe zuerst
+    const ua = usageRank(a)
+    const ub = usageRank(b)
+    if (ua !== ub) return ua - ub
+    // Danach: LEE vor Rosco (außer explizit R-Prefix)
     const aIsLee = a.code.startsWith('L')
     const bIsLee = b.code.startsWith('L')
     if (!preferRosco) {
@@ -158,16 +184,24 @@ const filtered = computed(() => {
     return 0
   })
 
-  return results.slice(0, 12)
+  return results
 })
 
 function onFocus() {
   isEditing.value = true
+  hasTyped.value = false
   localInput.value = props.modelValue || ''
   open.value = true
+  const rect = rootEl.value?.getBoundingClientRect()
+  if (rect) {
+    const spaceBelow = window.innerHeight - rect.bottom
+    const spaceAbove = rect.top
+    openUpward.value = spaceBelow < DROPDOWN_MAX_HEIGHT && spaceAbove > spaceBelow
+  }
 }
 
 function onInput(e) {
+  hasTyped.value = true
   localInput.value = e.target.value
   emit('update:modelValue', e.target.value)
   open.value = true
@@ -178,6 +212,7 @@ function onBlur() {
   setTimeout(() => {
     open.value = false
     isEditing.value = false
+    hasTyped.value = false
     localInput.value = resolveDisplayCode(props.modelValue)
   }, 150)
   emit('change')

@@ -70,55 +70,72 @@
             :data-slot-index="slot.slot_index"
             style="display: grid; grid-template-columns: subgrid; grid-column: 1 / -1;"
           >
-            <!-- Drag handle + Slot-Nr -->
-            <div class="flex items-center gap-1 pl-4 pr-2 py-3.5 border-b border-border/60 hover:bg-muted/20 transition-colors" @click.stop>
-              <GripVertical class="drag-handle size-3.5 text-muted-foreground/50 cursor-grab active:cursor-grabbing" />
-              <span class="w-4 text-xs text-muted-foreground/70 font-mono text-right">{{ slot.slot_index }}</span>
-            </div>
-            <!-- Kanalnummer -->
-            <div class="flex items-center py-3.5 border-b border-border/60 hover:bg-muted/20 transition-colors">
-              <span v-if="slot.channel_id && channelForId(slot.channel_id)" class="font-mono font-bold text-xl text-foreground leading-none">{{ channelForId(slot.channel_id)?.channel }}</span>
-              <span v-else class="text-xs text-muted-foreground/80">{{ t('gassenturm.slot_empty') }}</span>
-            </div>
-            <!-- Farb-Badge (immer gleich breit) -->
-            <div class="flex items-center justify-center py-3.5 border-b border-border/60 hover:bg-muted/20 transition-colors">
-              <span
-                v-if="slot.channel_id && channelForId(slot.channel_id)?.color"
-                class="text-[10px] px-1.5 py-0.5 rounded font-medium"
-                :style="filterBadgeStyle(channelForId(slot.channel_id)?.color) ?? { backgroundColor: 'hsl(var(--muted))', color: 'hsl(var(--muted-foreground))' }"
-              >{{ channelForId(slot.channel_id)?.color }}</span>
-            </div>
-            <!-- Separator -->
-            <div class="flex items-center py-3.5 border-b border-border/60 hover:bg-muted/20 transition-colors">
-              <span v-if="slot.channel_id && channelForId(slot.channel_id)?.device" class="text-muted-foreground/50 px-1">·</span>
-            </div>
-            <!-- Device -->
-            <div class="flex items-center py-3.5 border-b border-border/60 hover:bg-muted/20 transition-colors min-w-0">
-              <span v-if="slot.channel_id && channelForId(slot.channel_id)?.device" class="text-sm text-foreground truncate flex items-baseline gap-1">
-                <span v-if="showQuantity(slot.channel_id)">{{ channelForId(slot.channel_id)?.quantity }}</span>
-                {{ channelForId(slot.channel_id)?.device }}
-              </span>
-            </div>
-            <!-- Aktionen -->
-            <div class="flex items-center gap-0.5 pr-4 py-3.5 border-b border-border/60 hover:bg-muted/20 transition-colors shrink-0">
-              <Button
-                v-if="slot.channel_id"
-                variant="ghost"
-                size="icon"
-                class="size-6 text-muted-foreground/40"
-                @click.stop="clearSlot(tower.id, slot.slot_index)"
-              >
-                <X class="size-3" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                class="size-6 text-muted-foreground/40"
+            <template v-if="!slot.channel_id">
+              <!-- Drag handle + Slot-Nr (eigene Zelle, damit Sortable-Handle klickbar bleibt) -->
+              <div class="flex items-center gap-1 pl-4 pr-2 py-3.5 border-b border-border/60" @click.stop>
+                <GripVertical class="drag-handle size-3.5 text-muted-foreground/50 cursor-grab active:cursor-grabbing" />
+                <span class="w-4 text-xs text-muted-foreground/70 font-mono text-right">{{ slot.slot_index }}</span>
+              </div>
+              <!-- Leerer Slot: ganze restliche Zeile als ein Button -->
+              <button
+                type="button"
+                class="col-span-4 flex items-center justify-center gap-1.5 py-3.5 pr-2 border-b border-border/60 text-sm text-muted-foreground/70 hover:text-foreground hover:bg-accent/10 transition-colors"
                 @click.stop="openSlotPicker(tower, slot)"
               >
-                <ChevronsUpDown class="size-3" />
-              </Button>
-            </div>
+                <Plus class="size-3.5" />
+                {{ t('gassenturm.slot.assign_button') }}
+              </button>
+              <div class="pr-4 py-3.5 border-b border-border/60" />
+            </template>
+            <template v-else>
+              <!-- Drag handle + Slot-Nr -->
+              <div class="flex items-center gap-1 pl-4 pr-2 py-3.5 border-b border-border/60" @click.stop>
+                <GripVertical class="drag-handle size-3.5 text-muted-foreground/50 cursor-grab active:cursor-grabbing" />
+                <span class="w-4 text-xs text-muted-foreground/70 font-mono text-right">{{ slot.slot_index }}</span>
+              </div>
+              <!-- Kanalnummer -->
+              <div class="flex items-center pl-4 py-3.5 border-b border-border/60">
+                <span class="font-mono font-bold text-2xl text-foreground leading-none">{{ channelForId(slot.channel_id)?.channel }}</span>
+              </div>
+              <!-- Farb-Badge (immer gleich breit) -->
+              <div class="flex items-center justify-center py-3.5 border-b border-border/60">
+                <span
+                  v-if="channelForId(slot.channel_id)?.color"
+                  class="text-[11px] px-1.5 py-0.5 rounded font-medium"
+                  :style="filterBadgeStyle(channelForId(slot.channel_id)?.color) ?? { backgroundColor: 'hsl(var(--muted))', color: 'hsl(var(--muted-foreground))' }"
+                >{{ channelForId(slot.channel_id)?.color }}</span>
+              </div>
+              <!-- Separator -->
+              <div class="flex items-center py-3.5 border-b border-border/60">
+                <span v-if="channelForId(slot.channel_id)?.device" class="text-muted-foreground/50 px-1">·</span>
+              </div>
+              <!-- Device -->
+              <div class="flex items-center py-3.5 border-b border-border/60 min-w-0">
+                <span v-if="channelForId(slot.channel_id)?.device" class="text-sm text-foreground truncate flex items-baseline gap-1">
+                  <span v-if="showQuantity(slot.channel_id)">{{ channelForId(slot.channel_id)?.quantity }}</span>
+                  {{ channelForId(slot.channel_id)?.device }}
+                </span>
+              </div>
+              <!-- Aktionen -->
+              <div class="flex items-center gap-0.5 pr-4 py-3.5 border-b border-border/60 shrink-0">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  class="size-6 text-muted-foreground/40"
+                  @click.stop="clearSlot(tower.id, slot.slot_index)"
+                >
+                  <X class="size-3" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  class="size-6 text-muted-foreground/40"
+                  @click.stop="openSlotPicker(tower, slot)"
+                >
+                  <Pencil class="size-3" />
+                </Button>
+              </div>
+            </template>
           </div>
         </div>
 
@@ -227,7 +244,6 @@
       <!-- Kanalsuche -->
       <DialogBody>
         <ChannelPickerGrid
-          ref="pickerGridRef"
           :channels="channels"
           :model-value="[]"
           v-model:search="channelPickerSearch"
@@ -328,13 +344,13 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, onBeforeUnmount, nextTick } from 'vue'
+import { ref, computed, watch, onBeforeUnmount } from 'vue'
 import { useLocale } from '@/composables/useLocale.js'
 import { useConfirm } from '@/composables/useConfirm.js'
 import { useSaveToTemplateDialog } from '@/composables/useSaveToTemplateDialog'
 const { t } = useLocale()
 const { confirm } = useConfirm()
-import { Plus, Pencil, Trash2, X, ChevronsUpDown, GripVertical, BookmarkPlus, Loader2, Layers } from 'lucide-vue-next'
+import { Plus, Pencil, Trash2, X, GripVertical, BookmarkPlus, Loader2, Layers } from 'lucide-vue-next'
 import HelpIcon from '@/components/ui/HelpIcon.vue'
 import Sortable from 'sortablejs'
 import { filterBadgeStyle } from '@/utils/filterColors.js'
@@ -470,7 +486,6 @@ const slotPickerOpen = ref(false)
 const pickerSlot = ref(null)
 const pickerTower = ref(null)
 const channelPickerSearch = ref('')
-const pickerGridRef = ref(null)
 const confirmPending = ref(null) // channel to assign after overwrite confirmation
 
 function openSlotPicker(tower, slot) {
@@ -503,17 +518,7 @@ async function doAssign(ch) {
   props.pushSnapshotFn()
   props.assignSlotFn(tower.id, slotIndex, ch.id)
   emit('assigned')
-
-  const nextSlot = slotsFor(tower).find(s => s.slot_index === slotIndex + 1)
-  if (nextSlot && !nextSlot.channel_id) {
-    pickerSlot.value = nextSlot
-    channelPickerSearch.value = ''
-    confirmPending.value = null
-    await nextTick()
-    pickerGridRef.value?.focus()
-  } else {
-    slotPickerOpen.value = false
-  }
+  slotPickerOpen.value = false
 }
 
 watch(() => props.preselectedChannelId, (id) => {

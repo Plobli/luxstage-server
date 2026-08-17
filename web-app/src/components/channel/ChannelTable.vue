@@ -459,7 +459,7 @@ function cancelAdd() {
 function saveAdd() {
   if (!addForm.value.channel) return
   emit('pushSnapshot')
-  const newCh = { ...addForm.value }
+  const newCh = { ...addForm.value, color: addForm.value.color.trim() || 'NC' }
   ensureStableChannelKey(newCh)
   const newNr = parseInt(newCh.channel)
   const idx = props.channels.findIndex(c => parseInt(c.channel) > newNr)

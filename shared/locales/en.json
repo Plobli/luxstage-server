@@ -264,6 +264,7 @@
   "gassenturm.save_dialog.what": "What gets saved?",
   "gassenturm.save_dialog.what.help": "Choose which data from this rig is saved in the template. The basic structure is always included.",
   "gassenturm.slot.assign": "Add channel — Slot {slot}",
+  "gassenturm.slot.assign_button": "Assign channel",
   "gassenturm.slot.help": "A slot is a space on the rack. Assign a circle number to each slot—that way, you can see at a glance which device needs to be installed where.",
   "gassenturm.slot.occupied": "Slot {slot} is assigned to channel {channel} – overwrite?",
   "gassenturm.slot_empty": "empty",

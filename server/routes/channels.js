@@ -4,6 +4,14 @@ import { broadcast } from '../sse.js'
 
 const SHOW_CHANNELS = /^\/api\/shows\/([^/]+)\/channels$/
 const SHOW_CHECKS   = /^\/api\/shows\/([^/]+)\/checks$/
+const COLOR_USAGE   = /^\/api\/channels\/color-usage$/
+
+export async function channelStatsRoutes(req, res, pathname) {
+  if (req.method === 'GET' && COLOR_USAGE.test(pathname)) {
+    return json(res, 200, db.getColorUsage())
+  }
+  return null
+}
 
 export async function channelRoutes(req, res, pathname) {
   const { method } = req

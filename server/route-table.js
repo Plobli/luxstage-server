@@ -1,7 +1,7 @@
 import { authRoutes } from './routes/auth.js'
 import { userRoutes } from './routes/users.js'
 import { showRoutes } from './routes/shows.js'
-import { channelRoutes } from './routes/channels.js'
+import { channelRoutes, channelStatsRoutes } from './routes/channels.js'
 import { photoRoutes } from './routes/photos.js'
 import { sectionRoutes } from './routes/sections.js'
 import { templateRoutes } from './routes/templates.js'
@@ -43,6 +43,7 @@ export const API_ROUTE_HANDLERS = [
   { matches: pathname => pathname.startsWith('/api/update'), handler: updateRoutes },
   { matches: pathname => pathname.startsWith('/api/floorplans/'), handler: floorplanRoutes },
   { matches: pathname => pathname.startsWith('/api/templates'), handler: templateRoutes },
+  { matches: pathname => pathname.startsWith('/api/channels/color-usage'), handler: channelStatsRoutes },
 ]
 
 // Show-Unterressourcen unter /api/shows/:id/... — erste Übereinstimmung

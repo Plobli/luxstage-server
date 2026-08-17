@@ -10,6 +10,18 @@ export function readChannels(slug) {
   return getDb().prepare('SELECT * FROM channels WHERE show_id = ? ORDER BY sort_order').all(show.id)
 }
 
+// Häufigkeit verwendeter Farbcodes über alle Shows des Mandanten hinweg,
+// für die "häufig verwendet"-Sortierung im Farb-Autocomplete.
+export function getColorUsage() {
+  return getDb().prepare(`
+    SELECT color, COUNT(*) AS count
+    FROM channels
+    WHERE TRIM(COALESCE(color, '')) != '' AND UPPER(TRIM(color)) != 'NC'
+    GROUP BY UPPER(TRIM(color))
+    ORDER BY count DESC
+  `).all()
+}
+
 export function writeChannels(slug, channels, editedBy = null) {
   const show = readShow(slug)
   if (!show) throw new Error(`Show not found: ${slug}`)

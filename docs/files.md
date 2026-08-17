@@ -93,7 +93,7 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 | `./server/db/index.js` | Barrel-Export aller DB-Module. |
 | `./server/db/shows.js` | DB-Zugriff für Shows-Tabelle (Erstellen, Lesen, Archivieren, Löschen). |
 | `./server/db/users.js` | DB-Zugriff für Benutzer und Passwort-Reset-Tokens. |
-| `./server/db/channels.js` | DB-Zugriff für Kanäle-Tabelle und Beleuchtungs-Checks. |
+| `./server/db/channels.js` | DB-Zugriff für Kanäle-Tabelle, Beleuchtungs-Checks und mandantenweite Farbnutzungsstatistik. |
 | `./server/db/bars.js` | DB-Zugriff für Obermaschinerie-Elemente (Zugstange/Traverse/Punktzug via bar_type) und deren Befestigungen (Fixtures). |
 | `./server/db/towers.js` | DB-Zugriff für Show-Türme und deren Slots. |
 | `./server/db/sections.js` | DB-Zugriff für Show-Sections und deren Definitionen. |
@@ -117,7 +117,7 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 | `./server/routes/auth.js` | API-Routen für Login, Passwort-Änderung, Passwort-Reset sowie begrenztes IP-Rate-Limiting. |
 | `./server/routes/users.js` | API-Routen für Benutzer-Verwaltung und Preferences. |
 | `./server/routes/register.js` | API-Routen für Self-Service-Registrierung (Double Opt-In). |
-| `./server/routes/channels.js` | API-Routen für Kanäle und Beleuchtungs-Checks. |
+| `./server/routes/channels.js` | API-Routen für Kanäle, Beleuchtungs-Checks und mandantenweite Farbnutzungsstatistik (`/api/channels/color-usage`). |
 | `./server/routes/bars.js` | API-Routen für Obermaschinerie-Elemente, Fixtures (inkl. side/positionText), Reordering. |
 | `./server/routes/towers.js` | API-Routen für Show-Türme, Slots, Restore. |
 | `./server/routes/sections.js` | API-Routen für Show-Sections und deren Definitionen; sendet SSE nach Inhalts- und Definitionsänderungen. |
@@ -170,6 +170,7 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 | `./web-app/src/composables/useShowFloorplan.ts` | Lädt und speichert Grundriss-Daten und Bilder pro Show. |
 | `./web-app/src/composables/useTokenRefresh.ts` | Erneuert JWT-Token automatisch vor Ablauf. |
 | `./web-app/src/composables/useShowChannels.ts` | Verwaltet Kanäle mit Undo/Redo, Suche, Filter und EOS-Import. |
+| `./web-app/src/composables/useColorUsage.js` | Modulweiter Cache der mandantenweiten Farbnutzungsstatistik für ColorAutocomplete. |
 | `./web-app/src/composables/useShowTabs.js` | Verwaltet Show-Tab-, Subtab- und Sitzungs-Persistenz inklusive Timeout und validiert verfügbare Aufbau-Tabs. |
 | `./web-app/src/composables/useTemplateInsertion.js` | Verwaltet Auswahl, Einfügen und Speichern von Bar-/Turm-Vorlagen für eine Show. |
 | `./web-app/src/composables/useLocale.ts` | Kompatibilitäts-Bridge auf @tolgee/vue; bestehende t(key)-Aufrufe laufen jetzt über Tolgee. |
@@ -204,7 +205,7 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 | `./web-app/src/api/jwtDecode.ts` | Dekodiert JWT-Payload ohne externe Abhängigkeit. |
 | `./web-app/src/api/cache.ts` | Einfacher In-Memory-Cache mit TTL-Support. |
 | `./web-app/src/api/shows.ts` | CRUD-API für Shows, Meta-Daten, History und Snapshots. |
-| `./web-app/src/api/channels.ts` | CRUD und CSV-Im-/Export für Kanäle, Merging-Logik. |
+| `./web-app/src/api/channels.ts` | CRUD und CSV-Im-/Export für Kanäle, Merging-Logik, Abruf der Farbnutzungsstatistik. |
 | `./web-app/src/api/bars.ts` | Verwaltet Obermaschinerie-Elemente (Zugstange/Traverse/Punktzug), Fixtures und deren Reihenfolge. |
 | `./web-app/src/api/towers.ts` | CRUD-API für Lichtstative und Slot-Zuweisungen. |
 | `./web-app/src/api/sections.ts` | Lädt/speichert benutzerdefinierte Abschnitte für Shows und Templates. |
@@ -247,7 +248,7 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 | `./web-app/src/components/EosMergePreviewDialog.vue` | Vorschau neu aktiver, verschwundener und unberührter Kanäle bei EOS-Import. |
 | `./web-app/src/components/Spinner.vue` | Animiertes Lade-Icon mit konfigurierbarer Größe. |
 | `./web-app/src/components/FloorplanEditor.vue` | Interaktiver Zeichnungseditor mit Drag-Drop für Kanäle, Gestelle, Stangen und Formen; gruppierte Ribbon-Toolbar mit Tooltips, Empty-State mit Upload (nur PNG/JPEG), A4-Druckbereich-Guide, neue Uploads unverzerrt ins A4-Format eingepasst. |
-| `./web-app/src/components/ColorAutocomplete.vue` | Farbfilter-Autocomplete mit Lee- und Rosco-Codes und Vorschau. |
+| `./web-app/src/components/ColorAutocomplete.vue` | Farbfilter-Autocomplete mit Lee- und Rosco-Codes, Vorschau, Sortierung nach Nutzungshäufigkeit und Aufklapp-Richtung je nach verfügbarem Platz. |
 | `./web-app/src/components/show/ShowHeader.vue` | Titel-Editor, Show-Metadaten, Import/Export (EOS, CSV, PDF) und Verlauf. |
 | `./web-app/src/components/show/ShowActionBar.vue` | Undo/Redo, Live-Präsenz-Avatare mit zeitbasierter Aktivitätsanzeige und Kanal-Datenqualitäts-Badges oben. |
 | `./web-app/src/components/show/ShowHealthBadge.vue` | Dropdown-Anzeige fehlender Geräte-, Positions-, Noten- und Adressdaten in Kanälen. |
