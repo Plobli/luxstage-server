@@ -161,6 +161,7 @@
                 channelPick: t('photo.channel_pick'),
                 channelSearchPlaceholder: t('photo.channel_search_placeholder'),
                 channelNone: t('gassenturm.channel.none'),
+                channelPickMultiHint: t('photo.channel_pick_multi_hint'),
               }"
               @update:photos="photos = $event"
             />

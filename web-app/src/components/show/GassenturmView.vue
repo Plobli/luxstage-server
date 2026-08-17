@@ -219,34 +219,23 @@
 
   <!-- Slot Channel Picker -->
   <Dialog :open="slotPickerOpen" @update:open="slotPickerOpen = $event">
-    <DialogContent class="sm:max-w-lg">
+    <DialogContent class="sm:max-w-2xl">
       <DialogHeader>
         <DialogTitle>{{ t('gassenturm.slot.assign', { slot: pickerSlot?.slot_index }) }}</DialogTitle>
       </DialogHeader>
       <!-- Inline-Bestätigung bei belegtem Slot -->
       <!-- Kanalsuche -->
       <DialogBody>
-        <Input ref="pickerInputRef" size="lg" v-model="channelPickerSearch" :placeholder="t('gassenturm.channel_picker.search.placeholder')" autofocus @keydown.enter="pickFirstResult" />
-        <div class="max-h-64 overflow-y-auto flex flex-col">
-          <button
-            v-for="ch in filteredChannelsForPicker"
-            :key="ch.channel"
-            class="flex items-center gap-4 px-4 py-3 text-left transition-colors border-b border-border/30 last:border-b-0"
-            :class="confirmPending?.id === ch.id ? 'bg-accent/10' : 'hover:bg-muted/40'"
-            @click="pickChannel(ch)"
-          >
-            <span class="text-2xl font-bold tabular-nums w-10 shrink-0 text-foreground">{{ ch.channel }}</span>
-            <div class="flex flex-col min-w-0 flex-1">
-              <span class="text-sm font-semibold text-foreground truncate">{{ ch.device }}</span>
-              <span v-if="ch.address || ch.color" class="text-xs text-muted-foreground mt-0.5">
-                <span v-if="ch.address">DMX {{ ch.address }}</span><span v-if="ch.address && ch.color"> · </span><span v-if="ch.color">{{ ch.color }}</span>
-              </span>
-            </div>
-          </button>
-          <div v-if="filteredChannelsForPicker.length === 0" class="text-xs text-muted-foreground px-4 py-4 text-center">
-            {{ t('gassenturm.channel.none') }}
-          </div>
-        </div>
+        <ChannelPickerGrid
+          ref="pickerGridRef"
+          :channels="channels"
+          :model-value="[]"
+          v-model:search="channelPickerSearch"
+          :search-placeholder="t('gassenturm.channel_picker.search.placeholder')"
+          :none-label="t('gassenturm.channel.none')"
+          @pick="pickChannel"
+          @enter="pickChannel"
+        />
 
         <!-- Warnbereich bei belegtem Slot -->
         <div v-if="confirmPending" class="rounded-lg border border-destructive/40 bg-destructive/5 px-3.5 py-3">
@@ -354,6 +343,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogBody } from '@/components/ui/dialog'
 import Checkbox from '@/components/ui/checkbox/Checkbox.vue'
+import ChannelPickerGrid from './ChannelPickerGrid.vue'
 
 const props = defineProps({
   towers: { type: Array, required: true },
@@ -480,19 +470,8 @@ const slotPickerOpen = ref(false)
 const pickerSlot = ref(null)
 const pickerTower = ref(null)
 const channelPickerSearch = ref('')
-const pickerInputRef = ref(null)
+const pickerGridRef = ref(null)
 const confirmPending = ref(null) // channel to assign after overwrite confirmation
-
-const filteredChannelsForPicker = computed(() => {
-  const q = channelPickerSearch.value.trim().toLowerCase()
-  return props.channels.filter(ch => {
-    if (!q) return true
-    return (
-      (ch.channel ?? '').toLowerCase().includes(q) ||
-      (ch.device ?? '').toLowerCase().includes(q)
-    )
-  }).slice(0, 50)
-})
 
 function openSlotPicker(tower, slot) {
   pickerTower.value = tower
@@ -500,17 +479,6 @@ function openSlotPicker(tower, slot) {
   channelPickerSearch.value = ''
   confirmPending.value = null
   slotPickerOpen.value = true
-}
-
-async function pickFirstResult() {
-  const first = filteredChannelsForPicker.value[0]
-  if (!first || !pickerTower.value) return
-  const existing = pickerSlot.value?.channel_id ? channelForId(pickerSlot.value.channel_id) : null
-  if (existing && existing.id !== first.id) {
-    confirmPending.value = first
-    return
-  }
-  void doAssign(first)
 }
 
 function pickChannel(ch) {
@@ -542,7 +510,7 @@ async function doAssign(ch) {
     channelPickerSearch.value = ''
     confirmPending.value = null
     await nextTick()
-    pickerInputRef.value?.$el?.querySelector('input')?.focus()
+    pickerGridRef.value?.focus()
   } else {
     slotPickerOpen.value = false
   }

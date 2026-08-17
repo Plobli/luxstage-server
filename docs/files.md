@@ -251,7 +251,8 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 | `./web-app/src/components/show/ShowHeader.vue` | Titel-Editor, Show-Metadaten, Import/Export (EOS, CSV, PDF) und Verlauf. |
 | `./web-app/src/components/show/ShowActionBar.vue` | Undo/Redo, Live-Präsenz-Avatare mit zeitbasierter Aktivitätsanzeige und Kanal-Datenqualitäts-Badges oben. |
 | `./web-app/src/components/show/ShowHealthBadge.vue` | Dropdown-Anzeige fehlender Geräte-, Positions-, Noten- und Adressdaten in Kanälen. |
-| `./web-app/src/components/show/PhotoGallery.vue` | Fotogalerie mit Upload, Beschriftungen, Mehrfachauswahl von Kreisen aus der Kreisliste und Lightbox-Vorschau. |
+| `./web-app/src/components/show/ChannelPickerGrid.vue` | Wiederverwendbares Kreisauswahl-Grid (Suchfeld + nummerierte Buttons) für Scheinwerfer-/Kreis-hinzufügen-Modale; unterstützt Einzel- und Mehrfachauswahl. |
+| `./web-app/src/components/show/PhotoGallery.vue` | Fotogalerie mit Upload, Beschriftungen, Mehrfachauswahl von Kreisen aus der Kreisliste (ChannelPickerGrid) und Lightbox-Vorschau. |
 | `./web-app/src/components/show/HistorySlideOver.vue` | Snapshots älterer Kanalkonfigurationen zum Durchsuchen und Wiederherstellen; behandelt Ladefehler und verwirft veraltete Antworten nach dem Schließen. |
 | `./web-app/src/components/show/ZugstangenView.vue` | Drag-Drop-Liste für Obermaschinerie-Elemente (Zugstange/Traverse/Punktzug, per Typ-Filter und -Auswahl) mit Scheinwerfer-Positionen und Vorlagen; vertikal zentrierter Empty-State mit Hinzufügen-Button, FAB nur bei vorhandenen Einträgen. |
 | `./web-app/src/components/show/SectionEditor.vue` | Bearbeitbare Markdown- oder Tabellen-Abschnitte mit Drag-Drop, komponentenlokalen KV-Table-Refs und Migrations-Fallback. |

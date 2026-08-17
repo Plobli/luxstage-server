@@ -84,26 +84,19 @@
 
   <!-- Kreis-Zuordnung Picker -->
   <Dialog :open="channelPickerOpen" @update:open="channelPickerOpen = $event">
-    <DialogContent class="sm:max-w-lg">
+    <DialogContent class="sm:max-w-2xl">
       <DialogHeader>
         <DialogTitle>{{ labels.channelPick }}</DialogTitle>
       </DialogHeader>
       <DialogBody>
-        <Input v-model="channelSearch" :placeholder="labels.channelSearchPlaceholder" autofocus />
-        <div class="max-h-72 overflow-y-auto flex flex-col">
-          <label
-            v-for="ch in filteredChannelsForPicker"
-            :key="ch.id"
-            class="flex items-center gap-3 px-2 py-2 text-left rounded-lg cursor-pointer hover:bg-muted/40"
-          >
-            <Checkbox :model-value="pickerSelectedIds.includes(ch.id)" @update:model-value="toggleChannelSelection(ch.id)" />
-            <span class="font-mono font-bold text-sm w-8 shrink-0">{{ ch.channel }}</span>
-            <span class="text-sm text-foreground truncate">{{ ch.device }}</span>
-          </label>
-          <div v-if="filteredChannelsForPicker.length === 0" class="text-xs text-muted-foreground px-2 py-4 text-center">
-            {{ labels.channelNone }}
-          </div>
-        </div>
+        <ChannelPickerGrid
+          :channels="channels"
+          multiple
+          v-model="pickerSelectedIds"
+          :search-placeholder="labels.channelSearchPlaceholder"
+          :none-label="labels.channelNone"
+          :hint="labels.channelPickMultiHint"
+        />
       </DialogBody>
       <DialogFooter>
         <Button variant="ghost" @click="channelPickerOpen = false">{{ t('action.cancel') }}</Button>
@@ -183,7 +176,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Progress } from '@/components/ui/progress'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogBody } from '@/components/ui/dialog'
-import Checkbox from '@/components/ui/checkbox/Checkbox.vue'
+import ChannelPickerGrid from './ChannelPickerGrid.vue'
 import { useConfirm } from '../../composables/useConfirm.js'
 import { useLocale } from '../../composables/useLocale.js'
 import { usePhotoSettings } from '../../composables/usePhotoSettings.js'
@@ -353,31 +346,12 @@ async function onCaptionBlur(filename, event) {
 // Kreis-Zuordnung
 const channelPickerOpen = ref(false)
 const channelPickerFilename = ref(null)
-const channelSearch = ref('')
 const pickerSelectedIds = ref([])
-
-const filteredChannelsForPicker = computed(() => {
-  const q = channelSearch.value.trim().toLowerCase()
-  return props.channels.filter(ch => {
-    if (!q) return true
-    return (
-      (ch.channel ?? '').toLowerCase().includes(q) ||
-      (ch.device ?? '').toLowerCase().includes(q)
-    )
-  }).slice(0, 50)
-})
 
 function openChannelPicker(filename) {
   channelPickerFilename.value = filename
-  channelSearch.value = ''
   pickerSelectedIds.value = [...(photoChannels.value[filename] ?? [])]
   channelPickerOpen.value = true
-}
-
-function toggleChannelSelection(id) {
-  const idx = pickerSelectedIds.value.indexOf(id)
-  if (idx === -1) pickerSelectedIds.value.push(id)
-  else pickerSelectedIds.value.splice(idx, 1)
 }
 
 async function confirmChannelPicker() {

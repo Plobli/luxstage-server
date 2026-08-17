@@ -210,20 +210,14 @@
         <DialogTitle>{{ t('zugstange.fixture.add') }}</DialogTitle>
       </DialogHeader>
       <DialogBody>
-        <Input v-if="!pickerChannel" size="lg" v-model="fixtureSearch" :placeholder="t('zugstange.fixture.search.placeholder')" autofocus @keydown.enter="selectFirstAndConfirm" />
-        <div v-if="!pickerChannel" class="w-full max-h-96 overflow-y-auto grid! gap-2 pt-1" style="grid-template-columns: repeat(auto-fill, minmax(3rem, 1fr));">
-          <Tooltip v-for="ch in filteredChannelsForPicker" :key="ch.channel">
-            <TooltipTrigger asChild>
-              <button
-                class="aspect-square max-w-14 rounded-lg border flex items-center justify-center text-base font-bold tabular-nums transition-colors border-border/40 text-foreground hover:bg-accent/15 hover:border-accent/50"
-                @click="pickerChannel = ch; fixtureSearch = ''"
-              >{{ ch.channel }}</button>
-            </TooltipTrigger>
-            <TooltipContent v-if="ch.device || ch.address || ch.color">
-              <p class="text-sm">{{ [ch.device, ch.address ? `DMX ${ch.address}` : null, ch.color].filter(Boolean).join(' · ') }}</p>
-            </TooltipContent>
-          </Tooltip>
-        </div>
+        <ChannelPickerGrid
+          v-if="!pickerChannel"
+          :channels="channels"
+          :model-value="[]"
+          :search-placeholder="t('zugstange.fixture.search.placeholder')"
+          @pick="ch => { pickerChannel = ch }"
+          @enter="ch => { pickerChannel = ch; confirmAddFixture() }"
+        />
         <div v-if="pickerChannel" class="flex flex-col gap-3">
           <button
             type="button"
@@ -359,8 +353,8 @@ import { Label } from '@/components/ui/label'
 import HelpIcon from '@/components/ui/HelpIcon.vue'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogBody } from '@/components/ui/dialog'
 import Checkbox from '@/components/ui/checkbox/Checkbox.vue'
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import BarVisualization from './BarVisualization.vue'
+import ChannelPickerGrid from './ChannelPickerGrid.vue'
 
 const props = defineProps({
   bars: { type: Array, required: true },
@@ -520,26 +514,16 @@ async function saveFixtureEdit() {
 
 // Fixture Picker
 const fixturePickerOpen = ref(false)
-const fixtureSearch = ref('')
 const pickerChannel = ref(null)
 const pickerPosition = ref(0)
 const pickerBar = ref(null)
 const pickerSide = ref('out')
-
-const filteredChannelsForPicker = computed(() => {
-  const q = fixtureSearch.value.trim().toLowerCase()
-  return props.channels.filter(ch => {
-    if (!q) return true
-    return (ch.channel ?? '').toLowerCase().includes(q) || (ch.device ?? '').toLowerCase().includes(q)
-  }).slice(0, 200)
-})
 
 function onBarPositionPick(bar, position, side = 'out') {
   pickerBar.value = bar
   pickerChannel.value = null
   pickerPosition.value = position
   pickerSide.value = side
-  fixtureSearch.value = ''
   fixturePickerOpen.value = true
 }
 
@@ -548,14 +532,7 @@ function onPunktzugAddClick(bar) {
   pickerChannel.value = null
   pickerPosition.value = 0
   pickerSide.value = 'out'
-  fixtureSearch.value = ''
   fixturePickerOpen.value = true
-}
-
-function selectFirstAndConfirm() {
-  const first = filteredChannelsForPicker.value[0]
-  if (first) pickerChannel.value = first
-  confirmAddFixture()
 }
 
 async function confirmAddFixture() {

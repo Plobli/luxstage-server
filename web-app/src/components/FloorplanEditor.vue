@@ -512,15 +512,10 @@
 
     <!-- Reassign Dialog -->
     <Dialog :open="!!reassignTargetId" @update:open="val => { if (!val) reassignTargetId = null }">
-      <DialogContent class="sm:max-w-lg flex flex-col max-h-[80vh]">
+      <DialogContent class="sm:max-w-2xl flex flex-col max-h-[80vh]">
         <DialogHeader><DialogTitle>{{ t('floorplan.reassign.title') }}</DialogTitle></DialogHeader>
         <DialogBody class="flex-1 overflow-y-auto">
-          <Input v-model="channelSearch" :placeholder="t('action.search')" autofocus />
-          <div class="flex flex-col gap-1">
-            <Button v-for="ch in filteredChannels" :key="ch.channel" variant="ghost" :disabled="usedChannels.includes(ch.channel)" @click="reassignChannel(ch)" class="w-full justify-start h-auto py-2" :class="usedChannels.includes(ch.channel) && 'opacity-50'">
-              <div class="text-left"><div class="font-semibold">{{ ch.channel }}</div><div class="text-xs text-muted-foreground">{{ ch.device }}</div></div>
-            </Button>
-          </div>
+          <ChannelPickerGrid :channels="props.channels" :model-value="[]" v-model:search="channelSearch" :search-placeholder="t('action.search')" @pick="reassignChannel" @enter="reassignChannel" />
         </DialogBody>
         <DialogFooter><Button variant="outline" @click="reassignTargetId = null">{{ t('action.cancel') }}</Button></DialogFooter>
       </DialogContent>
@@ -576,15 +571,10 @@
 
     <!-- Channel Picker Dialog -->
     <Dialog :open="showChannelPicker" @update:open="val => { if (!val) showChannelPicker = false }">
-      <DialogContent class="sm:max-w-lg flex flex-col max-h-[80vh]">
+      <DialogContent class="sm:max-w-2xl flex flex-col max-h-[80vh]">
         <DialogHeader><DialogTitle>{{ t('floorplan.channel.title') }}</DialogTitle></DialogHeader>
         <DialogBody class="flex-1 overflow-y-auto">
-          <Input v-model="channelSearch" :placeholder="t('action.search')" autofocus />
-          <div class="flex flex-col gap-1">
-            <Button v-for="ch in filteredChannels" :key="ch.channel" variant="ghost" :disabled="usedChannels.includes(ch.channel)" @click="placeChannelCircle(ch)" class="w-full justify-start h-auto py-2" :class="usedChannels.includes(ch.channel) && 'opacity-50'">
-              <div class="text-left"><div class="font-semibold">{{ ch.channel }}</div><div class="text-xs text-muted-foreground">{{ ch.device }}</div></div>
-            </Button>
-          </div>
+          <ChannelPickerGrid :channels="props.channels" :model-value="[]" v-model:search="channelSearch" :search-placeholder="t('action.search')" @pick="placeChannelCircle" @enter="placeChannelCircle" />
         </DialogBody>
         <DialogFooter><Button variant="outline" @click="showChannelPicker = false">{{ t('action.cancel') }}</Button></DialogFooter>
       </DialogContent>
@@ -610,6 +600,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogBody } from '@/components/ui/dialog'
+import ChannelPickerGrid from './show/ChannelPickerGrid.vue'
 import { Label } from '@/components/ui/label'
 import SidebarBtn from '@/components/ui/SidebarBtn.vue'
 
@@ -688,8 +679,6 @@ const textareaRef = ref(null)
 
 const selectedId = computed(() => selectedIds.value.size === 1 ? [...selectedIds.value][0] : null)
 const selectedElement = computed(() => elements.value.find(e => e.id === selectedId.value))
-// usedChannels only used for tower/bar channel display, not for blocking placement
-const usedChannels = computed(() => [])
 const channelInfo = computed(() => {
   if (!selectedElement.value || selectedElement.value.type !== 'channel') return null
   return props.channels.find(ch => ch.channel === selectedElement.value.channel)
@@ -714,11 +703,6 @@ const elementsWithNotes = computed(() => {
     }
     return { ...el, _anchorX: ax, _anchorY: ay, _noteX: ax, _noteY: ay + NOTE_LABEL_GAP }
   })
-})
-
-const filteredChannels = computed(() => {
-  const q = channelSearch.value.toLowerCase()
-  return props.channels.filter(ch => ch.channel.toLowerCase().includes(q) || (ch.device && ch.device.toLowerCase().includes(q)))
 })
 
 const isElementDragging = ref(false)
