@@ -69,8 +69,13 @@
         }"
         @undo="undo()"
         @redo="redo()"
+        @filterDup="dupFilter = $event"
         @healthFilter="onHealthFilter($event)"
       />
+      <div v-if="dupFilter" class="shrink-0 flex items-center justify-between gap-2 px-4 py-1.5 border-b border-yellow-500/30 bg-yellow-500/10 text-xs text-yellow-400">
+        <span>{{ dupFilter === 'address' ? t('channel.dup_address') : t('channel.dup_channel') }}</span>
+        <Button size="sm" variant="outline" class="h-6 px-2 text-xs" @click="dupFilter = null">{{ t('action.done') }}</Button>
+      </div>
 
       <!-- ── Loading ──────────────────────────────────────────────────── -->
       <div v-if="loading" class="flex flex-1 items-center justify-center">
@@ -474,7 +479,7 @@ const towers = ref([])
 
 const {
   channels, channelsSaving, search, healthFilter, activateHealthFilter, eosActiveChannels, eosExcludedChannels, eosMergePreview,
-  dupWarning, dupChannelWarning, dupChannelNrs, groupedChannels,
+  dupWarning, dupChannelWarning, dupChannelNrs, dupFilter, groupedChannels,
   scheduleChannelsSave, persistChannels, deleteChannel, clearChannel,
   onCsvImportSelected, onEosFileSelected, resolveEosMergePreview,
   channelStatus, toggleChannelStatus,
@@ -620,8 +625,7 @@ async function openPdf() {
 function jumpToChannel(channelNum) {
   mobileTab.value = 'channels'
   nextTick(() => {
-    const el = document.querySelector(`[data-ch-key="${channelNum}|"]`) ??
-                document.querySelector(`[data-ch-key^="${channelNum}|"]`)
+    const el = document.querySelector(`[data-ch-nr="${channelNum}"]`)
     el?.scrollIntoView({ behavior: 'smooth', block: 'center' })
     if (el) {
       el.classList.add('ring-2', 'ring-accent', 'ring-inset')

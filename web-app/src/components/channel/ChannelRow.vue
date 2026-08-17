@@ -1,6 +1,7 @@
 <template>
   <div
         :data-ch-key="stableRowKey"
+        :data-ch-nr="ch.channel"
         :data-ch-pos="ch.position"
         :data-nav-row="rowIndex"
         :class="isMobile

@@ -1,4 +1,4 @@
-import { ref, computed, type Ref } from 'vue'
+import { ref, computed, watch, type Ref } from 'vue'
 import { useDebounceFn } from '@vueuse/core'
 import { fetchChannels, saveChannels, mergeChannels, parseChannelsCsv, type Channel } from '../api/channels'
 import { updateMeta } from '../api/shows'
@@ -179,10 +179,23 @@ export function useShowChannels({
     }
   }
 
-  const dupWarning = computed(() => {
-    const addresses = channels.value.map(c => c.address).filter(Boolean)
-    return addresses.length !== new Set(addresses).size
+  const dupAddressChannelNrs = computed(() => {
+    const seen = new Map<string, string>()
+    const dups = new Set<string>()
+    for (const ch of channels.value) {
+      const addr = ch.address
+      if (!addr) continue
+      if (seen.has(addr)) {
+        dups.add(seen.get(addr)!)
+        dups.add(ch.channel)
+      } else {
+        seen.set(addr, ch.channel)
+      }
+    }
+    return dups
   })
+
+  const dupWarning = computed(() => dupAddressChannelNrs.value.size > 0)
 
   const dupChannelNrs = computed(() => {
     const seen = new Set<string>()
@@ -213,10 +226,20 @@ export function useShowChannels({
     }
   }
 
+  const dupFilter = ref<'address' | 'channel' | null>(null)
+
+  watch([dupAddressChannelNrs, dupChannelNrs], ([addrDups, chDups]) => {
+    if (dupFilter.value === 'address' && addrDups.size === 0) dupFilter.value = null
+    if (dupFilter.value === 'channel' && chDups.size === 0) dupFilter.value = null
+  })
+
   const groupedChannels = computed(() => {
     const q = search.value.toLowerCase()
     const snap = healthFilterSnapshot.value
-    let chs = (q || snap)
+    const dupSnap = dupFilter.value === 'address' ? dupAddressChannelNrs.value
+      : dupFilter.value === 'channel' ? dupChannelNrs.value
+      : null
+    let chs = (q || snap || dupSnap)
       ? [...channels.value].sort((a, b) => parseInt(a.channel) - parseInt(b.channel))
       : [...channels.value]
     if (q) {
@@ -229,6 +252,9 @@ export function useShowChannels({
     }
     if (snap) {
       chs = chs.filter(ch => snap.has(ch.channel))
+    }
+    if (dupSnap) {
+      chs = chs.filter(ch => dupSnap.has(ch.channel))
     }
     const map = new Map<string, Channel[]>()
     for (const ch of chs) {
@@ -613,7 +639,9 @@ export function useShowChannels({
     eosExcludedChannels,
     eosMergePreview,
     dupWarning,
+    dupAddressChannelNrs,
     dupChannelWarning,
+    dupFilter,
     dupChannelNrs,
     groupedChannels,
     scheduleChannelsSave,

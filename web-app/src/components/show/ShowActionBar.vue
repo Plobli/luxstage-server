@@ -60,10 +60,10 @@
       </div>
 
       <!-- Warnings -->
-      <Badge v-if="dupAddressWarning" variant="outline" class="text-yellow-400 border-yellow-500/30 bg-yellow-500/10 text-xs hidden sm:flex">
+      <Badge v-if="dupAddressWarning" variant="outline" role="button" tabindex="0" @click="emit('filterDup', 'address')" @keydown.enter="emit('filterDup', 'address')" class="text-yellow-400 border-yellow-500/30 bg-yellow-500/10 text-xs hidden sm:flex cursor-pointer hover:bg-yellow-500/20">
         <AlertTriangle class="size-3 mr-1" />{{ labels.dupAddress }}
       </Badge>
-      <Badge v-if="dupChannelWarning" variant="outline" class="text-yellow-400 border-yellow-500/30 bg-yellow-500/10 text-xs hidden sm:flex">
+      <Badge v-if="dupChannelWarning" variant="outline" role="button" tabindex="0" @click="emit('filterDup', 'channel')" @keydown.enter="emit('filterDup', 'channel')" class="text-yellow-400 border-yellow-500/30 bg-yellow-500/10 text-xs hidden sm:flex cursor-pointer hover:bg-yellow-500/20">
         <AlertTriangle class="size-3 mr-1" />{{ labels.dupChannel }}
       </Badge>
 
@@ -129,7 +129,7 @@ const props = defineProps({
   labels: { type: Object, required: true },
 })
 
-const emit = defineEmits(['update:search', 'undo', 'redo', 'healthFilter'])
+const emit = defineEmits(['update:search', 'undo', 'redo', 'healthFilter', 'filterDup'])
 
 const colorMap = ['#3b82f6', '#a855f7', '#22c55e', '#f97316', '#ec4899', '#14b8a6', '#6366f1', '#06b6d4']
 const currentTime = ref(Date.now())
