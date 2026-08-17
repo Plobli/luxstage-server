@@ -228,6 +228,7 @@ export function useShowChannels({
   }
 
   const dupFilter = ref<'address' | 'channel' | null>(null)
+  const hideEosInactive = ref(false)
 
   watch([dupAddressChannelNrs, dupChannelNrs], ([addrDups, chDups]) => {
     if (dupFilter.value === 'address' && addrDups.size === 0) dupFilter.value = null
@@ -264,6 +265,9 @@ export function useShowChannels({
     }
     if (dupSnap) {
       chs = chs.filter(ch => dupSnap.has(ch.channel))
+    }
+    if (hideEosInactive.value && eosActiveChannels.value) {
+      chs = chs.filter(ch => channelStatus(ch) !== 'default')
     }
     const map = new Map<string, Channel[]>()
     for (const ch of chs) {
@@ -480,12 +484,16 @@ export function useShowChannels({
     }
 
     const prev = eosActiveChannels.value ?? []
+    const prevActiveNrs = new Set(prev.filter(ch => !ch.startsWith('-')))
     const prevTracked = prev.map(ch => ch.startsWith('-') ? ch.slice(1) : ch)
       .filter(nr => !channelsWithNotes.has(nr))
 
-    const newActiveNrs  = activeChannels.filter(nr => !channelsWithNotes.has(nr))
+    // "Neu aktiv" heißt: war beim letzten Import noch nicht als aktiv
+    // getrackt — nicht "hat aktuell keine Notiz". Sonst taucht bei jedem
+    // erneuten Import derselben CSV wieder die komplette Liste als neu auf.
+    const newActiveNrs  = activeChannels.filter(nr => !channelsWithNotes.has(nr) && !prevActiveNrs.has(nr))
     const nowGoneNrs    = prevTracked.filter(nr => !activeChannels.includes(nr))
-    const untouchedNrs  = activeChannels.filter(nr => channelsWithNotes.has(nr))
+    const untouchedNrs  = activeChannels.filter(nr => channelsWithNotes.has(nr) || prevActiveNrs.has(nr))
 
     // Kanäle mit vorhandener, aber abweichender Adresse werden nie automatisch
     // überschrieben — der Nutzer entscheidet selbst, nachdem er es hier sieht.
@@ -581,8 +589,12 @@ export function useShowChannels({
       channelsVersion.value = version
     }
 
+    // eosActiveChannels muss weiterhin alle aktiven Kanäle enthalten (nicht
+    // nur die im Dialog als "neu" markierten), sonst verliert channelStatus()
+    // die gelbe Markierung für bereits zuvor getrackte Kanäle.
+    const stillActiveNrs = activeChannels.filter(nr => !excludedChannels.has(nr))
     eosActiveChannels.value = [
-      ...newActiveNrsFiltered,
+      ...stillActiveNrs,
       ...nowGoneNrs.map(nr => `-${nr}`),
     ]
     // excludedChannels ist die vollständige, im Dialog bestätigte Ausschlussmenge
@@ -652,6 +664,7 @@ export function useShowChannels({
     dupChannelWarning,
     dupFilter,
     dupChannelNrs,
+    hideEosInactive,
     groupedChannels,
     scheduleChannelsSave,
     persistChannels,

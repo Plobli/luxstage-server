@@ -55,6 +55,8 @@
         :dupChannelWarning="dupChannelWarning"
         :healthStats="healthStats"
         :healthLabels="healthLabels"
+        :hasEosImport="!!eosActiveChannels"
+        v-model:hideEosInactive="hideEosInactive"
         :labels="{
           undo: t('action.undo'),
           redo: t('action.redo'),
@@ -65,6 +67,7 @@
           legendDefault: t('channel.legend.default'),
           legendActive: t('channel.legend.active'),
           legendEos: t('channel.legend.eos'),
+          hideEosInactive: t('channel.hide_eos_inactive'),
         }"
         @undo="undo()"
         @redo="redo()"
@@ -482,7 +485,7 @@ const towers = ref([])
 
 const {
   channels, channelsSaving, search, healthFilter, activateHealthFilter, eosActiveChannels, eosExcludedChannels, eosMergePreview,
-  dupWarning, dupChannelWarning, dupChannelNrs, dupFilter, groupedChannels,
+  dupWarning, dupChannelWarning, dupChannelNrs, dupFilter, hideEosInactive, groupedChannels,
   scheduleChannelsSave, persistChannels, deleteChannel, clearChannel,
   onCsvImportSelected, onEosFileSelected, resolveEosMergePreview,
   channelStatus, toggleChannelStatus,

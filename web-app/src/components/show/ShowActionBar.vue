@@ -106,6 +106,22 @@
         </DropdownMenuContent>
       </DropdownMenu>
 
+      <!-- Nur weiße (nicht importierte) Kreise ausblenden -->
+      <Tooltip v-if="activeTab === 'channels' && hasEosImport">
+        <TooltipTrigger asChild>
+          <Button
+            variant="ghost"
+            size="icon"
+            :class="{ 'text-amber-400 bg-amber-500/10 hover:bg-amber-500/20': hideEosInactive }"
+            class="hidden lg:flex h-8 w-8 text-muted-foreground"
+            @click="emit('update:hideEosInactive', !hideEosInactive)"
+          >
+            <component :is="hideEosInactive ? EyeOff : Eye" class="size-4" /><span class="sr-only">{{ labels.hideEosInactive }}</span>
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="bottom"><p>{{ labels.hideEosInactive }}</p></TooltipContent>
+      </Tooltip>
+
     </div>
 
   </div>
@@ -113,7 +129,7 @@
 
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
-import { Search, Undo2, Redo2, AlertTriangle, CircleHelp } from 'lucide-vue-next'
+import { Search, Undo2, Redo2, AlertTriangle, CircleHelp, Eye, EyeOff } from 'lucide-vue-next'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
@@ -131,10 +147,12 @@ const props = defineProps({
   search: { type: String, default: '' },
   healthStats: { type: Object, default: () => ({ noNotes: 0, noDevice: 0, noPosition: 0, noAddress: 0, incomplete: 0 }) },
   healthLabels: { type: Object, default: null },
+  hasEosImport: { type: Boolean, default: false },
+  hideEosInactive: { type: Boolean, default: false },
   labels: { type: Object, required: true },
 })
 
-const emit = defineEmits(['update:search', 'undo', 'redo', 'healthFilter', 'filterDup'])
+const emit = defineEmits(['update:search', 'update:hideEosInactive', 'undo', 'redo', 'healthFilter', 'filterDup'])
 
 const colorMap = ['#3b82f6', '#a855f7', '#22c55e', '#f97316', '#ec4899', '#14b8a6', '#6366f1', '#06b6d4']
 const currentTime = ref(Date.now())
