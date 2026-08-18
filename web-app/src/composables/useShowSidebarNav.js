@@ -24,7 +24,7 @@ const SECTION_ICONS = {
 // benutzerdefinierte Sections, Fotos, Grundriss) und meldet sie über
 // useShowNav an App.vue. Kapselt nur die Item-Berechnung — das Senden/Lesen
 // des globalen Nav-State bleibt in useShowNav.
-export function useShowSidebarNav({ t, meta, mobileTab, aufbauTab, sectionDefs, onSidebarNavigate, addSectionFromSubtab }) {
+export function useShowSidebarNav({ t, meta, mobileTab, aufbauTab, sectionDefs, onSidebarNavigate, addSectionFromSubtab, deleteSection }) {
   const { setNav, clearNav } = useShowNav()
 
   const sidebarNavItems = computed(() => {
@@ -69,6 +69,7 @@ export function useShowSidebarNav({ t, meta, mobileTab, aufbauTab, sectionDefs, 
         iconClass: s.icon === 'warning' ? 'size-5' : 'size-6',
         active: activeTab === 'gassenturm' && activeSubTab === `section:${s.id}`,
         navigate: () => onSidebarNavigate({ tab: 'gassenturm', subTab: `section:${s.id}` }),
+        sectionId: s.icon === 'setup' ? null : s.id,
       })
     }
     items.push({ type: 'addSection', label: t('sections.add') })
@@ -99,6 +100,7 @@ export function useShowSidebarNav({ t, meta, mobileTab, aufbauTab, sectionDefs, 
       activeKey: mobileTab.value,
       navigate: (item) => item.navigate?.(),
       addSection: addSectionFromSubtab,
+      deleteSection,
     })
   }, { immediate: true })
 

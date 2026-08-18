@@ -111,15 +111,25 @@
                     <span class="text-sm leading-none">+</span>
                     <span class="text-sm">{{ sub.label }}</span>
                   </button>
-                  <button
+                  <div
                     v-else
-                    class="group relative flex items-center gap-3 rounded-lg px-3 h-9 w-full transition-colors"
+                    class="group relative flex items-center gap-1 rounded-lg pl-3 pr-1 h-9 w-full transition-colors"
                     :class="[sub.active ? 'text-foreground bg-muted' : 'text-muted-foreground nav-hover']"
-                    @click="showNavNavigate(sub)"
                   >
                     <span v-if="sub.active" class="absolute left-0 top-1.25 bottom-1.25 w-0.75 rounded-full bg-accent" />
-                    <span class="text-sm" :class="sub.active ? 'font-semibold' : ''">{{ sub.label }}</span>
-                  </button>
+                    <button class="flex-1 min-w-0 text-left" @click="showNavNavigate(sub)">
+                      <span class="text-sm" :class="sub.active ? 'font-semibold' : ''">{{ sub.label }}</span>
+                    </button>
+                    <Button
+                      v-if="sub.sectionId"
+                      variant="ghost"
+                      size="icon"
+                      class="size-6 shrink-0 rounded-sm text-muted-foreground/50"
+                      @click="showNavDeleteSection(sub.sectionId)"
+                    >
+                      <X class="size-3.5" />
+                    </Button>
+                  </div>
                 </template>
               </div>
             </li>
@@ -247,7 +257,7 @@ import { useConfirmDialog, resolveConfirm } from './composables/useConfirm.js'
 import { useShowNav } from './composables/useShowNav.js'
 
 const confirmState = useConfirmDialog()
-const { navItems, navigate: showNavNavigate, addSection: showNavAddSection } = useShowNav()
+const { navItems, navigate: showNavNavigate, addSection: showNavAddSection, deleteSection: showNavDeleteSection } = useShowNav()
 const isShowDetail = computed(() => route.path.startsWith('/shows/') && route.path !== '/shows')
 useTokenRefresh()
 

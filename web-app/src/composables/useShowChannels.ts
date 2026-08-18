@@ -145,12 +145,15 @@ export function useShowChannels({
         persistSetupDebounced?.cancel?.()
         persistSectionsDebounced?.cancel?.()
       },
-      () => {
+      async () => {
         channelsSaving.value = true
         persistChannels()
         persistSetupDebounced()
-        persistSections()
-        persistSectionDefs()
+        // section-defs zuerst: sections referenziert section_id per FOREIGN KEY,
+        // parallel gefeuert kann sections eine section_id treffen, die section-defs
+        // gerade per DELETE+INSERT neu schreibt → FOREIGN KEY constraint failed.
+        await persistSectionDefs()
+        await persistSections()
       }
     )
 

@@ -48,7 +48,7 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 | Datei | Beschreibung |
 |---|---|
 | `./server/index.js` | HTTP-Server-Einstieg mit CORS, Security-Headern und Job-Starter. |
-| `./server/router.js` | HTTP-Router für API-Endpunkte und Datei-Serving; öffentliche API-Ausnahmen sind an Methode und Pfad gebunden, API- und Show-Unterressourcen laufen über geordnete Handler-Listen. |
+| `./server/router.js` | HTTP-Router für API-Endpunkte und Datei-Serving; öffentliche API-Ausnahmen sind an Methode und Pfad gebunden, API- und Show-Unterressourcen laufen über geordnete Handler-Listen. Fehler in Route-Handlern werden abgefangen (500 statt Prozessabsturz). |
 | `./server/config.js` | Lädt Umgebungsvariablen und Konfigurationsdefaults, einschließlich explizitem Reverse-Proxy-Vertrauen. |
 | `./server/bootstrap.js` | Einmaliges Setup-Skript; legt den ersten Admin an (Login = `ADMIN_EMAIL`). |
 | `./server/db.js` | Re-Export der Datenbank-Funktionen aus `db/index.js`. |
@@ -162,7 +162,8 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 |---|---|
 | `./web-app/src/composables/useContainerWidth.ts` | Misst Container-Breite und reagiert responsiv auf Größenänderungen. |
 | `./web-app/src/composables/useConfirm.ts` | Verwaltet globale Bestätigungsdialoge mit Promises. |
-| `./web-app/src/composables/useShowNav.js` | Stellt Navigationselement-State zwischen Komponenten bereit. |
+| `./web-app/src/composables/useShowNav.js` | Stellt Navigationselement-State (inkl. addSection/deleteSection) zwischen Komponenten bereit. |
+| `./web-app/src/composables/useShowSidebarNav.js` | Baut die Sidebar-Navigationsitems einer Show (Kanäle, Aufbau-Subtabs, Sections, Fotos, Grundriss) inkl. Section-Löschen. |
 | `./web-app/src/composables/useDragReorder.ts` | Ermöglicht Drag-and-Drop-Sortierung von Listen-Items. |
 | `./web-app/src/composables/useMeasureUnit.ts` | Konvertiert zwischen Maßeinheiten (m, cm, mm) mit Speicherung. |
 | `./web-app/src/composables/useKeyboardNav.ts` | Navigiert Tabellen mit Tab, Enter und Pfeiltasten. |

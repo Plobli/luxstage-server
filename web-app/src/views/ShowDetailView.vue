@@ -216,17 +216,27 @@
         >
           <!-- Sub-Tab-Leiste (Mobile/Tablet) -->
           <div class="md:hidden shrink-0 flex overflow-x-auto border-b border-border bg-surface-raised">
-            <button
+            <div
               v-for="sub in aufbauSubTabs"
               :key="sub.key"
               :class="[
-                'shrink-0 px-4 py-2.5 text-sm font-medium whitespace-nowrap transition-colors',
+                'shrink-0 flex items-center gap-1 pl-4 pr-1.5 py-2.5 text-sm font-medium whitespace-nowrap transition-colors',
                 aufbauTab === sub.key
                   ? 'border-b-2 border-accent text-accent'
                   : 'text-muted-foreground hover:text-foreground'
               ]"
-              @click="aufbauTab = sub.key"
-            >{{ sub.label }}</button>
+            >
+              <button @click="aufbauTab = sub.key">{{ sub.label }}</button>
+              <Button
+                v-if="sub.sectionId && sub.sectionId !== aufbauSectionId"
+                variant="ghost"
+                size="icon"
+                class="size-5 rounded-sm text-muted-foreground/50 shrink-0"
+                @click="deleteSection(sub.sectionId)"
+              >
+                <X class="size-3.5" />
+              </Button>
+            </div>
           </div>
 
           <!-- Section-Subtabs -->
@@ -262,7 +272,7 @@
               />
               <!-- Generierte Texte aus Bühne + Obermaschinerie — nur in der Aufbau-Section -->
               <GeneratedTextAccordion
-                v-if="sub.sectionId === aufbauSectionId && (gassenturmGenerated.length || hangerei.length)"
+                v-if="sub.sectionId === aufbauSectionId"
                 :gassenturmEntries="gassenturmGenerated"
                 :hangereiEntries="hangerei"
               />
@@ -382,7 +392,7 @@
 
 <script setup>
 import { ref, computed, watch, nextTick, onMounted, onBeforeUnmount, defineAsyncComponent } from 'vue'
-import { Loader2, Radio, Layers, Images, Map as MapIcon, Construction, Plus } from 'lucide-vue-next'
+import { Loader2, Radio, Layers, Images, Map as MapIcon, Construction, Plus, X } from 'lucide-vue-next'
 import { useDebounceFn } from '@vueuse/core'
 import { useLocale } from '../composables/useLocale.js'
 import { useConfirm } from '../composables/useConfirm.js'
@@ -677,6 +687,7 @@ const { aufbauNavVisible } = useShowSidebarNav({
   t, meta, mobileTab, aufbauTab, sectionDefs,
   onSidebarNavigate,
   addSectionFromSubtab: () => addSectionFromSubtab(),
+  deleteSection: (sectionId) => deleteSection(sectionId),
 })
 
 const bottomNavItems = computed(() => [
@@ -738,6 +749,21 @@ async function confirmNewSection() {
   sectionDefs.value = newDefs
   await persistSectionDefs()
   aufbauTab.value = `section:${id}`
+}
+
+async function deleteSection(sectionId) {
+  if (sectionId === aufbauSectionId.value) return
+  const ok = await confirm({ t, titleKey: 'action.delete', confirmKey: 'action.delete', cancelKey: 'action.cancel' })
+  if (!ok) return
+  pushSnapshot()
+  const newDefs = sectionDefs.value
+    .filter(s => s.id !== sectionId)
+    .map((s, i) => ({ ...s, order: i }))
+  sectionDefs.value = newDefs
+  await persistSectionDefs()
+  if (aufbauTab.value === `section:${sectionId}`) {
+    aufbauTab.value = aufbauSubTabs.value[0]?.key ?? aufbauTab.value
+  }
 }
 
 // ── Laden ──────────────────────────────────────────────────────────────────

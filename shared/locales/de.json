@@ -273,6 +273,8 @@
   "gassenturm.slot_empty": "leer",
   "gassenturm.slots.empty": "Die entfernten Slots sind leer.",
   "gassenturm.slots.removed": "Slot {from} bis {to} werden entfernt.",
+  "generated.empty": "Noch keine generierten Texte",
+  "generated.empty.desc": "Sobald du in Gassentürmen Kanäle in Slots einträgst oder in Zugstangen Geräte bzw. Notizen hinzufügst, erscheint hier automatisch der zusammengefasste Text.",
   "generated.readonly": "Nur lesbar",
   "generated.title": "Automatisch generiert",
   "health.complete": "Vollständig",

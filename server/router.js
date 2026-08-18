@@ -224,6 +224,13 @@ async function dispatchApi(req, res, pathname, params) {
 }
 
 async function dispatchRoute(handler, req, res, pathname, params) {
-  const result = await handler(req, res, pathname, params)
+  let result
+  try {
+    result = await handler(req, res, pathname, params)
+  } catch (err) {
+    console.error(err)
+    if (!res.headersSent) json(res, 500, { error: 'Interner Serverfehler' })
+    return
+  }
   if (nil(result)) notFound(res)
 }

@@ -60,10 +60,10 @@
       </div>
 
       <!-- Warnings -->
-      <Badge v-if="dupAddressWarning" variant="outline" role="button" tabindex="0" @click="emit('filterDup', 'address')" @keydown.enter="emit('filterDup', 'address')" class="text-yellow-400 border-yellow-500/30 bg-yellow-500/10 text-xs hidden sm:flex cursor-pointer hover:bg-yellow-500/20">
+      <Badge v-if="dupAddressWarning && activeTab === 'channels'" variant="outline" role="button" tabindex="0" @click="emit('filterDup', 'address')" @keydown.enter="emit('filterDup', 'address')" class="text-yellow-400 border-yellow-500/30 bg-yellow-500/10 text-xs hidden sm:flex cursor-pointer hover:bg-yellow-500/20">
         <AlertTriangle class="size-3 mr-1" />{{ labels.dupAddress }}
       </Badge>
-      <Badge v-if="dupChannelWarning" variant="outline" role="button" tabindex="0" @click="emit('filterDup', 'channel')" @keydown.enter="emit('filterDup', 'channel')" class="text-yellow-400 border-yellow-500/30 bg-yellow-500/10 text-xs hidden sm:flex cursor-pointer hover:bg-yellow-500/20">
+      <Badge v-if="dupChannelWarning && activeTab === 'channels'" variant="outline" role="button" tabindex="0" @click="emit('filterDup', 'channel')" @keydown.enter="emit('filterDup', 'channel')" class="text-yellow-400 border-yellow-500/30 bg-yellow-500/10 text-xs hidden sm:flex cursor-pointer hover:bg-yellow-500/20">
         <AlertTriangle class="size-3 mr-1" />{{ labels.dupChannel }}
       </Badge>
       <DropdownMenu v-if="healthStats.incomplete > 0 && activeTab === 'channels'">
