@@ -1,6 +1,7 @@
 import * as db from '../db.js'
 import { readJsonBody, json } from '../helpers.js'
 import { broadcast } from '../sse.js'
+import { recordOperation, clearRedo } from '../db/operations.js'
 
 const SHOW_CHANNELS = /^\/api\/shows\/([^/]+)\/channels$/
 const SHOW_CHECKS   = /^\/api\/shows\/([^/]+)\/checks$/
@@ -45,7 +46,13 @@ export async function channelRoutes(req, res, pathname) {
         }
       }
 
+      const show = db.readShow(slug)
+      const oldChannels = db.readChannels(slug).map(({ show_id: _, sort_order: __, ...ch }) => ch)
       db.writeChannels(slug, channels, user.username)
+      if (show) {
+        recordOperation(show.id, user.username, 'channels', oldChannels, channels)
+        clearRedo(show.id)
+      }
       broadcast(slug, 'channels-updated', { updatedBy: user.username })
       const version = db.getChannelsVersion(slug)
       return json(res, 200, { ok: true }, version !== null ? { 'X-Show-Version': version } : {})

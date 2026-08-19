@@ -86,9 +86,6 @@
             :onAddRow="() => startAdd(item.group.position)"
             :isMobileProp="isMobile"
             @change="emit('change')"
-            @recordFocus="emit('recordFocus')"
-            @commitFocus="emit('commitFocus')"
-            @pushSnapshot="emit('pushSnapshot')"
             @toggleStatus="toggleChannelStatus(item.ch)"
             @delete="emit('deleteChannel', item.ch)"
             @clear="emit('clearChannel', item.ch)"
@@ -299,9 +296,6 @@ const isMobile = useContainerWidth(rootEl)
 
 const emit = defineEmits([
   'change',
-  'recordFocus',
-  'commitFocus',
-  'pushSnapshot',
   'deleteChannel',
   'clearChannel',
   'reorder',
@@ -311,8 +305,15 @@ const emit = defineEmits([
 ])
 
 let channelRowUid = 0
+// ch.id ist die stabile Server-ID — nach einem kompletten Refetch (z.B. Undo/
+// Redo, SSE-Reload) sind es zwar neue JS-Objekte, aber mit derselben id. Die
+// bevorzugen, sonst bekäme jede Zeile einen neuen Vue-Key und würde komplett
+// neu gemountet statt gepatcht (bei 100+ Zeilen spürbar langsam). Nur neu
+// angelegte, noch nicht gespeicherte Kanäle haben keine id — dafür bleibt der
+// zufällige Fallback nötig, damit sie überhaupt einen Key bekommen.
 function ensureStableChannelKey(ch) {
   if (!ch) return ''
+  if (ch.id) return ch.id
   if (!Object.prototype.hasOwnProperty.call(ch, '__rowKey')) {
     Object.defineProperty(ch, '__rowKey', {
       value: `row-${channelRowUid++}`,
@@ -434,7 +435,6 @@ function savePosition() {
   const oldPos = editingPosition.value
   const newPos = editingPositionValue.value.trim()
   if (newPos !== oldPos) {
-    emit('pushSnapshot')
     for (const ch of props.channels) {
       if (ch.position === oldPos) ch.position = newPos
     }
@@ -458,7 +458,6 @@ function cancelAdd() {
 
 function saveAdd() {
   if (!addForm.value.channel) return
-  emit('pushSnapshot')
   const newCh = { ...addForm.value, color: addForm.value.color.trim() || 'NC' }
   ensureStableChannelKey(newCh)
   const newNr = parseInt(newCh.channel)
@@ -473,7 +472,6 @@ function saveAdd() {
 
 // ── Insert after (context menu) ────────────────────────────────────────────
 function insertAfter(ch) {
-  emit('pushSnapshot')
   const idx = props.channels.findIndex(c => c === ch)
   const newCh = { channel: '', address: '', device: '', position: ch.position, color: '', notes: '' }
   ensureStableChannelKey(newCh)
@@ -518,7 +516,6 @@ function initSortable() {
         }
       }
       if (reordered.length === props.channels.length) {
-        emit('pushSnapshot')
         emit('reorder', reordered)
       }
       emit('change')

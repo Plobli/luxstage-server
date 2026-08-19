@@ -16,7 +16,7 @@ export interface SectionContent {
   content: string;
 }
 
-export function useShowSections(showId: string, meta: Ref<any>) {
+export function useShowSections(showId: string, meta: Ref<any>, onLockConflict?: (body: { lockedBy?: string, since?: number }) => void) {
   const sectionDefs = ref<SectionDef[]>([])
   const sectionContents = ref<Map<string, string>>(new Map())
   const sectionsSaving = ref(false)
@@ -55,6 +55,11 @@ export function useShowSections(showId: string, meta: Ref<any>) {
         sectionsConflict.value = { kind: 'contents', serverVersion: e.body.serverVersion, serverSections: e.body.serverSections }
         return
       }
+      if (e instanceof ApiError && e.status === 423) {
+        ignoreSectionsSseCount = Math.max(0, ignoreSectionsSseCount - 1)
+        onLockConflict?.(e.body)
+        return
+      }
       throw e
     } finally {
       sectionsSaving.value = false
@@ -91,6 +96,10 @@ export function useShowSections(showId: string, meta: Ref<any>) {
     } catch (e) {
       if (e instanceof ApiError && e.status === 409) {
         sectionsConflict.value = { kind: 'defs', serverVersion: e.body.serverVersion, serverSections: e.body.serverSections }
+        return
+      }
+      if (e instanceof ApiError && e.status === 423) {
+        onLockConflict?.(e.body)
         return
       }
       throw e

@@ -1,7 +1,7 @@
 import { ref } from 'vue'
 import { restoreHistory } from '../api/shows.js'
 
-export function useShowHistory(showId, { pushSnapshot, loadChannels, loadSections }) {
+export function useShowHistory(showId, { loadChannels, loadSections }) {
   const historyOpen = ref(false)
 
   function openHistory() {
@@ -9,7 +9,6 @@ export function useShowHistory(showId, { pushSnapshot, loadChannels, loadSection
   }
 
   async function restore(entry) {
-    pushSnapshot()
     await restoreHistory(showId, entry.id)
     await Promise.all([loadChannels(), loadSections()])
     historyOpen.value = false

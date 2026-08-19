@@ -55,6 +55,17 @@ export function broadcast(showId, event, data) {
   }
 }
 
+/** Wie broadcast(), aber nur an Clients eines bestimmten Users (z.B. Übernahme-Anfrage an den Lock-Halter). */
+export function sendToUser(showId, username, event, data) {
+  const map = clients.get(scopedKey(showId))
+  if (!map?.size) return
+  const msg = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`
+  for (const [res, client] of map) {
+    if (client.username !== username) continue
+    try { res.write(msg) } catch { map.delete(res) }
+  }
+}
+
 function aggregatePresence(map) {
   const byUser = new Map()
   for (const { username, device, lastActivityAt } of map.values()) {

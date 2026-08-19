@@ -7,6 +7,14 @@ import { authenticate } from './auth.js'
 import { getTenantId } from './db-context.js'
 import { saasEnabled, getSaas } from './saas.js'
 import { PUBLIC_ROUTES, API_ROUTE_HANDLERS, SHOW_ROUTE_HANDLERS, showRoutes, systemRoutes } from './route-table.js'
+import { getLock } from './db/locks.js'
+
+const WRITE_METHODS = new Set(['PUT', 'POST', 'DELETE'])
+// Reine Show-Ressource, kein Slug-Pfad (Liste/Anlegen) oder Endpunkte, die
+// unabhängig vom Schreib-Lock funktionieren müssen (Lock selbst, SSE-Subscription,
+// History-Restore hat einen eigenen, engeren Lock-Check in history.js).
+const SHOW_WRITE_PATH = /^\/api\/shows\/([^/]+)\//
+const LOCK_CHECK_EXEMPT = /^\/api\/shows\/[^/]+\/(lock|events|history\/[^/]+\/restore)(\/|$)/
 
 const distPath = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'web-app', 'dist')
 const operatorPanelPath = path.join(path.dirname(fileURLToPath(import.meta.url)), 'operator-panel.html')
@@ -203,6 +211,16 @@ async function handleApi(req, res, pathname, params) {
 async function dispatchApi(req, res, pathname, params) {
   if (saasEnabled && pathname.startsWith('/api/register')) {
     return dispatchRoute(getSaas().registerRoutes, req, res, pathname, params)
+  }
+
+  if (WRITE_METHODS.has(req.method) && !LOCK_CHECK_EXEMPT.test(pathname)) {
+    const m = SHOW_WRITE_PATH.exec(pathname)
+    if (m) {
+      const lock = getLock(m[1])
+      if (lock && lock.user !== req.user.username) {
+        return json(res, 423, { ok: false, lockedBy: lock.user, since: lock.since })
+      }
+    }
   }
 
   const directRoute = API_ROUTE_HANDLERS.find(route => route.matches(pathname))

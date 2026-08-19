@@ -370,7 +370,6 @@ const props = defineProps({
   saveTowerFn: { type: Function, required: true },
   deleteTowerFn: { type: Function, required: true },
   assignSlotFn: { type: Function, required: true },
-  pushSnapshotFn: { type: Function, required: true },
   saveToTemplateFn: { type: Function, default: null },
   templateName: { type: String, default: null },
   fetchTemplateNamesFn: { type: Function, default: null },
@@ -471,13 +470,11 @@ async function confirmSlotReduce() {
 async function confirmDeleteTower(tower) {
   const ok = await confirm({ t, titleKey: 'gassenturm.delete.confirm', titleParams: { name: tower.name }, confirmKey: 'action.delete', cancelKey: 'action.cancel' })
   if (ok) {
-    props.pushSnapshotFn()
     props.deleteTowerFn(tower.id)
   }
 }
 
 async function addSlot(tower) {
-  props.pushSnapshotFn()
   await props.saveTowerFn(tower.id, { slot_count: tower.slot_count + 1 })
 }
 
@@ -515,7 +512,6 @@ async function doAssign(ch) {
   if (!pickerTower.value) return
   const slotIndex = pickerSlot.value?.slot_index ?? 0
   const tower = pickerTower.value
-  props.pushSnapshotFn()
   props.assignSlotFn(tower.id, slotIndex, ch.id)
   emit('assigned')
   slotPickerOpen.value = false
@@ -546,7 +542,6 @@ function initSortable(el, tower) {
       const fromSlot = slots[oldIndex]
       const toSlot = slots[newIndex]
       if (!fromSlot || !toSlot) return
-      props.pushSnapshotFn()
       slotRenderKey.value++
       props.assignSlotFn(tower.id, fromSlot.slot_index, toSlot.channel_id ?? null)
       props.assignSlotFn(tower.id, toSlot.slot_index, fromSlot.channel_id ?? null)
@@ -560,7 +555,6 @@ onBeforeUnmount(() => {
 })
 
 function clearSlot(towerId, slotIndex) {
-  props.pushSnapshotFn()
   props.assignSlotFn(towerId, slotIndex, null)
 }
 </script>

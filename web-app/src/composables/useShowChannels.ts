@@ -5,8 +5,6 @@ import { updateMeta } from '../api/shows'
 import { invalidate } from '../api/cache'
 import { ApiError } from '../api/client'
 import { useUndoRedo } from './useUndoRedo'
-import { type SectionDef } from './useShowSections'
-import type { Tower } from '../api/towers'
 
 export interface EosMergePreview {
   open: boolean;
@@ -18,45 +16,20 @@ export interface EosMergePreview {
   previouslyExcluded: Set<string>;
 }
 
-export interface UndoRedoState {
-  channels: Channel[];
-  sectionContents: [string, string][];
-  sectionDefs: SectionDef[];
-  meta: any;
-  setupMarkdown: string;
-  towers: Tower[];
-}
-
-export function useShowChannels({ 
-  showId, 
-  meta, 
-  setupMarkdown, 
-  sectionContents, 
-  sectionDefs, 
-  persistSetupDebounced,
-  persistSectionsDebounced,
-  persistSections,
-  persistSectionDefs,
-  towers,
-  saveTowersSnapshot,
+export function useShowChannels({
+  showId,
+  meta,
+  setupMarkdown,
   t,
   localeReady,
-  confirm
+  onLockConflict
 }: {
   showId: string;
   meta: Ref<any>;
   setupMarkdown: Ref<string>;
-  sectionContents: Ref<Map<string, string>>;
-  sectionDefs: Ref<SectionDef[]>;
-  persistSetupDebounced: any;
-  persistSectionsDebounced: any;
-  persistSections: () => Promise<void>;
-  persistSectionDefs: () => Promise<void>;
-  towers: Ref<Tower[]>;
-  saveTowersSnapshot: (snapshot: Tower[]) => Promise<void>;
   t: (key: string, params?: any) => string;
   localeReady: () => Promise<void>;
-  confirm: (opts: any) => Promise<boolean>;
+  onLockConflict?: (body: { lockedBy?: string, since?: number }) => void;
 }) {
   const channels = ref<Channel[]>([])
   const channelsSaving = ref(false)
@@ -92,6 +65,11 @@ export function useShowChannels({
         channelsConflict.value = { serverVersion: e.body.serverVersion, serverChannels: e.body.serverChannels }
         return
       }
+      if (e instanceof ApiError && e.status === 423) {
+        ignoreSseCount = Math.max(0, ignoreSseCount - 1)
+        onLockConflict?.(e.body)
+        return
+      }
       throw e
     } finally {
       channelsSaving.value = false
@@ -121,64 +99,26 @@ export function useShowChannels({
     persistChannels()
   }
 
-  const { initSnapshot, recordFocus, commitFocus, pushSnapshot, undo, redo, canUndo, canRedo } =
-    useUndoRedo<UndoRedoState>(
-      () => ({
-        channels: channels.value,
-        sectionContents: [...sectionContents.value.entries()],
-        sectionDefs: sectionDefs.value,
-        meta: meta.value,
-        setupMarkdown: setupMarkdown.value,
-        towers: towers.value,
-      }),
-      (snap) => {
-        channels.value = snap.channels
-        sectionContents.value = new Map(snap.sectionContents)
-        sectionDefs.value = snap.sectionDefs
-        meta.value = snap.meta
-        setupMarkdown.value = snap.setupMarkdown
-        towers.value = snap.towers ?? []
-        saveTowersSnapshot(snap.towers ?? []).catch(() => {})
-      },
-      () => {
-        (persistChannels as any)?.cancel?.()
-        persistSetupDebounced?.cancel?.()
-        persistSectionsDebounced?.cancel?.()
-      },
-      async () => {
-        channelsSaving.value = true
-        persistChannels()
-        persistSetupDebounced()
-        // section-defs zuerst: sections referenziert section_id per FOREIGN KEY,
-        // parallel gefeuert kann sections eine section_id treffen, die section-defs
-        // gerade per DELETE+INSERT neu schreibt → FOREIGN KEY constraint failed.
-        await persistSectionDefs()
-        await persistSections()
-      }
-    )
+  const { undo, redo, canUndo, canRedo } = useUndoRedo(showId, onLockConflict)
 
   function onUndoRedoKeydown(e: KeyboardEvent): void {
-    const focused = document.activeElement
-    const isEditing = focused && (
-      focused.tagName === 'INPUT' ||
-      focused.tagName === 'TEXTAREA' ||
-      (focused as HTMLElement).isContentEditable
-    )
-    if (isEditing) return
-
+    // Undo/Redo läuft serverseitig auf der letzten gespeicherten Aktion, nicht
+    // auf Zeichen-Ebene — greift daher auch, während ein Eingabefeld fokussiert
+    // ist (sonst würde der Browser Cmd+Z/Cmd+Shift+Z selbst abfangen, z.B. als
+    // "letztes Fenster schließen"-Kürzel in Safari).
     const isMac = (navigator as any).userAgentData?.platform === 'macOS' || /Mac/.test(navigator.userAgent)
     const mod = isMac ? e.metaKey : e.ctrlKey
 
     if (mod && !e.shiftKey && e.key === 'z') {
       e.preventDefault()
-      undo()
+      undo().catch(err => console.error('[undo] fehlgeschlagen:', err))
     } else if (
       (mod && e.shiftKey && e.key === 'z') ||
       (mod && e.shiftKey && e.key === 'Z') ||
       (!isMac && mod && e.key === 'y')
     ) {
       e.preventDefault()
-      redo()
+      redo().catch(err => console.error('[redo] fehlgeschlagen:', err))
     }
   }
 
@@ -282,13 +222,11 @@ export function useShowChannels({
   })
 
   async function deleteChannel(ch: Channel): Promise<void> {
-    pushSnapshot()
     channels.value = channels.value.filter(c => c !== ch)
     scheduleChannelsSave()
   }
 
   function clearChannel(ch: Channel): void {
-    pushSnapshot()
     ch.notes = ''
     ch.color = ''
     scheduleChannelsSave()
@@ -301,7 +239,6 @@ export function useShowChannels({
     reader.onload = e => {
       const imported = parseChannelsCsv(e.target?.result as string)
       if (imported.length === 0) return
-      pushSnapshot()
       channels.value = mergeChannels(channels.value, imported)
       scheduleChannelsSave()
     }
@@ -678,10 +615,6 @@ export function useShowChannels({
     resolveEosMergePreview,
     channelStatus,
     toggleChannelStatus,
-    initSnapshot,
-    recordFocus,
-    commitFocus,
-    pushSnapshot,
     undo,
     redo,
     canUndo,

@@ -54,3 +54,17 @@ export function createSnapshot(showId: string): Promise<any> {
   return api.post(`/api/shows/${showId}/history/snapshot`, {})
 }
 
+export interface LockResult {
+  ok: boolean
+  lockedBy?: string
+  since?: number
+}
+
+export const acquireShowLock  = (showId: string): Promise<LockResult> => api.post(`/api/shows/${showId}/lock`, {})
+export const releaseShowLock  = (showId: string, transferTo?: string): Promise<{ ok: true }> => api.delete(`/api/shows/${showId}/lock`, transferTo ? { transferTo } : undefined)
+export const touchShowLock    = (showId: string): Promise<{ ok: true }> => api.put(`/api/shows/${showId}/lock`, {})
+export const requestLockTakeover = (showId: string): Promise<{ ok: true, notified: string }> => api.post(`/api/shows/${showId}/lock/request-takeover`, {})
+
+export const undoShow = (showId: string): Promise<{ ok: true }> => api.post(`/api/shows/${showId}/undo`, {})
+export const redoShow = (showId: string): Promise<{ ok: true }> => api.post(`/api/shows/${showId}/redo`, {})
+

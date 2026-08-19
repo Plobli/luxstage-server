@@ -20,7 +20,6 @@
         <div v-if="!isMobile" class="py-0 pr-0 pl-0 align-middle border-l border-border/40 h-full flex items-center">
           <Input
             v-model="ch.channel"
-            @focus="emit('recordFocus')"
             @input="emit('change')"
             @blur="onChannelBlur"
             :data-nav-row="rowIndex"
@@ -37,7 +36,6 @@
         <div v-if="!isMobile" class="py-0 pr-0 pl-0 align-middle border-l border-border/40 h-full flex items-center">
           <Input
             v-model="ch.address"
-            @focus="emit('recordFocus')"
             @input="emit('change')"
             @blur="onAddressBlur"
             @click.stop
@@ -49,7 +47,7 @@
         <div v-if="!isMobile" class="px-0 py-0 align-middle border-l border-border/40 h-full flex items-center">
           <ColorAutocomplete
             :modelValue="ch.color"
-            @update:modelValue="emit('pushSnapshot'); ch.color = $event; emit('change')"
+            @update:modelValue="ch.color = $event; emit('change')"
             :placeholder="colorPlaceholder"
             :inputAttrs="{ 'data-nav-row': rowIndex, 'data-nav-col': 1 }"
             @keydown="onKeydownCol1"
@@ -74,7 +72,6 @@
             v-model="ch.device"
             :data-nav-row="rowIndex"
             data-nav-col="2"
-            @focus="emit('recordFocus')"
             @input="emit('change')"
             @blur="onDeviceBlur"
             @keydown="onKeydownCol2"
@@ -87,9 +84,7 @@
             v-model="ch.notes"
             :data-nav-row="rowIndex"
             data-nav-col="3"
-            @focus="emit('recordFocus')"
             @input="emit('change')"
-            @blur="emit('commitFocus')"
             @keydown="onKeydownCol3"
           />
           <div v-if="mountRefLabel" class="px-2 pb-1 w-full">
@@ -160,7 +155,6 @@
             <div class="flex items-center gap-0.5 flex-1">
               <Input
                 v-model="ch.channel"
-                @focus="emit('recordFocus')"
                 @input="emit('change')"
                 @blur="onChannelBlur"
                 :data-nav-row="rowIndex"
@@ -174,7 +168,6 @@
               <span class="text-xs text-muted-foreground/50">/</span>
               <Input
                 v-model="ch.address"
-                @focus="emit('recordFocus')"
                 @input="emit('change')"
                 @blur="onAddressBlur"
                 @click.stop
@@ -184,7 +177,7 @@
             <div class="shrink-0 w-28">
               <ColorAutocomplete
                 :modelValue="ch.color"
-                @update:modelValue="emit('pushSnapshot'); ch.color = $event; emit('change')"
+                @update:modelValue="ch.color = $event; emit('change')"
                 :placeholder="colorPlaceholder"
                 :inputAttrs="{ 'data-nav-row': rowIndex, 'data-nav-col': 1 }"
                 @keydown="onKeydownCol1"
@@ -197,9 +190,7 @@
               v-model="ch.device"
               :data-nav-row="rowIndex"
               data-nav-col="2"
-              @focus="emit('recordFocus')"
               @input="emit('change')"
-              @blur="emit('commitFocus')"
               @keydown="onKeydownCol2"
             />
           </div>
@@ -209,9 +200,7 @@
               v-model="ch.notes"
               :data-nav-row="rowIndex"
               data-nav-col="3"
-              @focus="emit('recordFocus')"
               @input="emit('change')"
-              @blur="emit('commitFocus')"
               @keydown="onKeydownCol3"
             />
           </div>
@@ -247,7 +236,7 @@ const props = defineProps({
 })
 
 const emit = defineEmits([
-  'change', 'recordFocus', 'commitFocus', 'pushSnapshot',
+  'change',
   'toggleStatus', 'delete', 'clear',
   'placeInFloorplan', 'assignTower', 'assignBar',
 ])
@@ -261,11 +250,9 @@ function onChannelBlur() {
     ch.color = 'NC'
     emit('change')
   }
-  emit('commitFocus')
 }
 
 function onDeviceBlur() {
-  emit('commitFocus')
   const ch = props.ch
   const match = (ch.device ?? '').match(/^(\d+)\s*x\s*/i)
   if (match) {
@@ -285,7 +272,6 @@ function onAddressBlur() {
     ch.address = normalized
     emit('change')
   }
-  emit('commitFocus')
 }
 
 const _isMobileViewport = useIsMobile()
@@ -318,6 +304,7 @@ const channelStatusClass = computed(() => {
 })
 
 const stableRowKey = computed(() => {
+  if (props.ch?.id) return props.ch.id
   if (props.ch?.__rowKey) return props.ch.__rowKey
   return `${props.ch?.channel || ''}|${props.ch?.address || ''}`
 })

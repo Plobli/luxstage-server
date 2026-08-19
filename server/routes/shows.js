@@ -1,7 +1,9 @@
 import * as db from '../db.js'
 import { requireAdmin } from '../auth.js'
 import { readJsonBody, json, notFound } from '../helpers.js'
-import { subscribe, broadcast, getPresence } from '../sse.js'
+import { subscribe, broadcast, sendToUser, getPresence } from '../sse.js'
+import { getLastOperation, deleteOperation, pushRedo, popRedo, recordOperation } from '../db/operations.js'
+import { restoreTowers } from '../db/towers.js'
 
 const SHOW_LIST          = /^\/api\/shows$/
 const SHOW_ARCHIVED      = /^\/api\/shows\/archived$/
@@ -10,10 +12,41 @@ const SHOW_META          = /^\/api\/shows\/([^/]+)\/meta$/
 const SHOW_RESTORE       = /^\/api\/shows\/([^/]+)\/restore$/
 const SHOW_PERM          = /^\/api\/shows\/([^/]+)\/permanent$/
 const SHOW_LOCK          = /^\/api\/shows\/([^/]+)\/lock$/
+const SHOW_LOCK_TAKEOVER = /^\/api\/shows\/([^/]+)\/lock\/request-takeover$/
 const SHOW_EVENTS        = /^\/api\/shows\/([^/]+)\/events$/
 const SHOW_PRESENCE      = /^\/api\/shows\/([^/]+)\/presence$/
 const SHOW_FROM_TEMPLATE = /^\/api\/shows\/([^/]+)\/from-template$/
 const SHOW_TO_TEMPLATE   = /^\/api\/shows\/([^/]+)\/to-template$/
+const SHOW_UNDO          = /^\/api\/shows\/([^/]+)\/undo$/
+const SHOW_REDO          = /^\/api\/shows\/([^/]+)\/redo$/
+
+// Wendet alt/neu-Payload einer Operation an — dieselbe DB-Schreibfunktion wie
+// der jeweilige Route-Handler, aber ohne recordOperation() erneut aufzurufen
+// (sonst würde Undo selbst eine neue Operation erzeugen und den Stack verfälschen).
+function applyOperationValue(slug, resourceType, username, value) {
+  switch (resourceType) {
+    case 'channels':
+      db.writeChannels(slug, value, username)
+      broadcast(slug, 'channels-updated', { updatedBy: username })
+      break
+    case 'sections': {
+      const map = new Map(value.map(s => [s.id, s.content]))
+      db.writeShowSections(slug, map, username)
+      broadcast(slug, 'sections-updated', { updatedBy: username })
+      break
+    }
+    case 'section-defs':
+      db.writeShowSectionDefs(slug, value, username)
+      broadcast(slug, 'sections-updated', { updatedBy: username })
+      break
+    case 'towers':
+      restoreTowers(slug, value)
+      broadcast(slug, 'towers-updated', {})
+      break
+    default:
+      throw new Error(`Unbekannter resource_type: ${resourceType}`)
+  }
+}
 
 export async function showRoutes(req, res, pathname, params) {
   const { method } = req
@@ -21,7 +54,8 @@ export async function showRoutes(req, res, pathname, params) {
 
   if (method === 'GET' && SHOW_LIST.test(pathname)) {
     const shows = db.listShows()
-    return json(res, 200, shows.map(({ id: _id, ...s }) => ({ id: s.slug, ...s })))
+    const locks = db.listLocks()
+    return json(res, 200, shows.map(({ id: _id, ...s }) => ({ id: s.slug, ...s, lock: locks.get(_id) ?? null })))
   }
 
   if (method === 'GET' && SHOW_ARCHIVED.test(pathname)) {
@@ -115,16 +149,71 @@ export async function showRoutes(req, res, pathname, params) {
     }
   }
 
+  if (m = SHOW_UNDO.exec(pathname)) {
+    const slug = m[1]
+    if (method === 'POST') {
+      // Lock bereits zentral in router.js geprüft (undo ist ein normaler Write).
+      const user = req.user
+      const show = db.readShow(slug)
+      if (!show) return notFound(res)
+
+      const op = getLastOperation(show.id)
+      if (!op) return json(res, 400, { error: 'Nichts zum Rückgängigmachen' })
+
+      const { old: oldValue, new: newValue } = JSON.parse(op.payload)
+      applyOperationValue(slug, op.resource_type, user.username, oldValue)
+      deleteOperation(op.id)
+      pushRedo(show.id, { resource_type: op.resource_type, old: oldValue, new: newValue })
+      return json(res, 200, { ok: true })
+    }
+  }
+
+  if (m = SHOW_REDO.exec(pathname)) {
+    const slug = m[1]
+    if (method === 'POST') {
+      // Lock bereits zentral in router.js geprüft (redo ist ein normaler Write).
+      const user = req.user
+      const show = db.readShow(slug)
+      if (!show) return notFound(res)
+
+      const entry = popRedo(show.id)
+      if (!entry) return json(res, 400, { error: 'Nichts zum Wiederholen' })
+
+      applyOperationValue(slug, entry.resource_type, user.username, entry.new)
+      recordOperation(show.id, user.username, entry.resource_type, entry.old, entry.new)
+      return json(res, 200, { ok: true })
+    }
+  }
+
+  if (m = SHOW_LOCK_TAKEOVER.exec(pathname)) {
+    const slug = m[1]
+    if (method === 'POST') {
+      const user = req.user
+      const lock = db.getLock(slug)
+      if (!lock) return json(res, 400, { error: 'Keine Sperre aktiv' })
+      if (lock.user === user.username) return json(res, 400, { error: 'Du hältst bereits die Sperre' })
+      sendToUser(slug, lock.user, 'lock-takeover-requested', { requestedBy: user.username })
+      return json(res, 200, { ok: true, notified: lock.user })
+    }
+  }
+
   if (m = SHOW_LOCK.exec(pathname)) {
     const slug = m[1]
     if (method === 'POST') {
       const user = req.user
       const result = db.acquireLock(slug, user.username)
+      if (result.ok) broadcast(slug, 'lock-status-updated', { lock: db.getLock(slug) })
       return json(res, result.ok ? 200 : 423, result)
     }
     if (method === 'DELETE') {
       const user = req.user
-      db.releaseLock(slug, user.username)
+      const body = await readJsonBody(req, res); if (body === null) return
+      if (body.transferTo) {
+        db.transferLock(slug, user.username, body.transferTo)
+      } else {
+        db.releaseLock(slug, user.username)
+      }
+      broadcast(slug, 'lock-status-updated', { lock: db.getLock(slug) })
       return json(res, 200, { ok: true })
     }
     if (method === 'PUT') {

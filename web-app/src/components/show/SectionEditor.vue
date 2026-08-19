@@ -11,8 +11,6 @@
           <Input
             :value="sec.title"
             :placeholder="labels.titlePlaceholder"
-            @focus="emit('recordFocus')"
-            @blur="emit('commitFocus')"
             @input="sec.title = $event.target.value"
             @change="saveSectionDefsFn"
             class="h-7 min-w-40 flex-1 border-0 bg-transparent px-0 text-sm font-semibold text-accent shadow-none placeholder:text-muted-foreground/60 focus-visible:ring-0"
@@ -70,16 +68,14 @@
                 <Input
                   v-model="row.label"
                   :placeholder="labels.fieldLabel"
-                  @focus="emit('recordFocus')"
-                  @blur="emit('commitFocus'); persistKvRows(sec)"
+                  @blur="persistKvRows(sec)"
                   class="h-full min-h-10 w-full rounded-none border-0 bg-transparent px-3 py-0 text-sm font-medium text-foreground shadow-none placeholder:text-muted-foreground/60 focus-visible:ring-0"
                 />
               </td>
               <td class="py-0 px-0 align-middle border-l border-border/40 h-full">
                 <Input
                   v-model="row.value"
-                  @focus="emit('recordFocus')"
-                  @blur="emit('commitFocus'); persistKvRows(sec)"
+                  @blur="persistKvRows(sec)"
                   class="h-full min-h-10 w-full rounded-none border-0 bg-transparent px-3 py-0 text-sm text-foreground shadow-none placeholder:text-muted-foreground/60 focus-visible:ring-0"
                 />
               </td>
@@ -126,8 +122,7 @@
           v-show="!singleSectionId || (sectionContents.get(sec.id) ?? '').trim() || isActiveEdit(sec.id)"
           :modelValue="sectionContents.get(sec.id) ?? ''"
           @update:modelValue="onSectionChange(sec.id, $event)"
-          @focus="emit('recordFocus')"
-          @blur="emit('commitFocus'); deactivateEditIfEmpty(sec.id)"
+          @blur="deactivateEditIfEmpty(sec.id)"
           class="rounded-none border-0 border-t border-border/60"
         />
       </div>
@@ -139,7 +134,7 @@
     <div class="border-b border-border/90 bg-muted px-4 py-2.5">
       <slot name="setup-heading" />
     </div>
-    <MarkdownEditor :modelValue="setupMarkdown" @update:modelValue="emit('update:setupMarkdown', $event)" @focus="emit('recordFocus')" @blur="emit('commitFocus')" class="rounded-none border-0 border-t border-border/60" />
+    <MarkdownEditor :modelValue="setupMarkdown" @update:modelValue="emit('update:setupMarkdown', $event)" class="rounded-none border-0 border-t border-border/60" />
   </section>
 
   <!-- Add section buttons (not in single-section mode) -->
@@ -181,10 +176,7 @@ const emit = defineEmits([
   'update:sectionDefs',
   'update:sectionContents',
   'update:setupMarkdown',
-  'pushSnapshot',
   'sectionChange',
-  'recordFocus',
-  'commitFocus',
 ])
 
 const { confirm } = useConfirm()
@@ -387,7 +379,6 @@ function persistKvRows(sec) {
 
 // ── Section def management ─────────────────────────────────────────────────
 async function addMarkdownSection() {
-  emit('pushSnapshot')
   const id = uuid()
   const newDefs = [...props.sectionDefs, { id, title: '', type: 'markdown', order: props.sectionDefs.length }]
   emit('update:sectionDefs', newDefs)
@@ -395,7 +386,6 @@ async function addMarkdownSection() {
 }
 
 async function addKvTableSection() {
-  emit('pushSnapshot')
   const id = uuid()
   const newDefs = [...props.sectionDefs, { id, title: '', type: 'kv-table', order: props.sectionDefs.length, rows: [] }]
   emit('update:sectionDefs', newDefs)
@@ -405,7 +395,6 @@ async function addKvTableSection() {
 async function deleteSectionDef(idx) {
   const ok = await confirm({ t, titleKey: 'action.delete', confirmKey: 'action.delete', cancelKey: 'action.cancel' })
   if (!ok) return
-  emit('pushSnapshot')
   const targetId = sortedSections.value[idx]?.id
   if (!targetId) return
   const newDefs = props.sectionDefs
@@ -416,7 +405,6 @@ async function deleteSectionDef(idx) {
 }
 
 function addKvRow(sec) {
-  emit('pushSnapshot')
   const newRow = { id: uuid(), label: '', value: '', sort_order: (sec.rows?.length ?? 0) }
   const newDefs = props.sectionDefs.map(s => {
     if (s.id !== sec.id) return s
@@ -429,7 +417,6 @@ function addKvRow(sec) {
 async function deleteKvRow(sec, rowId) {
   const ok = await confirm({ t, titleKey: 'action.delete', confirmKey: 'action.delete', cancelKey: 'action.cancel' })
   if (!ok) return
-  emit('pushSnapshot')
   const newDefs = props.sectionDefs.map(s => {
     if (s.id !== sec.id) return s
     const rows = (s.rows ?? [])

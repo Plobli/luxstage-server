@@ -91,7 +91,7 @@ export const api = {
   post: <T = unknown>(path: string, body: unknown) => request<T>('POST', path, { body }),
   put: <T = unknown>(path: string, body: unknown) => request<T>('PUT', path, { body }),
   patch: <T = unknown>(path: string, body: unknown) => request<T>('PATCH', path, { body }),
-  delete: <T = unknown>(path: string) => request<T>('DELETE', path),
+  delete: <T = unknown>(path: string, body?: unknown) => request<T>('DELETE', path, { body }),
   send: <T = unknown>(method: string, path: string, body: BodyInit, contentType: string) =>
     request<T>(method, path, { body, contentType }),
 
@@ -199,7 +199,7 @@ export function setServerUrl(url: string): void {
  * ist nach dem ersten Connect verbraucht) — der Reconnect wird daher hier
  * manuell mit neuem Token durchgeführt.
  */
-export function subscribeShow(showId: string, { onChannels, onSections, onPresence, onTowers, onBars }: { onChannels?: (data: any) => void, onSections?: (data: any) => void, onPresence?: (data: any) => void, onTowers?: (data: any) => void, onBars?: (data: any) => void } = {}): () => void {
+export function subscribeShow(showId: string, { onChannels, onSections, onPresence, onTowers, onBars, onLockStatus, onTakeoverRequested }: { onChannels?: (data: any) => void, onSections?: (data: any) => void, onPresence?: (data: any) => void, onTowers?: (data: any) => void, onBars?: (data: any) => void, onLockStatus?: (data: any) => void, onTakeoverRequested?: (data: any) => void } = {}): () => void {
   let es: EventSource | null = null
   let closed = false
   let retryTimer: ReturnType<typeof setTimeout> | null = null
@@ -221,6 +221,8 @@ export function subscribeShow(showId: string, { onChannels, onSections, onPresen
     if (onPresence) es.addEventListener('presence-updated', (e: any) => onPresence(JSON.parse(e.data)))
     if (onTowers) es.addEventListener('towers-updated', (e: any) => onTowers(JSON.parse(e.data)))
     if (onBars) es.addEventListener('bars-updated', (e: any) => onBars(JSON.parse(e.data)))
+    if (onLockStatus) es.addEventListener('lock-status-updated', (e: any) => onLockStatus(JSON.parse(e.data)))
+    if (onTakeoverRequested) es.addEventListener('lock-takeover-requested', (e: any) => onTakeoverRequested(JSON.parse(e.data)))
     es.onerror = () => {
       es?.close()
       es = null

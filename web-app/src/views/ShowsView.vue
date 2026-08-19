@@ -59,8 +59,14 @@
             :class="i > 0 ? 'border-t border-border/40' : ''"
             @click="router.push(`/shows/${show.id}`)"
           >
-            <div class="min-w-0 pr-4">
-              <span class="font-medium text-foreground text-sm truncate block">{{ show.name || show.id }}</span>
+            <div class="min-w-0 pr-4 flex items-center gap-1.5">
+              <span class="font-medium text-foreground text-sm truncate">{{ show.name || show.id }}</span>
+              <Tooltip v-if="show.lock">
+                <TooltipTrigger asChild>
+                  <Lock class="size-3.5 text-orange-400 shrink-0" />
+                </TooltipTrigger>
+                <TooltipContent side="right"><p>{{ t('lock.lockedBy', { user: show.lock.user }) }}</p></TooltipContent>
+              </Tooltip>
             </div>
             <span class="text-sm text-muted-foreground hidden sm:block">{{ formatDatum(show.datum) }}</span>
             <span class="text-sm text-muted-foreground hidden lg:block">{{ show.spielzeit || '—' }}</span>
@@ -156,7 +162,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { Archive, Loader2, Plus, Sparkles } from 'lucide-vue-next'
+import { Archive, Loader2, Plus, Sparkles, Lock } from 'lucide-vue-next'
 import { useLocale } from '../composables/useLocale.js'
 import { fetchShows, createShow, archiveShow } from '../api/shows.js'
 import { fetchTemplates, fetchTemplateChannels } from '../api/templates.js'
@@ -178,6 +184,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/components/ui/dropdown-menu'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import ShowWizardDialog from '@/components/show/ShowWizardDialog.vue'
 
 const router = useRouter()

@@ -51,6 +51,8 @@
         :canRedo="canRedo"
         :saving="channelsSaving || sectionsSaving || setupSaving"
         :presence="presence"
+        :lockHeldByMe="showLock.isHeldByMe.value"
+        :lockedByOther="showLock.isLockedByOther.value"
         :dupAddressWarning="dupWarning"
         :dupChannelWarning="dupChannelWarning"
         :healthStats="healthStats"
@@ -68,11 +70,14 @@
           legendActive: t('channel.legend.active'),
           legendEos: t('channel.legend.eos'),
           hideEosInactive: t('channel.hide_eos_inactive'),
+          lockedBy: lock?.user ? t('lock.lockedBy', { user: lock.user }) : '',
+          lockHeldByMe: t('lock.heldByMe'),
         }"
         @undo="undo()"
         @redo="redo()"
         @filterDup="dupFilter = $event"
         @healthFilter="onHealthFilter($event)"
+        @requestTakeover="showLock.requestTakeover()"
       />
       <div v-if="dupFilter" class="shrink-0 flex items-center justify-between gap-2 px-4 py-1.5 border-b border-yellow-500/30 bg-yellow-500/10 text-xs text-yellow-400">
         <span>{{ dupFilter === 'address' ? t('channel.dup_address') : t('channel.dup_channel') }}</span>
@@ -90,7 +95,19 @@
           <span class="text-sm text-muted-foreground">{{ t('error.loading') }}</span>
         </div>
       </div>
-      <div v-else class="flex flex-1 min-h-0 overflow-hidden pb-14 md:pb-0">
+      <!-- Schreib-Sperre: Content read-only solange ein anderer User hält.
+           Kein inert hier — das würde browserbedingt auch Scroll-Events auf
+           verschachtelten Kindern blockieren. Der Overlay fängt Klicks ab,
+           reicht Mausrad/Trackpad-Scrollen aber gezielt an den darunterliegenden
+           scrollbaren Container weiter (ein Overlay mit pointer-events:auto
+           würde sonst auch wheel-Events auf sich selbst behalten statt
+           "durchzuscrollen"). -->
+      <div
+        v-else
+        :class="{ 'relative opacity-60 select-none': showLock.isLockedByOther.value }"
+        class="flex flex-1 min-h-0 overflow-hidden pb-14 md:pb-0"
+      >
+        <div v-if="showLock.isLockedByOther.value" class="absolute inset-0 z-40" @wheel="onLockOverlayWheel" />
 
         <!-- Channels View -->
         <div
@@ -135,9 +152,6 @@
                 positionNamePlaceholder: t('channel.position.name.placeholder'),
               }"
               @change="scheduleChannelsSave()"
-              @recordFocus="recordFocus()"
-              @commitFocus="commitFocus()"
-              @pushSnapshot="pushSnapshot()"
               @deleteChannel="deleteChannel($event)"
               @clearChannel="clearChannel($event)"
               @reorder="channels.splice(0, channels.length, ...$event)"
@@ -265,9 +279,6 @@
                 @update:sectionDefs="sectionDefs = $event"
                 @update:sectionContents="sectionContents = $event"
                 @update:setupMarkdown="onSetupChange($event)"
-                @pushSnapshot="pushSnapshot"
-                @recordFocus="recordFocus"
-                @commitFocus="commitFocus"
                 @sectionChange="persistSectionsDebounced"
               />
               <!-- Generierte Texte aus Bühne + Obermaschinerie — nur in der Aufbau-Section -->
@@ -288,7 +299,6 @@
               :saveTowerFn="saveTower"
               :deleteTowerFn="removeTower"
               :assignSlotFn="assignSlot"
-              :pushSnapshotFn="pushSnapshot"
               :saveToTemplateFn="meta.template ? saveTowerToTemplate : null"
               :templateName="meta.template"
               :fetchTemplateNamesFn="meta.template ? fetchTowerTemplateNames : null"
@@ -401,6 +411,7 @@ import { useKeyboardNav } from '../composables/useKeyboardNav.js'
 import { useShowPhotos } from '../composables/useShowPhotos.js'
 import { useShowSections } from '../composables/useShowSections.js'
 import { useShowPresence } from '../composables/useShowPresence.js'
+import { useShowLock } from '../composables/useShowLock.js'
 import { useShowChannels } from '../composables/useShowChannels.js'
 import { useShowFloorplan } from '../composables/useShowFloorplan.js'
 import { saveShowFloorplanSnapshot } from '../api/floorplan.js'
@@ -462,12 +473,20 @@ watch(() => floorplan.value.image_url, async (path) => {
   floorplanImageUrl.value = path ? await api.url(path) : null
 }, { immediate: true })
 
+// showLock wird erst weiter unten instanziiert (braucht presence/lock aus
+// useShowPresence, das wiederum handleChannelsSse/handleSectionsSse braucht).
+// Dieser Wrapper wird erst bei einem tatsächlichen 423 aufgerufen, also lange
+// nachdem showLock existiert — die Forward-Reference ist unkritisch.
+function onLockConflict(body) {
+  showLock.syncLockFromConflict(body)
+}
+
 const {
   sectionDefs, sectionContents, sectionsSaving,
   persistSectionsDebounced, persistSections, persistSectionDefs,
   loadSections, handleSectionsSse,
   sectionsConflict, resolveSectionsConflictReload, resolveSectionsConflictForce
-} = useShowSections(props.id, meta)
+} = useShowSections(props.id, meta, onLockConflict)
 
 const aufbauFixedTabs = computed(() => [
   ...(meta.value.use_towers !== false ? [{ key: 'gassenturm', label: t('tab.towers') }] : []),
@@ -499,7 +518,6 @@ const {
   scheduleChannelsSave, persistChannels, deleteChannel, clearChannel,
   onCsvImportSelected, onEosFileSelected, resolveEosMergePreview,
   channelStatus, toggleChannelStatus,
-  initSnapshot, recordFocus, commitFocus, pushSnapshot,
   undo, redo, canUndo, canRedo, onUndoRedoKeydown,
   loadChannels, handleChannelsSse,
   channelsConflict, resolveConflictReload, resolveConflictForce
@@ -507,17 +525,9 @@ const {
   showId: props.id,
   meta,
   setupMarkdown,
-  sectionContents,
-  sectionDefs,
-  persistSetupDebounced,
-  persistSectionsDebounced,
-  persistSections,
-  persistSectionDefs,
-  towers,
-  saveTowersSnapshot: (snapshot) => restoreTowersSnapshot(props.id, snapshot),
   t,
   localeReady,
-  confirm
+  onLockConflict
 })
 
 const { loadTowers, addTower, saveTower, removeTower, assignSlot } = useShowTowers(props.id, channels, towers)
@@ -543,7 +553,6 @@ const {
 } = useTemplateInsertion(props.id, meta, { loadBars, loadTowers })
 
 const { historyOpen, openHistory, restore: doRestoreHistory } = useShowHistory(props.id, {
-  pushSnapshot,
   loadChannels,
   loadSections,
 })
@@ -570,12 +579,43 @@ function debounce(fn, ms) {
 }
 const loadBarsDebounced = debounce(loadBars, 120)
 
-const { presence, initPresence, cleanupPresence } = useShowPresence(props.id, {
+const { presence, lock, initPresence, cleanupPresence } = useShowPresence(props.id, {
   onChannels: handleChannelsSse,
   onSections: handleSectionsSse,
   onTowers: () => loadTowers(),
   onBars: () => loadBarsDebounced(),
+  onTakeoverRequested: (data) => showLock.onTakeoverRequested(data),
+  onLockStatus: (data) => showLock.onLockStatusChanged(data),
 })
+
+const showLock = useShowLock(props.id, lock)
+
+watch(showLock.takeoverRequestedBy, async (requestedBy) => {
+  if (!requestedBy) return
+  const release = await confirm({
+    t,
+    titleKey: 'lock.takeoverDialog.title',
+    messageKey: 'lock.takeoverDialog.message',
+    messageParams: { user: requestedBy },
+    confirmKey: 'lock.takeoverDialog.release',
+    cancelKey: 'lock.takeoverDialog.ignore',
+  })
+  if (release) await showLock.releaseForOther()
+  else showLock.dismissTakeoverRequest()
+})
+
+// Overlay steht über dem Content und fängt Klicks/Eingaben ab (siehe Sperr-
+// Wrapper oben) — Mausrad/Trackpad-Events werden hier manuell an den
+// darunterliegenden scrollbaren Container weitergereicht, sonst bliebe die
+// Show für den gesperrten User auch lesend nicht mehr scrollbar.
+function onLockOverlayWheel(e) {
+  const overlay = e.currentTarget
+  overlay.style.pointerEvents = 'none'
+  const below = document.elementFromPoint(e.clientX, e.clientY)
+  overlay.style.pointerEvents = ''
+  const scrollable = below?.closest('[class*="overflow-y-auto"], [class*="overflow-auto"]')
+  if (scrollable) scrollable.scrollBy({ top: e.deltaY, left: e.deltaX })
+}
 
 // ── Health Stats ───────────────────────────────────────────────────────────
 const healthStats = computed(() => {
@@ -612,11 +652,9 @@ function onHealthFilter(type) {
 
 // ── Editor ─────────────────────────────────────────────────────────────────
 function onSetupChange(md) {
-  recordFocus()
   pendingSetupMd = md
   setupSaving.value = true
   persistSetupDebounced()
-  nextTick(() => commitFocus())
 }
 
 // ── History ─────────────────────────────────────────────────────────────────
@@ -743,7 +781,6 @@ async function confirmNewSection() {
   const title = newSectionName.value.trim()
   if (!title) return
   newSectionDialog.value = false
-  pushSnapshot()
   const id = uuid()
   const newDefs = [...sectionDefs.value, { id, title, type: newSectionType.value, order: sectionDefs.value.length, rows: newSectionType.value === 'kv-table' ? [] : undefined }]
   sectionDefs.value = newDefs
@@ -755,7 +792,6 @@ async function deleteSection(sectionId) {
   if (sectionId === aufbauSectionId.value) return
   const ok = await confirm({ t, titleKey: 'action.delete', confirmKey: 'action.delete', cancelKey: 'action.cancel' })
   if (!ok) return
-  pushSnapshot()
   const newDefs = sectionDefs.value
     .filter(s => s.id !== sectionId)
     .map((s, i) => ({ ...s, order: i }))
@@ -797,7 +833,6 @@ onMounted(async () => {
     loading.value = false
   }
 
-  initSnapshot()
   createSnapshot(props.id).catch(() => {})
   snapshotInterval = setInterval(() => createSnapshot(props.id).catch(() => {}), 10 * 60 * 1000)
 
@@ -806,6 +841,7 @@ onMounted(async () => {
   loadTowers().catch(() => {})
   loadBars().catch(() => {})
   initPresence()
+  showLock.acquireOnOpen().catch(() => {})
 
   await nextTick()
   window.addEventListener('keydown', onUndoRedoKeydown)
@@ -814,6 +850,7 @@ onMounted(async () => {
 onBeforeUnmount(() => {
   window.removeEventListener('keydown', onUndoRedoKeydown)
   cleanupPresence()
+  showLock.releaseOnClose()
   clearInterval(snapshotInterval)
   persistSetupDebounced?.flush?.()
   persistChannels?.flush?.()

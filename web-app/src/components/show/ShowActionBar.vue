@@ -33,6 +33,18 @@
     </div>
 
     <div class="flex items-center gap-x-3 shrink-0 pr-4 sm:pr-6 lg:pr-8">
+      <!-- Schreib-Sperre: fremder Halter -->
+      <Badge v-if="lockedByOther" variant="outline" role="button" tabindex="0" @click="emit('requestTakeover')" class="text-orange-400 border-orange-500/30 bg-orange-500/10 text-xs flex cursor-pointer hover:bg-orange-500/20">
+        <Lock class="size-3 mr-1" />{{ labels.lockedBy }}
+      </Badge>
+      <!-- Schreib-Sperre: selbst gehalten -->
+      <Tooltip v-else-if="lockHeldByMe">
+        <TooltipTrigger asChild>
+          <Lock class="size-3.5 text-muted-foreground/50 hidden sm:block" />
+        </TooltipTrigger>
+        <TooltipContent side="bottom"><p>{{ labels.lockHeldByMe }}</p></TooltipContent>
+      </Tooltip>
+
       <!-- Presence -->
       <div v-if="presenceWithActivity.length > 1" class="hidden sm:flex items-center -space-x-1.5">
         <Tooltip v-for="u in presenceWithActivity.slice(0, 4)" :key="u.username">
@@ -129,7 +141,7 @@
 
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
-import { Search, Undo2, Redo2, AlertTriangle, CircleHelp, Eye, EyeOff } from 'lucide-vue-next'
+import { Search, Undo2, Redo2, AlertTriangle, CircleHelp, Eye, EyeOff, Lock } from 'lucide-vue-next'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
@@ -142,6 +154,8 @@ const props = defineProps({
   canRedo: { type: Boolean, default: false },
   saving: { type: Boolean, default: false },
   presence: { type: Array, default: () => [] },
+  lockHeldByMe: { type: Boolean, default: false },
+  lockedByOther: { type: Boolean, default: false },
   dupAddressWarning: { type: Boolean, default: false },
   dupChannelWarning: { type: Boolean, default: false },
   search: { type: String, default: '' },
@@ -152,7 +166,7 @@ const props = defineProps({
   labels: { type: Object, required: true },
 })
 
-const emit = defineEmits(['update:search', 'update:hideEosInactive', 'undo', 'redo', 'healthFilter', 'filterDup'])
+const emit = defineEmits(['update:search', 'update:hideEosInactive', 'undo', 'redo', 'healthFilter', 'filterDup', 'requestTakeover'])
 
 const colorMap = ['#3b82f6', '#a855f7', '#22c55e', '#f97316', '#ec4899', '#14b8a6', '#6366f1', '#06b6d4']
 const currentTime = ref(Date.now())

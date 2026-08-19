@@ -68,7 +68,7 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 | `./server/pdf/towers.js` | Rendering von Beleuchtungsgestellen (Karten-Grid und Textliste). |
 | `./server/pdf/bars.js` | Rendering von Zugstangen/Traversen/Punktzug (Skala, Fixture-Kreise, Textliste). |
 | `./server/pdf/utils.js` | Kanalgruppierung, Datumsformat, Bildgrößen-Ermittlung aus PNG/JPEG-Buffer. |
-| `./server/sse.js` | Server-Sent Events für Echtzeit-Kanal-Updates und Präsenz, pro Mandant gescopt; Heartbeat blockiert keine Einmalprozesse. |
+| `./server/sse.js` | Server-Sent Events für Echtzeit-Kanal-Updates und Präsenz, pro Mandant gescopt; Heartbeat blockiert keine Einmalprozesse; sendToUser() für gezielte Zustellung an einen User (z.B. Lock-Übernahme-Anfrage). |
 | `./server/email.js` | SMTP-Konfiguration und Email-Versand mit Fallback-Support. |
 | `./server/package.json` | NPM-Abhängigkeiten (sqlite, pdfkit, sharp, bcrypt, jwt). |
 | `./server/test/helpers/test-env.js` | Isolierte Testumgebung mit temporärem Datenpfad und HTTP-Response-Stub für Backend-Tests. |
@@ -104,7 +104,8 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 | `./server/db/template-bars.js` | DB-Zugriff für Template-Bars und deren Fixtures. |
 | `./server/db/template-towers.js` | DB-Zugriff für Template-Towers und deren Slots. |
 | `./server/db/template-apply.js` | Anwendung von Templates auf Shows (einzeln und auf alle Shows eines Templates) sowie Rück-Speichern von Show-Items als Template-Einträge. |
-| `./server/db/locks.js` | DB-Zugriff für Bearbeitungs-Sperren (Optimistic Locking). |
+| `./server/db/locks.js` | DB-Zugriff für Show-weiten Schreib-Lock: acquire/release/touch/get/transfer (direkte Übergabe an anderen User) sowie listLocks() für die Show-Übersicht. |
+| `./server/db/operations.js` | DB-Zugriff für serverseitiges Undo/Redo: recordOperation (ein Eintrag pro Save, alter/neuer Zustand einer Ressource, Prune auf 50), in-memory Redo-Stack pro Show. |
 | `./server/db/settings.js` | DB-Zugriff für generische Key-Value-Settings-Tabelle (SMTP-Konfig, Anzeige-Einstellungen). |
 | `./server/db/migrations/index.js` | Geordnete Liste aller Schema-Migrationen. |
 | `./server/db/migrations/NNN-*.js` | Einzelne Schema-Migration (`up`, `alreadyApplied`); wird von `db-init.js` einmalig ausgeführt und in `schema_migrations` getrackt. |
@@ -113,14 +114,14 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 
 | Datei | Beschreibung |
 |---|---|
-| `./server/routes/shows.js` | API-Routen für Shows (CRUD, Lock, Events, Templates). |
+| `./server/routes/shows.js` | API-Routen für Shows (CRUD, Lock inkl. Übernahme-Anfrage und -Übergabe, Events, Templates, Undo/Redo). |
 | `./server/routes/auth.js` | API-Routen für Login, Passwort-Änderung, Passwort-Reset sowie begrenztes IP-Rate-Limiting. |
 | `./server/routes/users.js` | API-Routen für Benutzer-Verwaltung und Preferences. |
 | `./server/routes/register.js` | API-Routen für Self-Service-Registrierung (Double Opt-In). |
-| `./server/routes/channels.js` | API-Routen für Kanäle, Beleuchtungs-Checks und mandantenweite Farbnutzungsstatistik (`/api/channels/color-usage`). |
+| `./server/routes/channels.js` | API-Routen für Kanäle, Beleuchtungs-Checks und mandantenweite Farbnutzungsstatistik (`/api/channels/color-usage`); zeichnet Undo-Operation pro Save auf. |
 | `./server/routes/bars.js` | API-Routen für Obermaschinerie-Elemente, Fixtures (inkl. side/positionText), Reordering. |
-| `./server/routes/towers.js` | API-Routen für Show-Türme, Slots, Restore. |
-| `./server/routes/sections.js` | API-Routen für Show-Sections und deren Definitionen; sendet SSE nach Inhalts- und Definitionsänderungen. |
+| `./server/routes/towers.js` | API-Routen für Show-Türme, Slots, Restore; jede Aktion zeichnet den kompletten Towers-Zustand als Undo-Operation auf. |
+| `./server/routes/sections.js` | API-Routen für Show-Sections und deren Definitionen; sendet SSE nach Inhalts- und Definitionsänderungen, zeichnet Undo-Operationen auf. |
 | `./server/routes/photos.js` | API-Routen für Foto-Upload, Beschreibungen, Channel-Fotos. |
 | `./server/routes/floorplan.js` | API-Routen für Show- und Template-Grundrisse (Bilder, Snapshots). |
 | `./server/routes/templates.js` | API-Routen für Spielort-Vorlagen (Kanäle, Sections, Bars, Towers). |
@@ -170,7 +171,7 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 | `./web-app/src/composables/useUpdateCheck.ts` | Speichert globalen Zustand der Verfügbarkeit von Updates. |
 | `./web-app/src/composables/useShowFloorplan.ts` | Lädt und speichert Grundriss-Daten und Bilder pro Show. |
 | `./web-app/src/composables/useTokenRefresh.ts` | Erneuert JWT-Token automatisch vor Ablauf. |
-| `./web-app/src/composables/useShowChannels.ts` | Verwaltet Kanäle mit Undo/Redo, Suche, Filter und EOS-Import. |
+| `./web-app/src/composables/useShowChannels.ts` | Verwaltet Kanäle mit Suche, Filter und EOS-Import; Undo/Redo läuft serverseitig über useUndoRedo.ts. |
 | `./web-app/src/composables/useColorUsage.js` | Modulweiter Cache der mandantenweiten Farbnutzungsstatistik für ColorAutocomplete. |
 | `./web-app/src/composables/useShowTabs.js` | Verwaltet Show-Tab-, Subtab- und Sitzungs-Persistenz inklusive Timeout und validiert verfügbare Aufbau-Tabs. |
 | `./web-app/src/composables/useTemplateInsertion.js` | Verwaltet Auswahl, Einfügen und Speichern von Bar-/Turm-Vorlagen für eine Show. |
@@ -179,11 +180,12 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 | `./web-app/src/composables/useShowSections.ts` | Lädt und speichert benutzerdefinierte Abschnitte pro Show; ersetzt bei SSE Inhalte und Definitionen gemeinsam. |
 | `./web-app/src/composables/useBreakpoint.ts` | Erkennt Bildschirmgröße via MediaQueryList-Listener. |
 | `./web-app/src/composables/floorplan/useFloorplanState.ts` | Aktuell leer (Platzhalter, ungenutzt). |
-| `./web-app/src/composables/useShowPresence.ts` | Verfolgt anwesende Benutzer über Server-Sent Events. |
+| `./web-app/src/composables/useShowPresence.ts` | Verfolgt anwesende Benutzer sowie Lock-Status über Server-Sent Events. |
+| `./web-app/src/composables/useShowLock.ts` | Show-weiter Schreib-Lock im Frontend: Akquise beim Öffnen, periodischer Heartbeat, Freigabe/Übergabe, Übernahme-Anfrage-Handling. |
 | `./web-app/src/composables/useShowHistory.js` | Verwaltet Öffnen und Wiederherstellen des Show-Versionsverlaufs inklusive Daten-Reload. |
 | `./web-app/src/composables/useShowTowers.ts` | Verwaltet Türme (Lichtstative) mit Slot-Zuweisungen. |
 | `./web-app/src/composables/useShowPhotos.ts` | Lädt Fotos-Liste pro Show. |
-| `./web-app/src/composables/useUndoRedo.ts` | Allgemeines speicherinternes Undo/Redo mit Focus-Tracking für die aktuelle Show-Sitzung. |
+| `./web-app/src/composables/useUndoRedo.ts` | Ruft die serverseitigen Undo/Redo-Endpunkte auf (operations-Tabelle); reagiert auf leeren Stack (400) und Lock-Konflikt (423). |
 | `./web-app/src/composables/useShowBars.ts` | Verwaltet Obermaschinerie-Elemente mit Fixtures (inkl. side/positionText) und Kanal-Zuordnungen. |
 | `./web-app/src/composables/useSaveToTemplateDialog.ts` | "Als Vorlage speichern"-Dialog-Logik (Namenskonflikt-Check, Speichern), geteilt von GassenturmView und ZugstangenView. |
 
@@ -202,10 +204,10 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 
 | Datei | Beschreibung |
 |---|---|
-| `./web-app/src/api/client.ts` | Typisierter HTTP-Client mit einheitlicher Auth-, Fehler-, Download- und SSE-Verwaltung. |
+| `./web-app/src/api/client.ts` | Typisierter HTTP-Client mit einheitlicher Auth-, Fehler-, Download- und SSE-Verwaltung; subscribeShow() inkl. Lock-Status- und Übernahme-Anfrage-Events. |
 | `./web-app/src/api/jwtDecode.ts` | Dekodiert JWT-Payload ohne externe Abhängigkeit. |
 | `./web-app/src/api/cache.ts` | Einfacher In-Memory-Cache mit TTL-Support. |
-| `./web-app/src/api/shows.ts` | CRUD-API für Shows, Meta-Daten, History und Snapshots. |
+| `./web-app/src/api/shows.ts` | CRUD-API für Shows, Meta-Daten, History und Snapshots, Show-Lock (inkl. Übergabe), Undo/Redo. |
 | `./web-app/src/api/channels.ts` | CRUD und CSV-Im-/Export für Kanäle, Merging-Logik, Abruf der Farbnutzungsstatistik. |
 | `./web-app/src/api/bars.ts` | Verwaltet Obermaschinerie-Elemente (Zugstange/Traverse/Punktzug), Fixtures und deren Reihenfolge. |
 | `./web-app/src/api/towers.ts` | CRUD-API für Lichtstative und Slot-Zuweisungen. |
@@ -226,8 +228,8 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 | `./web-app/src/views/ConfirmView.vue` | Bestätigung der Team-Registrierung via E-Mail-Link. |
 | `./web-app/src/views/ForgotPasswordView.vue` | Passwort-Zurücksetzen anfordern per E-Mail. |
 | `./web-app/src/views/ResetPasswordView.vue` | Passwort-Zurücksetzen nach E-Mail-Link. |
-| `./web-app/src/views/ShowsView.vue` | Übersicht aller Produktionen mit Sortierung; Erstellung per Schnell-Dialog oder ShowWizardDialog (FAB-Menü). |
-| `./web-app/src/views/ShowDetailView.vue` | Hauptansicht einer Show mit Kanaltabelle und Editoren. |
+| `./web-app/src/views/ShowsView.vue` | Übersicht aller Produktionen mit Sortierung; zeigt Schreib-Sperre pro Show (Schloss-Icon); Erstellung per Schnell-Dialog oder ShowWizardDialog (FAB-Menü). |
+| `./web-app/src/views/ShowDetailView.vue` | Hauptansicht einer Show mit Kanaltabelle und Editoren; read-only-Overlay bei fremdem Schreib-Lock (leitet Scroll-Events an den Content weiter), Übernahme-Anfrage-Dialog. |
 | `./web-app/src/views/ArchiveView.vue` | Anzeige und Verwaltung archivierter Produktionen mit Wiederherstellung. |
 | `./web-app/src/views/TemplatesView.vue` | Vorlagenliste, Neu-Anlegen, Löschen; Detail-Bearbeitung an TemplateDetailPanel, Upload an TemplateUploadDialog delegiert. |
 | `./web-app/src/views/SettingsView.vue` | Sub-Navigation zu verschiedenen Einstellungsbereichen. |
@@ -252,7 +254,7 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 | `./web-app/src/components/ColorAutocomplete.vue` | Farbfilter-Autocomplete mit Lee- und Rosco-Codes, Vorschau, Sortierung nach Nutzungshäufigkeit und Aufklapp-Richtung je nach verfügbarem Platz. |
 | `./web-app/src/components/show/ShowHeader.vue` | Titel-Editor, Show-Metadaten, Import/Export (EOS, CSV, PDF) und Verlauf. |
 | `./web-app/src/components/show/ShowWizardDialog.vue` | Mehrstufiger Assistent zum Anlegen einer Show: Vorlage, Name/Datum, Bereiche (Türme/Bars), dynamische Einzelauswahl-Schritte für Vorlagen-Bereiche/Obermaschinerie/Beleuchtungsgestelle, Zusammenfassung. |
-| `./web-app/src/components/show/ShowActionBar.vue` | Undo/Redo, Live-Präsenz-Avatare mit zeitbasierter Aktivitätsanzeige und klickbare Warn-Badges (doppelte Adresse/Kreisnummer, unvollständige Kreise) die die Kanalliste filtern. |
+| `./web-app/src/components/show/ShowActionBar.vue` | Undo/Redo, Live-Präsenz-Avatare mit zeitbasierter Aktivitätsanzeige, Schreib-Sperre-Anzeige mit Übernahme-Button, und klickbare Warn-Badges (doppelte Adresse/Kreisnummer, unvollständige Kreise) die die Kanalliste filtern. |
 | `./web-app/src/components/show/ChannelPickerGrid.vue` | Wiederverwendbares Kreisauswahl-Grid (Suchfeld + nummerierte Buttons) für Scheinwerfer-/Kreis-hinzufügen-Modale; unterstützt Einzel- und Mehrfachauswahl. |
 | `./web-app/src/components/show/PhotoGallery.vue` | Fotogalerie mit Upload, Beschriftungen, Mehrfachauswahl von Kreisen aus der Kreisliste (ChannelPickerGrid) und Lightbox-Vorschau. |
 | `./web-app/src/components/show/HistorySlideOver.vue` | Snapshots älterer Kanalkonfigurationen zum Durchsuchen und Wiederherstellen; behandelt Ladefehler und verwirft veraltete Antworten nach dem Schließen. |
