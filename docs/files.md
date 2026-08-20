@@ -131,7 +131,7 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 | `./server/routes/system.js` | API-Routen für System-Status, Health-Check, Backup, Restore. |
 | `./server/routes/update.js` | API-Routen für Versions-Check und Server-Update; entpackt Release-ZIP streamend, spart Infrastruktur-Dateien aus, sichert den Stand vorher und macht bei Fehlschlag (npm install, Modul-Rauchtest) automatisch ein Rollback. |
 | `./server/routes/smtp.js` | API-Routen für SMTP-Konfiguration und Test-E-Mails. |
-| `./server/routes/operator.js` | API-Routen für Betreiber-Panel (Mandanten-Verwaltung). |
+| `./server/routes/operator.js` | API-Routen für Betreiber-Panel (Mandanten-Verwaltung, Server-Version). |
 
 ## web-app/ (Vue 3 + TypeScript Frontend, Vite)
 

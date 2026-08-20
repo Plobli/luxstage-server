@@ -22,6 +22,7 @@ import {
 import { config } from '../config.js'
 import { sendConfirmEmail } from '../email.js'
 import { CONFIRM_TTL_MS } from './register.js'
+import { version } from './system.js'
 import fs from 'node:fs'
 
 // Kennzahlen eines Mandanten aus seiner DB lesen (Shows, Nutzer).
@@ -47,6 +48,10 @@ export async function operatorRoutes(req, res, pathname) {
 
   // Ab hier: alles geschützt.
   if (!requireOperator(req, res)) return
+
+  if (method === 'GET' && pathname === '/api/operator/version') {
+    return json(res, 200, { version })
+  }
 
   if (method === 'GET' && pathname === '/api/operator/tenants') {
     const tenants = listTenants().map(t => ({

@@ -5,14 +5,16 @@ import { streamBackup, restoreBackup } from '../backup.js'
 import { config } from '../config.js'
 import { execSync } from 'node:child_process'
 
-let { version } = JSON.parse(readFileSync(new URL('../../package.json', import.meta.url)))
+let version
+;({ version } = JSON.parse(readFileSync(new URL('../../package.json', import.meta.url))))
 try {
   const buildNum = execSync('git rev-list --count HEAD', { stdio: 'pipe' }).toString().trim()
   version = `${version} Build ${buildNum}`
 } catch {
-  // Bei einem Prod-Release fehlt der .git Ordner im ZIP, daher wird der Catch-Block erreicht 
+  // Bei einem Prod-Release fehlt der .git Ordner im ZIP, daher wird der Catch-Block erreicht
   // und die Version bleibt wie in der package.json definiert (z.B. "2026.4.1").
 }
+export { version }
 
 export async function systemRoutes(req, res, pathname) {
   const { method } = req

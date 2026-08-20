@@ -88,7 +88,14 @@ async function loadPending() {
   }
 }
 
-async function refresh() { await Promise.all([loadTenants(), loadPending()]) }
+async function loadVersion() {
+  try {
+    const { version } = await api('GET', '/api/operator/version')
+    $('#version').textContent = 'v' + version
+  } catch { /* nicht kritisch fürs Panel */ }
+}
+
+async function refresh() { await Promise.all([loadTenants(), loadPending(), loadVersion()]) }
 
 // ── Backup-Dialog ────────────────────────────────────────────────────────────
 let bkCurrentTenant = null

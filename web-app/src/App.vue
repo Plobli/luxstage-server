@@ -190,6 +190,10 @@
             </div>
             <span class="text-sm font-medium">{{ t('nav.logout') }}</span>
           </button>
+
+          <div class="px-3 pt-2 text-[11px] text-muted-foreground/60">
+            Web {{ appVersion }}<span v-if="serverVersion"> · Srv {{ serverVersion }}</span>
+          </div>
         </div>
       </div>
 
@@ -336,10 +340,10 @@ const isAdmin = computed(() => {
 const settingsNavItems = computed(() => [
   { to: '/settings/account', label: t('settings.account') },
   { to: '/settings/display', label: t('settings.display') },
-  ...(isAdmin.value ? [{ to: '/settings/backup', label: t('settings.backup') }] : []),
   ...(isAdmin.value ? [{ to: '/settings/users', label: 'Benutzerverwaltung' }] : []),
-  // Server/SMTP/Update sind Self-Hosted-Einstellungen: im SaaS-Modus liegen
-  // Server-Betrieb, zentrales SMTP und Updates beim Betreiber, nicht beim Mandanten.
+  // Backup/Server/SMTP/Update sind Self-Hosted-Einstellungen: im SaaS-Modus laufen
+  // Backups zentral automatisch, Server-Betrieb/SMTP/Updates liegen beim Betreiber.
+  ...(isAdmin.value && !saasMode.value ? [{ to: '/settings/backup', label: t('settings.backup') }] : []),
   ...(isAdmin.value && !saasMode.value ? [{ to: '/settings/server', label: t('settings.server') }] : []),
   ...(isAdmin.value && !saasMode.value ? [{ to: '/settings/smtp', label: t('settings.smtp') }] : []),
   ...(isAdmin.value && !saasMode.value ? [{ to: '/settings/update', label: t('settings.update') }] : []),
