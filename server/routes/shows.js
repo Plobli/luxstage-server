@@ -4,6 +4,7 @@ import { readJsonBody, json, notFound } from '../helpers.js'
 import { subscribe, broadcast, sendToUser, getPresence } from '../sse.js'
 import { getLastOperation, deleteOperation, pushRedo, popRedo, recordOperation } from '../db/operations.js'
 import { restoreTowers } from '../db/towers.js'
+import { restoreBars } from '../db/bars.js'
 
 const SHOW_LIST          = /^\/api\/shows$/
 const SHOW_ARCHIVED      = /^\/api\/shows\/archived$/
@@ -42,6 +43,10 @@ function applyOperationValue(slug, resourceType, username, value) {
     case 'towers':
       restoreTowers(slug, value)
       broadcast(slug, 'towers-updated', {})
+      break
+    case 'bars':
+      restoreBars(slug, value)
+      broadcast(slug, 'bars-updated', {})
       break
     default:
       throw new Error(`Unbekannter resource_type: ${resourceType}`)

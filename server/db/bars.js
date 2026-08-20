@@ -97,3 +97,28 @@ export function removeBarFixture(fixtureId) {
     getDb().prepare('UPDATE channels SET mount_ref = NULL WHERE id = ?').run(fx.channel_id)
   }
 }
+
+/** Ersetzt alle Bars + Fixtures einer Show durch den übergebenen Zustand —
+ *  analog restoreTowers(), für Undo/Redo. channels.mount_ref wird bewusst
+ *  nicht mitgeführt (bleibt beim zuletzt bekannten Stand, wie bei den
+ *  einzelnen Fixture-Routen auch nur bei aktiver Zuordnung/Entfernung gepflegt). */
+export function restoreBars(slug, bars) {
+  const show = readShow(slug)
+  if (!show) throw new Error(`Show not found: ${slug}`)
+  const restoreAll = getDb().transaction(() => {
+    getDb().prepare('DELETE FROM bars WHERE show_id = ?').run(show.id)
+    for (const bar of bars) {
+      getDb().prepare(`
+        INSERT INTO bars (id, show_id, name, zug_nr, length_cm, height_cm, notes, sort_order, bar_type, hide_scale, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(bar.id, show.id, bar.name ?? '', bar.zug_nr ?? '', bar.length_cm ?? 600, bar.height_cm ?? null, bar.notes ?? '', bar.sort_order ?? 0, bar.bar_type ?? 'zugstange', bar.hide_scale ? 1 : 0, bar.created_at ?? Date.now())
+      for (const fixture of (bar.fixtures ?? [])) {
+        getDb().prepare(`
+          INSERT INTO bar_fixtures (id, bar_id, channel_id, position, notes, side, position_text)
+          VALUES (?, ?, ?, ?, ?, ?, ?)
+        `).run(fixture.id ?? randomUUID(), bar.id, fixture.channel_id, fixture.position ?? 0, fixture.notes ?? '', fixture.side ?? 'out', fixture.position_text ?? '')
+      }
+    }
+  })
+  restoreAll()
+}

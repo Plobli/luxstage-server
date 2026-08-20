@@ -1,8 +1,9 @@
 import { ref, type Ref } from 'vue'
 import { fetchTowers, createTower, updateTower, deleteTower as apiDeleteTower, assignTowerSlot, type Tower } from '../api/towers'
 import type { Channel } from '../api/channels'
+import { ApiError } from '../api/client'
 
-export function useShowTowers(showId: string, channels?: Ref<Channel[]>, externalTowers?: Ref<Tower[]>) {
+export function useShowTowers(showId: string, channels?: Ref<Channel[]>, externalTowers?: Ref<Tower[]>, onLockConflict?: (body: { lockedBy?: string, since?: number }) => void) {
   const towers = externalTowers ?? ref<Tower[]>([])
   const loading = ref(false)
 
@@ -34,23 +35,43 @@ export function useShowTowers(showId: string, channels?: Ref<Channel[]>, externa
   }
 
   async function addTower(data: Partial<Tower>) {
-    const { id } = await createTower(showId, data)
-    await loadTowers()
-    return id
+    try {
+      const { id } = await createTower(showId, data)
+      await loadTowers()
+      return id
+    } catch (e) {
+      if (e instanceof ApiError && e.status === 423) { onLockConflict?.(e.body); return }
+      throw e
+    }
   }
 
   async function saveTower(towerId: string, data: Partial<Tower>) {
-    await updateTower(showId, towerId, data)
-    await loadTowers()
+    try {
+      await updateTower(showId, towerId, data)
+      await loadTowers()
+    } catch (e) {
+      if (e instanceof ApiError && e.status === 423) { onLockConflict?.(e.body); return }
+      throw e
+    }
   }
 
   async function removeTower(towerId: string) {
-    await apiDeleteTower(showId, towerId)
-    towers.value = towers.value.filter(t => t.id !== towerId)
+    try {
+      await apiDeleteTower(showId, towerId)
+      towers.value = towers.value.filter(t => t.id !== towerId)
+    } catch (e) {
+      if (e instanceof ApiError && e.status === 423) { onLockConflict?.(e.body); return }
+      throw e
+    }
   }
 
   async function assignSlot(towerId: string, slotIndex: number, channelId: string | null) {
-    await assignTowerSlot(showId, towerId, slotIndex, channelId)
+    try {
+      await assignTowerSlot(showId, towerId, slotIndex, channelId)
+    } catch (e) {
+      if (e instanceof ApiError && e.status === 423) { onLockConflict?.(e.body); return }
+      throw e
+    }
     const tower = towers.value.find(t => t.id === towerId)
     if (!tower) return
 
