@@ -2,7 +2,7 @@ import { ref, computed, type Ref } from 'vue'
 import { acquireShowLock, releaseShowLock, touchShowLock, requestLockTakeover, type LockResult } from '../api/shows.js'
 import { getToken, ApiError } from '../api/client.js'
 import { jwtDecode } from '../api/jwtDecode.js'
-import type { ShowLock } from './useShowPresence.js'
+import type { ShowLock } from './useShowLockEvents.js'
 
 const HEARTBEAT_INTERVAL_MS = 3 * 60 * 1000 // deutlich unter config.lockTimeout (10 Minuten)
 
@@ -14,7 +14,7 @@ function currentUsername(): string | null {
 /**
  * Verwaltet den Show-weiten Schreib-Lock im Frontend: Akquise beim Öffnen,
  * periodischer Heartbeat solange die Show offen ist, Freigabe beim Verlassen.
- * `lock` (aus useShowPresence, per SSE aktuell gehalten) bestimmt, ob der
+ * `lock` (aus useShowLockEvents, per SSE aktuell gehalten) bestimmt, ob der
  * aktuelle User schreiben darf.
  */
 export function useShowLock(showId: string, lock: Ref<ShowLock | null>) {

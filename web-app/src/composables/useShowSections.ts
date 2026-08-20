@@ -20,7 +20,6 @@ export function useShowSections(showId: string, meta: Ref<any>, onLockConflict?:
   const sectionDefs = ref<SectionDef[]>([])
   const sectionContents = ref<Map<string, string>>(new Map())
   const sectionsSaving = ref(false)
-  let ignoreSectionsSseCount = 0
 
   // Serverstand, auf dem die aktuelle Kopie basiert — analog zu channelsVersion
   // in useShowChannels.ts. Inhalte und Definitionen haben getrennte Versionen,
@@ -39,7 +38,6 @@ export function useShowSections(showId: string, meta: Ref<any>, onLockConflict?:
 
   async function doPersistSections(): Promise<void> {
     sectionsSaving.value = true
-    ignoreSectionsSseCount++
     try {
       const sections: SectionContent[] = [...sectionContents.value.entries()].map(([id, content]) => ({ id, content }))
       const { version } = await saveShowSections(showId, sections, sectionContentsVersion.value)
@@ -51,12 +49,10 @@ export function useShowSections(showId: string, meta: Ref<any>, onLockConflict?:
       invalidate('shows')
     } catch (e) {
       if (e instanceof ApiError && e.status === 409) {
-        ignoreSectionsSseCount = Math.max(0, ignoreSectionsSseCount - 1)
         sectionsConflict.value = { kind: 'contents', serverVersion: e.body.serverVersion, serverSections: e.body.serverSections }
         return
       }
       if (e instanceof ApiError && e.status === 423) {
-        ignoreSectionsSseCount = Math.max(0, ignoreSectionsSseCount - 1)
         onLockConflict?.(e.body)
         return
       }
@@ -72,18 +68,6 @@ export function useShowSections(showId: string, meta: Ref<any>, onLockConflict?:
       fetchShowSectionDefs(showId)
     ])
     sectionContents.value = new Map((Array.isArray(sectionsRes.sections) ? sectionsRes.sections : []).map(s => [s.id, s.content]))
-    sectionContentsVersion.value = sectionsRes.version
-    sectionDefs.value = Array.isArray(defsRes.defs) ? defsRes.defs : []
-    sectionDefsVersion.value = defsRes.version
-  }
-
-  async function handleSectionsSse(): Promise<void> {
-    if (ignoreSectionsSseCount > 0) { ignoreSectionsSseCount--; return }
-    const [sectionsRes, defsRes] = await Promise.all([
-      fetchShowSections(showId),
-      fetchShowSectionDefs(showId),
-    ])
-    sectionContents.value = new Map((Array.isArray(sectionsRes.sections) ? sectionsRes.sections : []).map(section => [section.id, section.content]))
     sectionContentsVersion.value = sectionsRes.version
     sectionDefs.value = Array.isArray(defsRes.defs) ? defsRes.defs : []
     sectionDefsVersion.value = defsRes.version
@@ -142,7 +126,6 @@ export function useShowSections(showId: string, meta: Ref<any>, onLockConflict?:
     persistSections,
     persistSectionDefs,
     loadSections,
-    handleSectionsSse,
     sectionsConflict,
     resolveSectionsConflictReload,
     resolveSectionsConflictForce

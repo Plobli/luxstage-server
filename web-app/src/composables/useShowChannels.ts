@@ -47,10 +47,8 @@ export function useShowChannels({
   const eosExcludedChannels = ref<string[]>([])
   const eosMergePreview = ref<EosMergePreview>({ open: false, newActive: [], nowGone: [], untouched: [], addressMismatch: [], deviceMismatch: [], previouslyExcluded: new Set() })
   let _eosMergeResolve: ((v: { ok: boolean, applyAddresses: Set<string>, applyDevices: Set<string>, excludedChannels: Set<string> }) => void) | null = null
-  let ignoreSseCount = 0
 
   const persistChannels = useDebounceFn(async () => {
-    ignoreSseCount++
     try {
       const { version } = await saveChannels(showId, channels.value, channelsVersion.value)
       channelsVersion.value = version
@@ -61,12 +59,10 @@ export function useShowChannels({
       invalidate('shows')
     } catch (e) {
       if (e instanceof ApiError && e.status === 409) {
-        ignoreSseCount = Math.max(0, ignoreSseCount - 1) // kein SSE-Update zu erwarten, das übersprungen werden müsste
         channelsConflict.value = { serverVersion: e.body.serverVersion, serverChannels: e.body.serverChannels }
         return
       }
       if (e instanceof ApiError && e.status === 423) {
-        ignoreSseCount = Math.max(0, ignoreSseCount - 1)
         onLockConflict?.(e.body)
         return
       }
@@ -583,13 +579,6 @@ export function useShowChannels({
     channelsVersion.value = version
   }
 
-  async function handleChannelsSse(): Promise<void> {
-    if (ignoreSseCount > 0) { ignoreSseCount--; return }
-    const { channels: chs, version } = await fetchChannels(showId)
-    channels.value = Array.isArray(chs) ? chs : []
-    channelsVersion.value = version
-  }
-
   return {
     channels,
     channelsSaving,
@@ -621,7 +610,6 @@ export function useShowChannels({
     canRedo,
     onUndoRedoKeydown,
     loadChannels,
-    handleChannelsSse,
     channelsConflict,
     resolveConflictReload,
     resolveConflictForce

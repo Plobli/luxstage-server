@@ -45,32 +45,6 @@
         <TooltipContent side="bottom"><p>{{ labels.lockHeldByMe }}</p></TooltipContent>
       </Tooltip>
 
-      <!-- Presence -->
-      <div v-if="presenceWithActivity.length > 1" class="hidden sm:flex items-center -space-x-1.5">
-        <Tooltip v-for="u in presenceWithActivity.slice(0, 4)" :key="u.username">
-          <TooltipTrigger asChild>
-            <div
-              :style="{ backgroundColor: userColor(u.username) }"
-              :class="{ 'ring-2 ring-green-400/80': u.isActive }"
-              class="size-6 rounded-full ring-2 ring-background flex items-center justify-center text-[10px] font-semibold text-white uppercase relative transition-all"
-            >
-              {{ u.username[0] }}
-              <div v-if="u.isActive" class="absolute -bottom-0.5 -right-0.5 size-2.5 rounded-full bg-green-400 ring-1 ring-background" />
-              <span v-if="u.devices.includes('ios')" class="absolute -top-0.5 -right-0.5 text-xs">📱</span>
-            </div>
-          </TooltipTrigger>
-          <TooltipContent side="bottom">
-            <div class="text-sm">
-              <p class="font-semibold">{{ u.username }}</p>
-              <p class="text-xs text-muted-foreground">
-                {{ u.devices.includes('ios') ? 'iOS' : 'Web' }}{{ u.devices.length > 1 ? ' + ' + (u.devices.length - 1) : '' }}
-              </p>
-            </div>
-          </TooltipContent>
-        </Tooltip>
-        <div v-if="presenceWithActivity.length > 4" class="size-6 rounded-full bg-muted ring-2 ring-background flex items-center justify-center text-[9px] text-muted-foreground">+{{ presenceWithActivity.length - 4 }}</div>
-      </div>
-
       <!-- Warnings -->
       <Badge v-if="dupAddressWarning && activeTab === 'channels'" variant="outline" role="button" tabindex="0" @click="emit('filterDup', 'address')" @keydown.enter="emit('filterDup', 'address')" class="text-yellow-400 border-yellow-500/30 bg-yellow-500/10 text-xs hidden sm:flex cursor-pointer hover:bg-yellow-500/20">
         <AlertTriangle class="size-3 mr-1" />{{ labels.dupAddress }}
@@ -140,7 +114,6 @@
 </template>
 
 <script setup>
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { Search, Undo2, Redo2, AlertTriangle, CircleHelp, Eye, EyeOff, Lock } from 'lucide-vue-next'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -148,12 +121,11 @@ import { Input } from '@/components/ui/input'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 
-const props = defineProps({
+defineProps({
   activeTab: { type: String, default: 'gassenturm' },
   canUndo: { type: Boolean, default: false },
   canRedo: { type: Boolean, default: false },
   saving: { type: Boolean, default: false },
-  presence: { type: Array, default: () => [] },
   lockHeldByMe: { type: Boolean, default: false },
   lockedByOther: { type: Boolean, default: false },
   dupAddressWarning: { type: Boolean, default: false },
@@ -168,29 +140,5 @@ const props = defineProps({
 
 const emit = defineEmits(['update:search', 'update:hideEosInactive', 'undo', 'redo', 'healthFilter', 'filterDup', 'requestTakeover'])
 
-const colorMap = ['#3b82f6', '#a855f7', '#22c55e', '#f97316', '#ec4899', '#14b8a6', '#6366f1', '#06b6d4']
-const currentTime = ref(Date.now())
-let presenceTimer
 
-onMounted(() => {
-  presenceTimer = window.setInterval(() => { currentTime.value = Date.now() }, 10_000)
-})
-
-onBeforeUnmount(() => clearInterval(presenceTimer))
-
-function userColor(username) {
-  let hash = 0
-  for (let i = 0; i < username.length; i++) {
-    hash = ((hash << 5) - hash) + username.charCodeAt(i)
-    hash |= 0
-  }
-  return colorMap[Math.abs(hash) % colorMap.length]
-}
-
-const presenceWithActivity = computed(() =>
-  props.presence.map(u => ({
-    ...u,
-    isActive: u.lastActivityAt && currentTime.value - new Date(u.lastActivityAt).getTime() < 30000
-  }))
-)
 </script>

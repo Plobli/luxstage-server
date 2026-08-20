@@ -191,15 +191,15 @@ export function setServerUrl(url: string): void {
 }
 
 /**
- * Gemeinsame SSE-Verbindung pro Show.
- * Gibt { onChannels, onSections, onPresence, close } zurück.
+ * SSE-Verbindung pro Show, ausschließlich für Lock-Status/Übernahme-Anfragen
+ * (Single-Editor-Sperre). Gibt eine Unsubscribe-Funktion zurück.
  * Nutzt pro Verbindungsversuch ein frisches kurzlebiges Einmal-Token (statt
  * des langlebigen JWT), damit kein Dauer-Token in Server-/Proxy-Logs landet.
  * EventSource kann bei einem Einmal-Token nicht selbst reconnecten (das Token
  * ist nach dem ersten Connect verbraucht) — der Reconnect wird daher hier
  * manuell mit neuem Token durchgeführt.
  */
-export function subscribeShow(showId: string, { onChannels, onSections, onPresence, onTowers, onBars, onLockStatus, onTakeoverRequested }: { onChannels?: (data: any) => void, onSections?: (data: any) => void, onPresence?: (data: any) => void, onTowers?: (data: any) => void, onBars?: (data: any) => void, onLockStatus?: (data: any) => void, onTakeoverRequested?: (data: any) => void } = {}): () => void {
+export function subscribeShow(showId: string, { onLockStatus, onTakeoverRequested }: { onLockStatus?: (data: any) => void, onTakeoverRequested?: (data: any) => void } = {}): () => void {
   let es: EventSource | null = null
   let closed = false
   let retryTimer: ReturnType<typeof setTimeout> | null = null
@@ -216,11 +216,6 @@ export function subscribeShow(showId: string, { onChannels, onSections, onPresen
     if (closed) return
 
     es = new EventSource(url)
-    if (onChannels) es.addEventListener('channels-updated', (e: any) => onChannels(JSON.parse(e.data)))
-    if (onSections) es.addEventListener('sections-updated', (e: any) => onSections(JSON.parse(e.data)))
-    if (onPresence) es.addEventListener('presence-updated', (e: any) => onPresence(JSON.parse(e.data)))
-    if (onTowers) es.addEventListener('towers-updated', (e: any) => onTowers(JSON.parse(e.data)))
-    if (onBars) es.addEventListener('bars-updated', (e: any) => onBars(JSON.parse(e.data)))
     if (onLockStatus) es.addEventListener('lock-status-updated', (e: any) => onLockStatus(JSON.parse(e.data)))
     if (onTakeoverRequested) es.addEventListener('lock-takeover-requested', (e: any) => onTakeoverRequested(JSON.parse(e.data)))
     es.onerror = () => {

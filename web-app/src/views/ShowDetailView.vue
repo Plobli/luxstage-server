@@ -50,7 +50,6 @@
         :canUndo="canUndo"
         :canRedo="canRedo"
         :saving="channelsSaving || sectionsSaving || setupSaving"
-        :presence="presence"
         :lockHeldByMe="showLock.isHeldByMe.value"
         :lockedByOther="showLock.isLockedByOther.value"
         :dupAddressWarning="dupWarning"
@@ -410,7 +409,7 @@ import { useKeyboardNav } from '../composables/useKeyboardNav.js'
 
 import { useShowPhotos } from '../composables/useShowPhotos.js'
 import { useShowSections } from '../composables/useShowSections.js'
-import { useShowPresence } from '../composables/useShowPresence.js'
+import { useShowLockEvents } from '../composables/useShowLockEvents.js'
 import { useShowLock } from '../composables/useShowLock.js'
 import { useShowChannels } from '../composables/useShowChannels.js'
 import { useShowFloorplan } from '../composables/useShowFloorplan.js'
@@ -473,10 +472,10 @@ watch(() => floorplan.value.image_url, async (path) => {
   floorplanImageUrl.value = path ? await api.url(path) : null
 }, { immediate: true })
 
-// showLock wird erst weiter unten instanziiert (braucht presence/lock aus
-// useShowPresence, das wiederum handleChannelsSse/handleSectionsSse braucht).
-// Dieser Wrapper wird erst bei einem tatsächlichen 423 aufgerufen, also lange
-// nachdem showLock existiert — die Forward-Reference ist unkritisch.
+// showLock wird erst weiter unten instanziiert (braucht lock aus
+// useShowLockEvents). Dieser Wrapper wird erst bei einem tatsächlichen 423
+// aufgerufen, also lange nachdem showLock existiert — die Forward-Reference
+// ist unkritisch.
 function onLockConflict(body) {
   showLock.syncLockFromConflict(body)
 }
@@ -484,7 +483,7 @@ function onLockConflict(body) {
 const {
   sectionDefs, sectionContents, sectionsSaving,
   persistSectionsDebounced, persistSections, persistSectionDefs,
-  loadSections, handleSectionsSse,
+  loadSections,
   sectionsConflict, resolveSectionsConflictReload, resolveSectionsConflictForce
 } = useShowSections(props.id, meta, onLockConflict)
 
@@ -519,7 +518,7 @@ const {
   onCsvImportSelected, onEosFileSelected, resolveEosMergePreview,
   channelStatus, toggleChannelStatus,
   undo, redo, canUndo, canRedo, onUndoRedoKeydown,
-  loadChannels, handleChannelsSse,
+  loadChannels,
   channelsConflict, resolveConflictReload, resolveConflictForce
 } = useShowChannels({
   showId: props.id,
@@ -573,17 +572,7 @@ const gassenturmGenerated = computed(() => generateGassenturmEntries(towers.valu
 // generierte Text (Beleuchtungsgestelle/Obermaschinerie) weiter dort erscheinen.
 const aufbauSectionId = computed(() => sectionDefs.value.find(s => s.icon === 'setup')?.id ?? null)
 
-function debounce(fn, ms) {
-  let timer = null
-  return (...args) => { if (timer) clearTimeout(timer); timer = setTimeout(() => { timer = null; fn(...args) }, ms) }
-}
-const loadBarsDebounced = debounce(loadBars, 120)
-
-const { presence, lock, initPresence, cleanupPresence } = useShowPresence(props.id, {
-  onChannels: handleChannelsSse,
-  onSections: handleSectionsSse,
-  onTowers: () => loadTowers(),
-  onBars: () => loadBarsDebounced(),
+const { lock, initLockEvents, cleanupLockEvents } = useShowLockEvents(props.id, {
   onTakeoverRequested: (data) => showLock.onTakeoverRequested(data),
   onLockStatus: (data) => showLock.onLockStatusChanged(data),
 })
@@ -840,7 +829,7 @@ onMounted(async () => {
   loadFloorplan().catch(() => {})
   loadTowers().catch(() => {})
   loadBars().catch(() => {})
-  initPresence()
+  initLockEvents()
   showLock.acquireOnOpen().catch(() => {})
 
   await nextTick()
@@ -849,7 +838,7 @@ onMounted(async () => {
 
 onBeforeUnmount(() => {
   window.removeEventListener('keydown', onUndoRedoKeydown)
-  cleanupPresence()
+  cleanupLockEvents()
   showLock.releaseOnClose()
   clearInterval(snapshotInterval)
   persistSetupDebounced?.flush?.()
