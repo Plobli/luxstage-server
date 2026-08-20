@@ -84,8 +84,9 @@ export function drawTowerCards(doc, towers, channels, margin, usableW, startY, b
         const circleCx = cx + mm(9)
         const circleCy = sy + SLOT_H / 2
         doc.circle(circleCx, circleCy, CIRCLE_R).fill('#dc3740')
-        const textH = doc.font(FONT_BOLD).fontSize(6).currentLineHeight()
-        doc.fillColor('white').text(String(ch.channel), circleCx - CIRCLE_R, circleCy - textH / 2, { width: CIRCLE_R * 2, align: 'center', lineBreak: false })
+        doc.font(FONT_BOLD).fontSize(6)
+        const textH = doc.currentLineHeight()
+        doc.fillColor('white').text(String(ch.channel), circleCx - CIRCLE_R, circleCy - textH / 2 - mm(0.3), { width: CIRCLE_R * 2, align: 'center', lineBreak: false })
         doc.fillColor('black')
 
         // Farbcode-Badge

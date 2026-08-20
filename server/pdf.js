@@ -118,7 +118,8 @@ export async function generatePDF(show, channels, sectionsMap, templateSections,
       ty += mm(9)
       ty = renderHangereiBars(doc, bars, channels, PAGE_MARGIN, usableW, ty, printableBottom, addFooter)
       ty += mm(5)
-      ty = drawBarRows(doc, bars, channels, PAGE_MARGIN, usableW, ty, printableBottom, addFooter, unit)
+      const barsWithFixtures = bars.filter(bar => (bar.fixtures ?? []).length > 0)
+      ty = drawBarRows(doc, barsWithFixtures, channels, PAGE_MARGIN, usableW, ty, printableBottom, addFooter, unit)
       ty += mm(8)
     }
 
