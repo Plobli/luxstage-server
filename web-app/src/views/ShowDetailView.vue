@@ -832,6 +832,14 @@ onMounted(async () => {
   initLockEvents()
   showLock.acquireOnOpen().catch(() => {})
 
+  // Bereichs-Chunks im Hintergrund vorladen, damit der erste Klick auf einen
+  // Sidebar-Tab nicht auf den Netzwerk-Download des Chunks warten muss.
+  import('../components/show/GassenturmView.vue').catch(() => {})
+  import('../components/show/ZugstangenView.vue').catch(() => {})
+  import('../components/show/SectionEditor.vue').catch(() => {})
+  import('../components/show/PhotoGallery.vue').catch(() => {})
+  import('../components/FloorplanEditor.vue').catch(() => {})
+
   await nextTick()
   window.addEventListener('keydown', onUndoRedoKeydown)
 })

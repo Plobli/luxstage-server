@@ -17,6 +17,7 @@ const TOKEN_KEY = 'luxstage_token'
 // als das Einmal-Download-Token) und trotzdem nicht das langlebige JWT in
 // Browser-History/Proxy-Logs landet.
 let inlineTokenCache: { token: string, expiresAt: number } | null = null
+let inlineTokenInFlight: Promise<string> | null = null
 
 export function getToken(): string | null { return localStorage.getItem(TOKEN_KEY) }
 export function setToken(t: string): void { localStorage.setItem(TOKEN_KEY, t) }
@@ -81,9 +82,16 @@ async function getInlineToken(): Promise<string> {
   if (inlineTokenCache && inlineTokenCache.expiresAt - INLINE_TOKEN_REFRESH_MARGIN_MS > Date.now()) {
     return inlineTokenCache.token
   }
-  const { token, expiresAt } = await request<{ token: string, expiresAt: number }>('POST', '/api/auth/inline-token')
-  inlineTokenCache = { token, expiresAt }
-  return token
+  // Mehrere gleichzeitig sichtbare Bilder (Fotos, Grundriss) rufen api.url()
+  // parallel auf — ohne Dedupe würde jedes einen eigenen Token-Request auslösen.
+  if (inlineTokenInFlight) return inlineTokenInFlight
+  inlineTokenInFlight = request<{ token: string, expiresAt: number }>('POST', '/api/auth/inline-token')
+    .then(({ token, expiresAt }) => {
+      inlineTokenCache = { token, expiresAt }
+      return token
+    })
+    .finally(() => { inlineTokenInFlight = null })
+  return inlineTokenInFlight
 }
 
 export const api = {
