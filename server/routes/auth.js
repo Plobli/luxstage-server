@@ -82,12 +82,12 @@ export async function authRoutes(req, res, pathname) {
 
   if (method === 'POST' && pathname === '/api/auth/download-token') {
     const user = req.user
-    return json(res, 200, { token: issueDownloadToken(user.username, user.role) })
+    return json(res, 200, { token: issueDownloadToken(user.username, user.role, user.tenantId) })
   }
 
   if (method === 'POST' && pathname === '/api/auth/inline-token') {
     const user = req.user
-    return json(res, 200, issueInlineToken(user.username, user.role))
+    return json(res, 200, issueInlineToken(user.username, user.role, user.tenantId))
   }
 
   if (method === 'POST' && pathname === '/api/auth/change-password') {

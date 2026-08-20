@@ -5,13 +5,13 @@ import { config } from './config.js'
 import { randomBytes, timingSafeEqual } from 'node:crypto'
 
 // ── Kurzlebige Einmal-Token für URL-basierte Ressourcen (PDF, Fotos, Backup) ──
-// Speichert: token → { username, role, expiresAt }
+// Speichert: token → { username, role, tenantId, expiresAt }
 const downloadTokens = new Map()
 const DOWNLOAD_TOKEN_TTL_MS = 60 * 1000 // 60 Sekunden
 
-export function issueDownloadToken(username, role) {
+export function issueDownloadToken(username, role, tenantId) {
   const token = randomBytes(24).toString('hex')
-  downloadTokens.set(token, { username, role, expiresAt: Date.now() + DOWNLOAD_TOKEN_TTL_MS })
+  downloadTokens.set(token, { username, role, tenantId, expiresAt: Date.now() + DOWNLOAD_TOKEN_TTL_MS })
   return token
 }
 
@@ -30,7 +30,9 @@ function redeemDownloadToken(token) {
   if (!entry) return null
   downloadTokens.delete(token) // Einmalnutzung
   if (Date.now() > entry.expiresAt) return null
-  return { username: entry.username, role: entry.role }
+  return entry.tenantId
+    ? { username: entry.username, role: entry.role, tenantId: entry.tenantId }
+    : { username: entry.username, role: entry.role }
 }
 
 // ── Kurzlebige, wiederverwendbare Token für Inline-Ressourcen (img src) ──────
@@ -41,9 +43,9 @@ function redeemDownloadToken(token) {
 const inlineTokens = new Map()
 const INLINE_TOKEN_TTL_MS = 15 * 60 * 1000 // 15 Minuten
 
-export function issueInlineToken(username, role) {
+export function issueInlineToken(username, role, tenantId) {
   const token = randomBytes(24).toString('hex')
-  inlineTokens.set(token, { username, role, expiresAt: Date.now() + INLINE_TOKEN_TTL_MS })
+  inlineTokens.set(token, { username, role, tenantId, expiresAt: Date.now() + INLINE_TOKEN_TTL_MS })
   return { token, expiresAt: Date.now() + INLINE_TOKEN_TTL_MS }
 }
 
@@ -59,7 +61,9 @@ function verifyInlineToken(token) {
   const entry = inlineTokens.get(token)
   if (!entry) return null
   if (Date.now() > entry.expiresAt) { inlineTokens.delete(token); return null }
-  return { username: entry.username, role: entry.role }
+  return entry.tenantId
+    ? { username: entry.username, role: entry.role, tenantId: entry.tenantId }
+    : { username: entry.username, role: entry.role }
 }
 
 const BCRYPT_COST = 12
