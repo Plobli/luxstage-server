@@ -45,9 +45,10 @@ export async function userRoutes(req, res, pathname) {
     const { username, role } = body
     if (!username || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(username)) return json(res, 400, { error: 'Ungültige E-Mail-Adresse' })
     if (!['admin', 'techniker'].includes(role)) return json(res, 400, { error: 'Ungültige Rolle' })
-    const password = randomBytes(8).toString('hex')
+    const password = randomBytes(12).toString('hex')
     await db.createUser(username, password, role, username)
     sendWelcomeEmail(username, username, password).catch(err => console.error('[email] Willkommens-Email fehlgeschlagen:', err))
+    console.log(`[users] angelegt: user=${username} role=${role} von=${admin.username}`)
     return json(res, 201, { ok: true })
   }
 
@@ -57,6 +58,7 @@ export async function userRoutes(req, res, pathname) {
     const username = m[1]
     if (username === admin.username) return json(res, 400, { error: 'Eigenen Account kann man nicht löschen' })
     db.deleteUser(username)
+    console.log(`[users] gelöscht: user=${username} von=${admin.username}`)
     return json(res, 200, { ok: true })
   }
 
