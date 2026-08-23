@@ -1,3 +1,12 @@
+import { config } from './config.js'
+
+export function clientIp(req) {
+  if (config.trustProxy && req.headers['x-forwarded-for']) {
+    return req.headers['x-forwarded-for'].split(',')[0].trim()
+  }
+  return req.socket.remoteAddress || 'unknown'
+}
+
 export function readBodyBuffer(req, maxBytes) {
   return new Promise((resolve, reject) => {
     const chunks = []; let size = 0

@@ -1,7 +1,7 @@
 import { randomBytes } from 'node:crypto'
 import { login, signToken, requireAdmin, issueDownloadToken, issueInlineToken } from '../auth.js'
 import * as db from '../db.js'
-import { readJsonBody, json } from '../helpers.js'
+import { readJsonBody, json, clientIp } from '../helpers.js'
 import { sendPasswordResetEmail, sendPasswordResetLink, isSmtpConfigured } from '../email.js'
 import { config } from '../config.js'
 import { PASSWORD_MIN_LENGTH } from '../../shared/constants.js'
@@ -10,13 +10,6 @@ const loginAttempts = new Map()
 const MAX_LOGIN_ATTEMPTS = 10
 const LOGIN_WINDOW_MS = 15 * 60 * 1000
 const MAX_TRACKED_IPS = 10_000
-
-function clientIp(req) {
-  if (config.trustProxy && req.headers['x-forwarded-for']) {
-    return req.headers['x-forwarded-for'].split(',')[0].trim()
-  }
-  return req.socket.remoteAddress || 'unknown'
-}
 
 function purgeExpiredAttempts() {
   const cutoff = Date.now() - LOGIN_WINDOW_MS
@@ -151,6 +144,7 @@ export async function authRoutes(req, res, pathname) {
     if (email) {
       sendPasswordResetEmail(email, username, newPassword).catch(err => console.error('[email] Reset-Email fehlgeschlagen:', err))
     }
+    console.log(`[auth] Passwort von Admin zurückgesetzt: user=${username} von=${admin.username}`)
     return json(res, 200, { newPassword })
   }
 

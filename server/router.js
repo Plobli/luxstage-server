@@ -8,6 +8,7 @@ import { getTenantId } from './db-context.js'
 import { saasEnabled, getSaas } from './saas.js'
 import { PUBLIC_ROUTES, API_ROUTE_HANDLERS, SHOW_ROUTE_HANDLERS, showRoutes, systemRoutes } from './route-table.js'
 import { getLock } from './db/locks.js'
+import { isGloballyRateLimited } from './rate-limit.js'
 
 const WRITE_METHODS = new Set(['PUT', 'POST', 'DELETE'])
 // Reine Show-Ressource, kein Slug-Pfad (Liste/Anlegen) oder Endpunkte, die
@@ -130,6 +131,8 @@ export async function router(req, res) {
 
   try {
     if (pathname.startsWith('/api/')) {
+      if (isGloballyRateLimited(req)) return json(res, 429, { error: 'Zu viele Anfragen. Bitte warten.' })
+
       // SaaS-Routing nur im SaaS-Modus (BASE_DOMAIN gesetzt). Im Self-Hosted-Modus
       // sind die SaaS-Module nicht geladen — dieser Block wird komplett übersprungen.
       if (saasEnabled) {
