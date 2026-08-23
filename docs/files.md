@@ -48,14 +48,15 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 | Datei | Beschreibung |
 |---|---|
 | `./server/index.js` | HTTP-Server-Einstieg mit CORS, Security-Headern und Job-Starter. |
-| `./server/router.js` | HTTP-Router für API-Endpunkte und Datei-Serving; öffentliche API-Ausnahmen sind an Methode und Pfad gebunden, API- und Show-Unterressourcen laufen über geordnete Handler-Listen. Fehler in Route-Handlern werden abgefangen (500 statt Prozessabsturz). |
+| `./server/router.js` | HTTP-Router für API-Endpunkte und Datei-Serving; öffentliche API-Ausnahmen sind an Methode und Pfad gebunden, API- und Show-Unterressourcen laufen über geordnete Handler-Listen. Globales IP-Rate-Limiting greift vor jedem API-Request. Fehler in Route-Handlern werden abgefangen (500 statt Prozessabsturz). |
 | `./server/config.js` | Lädt Umgebungsvariablen und Konfigurationsdefaults, einschließlich explizitem Reverse-Proxy-Vertrauen. |
 | `./server/bootstrap.js` | Einmaliges Setup-Skript; legt den ersten Admin an (Login = `ADMIN_EMAIL`). |
 | `./server/db.js` | Re-Export der Datenbank-Funktionen aus `db/index.js`. |
 | `./server/db-init.js` | Datenbankverbindung, Basis-Schema und Migrations-Runner (führt `db/migrations/*` einmalig aus, getrackt in `schema_migrations`). |
 | `./server/db-context.js` | Request-gebundener DB-Kontext für Multi-Tenancy (AsyncLocalStorage). |
 | `./server/auth.js` | JWT-Token, Passwort-Hashing und kurzlebige Download-Token-Verwaltung; Cleanup-Timer blockiert keine Einmalprozesse. |
-| `./server/helpers.js` | Utility-Funktionen für Body-Parsing, JSON, Fehlerbehandlung. |
+| `./server/helpers.js` | Utility-Funktionen für Body-Parsing, JSON, Fehlerbehandlung, Client-IP-Ermittlung. |
+| `./server/rate-limit.js` | Grobes globales IP-Rate-Limiting (300 Req/Min) für alle API-Routen, ergänzt das strengere Login-spezifische Limit in `routes/auth.js`. |
 | `./server/history.js` | Periodische Snapshots von Show-State zur Versionierung; sichert vor dem Wiederherstellen den aktuellen Stand. |
 | `./server/backup.js` | ZIP-basierte Backup- und Wiederherstellungsfunktionen mit request-isoliertem Staging, Restore-Lock, Rollback und Grenzen für ZIP-Einträge sowie entpackte Daten. |
 | `./server/photos.js` | Gestreamter Foto-Upload mit Gesamt-, Datei- und Dateianzahlgrenzen, Skalierung und Thumbnail-Generierung. |
