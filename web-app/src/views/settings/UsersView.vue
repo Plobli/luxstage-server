@@ -13,7 +13,6 @@
             <div class="flex items-center gap-3">
               <span class="text-foreground font-medium">{{ u.username }}</span>
               <Badge :variant="u.role === 'admin' ? 'default' : 'secondary'">{{ t('settings.users.role.' + u.role) }}</Badge>
-              <Badge variant="outline" class="text-muted-foreground">{{ t('settings.users.source.' + u.source) }}</Badge>
             </div>
             <Button v-if="u.source === 'db'" variant="ghost" size="sm" @click="doDeleteUser(u.username)"
               class="text-xs text-destructive hover:text-destructive hover:bg-destructive/10">

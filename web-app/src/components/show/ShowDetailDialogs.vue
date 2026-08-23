@@ -54,7 +54,7 @@
           <Label>{{ t('section.dialog.type') }}</Label>
           <div class="flex flex-col gap-2">
             <button
-              :class="['flex items-center gap-4 rounded-xl border p-4 text-left transition-colors', newSectionType === 'markdown' ? 'border-white/20 bg-white/6' : 'border-white/8 hover:border-white/12 hover:bg-white/3']"
+              :class="['flex items-center gap-4 rounded-xl border p-4 text-left transition-colors', newSectionType === 'markdown' ? 'border-accent bg-accent/10' : 'border-border hover:bg-muted/50']"
               @click="emit('update:newSectionType', 'markdown')"
             >
               <div :class="['size-4 shrink-0 rounded-full border-2 transition-colors', newSectionType === 'markdown' ? 'border-white bg-white' : 'border-white/30']" />
@@ -64,7 +64,7 @@
               </div>
             </button>
             <button
-              :class="['flex items-center gap-4 rounded-xl border p-4 text-left transition-colors', newSectionType === 'kv-table' ? 'border-white/20 bg-white/6' : 'border-white/8 hover:border-white/12 hover:bg-white/3']"
+              :class="['flex items-center gap-4 rounded-xl border p-4 text-left transition-colors', newSectionType === 'kv-table' ? 'border-accent bg-accent/10' : 'border-border hover:bg-muted/50']"
               @click="emit('update:newSectionType', 'kv-table')"
             >
               <div :class="['size-4 shrink-0 rounded-full border-2 transition-colors', newSectionType === 'kv-table' ? 'border-white bg-white' : 'border-white/30']" />

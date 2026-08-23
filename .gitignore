@@ -64,3 +64,4 @@ tmp-release.zip
 # iOS Build-Artefakte
 ios-app/**/*.xcarchive
 ios-app/Pods/
+
