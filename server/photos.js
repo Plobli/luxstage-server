@@ -9,9 +9,18 @@ import { pipeline } from 'node:stream/promises'
 import sharp from 'sharp'
 import { config } from './config.js'
 import * as db from './db.js'
+import { getTenantId } from './db-context.js'
+import { tenantDir } from './tenants.js'
+
+// Mandant: eigener photos-Ordner in seinem Mandantenverzeichnis. Self-Hosted/
+// Single-Tenant (kein Mandantenkontext): unverändert flach unter data/photos.
+function photosRoot() {
+  const tenantId = getTenantId()
+  return tenantId ? path.join(tenantDir(tenantId), 'photos') : path.join(config.dataPath, 'photos')
+}
 
 function photosDir(slug) {
-  const base = path.join(config.dataPath, 'photos')
+  const base = photosRoot()
   const resolved = path.resolve(base, slug)
   if (!resolved.startsWith(base + path.sep) && resolved !== base) {
     throw new Error('Invalid slug')

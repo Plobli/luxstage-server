@@ -3,11 +3,16 @@ import fs from 'node:fs/promises'
 import fsSync from 'node:fs'
 import path from 'node:path'
 import { config } from './config.js'
+import { getTenantId } from './db-context.js'
+import { tenantDir } from './tenants.js'
 
 const ALLOWED_TYPES = ['image/png', 'image/jpeg']
 
+// Mandant: eigener floorplans-Ordner in seinem Mandantenverzeichnis. Self-Hosted/
+// Single-Tenant (kein Mandantenkontext): unverändert flach unter data/floorplans.
 function floorplansDir() {
-  return path.join(config.dataPath, 'floorplans')
+  const tenantId = getTenantId()
+  return tenantId ? path.join(tenantDir(tenantId), 'floorplans') : path.join(config.dataPath, 'floorplans')
 }
 
 export async function saveFloorplanImage(templateId, filename, buffer, mimeType) {
