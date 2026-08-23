@@ -10,13 +10,20 @@ import sharp from 'sharp'
 import { config } from './config.js'
 import * as db from './db.js'
 import { getTenantId } from './db-context.js'
-import { tenantDir } from './tenants.js'
+
+// tenantId ist zu diesem Zeitpunkt bereits über resolveTenantId()/isValidTenantId()
+// geprüft (siehe tenant-resolve.js) — hier nur zur Verteidigung in der Tiefe erneut
+// validiert, ohne das SaaS-only-Modul tenants.js zu importieren (das Self-Hosted-
+// Image enthält diese Datei nicht, siehe Dockerfile).
+const VALID_TENANT_ID = /^[a-z0-9][a-z0-9-]{1,62}$/
 
 // Mandant: eigener photos-Ordner in seinem Mandantenverzeichnis. Self-Hosted/
 // Single-Tenant (kein Mandantenkontext): unverändert flach unter data/photos.
 function photosRoot() {
   const tenantId = getTenantId()
-  return tenantId ? path.join(tenantDir(tenantId), 'photos') : path.join(config.dataPath, 'photos')
+  if (!tenantId) return path.join(config.dataPath, 'photos')
+  if (!VALID_TENANT_ID.test(tenantId)) throw new Error('Ungültige tenantId')
+  return path.join(config.dataPath, 'tenants', tenantId, 'photos')
 }
 
 function photosDir(slug) {
