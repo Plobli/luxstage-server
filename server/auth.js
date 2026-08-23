@@ -38,7 +38,7 @@ function redeemDownloadToken(token) {
 // ── Kurzlebige, wiederverwendbare Token für Inline-Ressourcen (img src) ──────
 // Anders als Download-Token nicht Einmalnutzung: dasselbe Bild wird vom
 // Browser mehrfach geladen/gecached, ein Einmal-Token würde beim zweiten
-// Request scheitern. Kürzere Lebensdauer als das 72h-JWT begrenzt den
+// Request scheitern. Kürzere Lebensdauer als das 12h-JWT begrenzt den
 // Schaden, falls die URL in Browser-History oder Proxy-Logs landet.
 const inlineTokens = new Map()
 const INLINE_TOKEN_TTL_MS = 15 * 60 * 1000 // 15 Minuten
@@ -87,7 +87,7 @@ export function signToken(username, role) {
   // Token an den aktuellen Mandanten binden (falls im Mandanten-Kontext ausgestellt).
   const tenantId = getTenantId()
   const payload = tenantId ? { username, role, tenantId } : { username, role }
-  return jwt.sign(payload, config.jwtSecret, { expiresIn: '72h' })
+  return jwt.sign(payload, config.jwtSecret, { expiresIn: '12h' })
 }
 
 export async function login(username, password) {

@@ -39,7 +39,7 @@ acquireLock()
 
 const corsOrigins = (process.env.CORS_ORIGINS || process.env.CORS_ORIGIN || '')
   .split(',').map(s => s.trim()).filter(Boolean)
-const isDev = process.env.NODE_ENV !== 'production'
+const isDev = process.env.NODE_ENV === 'development'
 
 const server = http.createServer((req, res) => {
   const origin = req.headers['origin'] || ''

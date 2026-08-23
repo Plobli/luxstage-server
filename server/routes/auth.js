@@ -145,7 +145,7 @@ export async function authRoutes(req, res, pathname) {
     const { username } = body
     const allUsers = db.listUsers()
     if (!allUsers.find(u => u.username === username)) return json(res, 404, { error: 'Benutzer nicht gefunden' })
-    const newPassword = randomBytes(6).toString('hex')
+    const newPassword = randomBytes(12).toString('hex')
     await db.changePassword(username, newPassword, 1)
     const email = db.getUserEmail(username)
     if (email) {
