@@ -1,5 +1,6 @@
 import fs from 'node:fs'
 import { FONT_NORMAL, FONT_BOLD } from './constants.js'
+import { readImageSize } from './utils.js'
 
 // Editor-Stage-Größe (web-app/src/components/FloorplanEditor.vue: stageSize),
 // A4-Querformat-Druckbereich als Ziel-Seitenverhältnis (267mm x 160mm).
@@ -64,6 +65,18 @@ function fixtureXOffset(positionCm, lengthCm, widthPx) {
   return ((positionCm + len / 2) / len) * widthPx
 }
 
+// Bild unverzerrt (wie CSS object-fit: contain) in ein Zielrechteck einpassen, zentriert.
+// 1:1 aus web-app/src/utils/floorplanSnapshot.js containRect() übernommen — das
+// Hintergrundbild wird dort genauso INNERHALB der Stage-Koordinaten eingepasst,
+// nicht die Stage an das Bild angeglichen. Nur wenn Bild und Vektor-Overlay
+// dasselbe Koordinatensystem (Stage-px) teilen, bleiben sie deckungsgleich.
+function containRect(imgW, imgH, boxW, boxH) {
+  const scale = Math.min(boxW / imgW, boxH / imgH)
+  const w = imgW * scale
+  const h = imgH * scale
+  return { x: (boxW - w) / 2, y: (boxH - h) / 2, w, h }
+}
+
 /**
  * Zeichnet den Floorplan (Hintergrundbild + Vektor-Elemente aus canvas_data)
  * direkt in ein pdfkit-Dokument, anstelle des früheren Raster-Snapshots.
@@ -83,8 +96,11 @@ export function drawFloorplanVector(doc, { canvasData, towers, bars, channels, i
 
   if (imagePath) {
     try {
-      if (fs.existsSync(imagePath)) {
-        doc.image(imagePath, x, y, { fit: [width, height], align: 'center', valign: 'top' })
+      const buf = fs.readFileSync(imagePath)
+      const { w: imgW, h: imgH } = readImageSize(buf)
+      if (imgW > 0 && imgH > 0) {
+        const r = containRect(imgW, imgH, STAGE_W, STAGE_H)
+        doc.image(imagePath, px(r.x), py(r.y), { width: r.w * scale, height: r.h * scale })
       }
     } catch { /* Hintergrundbild ist optional, Fehler beim Lesen ignorieren */ }
   }
