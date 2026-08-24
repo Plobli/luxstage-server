@@ -209,7 +209,6 @@
               :bars="bars"
               :pending-channel="pendingFloorplanChannel"
               @change="onFloorplanChange"
-              @snapshot="(snap) => saveShowFloorplanSnapshot(props.id, snap, 120).catch(() => {})"
               @upload-image="onFloorplanImageUpload"
               @delete-image="onFloorplanImageDelete"
               @jump-to-channel="jumpToChannel"
@@ -411,7 +410,6 @@ import { useShowLockEvents } from '../composables/useShowLockEvents.js'
 import { useShowLock } from '../composables/useShowLock.js'
 import { useShowChannels } from '../composables/useShowChannels.js'
 import { useShowFloorplan } from '../composables/useShowFloorplan.js'
-import { saveShowFloorplanSnapshot } from '../api/floorplan.js'
 import { useShowTowers } from '../composables/useShowTowers.js'
 import { restoreTowersSnapshot } from '../api/towers.js'
 import { useShowBars } from '../composables/useShowBars.js'

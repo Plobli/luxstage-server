@@ -1,6 +1,5 @@
 // LuxStage/server/floorplan.js
 import fs from 'node:fs/promises'
-import fsSync from 'node:fs'
 import path from 'node:path'
 import { config } from './config.js'
 import { getTenantId } from './db-context.js'
@@ -57,42 +56,9 @@ export function floorplanUrl(imagePath) {
   return `/api/floorplans/images/${imagePath}`
 }
 
-// Schnelles Hintereinander-Platzieren von Elementen löst mehrere überlappende
-// Snapshot-Saves pro Show aus (je Änderung ein PUT). Ohne Serialisierung schreiben
-// parallele Requests auf denselben tmp-Pfad und stören sich beim rename() —
-// daher pro showId in eine Kette gehängt, damit nur ein Save gleichzeitig läuft.
-const snapshotWriteQueues = new Map()
-
-export async function saveFloorplanSnapshot(showId, buffer, overflow = 0) {
-  const prev = snapshotWriteQueues.get(showId) ?? Promise.resolve()
-  const next = prev.catch(() => {}).then(() => writeFloorplanSnapshot(showId, buffer, overflow))
-  snapshotWriteQueues.set(showId, next)
-  try {
-    await next
-  } finally {
-    if (snapshotWriteQueues.get(showId) === next) snapshotWriteQueues.delete(showId)
-  }
-}
-
-async function writeFloorplanSnapshot(showId, buffer, overflow) {
-  const dir = path.join(floorplansDir(), showId)
-  await fs.mkdir(dir, { recursive: true })
-  const finalPath = path.join(dir, 'snapshot.png')
-  const tmpPath = `${finalPath}.tmp`
-  await fs.writeFile(tmpPath, buffer)
-  await fs.rename(tmpPath, finalPath)
-  await fs.writeFile(path.join(dir, 'snapshot-meta.json'), JSON.stringify({ overflow }))
-}
-
-export function getFloorplanSnapshotPath(showId) {
-  return path.join(floorplansDir(), showId, 'snapshot.png')
-}
-
-export function getFloorplanSnapshotOverflow(showId) {
-  try {
-    const raw = fsSync.readFileSync(path.join(floorplansDir(), showId, 'snapshot-meta.json'), 'utf8')
-    return JSON.parse(raw).overflow ?? 0
-  } catch { return 0 }
+export function resolveFloorplanImagePath(imagePath) {
+  if (!imagePath) return null
+  return path.join(floorplansDir(), imagePath)
 }
 
 export async function serveFloorplanImage(imagePath, res) {

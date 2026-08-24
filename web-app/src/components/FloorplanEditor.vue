@@ -650,7 +650,7 @@ const { t } = useLocale()
 const { formatLength } = useMeasureUnit()
 import { getToken } from '@/api/client'
 import { uuid } from '../utils/uuid.js'
-import { captureFloorplanSnapshot, exportFloorplanPNG } from '../utils/floorplanSnapshot.js'
+import { exportFloorplanPNG } from '../utils/floorplanSnapshot.js'
 import {
   Copy, MousePointer2, Hand, Minus, Square, Circle, Type, CircleDot,
   Upload, ImageOff, Download, Trash2, Layers, AlignJustify, Ruler,
@@ -671,7 +671,7 @@ const props = defineProps({
   bars: { type: Array, default: () => [] },
   pendingChannel: { type: Object, default: null },
 })
-const emit = defineEmits(['change', 'jump-to-channel', 'upload-image', 'delete-image', 'snapshot', 'open-tower', 'open-bar'])
+const emit = defineEmits(['change', 'jump-to-channel', 'upload-image', 'delete-image', 'open-tower', 'open-bar'])
 
 const activeTool = ref('select')
 const elements = ref([])
@@ -926,7 +926,7 @@ async function loadBackground(url) {
     stageSize.value = { width: REF_W, height: Math.round(REF_W / PDF_PRINT_AREA_RATIO) }
     bgImage.value = null
     bgImageSrc.value = url
-    nextTick(() => { fitToContainer(); captureSnapshot().then(snap => { if (snap) emit('snapshot', snap) }) })
+    nextTick(() => fitToContainer())
     return
   }
 
@@ -942,7 +942,7 @@ async function loadBackground(url) {
     stageSize.value = { width: REF_W, height: Math.round(REF_W / PDF_PRINT_AREA_RATIO) }
     bgImage.value = img
     bgImageSrc.value = blobUrl
-    nextTick(() => { fitToContainer(); captureSnapshot().then(snap => { if (snap) emit('snapshot', snap) }) })
+    nextTick(() => fitToContainer())
   }
   img.src = blobUrl
 }
@@ -1449,23 +1449,20 @@ function pushHistory() {
   h.push(snap); if (h.length > 100) h = h.slice(-100)
   history.value = h; historyIndex.value = history.value.length - 1
 }
-function captureSnapshot() {
-  return captureFloorplanSnapshot(svgRef.value, stageSize.value, bgImage.value)
-}
 function undo() {
   if (historyIndex.value <= 0) return
   historyIndex.value--; parseData(history.value[historyIndex.value])
-  captureSnapshot().then(snap => emit('change', history.value[historyIndex.value], snap))
+  emit('change', history.value[historyIndex.value])
 }
 function redo() {
   if (historyIndex.value >= history.value.length - 1) return
   historyIndex.value++; parseData(history.value[historyIndex.value])
-  captureSnapshot().then(snap => emit('change', history.value[historyIndex.value], snap))
+  emit('change', history.value[historyIndex.value])
 }
 function emitChange() {
   pushHistory()
   const data = exportData()
-  captureSnapshot().then(snap => emit('change', data, snap))
+  emit('change', data)
 }
 function exportPNG() {
   exportFloorplanPNG(svgRef.value, stageSize.value, bgImage.value)
@@ -1521,11 +1518,6 @@ onMounted(() => {
     })
     resizeObserver.observe(containerEl.value)
   }
-  // Snapshot nach dem Laden des Hintergrundbilds neu erzeugen
-  setTimeout(async () => {
-    const snap = await captureSnapshot()
-    if (snap) emit('change', exportData(), snap)
-  }, 1500)
 })
 onUnmounted(() => {
   window.removeEventListener('keydown', handleKeyDown)

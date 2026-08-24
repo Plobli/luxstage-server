@@ -65,7 +65,3 @@ export function saveShowFloorplan(showId: string, canvasData: any): Promise<any>
   return api.put(`/api/shows/${showId}/floorplan`, { canvas_data: canvasData })
 }
 
-export function saveShowFloorplanSnapshot(showId: string, dataUrl: string, overflow = 0): Promise<any> {
-  return api.put(`/api/shows/${showId}/floorplan/snapshot`, { data_url: dataUrl, overflow })
-}
-

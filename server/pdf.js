@@ -10,7 +10,8 @@ import { calcRowHeight, drawRow, renderFieldsSection, renderKvTableSection } fro
 import { parseSetupSection, renderSetupBlocks } from './pdf/tiptap-parse.js'
 import { drawTowerCards, renderGassenturmText } from './pdf/towers.js'
 import { renderHangereiBars, drawBarRows } from './pdf/bars.js'
-import { groupByPosition, fmt, readImageSize } from './pdf/utils.js'
+import { groupByPosition, fmt } from './pdf/utils.js'
+import { drawFloorplanVector } from './pdf/floorplan-vector.js'
 
 // show: { name, datum, template, ... }
 // channels: [{ channel, address, device, position, color, notes }]
@@ -202,56 +203,32 @@ export async function generatePDF(show, channels, sectionsMap, templateSections,
     if (!floorplan?.canvasData) return false
     try {
       const parsed = typeof floorplan.canvasData === 'string' ? JSON.parse(floorplan.canvasData) : floorplan.canvasData
-      return Array.isArray(parsed?.objects) && parsed.objects.length > 0
+      const elements = Array.isArray(parsed) ? parsed : parsed?.elements
+      return Array.isArray(elements) && elements.length > 0
     } catch { return false }
   })()
 
-  if (floorplan?.snapshotPath && hasCanvasObjects) {
-    let snapshotBuffer = null
-    try { snapshotBuffer = fs.readFileSync(floorplan.snapshotPath) } catch (e) { snapshotBuffer = null }
-    if (snapshotBuffer && snapshotBuffer.length > 100) {
-      doc.addPage()
-      addFooter()
+  if (floorplan?.canvasData && hasCanvasObjects) {
+    doc.addPage()
+    addFooter()
 
-      doc.font(FONT_BOLD).fontSize(13).fillColor('black')
-        .text('Grundriss', PAGE_MARGIN, PAGE_MARGIN, { lineBreak: false })
+    doc.font(FONT_BOLD).fontSize(13).fillColor('black')
+      .text('Grundriss', PAGE_MARGIN, PAGE_MARGIN, { lineBreak: false })
 
-      const imgY = PAGE_MARGIN + mm(12)
-      const imgMaxH = pageH - imgY - PAGE_MARGIN - mm(8)
+    const imgY = PAGE_MARGIN + mm(12)
+    const imgMaxH = pageH - imgY - PAGE_MARGIN - mm(8)
 
-      try {
-        const ov = floorplan.snapshotOverflow ?? 0
-        if (ov > 0 && snapshotBuffer.length > 0) {
-          const { w: imgPx, h: imgHPx } = readImageSize(snapshotBuffer)
-          if (imgPx > 0) {
-            const SCALE = 3
-            const ovPx = ov * SCALE
-            const contentPx = imgPx - ovPx * 2
-            const contentHPx = imgHPx - ovPx * 2
-            if (contentPx > 0 && contentHPx > 0) {
-              const scale = Math.min(usableW / contentPx, imgMaxH / contentHPx)
-              const drawW = imgPx * scale
-              const drawH = imgHPx * scale
-              const drawX = PAGE_MARGIN - ovPx * scale
-              const drawY = imgY - ovPx * scale
-              doc.save()
-              doc.rect(PAGE_MARGIN, imgY, usableW, imgMaxH).clip()
-              doc.translate(drawX, drawY)
-              doc.image(floorplan.snapshotPath, 0, 0, { width: drawW, height: drawH })
-              doc.restore()
-            } else {
-              doc.image(floorplan.snapshotPath, PAGE_MARGIN, imgY, { fit: [usableW, imgMaxH], align: 'center', valign: 'top' })
-            }
-          } else {
-            doc.image(floorplan.snapshotPath, PAGE_MARGIN, imgY, { fit: [usableW, imgMaxH], align: 'center', valign: 'top' })
-          }
-        } else {
-          doc.image(floorplan.snapshotPath, PAGE_MARGIN, imgY, { fit: [usableW, imgMaxH], align: 'center', valign: 'top' })
-        }
-      } catch (err) {
-        doc.font(FONT_NORMAL).fontSize(9).fillColor('#888888')
-          .text(`Grundriss-Fehler: ${err?.message ?? err}`, PAGE_MARGIN, imgY, { width: usableW })
-      }
+    try {
+      drawFloorplanVector(doc, {
+        canvasData: floorplan.canvasData,
+        towers: floorplan.towers,
+        bars: floorplan.bars,
+        channels,
+        imagePath: floorplan.imagePath,
+      }, { x: PAGE_MARGIN, y: imgY, width: usableW, height: imgMaxH })
+    } catch (err) {
+      doc.font(FONT_NORMAL).fontSize(9).fillColor('#888888')
+        .text(`Grundriss-Fehler: ${err?.message ?? err}`, PAGE_MARGIN, imgY, { width: usableW })
     }
   }
 

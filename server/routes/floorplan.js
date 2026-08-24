@@ -7,7 +7,6 @@ import { readJsonBody, json, notFound } from '../helpers.js'
 const FP_IMAGES       = /^\/api\/floorplans\/images\/(.+)$/
 const SHOW_FP         = /^\/api\/shows\/([^/]+)\/floorplan$/
 const SHOW_FP_IMAGE   = /^\/api\/shows\/([^/]+)\/floorplan\/image$/
-const SHOW_FP_SNAP    = /^\/api\/shows\/([^/]+)\/floorplan\/snapshot$/
 
 function mimeFromExt(filename) {
   const ext = (filename || '').split('.').pop().toLowerCase()
@@ -24,34 +23,6 @@ export async function floorplanRoutes(req, res, pathname) {
       const served = await floorplanLib.serveFloorplanImage(m[1], res)
       if (!served) return notFound(res)
       return
-    }
-  }
-
-  if (m = SHOW_FP_SNAP.exec(pathname)) {
-    const showId = m[1]
-    if (method === 'GET') {
-      const show = db.readShow(showId)
-      if (!show) return notFound(res)
-      const snapshotPath = floorplanLib.getFloorplanSnapshotPath(show.id)
-      try {
-        const buf = await fs.promises.readFile(snapshotPath)
-        res.writeHead(200, { 'Content-Type': 'image/png', 'Content-Length': buf.length, 'Cache-Control': 'no-cache' })
-        res.end(buf)
-      } catch { return notFound(res) }
-      return
-    }
-    if (method === 'PUT') {
-      const show = db.readShow(showId)
-      if (!show) return notFound(res)
-      const body = await readJsonBody(req, res); if (body === null) return
-      const { data_url } = body
-      if (typeof data_url !== 'string' || !data_url.startsWith('data:image/')) {
-        return json(res, 400, { error: 'data_url fehlt oder ungültig' })
-      }
-      const overflow = typeof body.overflow === 'number' ? body.overflow : 0
-      const base64 = data_url.replace(/^data:image\/\w+;base64,/, '')
-      await floorplanLib.saveFloorplanSnapshot(show.id, Buffer.from(base64, 'base64'), overflow)
-      return json(res, 200, { ok: true })
     }
   }
 

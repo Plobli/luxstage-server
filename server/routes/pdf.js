@@ -28,10 +28,21 @@ export async function pdfRoutes(req, res, pathname) {
     const towers = db.readTowers(slug)
     const bars = db.readBars(slug)
     const floorplanRow = db.getShowFloorplan(show.id)
+    let imagePath = null
+    let canvasData = floorplanRow?.canvas_data ?? null
+    if (floorplanRow?.image_path) {
+      imagePath = floorplan.resolveFloorplanImagePath(floorplanRow.image_path)
+    } else if (show.template) {
+      const tpl = db.getTemplateByName(show.template)
+      if (tpl) {
+        const fp = db.getTemplateFloorplan(tpl.id)
+        if (fp?.image_path) imagePath = floorplan.resolveFloorplanImagePath(fp.image_path)
+        if (!canvasData && fp?.canvas_data) canvasData = fp.canvas_data
+      }
+    }
     await generatePDF(show, channels, sectionsMap, templateSections, photoEntries, res, {
-      snapshotPath: floorplan.getFloorplanSnapshotPath(show.id),
-      snapshotOverflow: floorplan.getFloorplanSnapshotOverflow(show.id),
-      canvasData: floorplanRow?.canvas_data ?? null,
+      canvasData,
+      imagePath,
       towers,
       bars,
     }, unit, getPhotosPerPage())
