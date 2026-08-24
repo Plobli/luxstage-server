@@ -19,7 +19,10 @@ function acquireLock() {
   if (fs.existsSync(lockPath)) {
     const existingPid = parseInt(fs.readFileSync(lockPath, 'utf8').trim(), 10)
     let stillRunning = false
-    if (existingPid) {
+    // existingPid === process.pid: In Containern ist der Server-Prozess fast immer
+    // PID 1 (exec im Entrypoint). Nach einem Neustart hat der neue Prozess dieselbe
+    // PID wie der alte im Lockfile — das ist kein zweiter Prozess, sondern der Neustart.
+    if (existingPid && existingPid !== process.pid) {
       try { process.kill(existingPid, 0); stillRunning = true } catch { stillRunning = false }
     }
     if (stillRunning) {
