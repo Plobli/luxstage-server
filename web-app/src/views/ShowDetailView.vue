@@ -50,7 +50,6 @@
         :canUndo="canUndo"
         :canRedo="canRedo"
         :saving="channelsSaving || sectionsSaving || setupSaving"
-        :lockHeldByMe="showLock.isHeldByMe.value"
         :lockedByOther="showLock.isLockedByOther.value"
         :dupAddressWarning="dupWarning"
         :dupChannelWarning="dupChannelWarning"
@@ -70,7 +69,6 @@
           legendEos: t('channel.legend.eos'),
           hideEosInactive: t('channel.hide_eos_inactive'),
           lockedBy: lock?.user ? t('lock.lockedBy', { user: lock.user }) : '',
-          lockHeldByMe: t('lock.heldByMe'),
         }"
         @undo="undo()"
         @redo="redo()"

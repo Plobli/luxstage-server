@@ -22,7 +22,8 @@
           <div class="space-y-2">
             <Label for="teamId">{{ t('register.team_id') }}</Label>
             <Input
-              v-model="teamId"
+              :model-value="teamId"
+              @update:model-value="teamId = normalizeTeamId(String($event))"
               id="teamId"
               type="text"
               autocomplete="off"

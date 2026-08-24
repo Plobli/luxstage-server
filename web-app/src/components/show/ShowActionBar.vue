@@ -37,14 +37,6 @@
       <Badge v-if="lockedByOther" variant="outline" role="button" tabindex="0" @click="emit('requestTakeover')" class="text-orange-400 border-orange-500/30 bg-orange-500/10 text-xs flex cursor-pointer hover:bg-orange-500/20">
         <Lock class="size-3 mr-1" />{{ labels.lockedBy }}
       </Badge>
-      <!-- Schreib-Sperre: selbst gehalten -->
-      <Tooltip v-else-if="lockHeldByMe">
-        <TooltipTrigger asChild>
-          <Lock class="size-3.5 text-muted-foreground/50 hidden sm:block" />
-        </TooltipTrigger>
-        <TooltipContent side="bottom"><p>{{ labels.lockHeldByMe }}</p></TooltipContent>
-      </Tooltip>
-
       <!-- Warnings -->
       <Badge v-if="dupAddressWarning && activeTab === 'channels'" variant="outline" role="button" tabindex="0" @click="emit('filterDup', 'address')" @keydown.enter="emit('filterDup', 'address')" class="text-yellow-400 border-yellow-500/30 bg-yellow-500/10 text-xs hidden sm:flex cursor-pointer hover:bg-yellow-500/20">
         <AlertTriangle class="size-3 mr-1" />{{ labels.dupAddress }}
@@ -126,7 +118,6 @@ defineProps({
   canUndo: { type: Boolean, default: false },
   canRedo: { type: Boolean, default: false },
   saving: { type: Boolean, default: false },
-  lockHeldByMe: { type: Boolean, default: false },
   lockedByOther: { type: Boolean, default: false },
   dupAddressWarning: { type: Boolean, default: false },
   dupChannelWarning: { type: Boolean, default: false },

@@ -38,45 +38,44 @@
             <img :src="photoUrl(filename, { thumb: true })" :alt="filename" loading="lazy" class="pointer-events-none h-full w-full object-cover transition-opacity duration-200 group-hover:opacity-80" />
           </div>
           <Button
-            variant="destructive"
+            variant="ghost"
             size="icon"
-            class="absolute top-3 right-3 h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity bg-black/70 hover:bg-red-500/90 text-white"
+            class="absolute top-3 right-3 size-7 rounded-sm opacity-0 group-hover:opacity-100 transition-all bg-background/80 text-muted-foreground hover:text-destructive"
             @click="onDeletePhoto(filename)"
             :title="labels.delete"
-          >✕</Button>
-          <Input
-            type="text"
-            :value="photoCaptions[filename]?.caption ?? ''"
-            :placeholder="labels.captionPlaceholder"
-            @blur="onCaptionBlur(filename, $event)"
-            @keydown.enter="$event.target.blur()"
-            class="mt-2 text-xs"
-          />
-          <div class="flex flex-col gap-1 mt-1">
-            <div class="flex items-center gap-2">
-              <span class="text-xs text-muted-foreground shrink-0">{{ labels.channelLabel }}</span>
-              <Input
+          ><X class="size-4" /></Button>
+          <div class="mt-1 flex flex-col divide-y divide-border rounded-xl border border-input bg-background overflow-hidden">
+            <input
+              type="text"
+              :value="photoCaptions[filename]?.caption ?? ''"
+              :placeholder="labels.captionPlaceholder"
+              @blur="onCaptionBlur(filename, $event)"
+              @keydown.enter="$event.target.blur()"
+              class="h-9 w-full bg-transparent px-3 text-xs placeholder:text-muted-foreground focus-visible:outline-none focus-visible:bg-muted/40"
+            />
+            <div class="relative flex items-center">
+              <input
                 type="text"
                 :value="channelInputValue(filename)"
                 :placeholder="labels.channelInputPlaceholder"
-                :class="channelInputInvalid[filename] ? 'border-destructive' : ''"
+                :class="channelInputInvalid[filename] ? 'text-destructive' : ''"
                 @focus="beginChannelInput(filename, $event)"
                 @input="onChannelInputTyping(filename, $event)"
                 @blur="commitChannelInput(filename, $event)"
                 @keydown.enter="$event.target.blur()"
-                class="text-xs font-mono"
+                class="h-9 w-full bg-transparent px-3 pr-8 text-xs font-mono placeholder:text-muted-foreground placeholder:font-sans focus-visible:outline-none focus-visible:bg-muted/40"
               />
               <button
                 type="button"
-                class="text-xs text-muted-foreground/50 hover:text-muted-foreground shrink-0"
+                class="absolute right-2 text-muted-foreground/50 hover:text-muted-foreground shrink-0"
                 :title="labels.channelPick"
                 @click="openChannelPicker(filename)"
               ><Search class="size-3.5" /></button>
             </div>
-            <p v-if="channelInputInvalid[filename]" class="text-[10px] text-destructive">
-              {{ labels.channelUnknown }}: {{ channelInputInvalid[filename].join(', ') }}
-            </p>
           </div>
+          <p v-if="channelInputInvalid[filename]" class="text-[10px] text-destructive mt-1">
+            {{ labels.channelUnknown }}: {{ channelInputInvalid[filename].join(', ') }}
+          </p>
         </li>
       </ul>
     </div>
@@ -173,7 +172,6 @@
 import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue'
 import { ChevronLeft, ChevronRight, X, Plus, Search, Image as ImageIcon } from 'lucide-vue-next'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { Progress } from '@/components/ui/progress'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogBody } from '@/components/ui/dialog'
 import ChannelPickerGrid from './ChannelPickerGrid.vue'
