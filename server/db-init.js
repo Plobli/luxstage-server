@@ -167,7 +167,6 @@ function _initSchema(database) {
     CREATE TABLE IF NOT EXISTS users (
       username                  TEXT PRIMARY KEY,
       password                  TEXT NOT NULL,
-      role                      TEXT NOT NULL DEFAULT 'techniker',
       requires_password_change  INTEGER NOT NULL DEFAULT 0,
       email                     TEXT NOT NULL DEFAULT ''
     );

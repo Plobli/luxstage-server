@@ -1,5 +1,5 @@
 // LuxStage/server/bootstrap.js
-// Einmaliges Setup-Skript: legt den ersten Admin in der users-Tabelle an.
+// Einmaliges Setup-Skript: legt den ersten Nutzer in der users-Tabelle an.
 // Idempotent: bestehende Nutzer werden nicht überschrieben.
 //
 // Der Login-Name ist die E-Mail-Adresse — so wie es Benutzerverwaltung,
@@ -31,14 +31,14 @@ if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(adminEmail)) {
 }
 
 const insert = dbContainer.db.prepare(
-  'INSERT OR IGNORE INTO users (username, password, role, email) VALUES (?, ?, ?, ?)'
+  'INSERT OR IGNORE INTO users (username, password, email) VALUES (?, ?, ?)'
 )
 
 const adminHash = await bcrypt.hash(adminPassword, BCRYPT_COST)
-const adminResult = insert.run(adminEmail, adminHash, 'admin', adminEmail)
+const adminResult = insert.run(adminEmail, adminHash, adminEmail)
 
 if (adminResult.changes > 0) {
-  console.log(`  ✓  Nutzer "${adminEmail}" angelegt (Rolle: admin)`)
+  console.log(`  ✓  Nutzer "${adminEmail}" angelegt`)
 } else {
   console.log(`  –  Nutzer "${adminEmail}" existiert bereits, wird nicht überschrieben`)
 }

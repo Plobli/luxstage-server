@@ -13,13 +13,13 @@ function getDefsRequest(slug) {
   return { method: 'GET', url: `/api/shows/${slug}/section-defs` }
 }
 
-function putRequest(slug, kind, body, { ifMatch, username = 'tester', role = 'admin' } = {}) {
+function putRequest(slug, kind, body, { ifMatch, username = 'tester' } = {}) {
   const suffix = kind === 'contents' ? 'sections' : 'section-defs'
   const req = Readable.from([Buffer.from(JSON.stringify(body))])
   req.method = 'PUT'
   req.url = `/api/shows/${slug}/${suffix}`
   req.headers = ifMatch ? { 'if-match': ifMatch } : {}
-  req.user = { username, role }
+  req.user = { username }
   return req
 }
 

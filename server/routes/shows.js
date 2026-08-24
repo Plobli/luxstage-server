@@ -1,5 +1,5 @@
 import * as db from '../db.js'
-import { requireAdmin } from '../auth.js'
+import { requireAuth } from '../auth.js'
 import { readJsonBody, json, notFound } from '../helpers.js'
 import { subscribe, broadcast, sendToUser, getPresence } from '../sse.js'
 import { getLastOperation, deleteOperation, pushRedo, popRedo, recordOperation } from '../db/operations.js'
@@ -117,7 +117,7 @@ export async function showRoutes(req, res, pathname, params) {
   if (m = SHOW_TO_TEMPLATE.exec(pathname)) {
     const slug = m[1]
     if (method === 'POST') {
-      const user = requireAdmin(req, res); if (!user) return
+      const user = requireAuth(req, res); if (!user) return
       const body = await readJsonBody(req, res); if (body === null) return
       const validScopes = ['bars', 'towers']
       const scope = validScopes.includes(body.scope) ? body.scope : 'bars'
@@ -148,7 +148,7 @@ export async function showRoutes(req, res, pathname, params) {
   if (m = SHOW_PERM.exec(pathname)) {
     const slug = m[1]
     if (method === 'DELETE') {
-      const user = requireAdmin(req, res); if (!user) return
+      const user = requireAuth(req, res); if (!user) return
       db.deleteShow(slug)
       return json(res, 200, { ok: true })
     }

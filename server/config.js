@@ -24,7 +24,6 @@ export const config = {
     user: process.env.OPERATOR_USER || 'operator',
     password: process.env.OPERATOR_PASSWORD || '',
   },
-  // Rollen: admin (alles), techniker (shows lesen/schreiben, keine templates/backup/update)
   lockTimeout: 10 * 60 * 1000, // 10 Minuten in ms
   photoMaxWidth: 1500,
   photoQuality: 70,

@@ -29,26 +29,18 @@
 import { computed } from 'vue'
 import { RouterLink, RouterView, useRoute } from 'vue-router'
 import { useLocale } from '../composables/useLocale.js'
-import { jwtDecode } from '../api/jwtDecode.js'
 
 const { t } = useLocale()
 const route = useRoute()
 
-const isAdmin = computed(() => {
-  try {
-    const token = localStorage.getItem('luxstage_token')
-    return token ? jwtDecode(token)?.role === 'admin' : false
-  } catch { return false }
-})
-
 const nav = computed(() => [
   { to: '/settings/account', label: t('settings.account') },
   { to: '/settings/display', label: t('settings.display') },
-  ...(isAdmin.value ? [{ to: '/settings/backup', label: t('settings.backup') }] : []),
-  ...(isAdmin.value ? [{ to: '/settings/server', label: t('settings.server') }] : []),
-  ...(isAdmin.value ? [{ to: '/settings/users', label: 'Benutzerverwaltung' }] : []),
-  ...(isAdmin.value ? [{ to: '/settings/smtp', label: t('settings.smtp') }] : []),
-  ...(isAdmin.value ? [{ to: '/settings/update', label: t('settings.update') }] : []),
+  { to: '/settings/backup', label: t('settings.backup') },
+  { to: '/settings/server', label: t('settings.server') },
+  { to: '/settings/users', label: 'Benutzerverwaltung' },
+  { to: '/settings/smtp', label: t('settings.smtp') },
+  { to: '/settings/update', label: t('settings.update') },
 ])
 
 function isActive(path) {

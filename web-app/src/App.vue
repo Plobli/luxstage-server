@@ -254,7 +254,6 @@ import {
 import { useLocale } from './composables/useLocale.js'
 import { logout, api, isOnline } from './api/client.js'
 import { useTokenRefresh } from './composables/useTokenRefresh.js'
-import { jwtDecode } from './api/jwtDecode.js'
 import { updateAvailable } from './composables/useUpdateCheck.js'
 import ConfirmDialog from './components/ConfirmDialog.vue'
 import { useConfirmDialog, resolveConfirm } from './composables/useConfirm.js'
@@ -283,9 +282,6 @@ async function pingServer() {
 
 async function checkForUpdate() {
   try {
-    const token = localStorage.getItem('luxstage_token')
-    const isAdmin = token && jwtDecode(token)?.role === 'admin'
-    if (!isAdmin) return
     const check = await api.get('/api/update/check')
     if (check?.available) updateAvailable.value = true
   } catch (e) {
@@ -330,23 +326,16 @@ const navigation = computed(() => [
 
 const isSettingsDetail = computed(() => route.path.startsWith('/settings'))
 
-const isAdmin = computed(() => {
-  try {
-    const token = localStorage.getItem('luxstage_token')
-    return token ? jwtDecode(token)?.role === 'admin' : false
-  } catch { return false }
-})
-
 const settingsNavItems = computed(() => [
   { to: '/settings/account', label: t('settings.account') },
   { to: '/settings/display', label: t('settings.display') },
-  ...(isAdmin.value ? [{ to: '/settings/users', label: 'Benutzerverwaltung' }] : []),
+  { to: '/settings/users', label: 'Benutzerverwaltung' },
   // Backup/Server/SMTP/Update sind Self-Hosted-Einstellungen: im SaaS-Modus laufen
   // Backups zentral automatisch, Server-Betrieb/SMTP/Updates liegen beim Betreiber.
-  ...(isAdmin.value && !saasMode.value ? [{ to: '/settings/backup', label: t('settings.backup') }] : []),
-  ...(isAdmin.value && !saasMode.value ? [{ to: '/settings/server', label: t('settings.server') }] : []),
-  ...(isAdmin.value && !saasMode.value ? [{ to: '/settings/smtp', label: t('settings.smtp') }] : []),
-  ...(isAdmin.value && !saasMode.value ? [{ to: '/settings/update', label: t('settings.update') }] : []),
+  ...(!saasMode.value ? [{ to: '/settings/backup', label: t('settings.backup') }] : []),
+  ...(!saasMode.value ? [{ to: '/settings/server', label: t('settings.server') }] : []),
+  ...(!saasMode.value ? [{ to: '/settings/smtp', label: t('settings.smtp') }] : []),
+  ...(!saasMode.value ? [{ to: '/settings/update', label: t('settings.update') }] : []),
 ])
 
 function isSettingsItemActive(path) {

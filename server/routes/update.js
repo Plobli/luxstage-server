@@ -1,6 +1,6 @@
 import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
-import { requireAdmin } from '../auth.js'
+import { requireAuth } from '../auth.js'
 import { readJsonBody, json } from '../helpers.js'
 import { config } from '../config.js'
 import fs from 'node:fs'
@@ -38,12 +38,12 @@ export async function updateRoutes(req, res, pathname, params) {
   // Im SaaS-Modus verwaltet der Betreiber Updates zentral über den Docker-Image-
   // Rollout — ein Mandant darf den geteilten Server nicht neu starten/ersetzen.
   if (config.baseDomain) {
-    const admin = requireAdmin(req, res); if (!admin) return
+    const admin = requireAuth(req, res); if (!admin) return
     return json(res, 403, { error: 'Updates werden zentral verwaltet' })
   }
 
   if (method === 'GET' && pathname === '/api/update/branches') {
-    const user = requireAdmin(req, res); if (!user) return
+    const user = requireAuth(req, res); if (!user) return
     try {
       const response = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/releases`, {
         headers: { 'User-Agent': 'LuxStage-Updater' }
@@ -58,7 +58,7 @@ export async function updateRoutes(req, res, pathname, params) {
   }
 
   if (method === 'GET' && pathname === '/api/update/check') {
-    const user = requireAdmin(req, res); if (!user) return
+    const user = requireAuth(req, res); if (!user) return
     const tag = params.branch || 'main'
     try {
       const pkg = JSON.parse(await fsp.readFile(path.join(repoDir, 'package.json'), 'utf8'))
@@ -86,7 +86,7 @@ export async function updateRoutes(req, res, pathname, params) {
   }
 
   if (method === 'POST' && pathname === '/api/update') {
-    const user = requireAdmin(req, res); if (!user) return
+    const user = requireAuth(req, res); if (!user) return
     const dbPath     = path.join(config.dataPath, 'luxstage.db')
     const dbSnap     = path.join(config.dataPath, 'luxstage-preupdate.db')
     const tmpZip     = path.join(repoDir, 'tmp-release.zip')

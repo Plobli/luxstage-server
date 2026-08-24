@@ -78,14 +78,14 @@ export async function registerRoutes(req, res, pathname) {
 
     let tenantCreated = false
     try {
-      // Der Token bleibt gültig, bis Tenant-DB, erster Admin und Registry-Commit
+      // Der Token bleibt gültig, bis Tenant-DB, erster Nutzer und Registry-Commit
       // vollständig gelungen sind. Jeder Fehler räumt die vorbereitete DB weg.
       const tdb = createTenant(row.tenant_id)
       tenantCreated = true
       runWithDb(tdb, () => {
         tdb.prepare(
-          'INSERT INTO users (username, password, role, email, requires_password_change) VALUES (?, ?, ?, ?, 0)'
-        ).run(row.email, row.password_hash, 'admin', row.email)
+          'INSERT INTO users (username, password, email, requires_password_change) VALUES (?, ?, ?, 0)'
+        ).run(row.email, row.password_hash, row.email)
       })
       if (!confirmPending(token, row.tenant_id, row.email)) {
         throw new Error('Bestätigung wurde parallel verarbeitet')

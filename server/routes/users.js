@@ -1,6 +1,6 @@
 import { randomBytes } from 'node:crypto'
 import * as db from '../db.js'
-import { requireAdmin, requireAuth } from '../auth.js'
+import { requireAuth } from '../auth.js'
 import { readJsonBody, json } from '../helpers.js'
 import { sendWelcomeEmail } from '../email.js'
 
@@ -35,30 +35,29 @@ export async function userRoutes(req, res, pathname) {
   }
 
   if (method === 'GET' && pathname === '/api/users') {
-    const admin = requireAdmin(req, res); if (!admin) return
+    const user = requireAuth(req, res); if (!user) return
     return json(res, 200, db.listUsers())
   }
 
   if (method === 'POST' && pathname === '/api/users') {
-    const admin = requireAdmin(req, res); if (!admin) return
+    const user = requireAuth(req, res); if (!user) return
     const body = await readJsonBody(req, res); if (body === null) return
-    const { username, role } = body
+    const { username } = body
     if (!username || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(username)) return json(res, 400, { error: 'Ungültige E-Mail-Adresse' })
-    if (!['admin', 'techniker'].includes(role)) return json(res, 400, { error: 'Ungültige Rolle' })
     const password = randomBytes(12).toString('hex')
-    await db.createUser(username, password, role, username)
+    await db.createUser(username, password, username)
     sendWelcomeEmail(username, username, password).catch(err => console.error('[email] Willkommens-Email fehlgeschlagen:', err))
-    console.log(`[users] angelegt: user=${username} role=${role} von=${admin.username}`)
+    console.log(`[users] angelegt: user=${username} von=${user.username}`)
     return json(res, 201, { ok: true })
   }
 
   let m
   if (method === 'DELETE' && (m = USER_ID.exec(pathname))) {
-    const admin = requireAdmin(req, res); if (!admin) return
+    const user = requireAuth(req, res); if (!user) return
     const username = m[1]
-    if (username === admin.username) return json(res, 400, { error: 'Eigenen Account kann man nicht löschen' })
+    if (username === user.username) return json(res, 400, { error: 'Eigenen Account kann man nicht löschen' })
     db.deleteUser(username)
-    console.log(`[users] gelöscht: user=${username} von=${admin.username}`)
+    console.log(`[users] gelöscht: user=${username} von=${user.username}`)
     return json(res, 200, { ok: true })
   }
 

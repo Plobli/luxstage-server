@@ -1,5 +1,5 @@
 import * as db from '../db.js'
-import { requireAdmin } from '../auth.js'
+import { requireAuth } from '../auth.js'
 import { readJsonBody, json } from '../helpers.js'
 import { broadcast } from '../sse.js'
 import { recordOperation, clearRedo } from '../db/operations.js'
@@ -56,7 +56,7 @@ export async function sectionRoutes(req, res, pathname) {
       return json(res, 200, db.readShowSectionDefs(slug), version !== null ? { 'X-Show-Version': version } : {})
     }
     if (method === 'PUT') {
-      const user = requireAdmin(req, res); if (!user) return
+      const user = requireAuth(req, res); if (!user) return
       const body = await readJsonBody(req, res); if (body === null) return
 
       const baseVersion = req.headers['if-match']

@@ -1,4 +1,4 @@
-import { requireAdmin } from '../auth.js'
+import { requireAuth } from '../auth.js'
 import { readJsonBody, json } from '../helpers.js'
 import { getSettingsByPrefix, setSetting } from '../db/settings.js'
 import { config } from '../config.js'
@@ -26,19 +26,19 @@ export async function smtpRoutes(req, res, pathname) {
 
   // Im SaaS-Modus ist SMTP zentral (Betreiber) — Mandanten können es nicht konfigurieren.
   if (config.baseDomain && (pathname === '/api/smtp')) {
-    const admin = requireAdmin(req, res); if (!admin) return
+    const admin = requireAuth(req, res); if (!admin) return
     if (method === 'GET') return json(res, 200, { managed: true })
     if (method === 'POST') return json(res, 403, { error: 'SMTP wird zentral verwaltet' })
   }
 
   if (method === 'GET' && pathname === '/api/smtp') {
-    const admin = requireAdmin(req, res); if (!admin) return
+    const admin = requireAuth(req, res); if (!admin) return
     const cfg = getSmtpConfig()
     return json(res, 200, { ...cfg, pass: cfg.pass ? '••••••••' : '' })
   }
 
   if (method === 'POST' && pathname === '/api/smtp') {
-    const admin = requireAdmin(req, res); if (!admin) return
+    const admin = requireAuth(req, res); if (!admin) return
     const body = await readJsonBody(req, res); if (body === null) return
     const { host, port, secure, user, pass, from } = body
     if (host !== undefined) saveSmtpConfig({ host, port: port || '587', secure: !!secure, user: user || '', pass: pass || '', from: from || '' })
@@ -46,7 +46,7 @@ export async function smtpRoutes(req, res, pathname) {
   }
 
   if (method === 'POST' && pathname === '/api/smtp/test') {
-    const admin = requireAdmin(req, res); if (!admin) return
+    const admin = requireAuth(req, res); if (!admin) return
     const body = await readJsonBody(req, res); if (body === null) return
     const { to } = body
     if (!to) return json(res, 400, { error: 'Empfänger fehlt' })

@@ -80,14 +80,6 @@ export async function sendPasswordResetLink(email, username, resetUrl) {
   )
 }
 
-export async function sendPasswordResetEmail(email, username, newPassword) {
-  await sendMail(
-    email,
-    'LuxStage – Passwort zurückgesetzt',
-    `Hallo ${username},\n\ndein Passwort wurde zurückgesetzt.\n\nNeues Passwort: ${newPassword}\n\nBitte melde dich an und ändere dein Passwort.\n\nLuxStage`
-  )
-}
-
 export async function sendTestEmail(to, cfg) {
   const transport = createTransport(cfg)
   if (!transport) throw new Error('SMTP nicht konfiguriert')

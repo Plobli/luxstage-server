@@ -18,8 +18,8 @@ export async function changePassword(username, newPassword, requiresChange = 0) 
 }
 
 export function listUsers() {
-  return getDb().prepare('SELECT username, role, email FROM users').all()
-    .map(u => ({ username: u.username, role: u.role, email: u.email || '', source: 'db' }))
+  return getDb().prepare('SELECT username, email FROM users').all()
+    .map(u => ({ username: u.username, email: u.email || '', source: 'db' }))
 }
 
 export function getUserEmail(username) {
@@ -56,10 +56,10 @@ export function clearResetTokens(username) {
   getDb().prepare('DELETE FROM password_resets WHERE username = ?').run(username)
 }
 
-export async function createUser(username, password, role, email = '') {
+export async function createUser(username, password, email = '') {
   const hash = await hashPassword(password)
-  getDb().prepare('INSERT INTO users (username, password, role, email, requires_password_change) VALUES (?, ?, ?, ?, 1) ON CONFLICT(username) DO UPDATE SET password = excluded.password, role = excluded.role, email = excluded.email, requires_password_change = 1')
-    .run(username, hash, role, email)
+  getDb().prepare('INSERT INTO users (username, password, email, requires_password_change) VALUES (?, ?, ?, 1) ON CONFLICT(username) DO UPDATE SET password = excluded.password, email = excluded.email, requires_password_change = 1')
+    .run(username, hash, email)
 }
 
 export function deleteUser(username) {

@@ -1,13 +1,5 @@
 import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router'
-import { isLoggedIn, getToken } from '../api/client'
-import { jwtDecode } from '../api/jwtDecode.js'
-
-function isAdmin(): boolean {
-  try {
-    const token = getToken()
-    return token ? jwtDecode(token)?.role === 'admin' : false
-  } catch { return false }
-}
+import { isLoggedIn } from '../api/client'
 
 const routes: RouteRecordRaw[] = [
   {
@@ -68,11 +60,11 @@ const routes: RouteRecordRaw[] = [
       { path: '', redirect: '/settings/account' },
       { path: 'account', name: 'settings-account', component: () => import('../views/settings/AccountView.vue') },
       { path: 'display', name: 'settings-display', component: () => import('../views/settings/DisplayView.vue') },
-      { path: 'server', name: 'settings-server', component: () => import('../views/settings/ServerView.vue'), meta: { adminOnly: true } },
-      { path: 'backup', name: 'settings-backup', component: () => import('../views/settings/BackupView.vue'), meta: { adminOnly: true } },
-      { path: 'users', name: 'settings-users', component: () => import('../views/settings/UsersView.vue'), meta: { adminOnly: true } },
-      { path: 'smtp', name: 'settings-smtp', component: () => import('../views/settings/SmtpView.vue'), meta: { adminOnly: true } },
-      { path: 'update', name: 'settings-update', component: () => import('../views/settings/UpdateView.vue'), meta: { adminOnly: true } },
+      { path: 'server', name: 'settings-server', component: () => import('../views/settings/ServerView.vue') },
+      { path: 'backup', name: 'settings-backup', component: () => import('../views/settings/BackupView.vue') },
+      { path: 'users', name: 'settings-users', component: () => import('../views/settings/UsersView.vue') },
+      { path: 'smtp', name: 'settings-smtp', component: () => import('../views/settings/SmtpView.vue') },
+      { path: 'update', name: 'settings-update', component: () => import('../views/settings/UpdateView.vue') },
     ],
   },
   {
@@ -90,6 +82,5 @@ export const router = createRouter({
 
 router.beforeEach((to) => {
   if (!to.meta.public && !isLoggedIn()) return { name: 'login' }
-  if (to.meta.adminOnly && !isAdmin()) return { name: 'settings-account' }
 })
 

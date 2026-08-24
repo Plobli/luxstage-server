@@ -1,8 +1,8 @@
 import { randomBytes } from 'node:crypto'
-import { login, signToken, requireAdmin, issueDownloadToken, issueInlineToken } from '../auth.js'
+import { login, signToken, requireAuth, issueDownloadToken, issueInlineToken } from '../auth.js'
 import * as db from '../db.js'
 import { readJsonBody, json, clientIp } from '../helpers.js'
-import { sendPasswordResetEmail, sendPasswordResetLink, isSmtpConfigured } from '../email.js'
+import { sendPasswordResetLink, isSmtpConfigured } from '../email.js'
 import { config } from '../config.js'
 import { PASSWORD_MIN_LENGTH } from '../../shared/constants.js'
 
@@ -70,17 +70,17 @@ export async function authRoutes(req, res, pathname) {
 
   if (method === 'POST' && pathname === '/api/auth/refresh') {
     const user = req.user
-    return json(res, 200, { token: signToken(user.username, user.role) })
+    return json(res, 200, { token: signToken(user.username) })
   }
 
   if (method === 'POST' && pathname === '/api/auth/download-token') {
     const user = req.user
-    return json(res, 200, { token: issueDownloadToken(user.username, user.role, user.tenantId) })
+    return json(res, 200, { token: issueDownloadToken(user.username, user.tenantId) })
   }
 
   if (method === 'POST' && pathname === '/api/auth/inline-token') {
     const user = req.user
-    return json(res, 200, issueInlineToken(user.username, user.role, user.tenantId))
+    return json(res, 200, issueInlineToken(user.username, user.tenantId))
   }
 
   if (method === 'POST' && pathname === '/api/auth/change-password') {
@@ -130,22 +130,6 @@ export async function authRoutes(req, res, pathname) {
     await db.changePassword(username, newPassword, 0)
     console.log(`[auth] Passwort zurückgesetzt: user=${username}`)
     return json(res, 200, { ok: true })
-  }
-
-  if (method === 'POST' && pathname === '/api/auth/reset-password') {
-    const admin = requireAdmin(req, res); if (!admin) return
-    const body = await readJsonBody(req, res); if (body === null) return
-    const { username } = body
-    const allUsers = db.listUsers()
-    if (!allUsers.find(u => u.username === username)) return json(res, 404, { error: 'Benutzer nicht gefunden' })
-    const newPassword = randomBytes(12).toString('hex')
-    await db.changePassword(username, newPassword, 1)
-    const email = db.getUserEmail(username)
-    if (email) {
-      sendPasswordResetEmail(email, username, newPassword).catch(err => console.error('[email] Reset-Email fehlgeschlagen:', err))
-    }
-    console.log(`[auth] Passwort von Admin zurückgesetzt: user=${username} von=${admin.username}`)
-    return json(res, 200, { newPassword })
   }
 
   return null

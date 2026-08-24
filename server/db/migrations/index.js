@@ -29,6 +29,7 @@ import * as m028 from './028-template-bar-fixtures-position-text.js'
 import * as m029 from './029-photo-channels-migrate.js'
 import * as m030 from './030-channels-default-nc-color.js'
 import * as m031 from './031-operations-table.js'
+import * as m032 from './032-users-drop-role.js'
 
 // Reihenfolge ist bindend — manche Migrationen setzen das Ergebnis vorheriger
 // voraus (z.B. 024 liest Titel, die erst durch 023 umbenannt wurden).
@@ -36,5 +37,5 @@ export const migrations = [
   m001, m002, m003, m004, m005, m006, m007, m008, m009, m010,
   m011, m012, m013, m014, m015, m016, m017, m018, m019, m020,
   m021, m022, m023, m024, m025, m026, m027, m028, m029, m030,
-  m031,
+  m031, m032,
 ]

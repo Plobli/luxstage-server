@@ -5,13 +5,13 @@ import { config } from './config.js'
 import { randomBytes, timingSafeEqual } from 'node:crypto'
 
 // ── Kurzlebige Einmal-Token für URL-basierte Ressourcen (PDF, Fotos, Backup) ──
-// Speichert: token → { username, role, tenantId, expiresAt }
+// Speichert: token → { username, tenantId, expiresAt }
 const downloadTokens = new Map()
 const DOWNLOAD_TOKEN_TTL_MS = 60 * 1000 // 60 Sekunden
 
-export function issueDownloadToken(username, role, tenantId) {
+export function issueDownloadToken(username, tenantId) {
   const token = randomBytes(24).toString('hex')
-  downloadTokens.set(token, { username, role, tenantId, expiresAt: Date.now() + DOWNLOAD_TOKEN_TTL_MS })
+  downloadTokens.set(token, { username, tenantId, expiresAt: Date.now() + DOWNLOAD_TOKEN_TTL_MS })
   return token
 }
 
@@ -31,8 +31,8 @@ function redeemDownloadToken(token) {
   downloadTokens.delete(token) // Einmalnutzung
   if (Date.now() > entry.expiresAt) return null
   return entry.tenantId
-    ? { username: entry.username, role: entry.role, tenantId: entry.tenantId }
-    : { username: entry.username, role: entry.role }
+    ? { username: entry.username, tenantId: entry.tenantId }
+    : { username: entry.username }
 }
 
 // ── Kurzlebige, wiederverwendbare Token für Inline-Ressourcen (img src) ──────
@@ -43,9 +43,9 @@ function redeemDownloadToken(token) {
 const inlineTokens = new Map()
 const INLINE_TOKEN_TTL_MS = 15 * 60 * 1000 // 15 Minuten
 
-export function issueInlineToken(username, role, tenantId) {
+export function issueInlineToken(username, tenantId) {
   const token = randomBytes(24).toString('hex')
-  inlineTokens.set(token, { username, role, tenantId, expiresAt: Date.now() + INLINE_TOKEN_TTL_MS })
+  inlineTokens.set(token, { username, tenantId, expiresAt: Date.now() + INLINE_TOKEN_TTL_MS })
   return { token, expiresAt: Date.now() + INLINE_TOKEN_TTL_MS }
 }
 
@@ -62,8 +62,8 @@ function verifyInlineToken(token) {
   if (!entry) return null
   if (Date.now() > entry.expiresAt) { inlineTokens.delete(token); return null }
   return entry.tenantId
-    ? { username: entry.username, role: entry.role, tenantId: entry.tenantId }
-    : { username: entry.username, role: entry.role }
+    ? { username: entry.username, tenantId: entry.tenantId }
+    : { username: entry.username }
 }
 
 const BCRYPT_COST = 12
@@ -83,10 +83,10 @@ async function verifyPassword(plain, stored) {
   return bcrypt.compare(plain, stored)
 }
 
-export function signToken(username, role) {
+export function signToken(username) {
   // Token an den aktuellen Mandanten binden (falls im Mandanten-Kontext ausgestellt).
   const tenantId = getTenantId()
-  const payload = tenantId ? { username, role, tenantId } : { username, role }
+  const payload = tenantId ? { username, tenantId } : { username }
   return jwt.sign(payload, config.jwtSecret, { expiresIn: '12h' })
 }
 
@@ -100,7 +100,7 @@ export async function login(username, password) {
     getDb().prepare('UPDATE users SET password = ? WHERE username = ?').run(hash, row.username)
   }
   return {
-    token: signToken(row.username, row.role),
+    token: signToken(row.username),
     requiresPasswordChange: row.requires_password_change === 1,
   }
 }
@@ -132,17 +132,6 @@ export function requireAuth(req, res) {
   if (!user) {
     res.writeHead(401, { 'Content-Type': 'application/json' })
     res.end(JSON.stringify({ error: 'Nicht angemeldet' }))
-    return null
-  }
-  return user
-}
-
-export function requireAdmin(req, res) {
-  const user = requireAuth(req, res)
-  if (!user) return null
-  if (user.role !== 'admin') {
-    res.writeHead(403, { 'Content-Type': 'application/json' })
-    res.end(JSON.stringify({ error: 'Keine Berechtigung' }))
     return null
   }
   return user

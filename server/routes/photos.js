@@ -2,7 +2,7 @@ import path from 'node:path'
 import fs from 'node:fs'
 import * as db from '../db.js'
 import * as photosLib from '../photos.js'
-import { requireAdmin } from '../auth.js'
+import { requireAuth } from '../auth.js'
 import { readBody, readBodyBuffer, readJsonBody, json, notFound } from '../helpers.js'
 
 const SHOW_PHOTOS        = /^\/api\/shows\/([^/]+)\/photos$/
@@ -44,7 +44,7 @@ export async function photoRoutes(req, res, pathname, params) {
 
   if (m = SHOW_PHOTO_ORDER.exec(pathname)) {
     if (method === 'PUT') {
-      const user = requireAdmin(req, res); if (!user) return
+      const user = requireAuth(req, res); if (!user) return
       const id = m[1]
       const body = JSON.parse(await readBody(req))
       await photosLib.savePhotoOrder(id, body.order)
@@ -118,7 +118,7 @@ export async function photoRoutes(req, res, pathname, params) {
     const id = m[1]
     const filename = path.basename(decodeURIComponent(m[2]))
     if (method === 'PUT') {
-      const user = requireAdmin(req, res); if (!user) return
+      const user = requireAuth(req, res); if (!user) return
       const body = await readJsonBody(req, res); if (body === null) return
       const { channelIds } = body
       if (!Array.isArray(channelIds)) return json(res, 400, { error: 'channelIds muss ein Array sein' })
@@ -131,7 +131,7 @@ export async function photoRoutes(req, res, pathname, params) {
     const slug = m[1]
     const filename = path.basename(decodeURIComponent(m[2]))
     if (method === 'DELETE') {
-      const user = requireAdmin(req, res); if (!user) return
+      const user = requireAuth(req, res); if (!user) return
       await photosLib.deletePhoto(slug, filename)
       db.deletePhotoDescription(slug, filename)
       db.deletePhotoChannels(slug, filename)

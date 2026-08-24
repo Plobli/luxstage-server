@@ -183,16 +183,12 @@ export async function changePassword(currentPassword: string, newPassword: strin
 }
 
 export function listUsers(): Promise<any[]> { return api.get('/api/users') }
-export function createUser(username: string, role: string): Promise<any> { return api.post('/api/users', { username, role }) }
+export function createUser(username: string): Promise<any> { return api.post('/api/users', { username }) }
 export function deleteUser(username: string): Promise<any> { return api.delete(`/api/users/${username}`) }
 
 export function getSmtpConfig(): Promise<any> { return api.get('/api/smtp') }
 export function saveSmtpConfig(cfg: object): Promise<any> { return api.post('/api/smtp', cfg) }
 export function testSmtpConfig(to: string): Promise<any> { return api.post('/api/smtp/test', { to }) }
-
-export async function resetPassword(username: string): Promise<any> {
-  return api.post('/api/auth/reset-password', { username })
-}
 
 export function setServerUrl(url: string): void {
   localStorage.setItem('server_url', url.replace(/\/$/, ''))

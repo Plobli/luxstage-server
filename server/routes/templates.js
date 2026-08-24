@@ -3,7 +3,7 @@ import fs from 'node:fs'
 import * as db from '../db.js'
 import * as floorplan from '../floorplan.js'
 import * as photosLib from '../photos.js'
-import { requireAdmin } from '../auth.js'
+import { requireAuth } from '../auth.js'
 import { readJsonBody, json, notFound } from '../helpers.js'
 
 const TPL_LIST             = /^\/api\/templates$/
@@ -38,7 +38,7 @@ export async function templateRoutes(req, res, pathname) {
   }
 
   if (method === 'PUT' && TPL_LIST.test(pathname)) {
-    const user = requireAdmin(req, res); if (!user) return
+    const user = requireAuth(req, res); if (!user) return
     const body = await readJsonBody(req, res); if (body === null) return
     const { name, oscHost } = body
     if (!name || typeof name !== 'string') return json(res, 400, { error: 'Name fehlt' })
@@ -65,13 +65,13 @@ export async function templateRoutes(req, res, pathname) {
     const templateName = decodeURIComponent(m[1])
     const barId = m[2]
     if (method === 'PUT') {
-      const user = requireAdmin(req, res); if (!user) return
+      const user = requireAuth(req, res); if (!user) return
       const body = await readJsonBody(req, res); if (body === null) return
       db.writeTemplateBar(templateName, { ...body, id: barId })
       return json(res, 200, { ok: true })
     }
     if (method === 'DELETE') {
-      const user = requireAdmin(req, res); if (!user) return
+      const user = requireAuth(req, res); if (!user) return
       db.deleteTemplateBar(barId)
       return json(res, 200, { ok: true })
     }
@@ -83,7 +83,7 @@ export async function templateRoutes(req, res, pathname) {
       return json(res, 200, db.readTemplateBars(templateName))
     }
     if (method === 'POST') {
-      const user = requireAdmin(req, res); if (!user) return
+      const user = requireAuth(req, res); if (!user) return
       const body = await readJsonBody(req, res); if (body === null) return
       const barId = db.writeTemplateBar(templateName, body)
       return json(res, 201, { id: barId })
@@ -96,7 +96,7 @@ export async function templateRoutes(req, res, pathname) {
     const towerId = m[2]
     const slotIndex = parseInt(m[3], 10)
     if (method === 'PATCH') {
-      const user = requireAdmin(req, res); if (!user) return
+      const user = requireAuth(req, res); if (!user) return
       const body = await readJsonBody(req, res); if (body === null) return
       if (body.channel === null && body.device === null && body.color === null) {
         db.clearTemplateTowerSlot(towerId, slotIndex)
@@ -123,14 +123,14 @@ export async function templateRoutes(req, res, pathname) {
     const templateName = decodeURIComponent(m[1])
     const towerId = m[2]
     if (method === 'PUT') {
-      const user = requireAdmin(req, res); if (!user) return
+      const user = requireAuth(req, res); if (!user) return
       const body = await readJsonBody(req, res); if (body === null) return
       db.writeTemplateTower(templateName, { ...body, id: towerId })
       db.ensureTemplateTowerSlots(towerId, body.slot_count ?? 4)
       return json(res, 200, { ok: true })
     }
     if (method === 'DELETE') {
-      const user = requireAdmin(req, res); if (!user) return
+      const user = requireAuth(req, res); if (!user) return
       db.deleteTemplateTower(towerId)
       return json(res, 200, { ok: true })
     }
@@ -142,7 +142,7 @@ export async function templateRoutes(req, res, pathname) {
       return json(res, 200, db.readTemplateTowers(templateName))
     }
     if (method === 'POST') {
-      const user = requireAdmin(req, res); if (!user) return
+      const user = requireAuth(req, res); if (!user) return
       const body = await readJsonBody(req, res); if (body === null) return
       const towerId = db.writeTemplateTower(templateName, body)
       db.ensureTemplateTowerSlots(towerId, body.slot_count ?? 4)
@@ -154,13 +154,13 @@ export async function templateRoutes(req, res, pathname) {
   if (m = TPL_BAR_FIXTURE.exec(pathname)) {
     const fixtureId = m[3]
     if (method === 'PUT') {
-      const user = requireAdmin(req, res); if (!user) return
+      const user = requireAuth(req, res); if (!user) return
       const body = await readJsonBody(req, res); if (body === null) return
       db.writeTemplateBarFixture(m[2], { ...body, id: fixtureId })
       return json(res, 200, { ok: true })
     }
     if (method === 'DELETE') {
-      const user = requireAdmin(req, res); if (!user) return
+      const user = requireAuth(req, res); if (!user) return
       db.deleteTemplateBarFixture(fixtureId)
       return json(res, 200, { ok: true })
     }
@@ -172,7 +172,7 @@ export async function templateRoutes(req, res, pathname) {
       return json(res, 200, db.readTemplateBarFixtures(barId))
     }
     if (method === 'POST') {
-      const user = requireAdmin(req, res); if (!user) return
+      const user = requireAuth(req, res); if (!user) return
       const body = await readJsonBody(req, res); if (body === null) return
       const fixtureId = db.writeTemplateBarFixture(barId, body)
       return json(res, 201, { id: fixtureId })
@@ -182,7 +182,7 @@ export async function templateRoutes(req, res, pathname) {
   if (m = TPL_APPLY.exec(pathname)) {
     const templateName = decodeURIComponent(m[1])
     if (method === 'POST') {
-      const user = requireAdmin(req, res); if (!user) return
+      const user = requireAuth(req, res); if (!user) return
       const body = await readJsonBody(req, res); if (body === null) return
       const validScopes = ['bars', 'towers', 'sections']
       const scope = validScopes.includes(body.scope) ? body.scope : 'bars'
@@ -265,7 +265,7 @@ export async function templateRoutes(req, res, pathname) {
       return json(res, 200, db.readTemplateSections(name))
     }
     if (method === 'PUT') {
-      const user = requireAdmin(req, res); if (!user) return
+      const user = requireAuth(req, res); if (!user) return
       const body = await readJsonBody(req, res); if (body === null) return
       db.writeTemplateSections(name, body.sections)
       return json(res, 200, { ok: true })
@@ -281,7 +281,7 @@ export async function templateRoutes(req, res, pathname) {
       return json(res, 200, channels)
     }
     if (method === 'PUT') {
-      const user = requireAdmin(req, res); if (!user) return
+      const user = requireAuth(req, res); if (!user) return
       const channels = await readJsonBody(req, res); if (channels === null) return
       db.writeTemplate(name, channels)
       const existing = db.readTemplateSections(name)
@@ -294,7 +294,7 @@ export async function templateRoutes(req, res, pathname) {
       return json(res, 200, { ok: true })
     }
     if (method === 'PATCH') {
-      const user = requireAdmin(req, res); if (!user) return
+      const user = requireAuth(req, res); if (!user) return
       const body = await readJsonBody(req, res); if (body === null) return
       const newName = typeof body.name === 'string' ? body.name.trim() : ''
       if (!newName || newName.length > 100 || /[\x00-\x1F]/.test(newName)) return json(res, 400, { error: 'Ungültiger Bühnen-Template-Name' })
@@ -304,7 +304,7 @@ export async function templateRoutes(req, res, pathname) {
       return json(res, 200, { ok: true, name: newName })
     }
     if (method === 'DELETE') {
-      const user = requireAdmin(req, res); if (!user) return
+      const user = requireAuth(req, res); if (!user) return
       db.deleteTemplate(name)
       db.deleteTemplateSections(name)
       return json(res, 200, { ok: true })
