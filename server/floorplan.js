@@ -57,7 +57,24 @@ export function floorplanUrl(imagePath) {
   return `/api/floorplans/images/${imagePath}`
 }
 
+// Schnelles Hintereinander-Platzieren von Elementen löst mehrere überlappende
+// Snapshot-Saves pro Show aus (je Änderung ein PUT). Ohne Serialisierung schreiben
+// parallele Requests auf denselben tmp-Pfad und stören sich beim rename() —
+// daher pro showId in eine Kette gehängt, damit nur ein Save gleichzeitig läuft.
+const snapshotWriteQueues = new Map()
+
 export async function saveFloorplanSnapshot(showId, buffer, overflow = 0) {
+  const prev = snapshotWriteQueues.get(showId) ?? Promise.resolve()
+  const next = prev.catch(() => {}).then(() => writeFloorplanSnapshot(showId, buffer, overflow))
+  snapshotWriteQueues.set(showId, next)
+  try {
+    await next
+  } finally {
+    if (snapshotWriteQueues.get(showId) === next) snapshotWriteQueues.delete(showId)
+  }
+}
+
+async function writeFloorplanSnapshot(showId, buffer, overflow) {
   const dir = path.join(floorplansDir(), showId)
   await fs.mkdir(dir, { recursive: true })
   const finalPath = path.join(dir, 'snapshot.png')

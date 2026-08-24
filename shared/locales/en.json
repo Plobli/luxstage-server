@@ -163,6 +163,8 @@
   "floorplan.image.upload": "Upload image",
   "floorplan.image.upload.title": "Upload background image",
   "floorplan.place.channel": "Channel {channel}",
+  "floorplan.place.tower": "Place {name}",
+  "floorplan.place.bar": "Place {name}",
   "floorplan.place.click_or": "— click on the plan or",
   "floorplan.place.esc": "ESC to cancel",
   "floorplan.reassign.title": "Add channel",

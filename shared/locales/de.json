@@ -163,6 +163,8 @@
   "floorplan.image.upload": "Bild hochladen",
   "floorplan.image.upload.title": "Hintergrundbild hochladen",
   "floorplan.place.channel": "Kreis {channel} platzieren",
+  "floorplan.place.tower": "{name} platzieren",
+  "floorplan.place.bar": "{name} platzieren",
   "floorplan.place.click_or": "— im Plan klicken oder",
   "floorplan.place.esc": "ESC zum Abbrechen",
   "floorplan.reassign.title": "Kreis hinzufügen",

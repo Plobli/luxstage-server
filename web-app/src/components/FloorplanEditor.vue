@@ -2,10 +2,22 @@
   <div class="relative flex flex-col h-full overflow-hidden bg-background text-foreground">
     <!-- Placement status banner -->
     <Transition name="placement-banner">
-      <div v-if="pendingChannelForPlacement" class="absolute top-0 right-0 z-30 flex items-center gap-3 px-4 py-2 bg-destructive text-white text-sm font-medium shadow-md">
-        <span>
+      <div v-if="pendingChannelForPlacement || pendingTowerForPlacement || pendingBarForPlacement" class="absolute top-0 right-0 z-30 flex items-center gap-3 px-4 py-2 bg-destructive text-white text-sm font-medium shadow-md">
+        <span v-if="pendingChannelForPlacement">
           <span class="font-bold">{{ t('floorplan.place.channel', { channel: pendingChannelForPlacement.channel }) }}</span>
           <span v-if="pendingChannelForPlacement.device" class="opacity-80"> · {{ pendingChannelForPlacement.device }}</span>
+          <span class="ml-2 opacity-90">{{ t('floorplan.place.click_or') }}</span>
+          <kbd class="ml-1 px-1.5 py-0.5 rounded text-xs bg-white/20 font-mono">ESC</kbd>
+          <span class="opacity-90"> {{ t('floorplan.place.esc') }}</span>
+        </span>
+        <span v-else-if="pendingTowerForPlacement">
+          <span class="font-bold">{{ t('floorplan.place.tower', { name: pendingTowerForPlacement.name }) }}</span>
+          <span class="ml-2 opacity-90">{{ t('floorplan.place.click_or') }}</span>
+          <kbd class="ml-1 px-1.5 py-0.5 rounded text-xs bg-white/20 font-mono">ESC</kbd>
+          <span class="opacity-90"> {{ t('floorplan.place.esc') }}</span>
+        </span>
+        <span v-else-if="pendingBarForPlacement">
+          <span class="font-bold">{{ t('floorplan.place.bar', { name: pendingBarForPlacement.name }) }}</span>
           <span class="ml-2 opacity-90">{{ t('floorplan.place.click_or') }}</span>
           <kbd class="ml-1 px-1.5 py-0.5 rounded text-xs bg-white/20 font-mono">ESC</kbd>
           <span class="opacity-90"> {{ t('floorplan.place.esc') }}</span>
@@ -52,13 +64,13 @@
       <div class="flex flex-col items-center gap-0.5 px-1.5">
         <span class="text-[10px] font-medium text-muted-foreground/70 uppercase tracking-wide text-center">{{ t('floorplan.toolbar.group.lighting') }}</span>
         <div class="flex items-stretch gap-0.5">
-          <SidebarBtn horizontal icon-only :active="activeTool === 'channel' || activeTool === 'channel-pending'" :title="t('floorplan.tool.channel.title')" @click="activeTool = 'channel'">
+          <SidebarBtn horizontal icon-only :active="activeTool === 'channel' || activeTool === 'channel-pending'" :title="t('floorplan.tool.channel.title')" @click="openChannelPlacer">
             <CircleDot class="w-4 h-4 shrink-0" />
           </SidebarBtn>
-          <SidebarBtn horizontal icon-only :active="activeTool === 'tower'" :title="t('floorplan.tool.tower.title')" @click="openTowerPlacer">
+          <SidebarBtn horizontal icon-only :active="activeTool === 'tower' || activeTool === 'tower-pending'" :title="t('floorplan.tool.tower.title')" @click="openTowerPlacer">
             <Layers class="w-4 h-4 shrink-0" />
           </SidebarBtn>
-          <SidebarBtn horizontal icon-only :active="activeTool === 'bar'" :title="t('floorplan.tool.bar.title')" @click="openBarPlacer">
+          <SidebarBtn horizontal icon-only :active="activeTool === 'bar' || activeTool === 'bar-pending'" :title="t('floorplan.tool.bar.title')" @click="openBarPlacer">
             <AlignJustify class="w-4 h-4 shrink-0" />
           </SidebarBtn>
         </div>
@@ -125,7 +137,7 @@
     <div
       ref="containerEl"
       class="flex-1 relative overflow-hidden"
-      :class="(activeTool === 'pan' || spaceHeld) ? 'cursor-grab' : activeTool === 'channel-pending' ? 'cursor-none' : activeTool === 'ruler' ? 'cursor-crosshair' : activeTool !== 'select' ? 'cursor-crosshair' : 'cursor-default'"
+      :class="(activeTool === 'pan' || spaceHeld) ? 'cursor-grab' : ['channel-pending', 'tower-pending', 'bar-pending'].includes(activeTool) ? 'cursor-none' : activeTool === 'ruler' ? 'cursor-crosshair' : activeTool !== 'select' ? 'cursor-crosshair' : 'cursor-default'"
       :style="isPanning ? 'cursor:grabbing' : ''"
       @mousedown="onContainerMouseDown"
       @mousemove="onContainerMouseMove"
@@ -369,6 +381,31 @@
         </svg>
       </div>
 
+      <!-- Ghost cursor for tower placement -->
+      <div
+        v-if="activeTool === 'tower-pending' && ghostPos && pendingTowerForPlacement"
+        class="absolute pointer-events-none z-40"
+        :style="{ left: ghostPos.x + 'px', top: ghostPos.y + 'px', transform: 'translate(-50%, -50%)' }"
+      >
+        <svg width="90" height="54" viewBox="0 0 90 54" style="overflow: visible;">
+          <rect x="0" y="0" width="90" height="54" rx="6" fill="var(--color-card)" stroke="var(--color-accent)" stroke-width="2" opacity="0.85" />
+          <text x="45" y="27" fill="var(--color-foreground)" font-size="13" font-weight="700" text-anchor="middle" dominant-baseline="middle">{{ (pendingTowerForPlacement.name || '').slice(0, 11) }}</text>
+        </svg>
+      </div>
+
+      <!-- Ghost cursor for bar placement -->
+      <div
+        v-if="activeTool === 'bar-pending' && ghostPos && pendingBarForPlacement"
+        class="absolute pointer-events-none z-40"
+        :style="{ left: ghostPos.x + 'px', top: ghostPos.y + 'px', transform: 'translate(-50%, -50%)' }"
+      >
+        <svg :width="ghostBarWidth" height="28" :viewBox="`0 0 ${ghostBarWidth} 28`" style="overflow: visible;">
+          <rect x="0" y="0" :width="ghostBarWidth" height="28" rx="4" fill="rgba(16,185,129,0.06)" stroke="#10b981" stroke-width="1" stroke-dasharray="4,2" opacity="0.9" />
+          <line x1="0" y1="14" :x2="ghostBarWidth" y2="14" stroke="#10b981" stroke-width="5" stroke-linecap="round" opacity="0.85" />
+          <text :x="ghostBarWidth / 2" y="-6" fill="#6ee7b7" font-size="10" font-weight="600" text-anchor="middle">{{ pendingBarForPlacement.name }}</text>
+        </svg>
+      </div>
+
       <!-- Inline Text Editor -->
       <textarea
         v-if="textEditNode"
@@ -526,11 +563,22 @@
       <DialogContent class="sm:max-w-lg flex flex-col max-h-[80vh]">
         <DialogHeader><DialogTitle>{{ t('floorplan.tower.title') }}</DialogTitle></DialogHeader>
         <DialogBody class="flex-1 overflow-y-auto">
-          <div class="flex flex-col gap-1">
-            <Button v-for="tower in props.towers" :key="tower.id" variant="ghost" :disabled="towerAlreadyPlaced(tower.id)" @click="placeTowerNode(tower)" class="w-full justify-start h-auto py-2" :class="towerAlreadyPlaced(tower.id) && 'opacity-40'">
-              <div class="text-left"><div class="font-semibold">{{ tower.name }}</div><div class="text-xs text-muted-foreground">{{ tower.side || '' }}</div></div>
-            </Button>
-            <div v-if="!props.towers.length" class="text-sm text-muted-foreground py-4 text-center">{{ t('floorplan.tower.empty') }}</div>
+          <div class="flex flex-col gap-2">
+            <Input v-model="towerSearch" :placeholder="t('action.search')" autofocus />
+            <div class="w-full max-h-96 overflow-y-auto grid! gap-2 pt-1" style="grid-template-columns: repeat(auto-fill, minmax(8rem, 1fr));">
+              <button
+                v-for="tower in filteredTowers" :key="tower.id" type="button"
+                :disabled="towerAlreadyPlaced(tower.id)"
+                @click="placeTowerNode(tower)"
+                class="rounded-lg border border-border bg-card flex flex-col items-start justify-center gap-0.5 px-3 py-2.5 text-left transition-colors hover:bg-accent/15 hover:border-accent/50"
+                :class="towerAlreadyPlaced(tower.id) && 'opacity-40 pointer-events-none'"
+              >
+                <span class="font-bold text-sm">{{ tower.name }}</span>
+                <span class="text-xs text-muted-foreground">{{ tower.side || '' }}</span>
+                <span v-if="towerChannels(tower).length" class="text-xs text-muted-foreground/70 font-mono truncate w-full">{{ towerChannels(tower).join(', ') }}</span>
+              </button>
+              <div v-if="!filteredTowers.length" class="col-span-full text-xs text-muted-foreground px-2 py-4 text-center">{{ t('floorplan.tower.empty') }}</div>
+            </div>
           </div>
         </DialogBody>
         <DialogFooter><Button variant="outline" @click="showTowerPicker = false">{{ t('action.cancel') }}</Button></DialogFooter>
@@ -542,11 +590,22 @@
       <DialogContent class="sm:max-w-lg flex flex-col max-h-[80vh]">
         <DialogHeader><DialogTitle>{{ t('floorplan.bar.title') }}</DialogTitle></DialogHeader>
         <DialogBody class="flex-1 overflow-y-auto">
-          <div class="flex flex-col gap-1">
-            <Button v-for="bar in props.bars" :key="bar.id" variant="ghost" :disabled="barAlreadyPlaced(bar.id)" @click="placeBarNode(bar)" class="w-full justify-start h-auto py-2" :class="barAlreadyPlaced(bar.id) && 'opacity-40'">
-              <div class="text-left"><div class="font-semibold">{{ bar.name }}</div><div class="text-xs text-muted-foreground">{{ formatLength(bar.length_cm) }}{{ bar.zug_nr ? ' · Zug ' + bar.zug_nr : '' }}</div></div>
-            </Button>
-            <div v-if="!props.bars.length" class="text-sm text-muted-foreground py-4 text-center">{{ t('floorplan.bar.empty') }}</div>
+          <div class="flex flex-col gap-2">
+            <Input v-model="barSearch" :placeholder="t('action.search')" autofocus />
+            <div class="w-full max-h-96 overflow-y-auto grid! gap-2 pt-1" style="grid-template-columns: repeat(auto-fill, minmax(8rem, 1fr));">
+              <button
+                v-for="bar in filteredBars" :key="bar.id" type="button"
+                :disabled="barAlreadyPlaced(bar.id)"
+                @click="placeBarNode(bar)"
+                class="rounded-lg border border-border bg-card flex flex-col items-start justify-center gap-0.5 px-3 py-2.5 text-left transition-colors hover:bg-accent/15 hover:border-accent/50"
+                :class="barAlreadyPlaced(bar.id) && 'opacity-40 pointer-events-none'"
+              >
+                <span class="font-bold text-sm">{{ bar.name }}</span>
+                <span class="text-xs text-muted-foreground">{{ formatLength(bar.length_cm) }}{{ bar.zug_nr ? ' · Zug ' + bar.zug_nr : '' }}</span>
+                <span v-if="barChannels(bar).length" class="text-xs text-muted-foreground/70 font-mono truncate w-full">{{ barChannels(bar).join(', ') }}</span>
+              </button>
+              <div v-if="!filteredBars.length" class="col-span-full text-xs text-muted-foreground px-2 py-4 text-center">{{ t('floorplan.bar.empty') }}</div>
+            </div>
           </div>
         </DialogBody>
         <DialogFooter><Button variant="outline" @click="showBarPicker = false">{{ t('action.cancel') }}</Button></DialogFooter>
@@ -624,8 +683,37 @@ const channelPickerPos = ref({ x: 0, y: 0 })
 const channelSearch = ref('')
 const showTowerPicker = ref(false)
 const towerPickerPos = ref({ x: 0, y: 0 })
+const towerSearch = ref('')
 const showBarPicker = ref(false)
 const barPickerPos = ref({ x: 0, y: 0 })
+const barSearch = ref('')
+const filteredTowers = computed(() => {
+  const q = towerSearch.value.trim().toLowerCase()
+  if (!q) return props.towers
+  return props.towers.filter(tower => (tower.name ?? '').toLowerCase().includes(q) || (tower.side ?? '').toLowerCase().includes(q))
+})
+const filteredBars = computed(() => {
+  const q = barSearch.value.trim().toLowerCase()
+  if (!q) return props.bars
+  return props.bars.filter(bar => (bar.name ?? '').toLowerCase().includes(q))
+})
+const ghostBarWidth = computed(() => barWidthPx(pendingBarForPlacement.value?.length_cm || 600))
+function channelNrForId(channelId) {
+  return props.channels.find(c => c.id === channelId)?.channel ?? null
+}
+function towerChannels(tower) {
+  return (tower.slots ?? [])
+    .filter(slot => slot.channel_id)
+    .sort((a, b) => a.slot_index - b.slot_index)
+    .map(slot => channelNrForId(slot.channel_id))
+    .filter(Boolean)
+}
+function barChannels(bar) {
+  return (bar.fixtures ?? [])
+    .filter(fx => fx.channel_id)
+    .map(fx => channelNrForId(fx.channel_id))
+    .filter(Boolean)
+}
 const reassignTargetId = ref(null)
 const svgRef = ref(null)
 const containerEl = ref(null)
@@ -635,6 +723,8 @@ const historyIndex = ref(-1)
 const lassoRect = ref(null)
 const pendingDirectionId = ref(null)
 const pendingChannelForPlacement = ref(null)
+const pendingTowerForPlacement = ref(null)
+const pendingBarForPlacement = ref(null)
 const ghostPos = ref(null)
 
 const bgImage = ref(null)
@@ -972,6 +1062,10 @@ function onContainerMouseDown(e) {
     drawStart.value = pos
   } else if (activeTool.value === 'channel-pending' && pendingChannelForPlacement.value) {
     drawStart.value = pos
+  } else if (activeTool.value === 'tower-pending' && pendingTowerForPlacement.value) {
+    drawStart.value = pos
+  } else if (activeTool.value === 'bar-pending' && pendingBarForPlacement.value) {
+    drawStart.value = pos
   }
 }
 
@@ -982,7 +1076,7 @@ function onContainerMouseMove(e) {
     return
   }
 
-  if (activeTool.value === 'channel-pending') {
+  if (['channel-pending', 'tower-pending', 'bar-pending'].includes(activeTool.value)) {
     const rect = containerEl.value?.getBoundingClientRect()
     if (rect) ghostPos.value = { x: e.clientX - rect.left, y: e.clientY - rect.top }
   }
@@ -1046,6 +1140,29 @@ function onContainerMouseUp(e) {
     ghostPos.value = null
     pendingDirectionId.value = id
     activeTool.value = 'channel-direction'
+    drawStart.value = null
+    emitChange()
+    return
+  }
+  if (activeTool.value === 'tower-pending' && pendingTowerForPlacement.value && drawStart.value) {
+    const pos = getPointerPos(e)
+    const tower = pendingTowerForPlacement.value
+    addElement({ id: uuid(), type: 'tower', x: snap(pos.x - 45), y: snap(pos.y - 27), w: 90, h: 54, towerId: tower.id, towerName: tower.name, rotation: 0 })
+    pendingTowerForPlacement.value = null
+    ghostPos.value = null
+    activeTool.value = 'select'
+    drawStart.value = null
+    emitChange()
+    return
+  }
+  if (activeTool.value === 'bar-pending' && pendingBarForPlacement.value && drawStart.value) {
+    const pos = getPointerPos(e)
+    const bar = pendingBarForPlacement.value
+    const w = barWidthPx(bar.length_cm || 600)
+    addElement({ id: uuid(), type: 'bar', x: snap(pos.x - w / 2), y: snap(pos.y - 14), w, h: 28, barId: bar.id, barName: bar.name, rotation: 0 })
+    pendingBarForPlacement.value = null
+    ghostPos.value = null
+    activeTool.value = 'select'
     drawStart.value = null
     emitChange()
     return
@@ -1181,22 +1298,30 @@ function deleteSelected() {
   elements.value = elements.value.filter(e => !selectedIds.value.has(e.id))
   selectedIds.value = new Set(); emitChange()
 }
+function openChannelPlacer() {
+  channelPickerPos.value = { x: snap(stageSize.value.width / 2 - panOffset.value.x), y: snap(stageSize.value.height / 2 - panOffset.value.y) }
+  channelSearch.value = ''
+  activeTool.value = 'channel'
+  showChannelPicker.value = true
+}
 function openTowerPlacer() {
   towerPickerPos.value = { x: snap(stageSize.value.width / 2 - panOffset.value.x), y: snap(stageSize.value.height / 2 - panOffset.value.y) }
+  towerSearch.value = ''
   showTowerPicker.value = true
 }
 function towerAlreadyPlaced(towerId) {
   return elements.value.some(e => e.type === 'tower' && e.towerId === towerId)
 }
 function placeTowerNode(tower) {
-  addElement({ id: uuid(), type: 'tower', x: snap(towerPickerPos.value.x), y: snap(towerPickerPos.value.y), w: 90, h: 54, towerId: tower.id, towerName: tower.name, rotation: 0 })
   showTowerPicker.value = false
-  activeTool.value = 'select'
-  emitChange()
+  pendingTowerForPlacement.value = tower
+  activeTool.value = 'tower-pending'
+  ghostPos.value = null
 }
 
 function openBarPlacer() {
   barPickerPos.value = { x: snap(stageSize.value.width / 2 - panOffset.value.x - 80), y: snap(stageSize.value.height / 2 - panOffset.value.y) }
+  barSearch.value = ''
   showBarPicker.value = true
 }
 function barAlreadyPlaced(barId) {
@@ -1207,11 +1332,10 @@ function barWidthPx(lengthCm) {
   return Math.min(Math.max(Math.round(lengthCm / 4), 80), 400)
 }
 function placeBarNode(bar) {
-  const w = barWidthPx(bar.length_cm || 600)
-  addElement({ id: uuid(), type: 'bar', x: snap(barPickerPos.value.x - w / 2), y: snap(barPickerPos.value.y), w, h: 28, barId: bar.id, barName: bar.name, rotation: 0 })
   showBarPicker.value = false
-  activeTool.value = 'select'
-  emitChange()
+  pendingBarForPlacement.value = bar
+  activeTool.value = 'bar-pending'
+  ghostPos.value = null
 }
 
 function commitRuler() {
@@ -1361,7 +1485,7 @@ function handleKeyDown(e) {
     if (e.key === 'c' || e.key === 'C') { activeTool.value = 'channel'; return }
     if (e.key === 'g' || e.key === 'G') { showGrid.value = !showGrid.value; return }
     if (e.key === 'f' || e.key === 'F') { resetView(); return }
-    if (e.key === 'Escape') { if(activeTool.value==='channel-direction') pendingDirectionId.value=null; if(activeTool.value==='channel-pending') { pendingChannelForPlacement.value=null; ghostPos.value=null } activeTool.value = 'select'; selectedIds.value = new Set(); return }
+    if (e.key === 'Escape') { if(activeTool.value==='channel-direction') pendingDirectionId.value=null; if(activeTool.value==='channel-pending') { pendingChannelForPlacement.value=null; ghostPos.value=null } if(activeTool.value==='tower-pending') { pendingTowerForPlacement.value=null; ghostPos.value=null } if(activeTool.value==='bar-pending') { pendingBarForPlacement.value=null; ghostPos.value=null } activeTool.value = 'select'; selectedIds.value = new Set(); return }
     if (e.key === 'Delete' || e.key === 'Backspace') { deleteSelected(); return }
     if (['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.key) && selectedIds.value.size > 0) {
       e.preventDefault(); const step = e.shiftKey ? 10 : 1
