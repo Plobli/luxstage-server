@@ -175,14 +175,15 @@ export function drawFloorplanVector(doc, { canvasData, towers, bars, channels, i
       doc.undash()
       doc.moveTo(px(el.x), py(el.y + h / 2)).lineTo(px(el.x + w), py(el.y + h / 2))
         .lineCap('round').lineWidth(5 * scale).strokeColor('#10b981').stroke()
-      doc.font(FONT_BOLD).fontSize(9 * scale).fillColor('#6ee7b7')
-        .text(bar?.name || el.barName || 'Stange', px(el.x + 4), py(el.y) - 9 * scale, { lineBreak: false })
+      doc.font(FONT_BOLD).fontSize(18 * scale)
+      doc.fillColor('#6ee7b7')
+        .text(bar?.name || el.barName || 'Stange', px(el.x + 4), py(el.y - 6) - doc.currentLineHeight(), { lineBreak: false })
       for (const fx of (bar?.fixtures ?? [])) {
         const fxx = px(el.x + fixtureXOffset(fx.position, bar?.length_cm, w))
         const fxy = py(el.y + h / 2)
         const r = 18 * scale
         doc.circle(fxx, fxy, r).fillColor('#dc3740').fill()
-          .strokeColor('rgba(220,55,64,0.4)').lineWidth(3 * scale).stroke()
+          .strokeColor('#dc3740').strokeOpacity(0.4).lineWidth(3 * scale).stroke().strokeOpacity(1)
         const label = String(channelById.get(fx.channel_id)?.channel ?? '?')
         doc.font(FONT_BOLD).fontSize(13 * scale)
         doc.fillColor('white')

@@ -83,7 +83,7 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 | `./server/saas.js` | Kapsel für SaaS-Funktionalität, lädt Module nur im SaaS-Modus. |
 | `./server/registry.js` | Zentrale Registrierung für Mandantenverzeichnis und Doppel-Opt-In; aktiviert Tenant-Eintrag und verbraucht Bestätigungslink atomar. |
 | `./server/tenants.js` | Mandantenverzeichnis mit separaten SQLite-DBs pro Kunde und Kompensation fehlgeschlagener Registrierungen. |
-| `./server/tenant-resolve.js` | Host-Header-Parsing für Subdomain-basierte Mandantenauflösung. |
+| `./server/tenant-resolve.js` | Host-Header-Parsing für Subdomain-basierte Mandantenauflösung, plus `tenantBaseUrl()` für Mandanten-URLs in E-Mail-Links. |
 | `./server/tenant-backup.js` | Tägliche Snapshots pro Mandant mit Retention-Policy; sichert vor Restore den Ist-Zustand und aktiviert Snapshots per rückrollbarem DB-Swap. |
 | `./server/operator.js` | Separater Admin-Login für Betreiber-Panel mit JWT. |
 | `./server/operator-panel.html` | HTML-UI für Betreiber-Panel zur Mandantenverwaltung. |

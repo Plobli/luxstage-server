@@ -11,7 +11,7 @@ import { json, readJsonBody } from '../helpers.js'
 import { hashPassword } from '../auth.js'
 import { config } from '../config.js'
 import { isValidTenantId, createTenant, deleteTenant, tenantExists } from '../tenants.js'
-import { isReservedSubdomain } from '../tenant-resolve.js'
+import { isReservedSubdomain, tenantBaseUrl } from '../tenant-resolve.js'
 import { getRegistry, tenantIdTaken, emailTaken, addPending, getPending, confirmPending, hasPendingForTenant } from '../registry.js'
 import { runWithDb } from '../db-context.js'
 import { sendConfirmEmail } from '../email.js'
@@ -19,12 +19,6 @@ import { PASSWORD_MIN_LENGTH } from '../../shared/constants.js'
 
 export const CONFIRM_TTL_MS = 24 * 60 * 60 * 1000 // 24 h
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-
-// URL der Mandanten-Subdomain für den Bestätigungslink.
-function tenantBaseUrl(tenantId) {
-  if (config.baseDomain) return `https://${tenantId}.${config.baseDomain}`
-  return config.appUrl // Dev/Single-Tenant
-}
 
 export async function registerRoutes(req, res, pathname) {
   const { method } = req

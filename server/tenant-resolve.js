@@ -68,6 +68,12 @@ export function isKnownDomain(domain) {
   return isValidTenantId(sub) && tenantExists(sub)
 }
 
+// URL der Mandanten-Subdomain, z. B. für Links in E-Mails.
+export function tenantBaseUrl(tenantId) {
+  if (config.baseDomain) return `https://${tenantId}.${config.baseDomain}`
+  return config.appUrl // Dev/Single-Tenant
+}
+
 // Ermittelt die tenantId für diesen Request oder null (öffentlicher/Single-Tenant-Kontext).
 export function resolveTenantId(req) {
   const base = config.baseDomain.toLowerCase()

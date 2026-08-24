@@ -202,7 +202,8 @@
             <!-- Tower Node -->
             <g v-else-if="el.type === 'tower'" style="cursor: pointer;" @dblclick.stop="emit('open-tower', el.towerId)">
               <rect :x="el.x" :y="el.y" :width="el.w || 120" :height="el.h || 70" rx="6"
-                    :fill="selectedIds.has(el.id) ? 'var(--color-accent)' : 'var(--color-card)'"
+                    fill="var(--color-accent)"
+                    :fill-opacity="selectedIds.has(el.id) ? 1 : 0.18"
                     :stroke="selectedIds.has(el.id) ? 'var(--color-ring)' : 'var(--color-accent)'"
                     stroke-width="2" />
               <!-- Side badge -->
@@ -223,7 +224,7 @@
               <line :x1="el.x" :y1="el.y + (el.h || 28) / 2" :x2="el.x + (el.w || 160)" :y2="el.y + (el.h || 28) / 2"
                     :stroke="selectedIds.has(el.id) ? '#f59e0b' : '#10b981'" stroke-width="5" stroke-linecap="round" />
               <!-- Name label -->
-              <text :x="el.x + 4" :y="el.y - 3" fill="#6ee7b7" font-size="9" font-weight="600" dominant-baseline="auto">{{ barForEl(el)?.name || el.barName || 'Stange' }}</text>
+              <text :x="el.x + 4" :y="el.y - 6" fill="#6ee7b7" font-size="18" font-weight="600" dominant-baseline="auto">{{ barForEl(el)?.name || el.barName || 'Stange' }}</text>
               <!-- Fixture pins -->
               <g v-for="fx in (barForEl(el)?.fixtures ?? [])" :key="fx.channel_id">
                 <circle
