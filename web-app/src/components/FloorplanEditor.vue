@@ -203,14 +203,16 @@
             <g v-else-if="el.type === 'tower'" style="cursor: pointer;" @dblclick.stop="emit('open-tower', el.towerId)">
               <rect :x="el.x" :y="el.y" :width="el.w || 120" :height="el.h || 70" rx="6"
                     fill="var(--color-accent)"
-                    :fill-opacity="selectedIds.has(el.id) ? 1 : 0.18"
+                    :fill-opacity="selectedIds.has(el.id) ? 1 : 0.45"
                     :stroke="selectedIds.has(el.id) ? 'var(--color-ring)' : 'var(--color-accent)'"
                     stroke-width="2" />
               <!-- Side badge -->
               <rect v-if="towerForEl(el)?.side" :x="el.x + (el.w || 120) - 22" :y="el.y + 5" width="17" height="15" rx="3" fill="var(--color-accent)" />
               <text v-if="towerForEl(el)?.side" :x="el.x + (el.w || 120) - 13.5" :y="el.y + 12.5" fill="var(--color-accent-foreground)" :font-size="'var(--text-xs)'" font-weight="bold" text-anchor="middle" dominant-baseline="middle">{{ towerForEl(el)?.side }}</text>
               <!-- Name -->
-              <text :x="el.x + (el.w || 120) / 2" :y="el.y + (el.h || 70) / 2" fill="var(--color-foreground)" :font-size="'var(--text-sm)'" font-weight="700" text-anchor="middle" dominant-baseline="middle">{{ (towerForEl(el)?.name || el.towerName || 'Turm').slice(0, 11) }}</text>
+              <text :x="el.x + (el.w || 120) / 2" :y="el.y + (el.h || 70) / 2 - 11" fill="var(--color-foreground)" font-size="18" font-weight="700" text-anchor="middle" dominant-baseline="middle">{{ (towerForEl(el)?.name || el.towerName || 'Turm').slice(0, 11) }}</text>
+              <!-- Kreisnummern der belegten Slots -->
+              <text v-if="towerChannels(towerForEl(el) || {}).length" :x="el.x + (el.w || 120) / 2" :y="el.y + (el.h || 70) / 2 + 13" fill="var(--color-foreground)" font-size="18" font-weight="600" text-anchor="middle" dominant-baseline="middle">{{ towerChannels(towerForEl(el) || {}).join(', ') }}</text>
             </g>
 
             <!-- Bar Node -->
@@ -230,7 +232,7 @@
                 <circle
                   :cx="el.x + fixtureXOffset(fx.position, barForEl(el)?.length_cm, el.w || 160)"
                   :cy="el.y + (el.h || 28) / 2"
-                  r="18"
+                  r="22"
                   fill="#dc3740"
                   stroke="rgba(220,55,64,0.4)"
                   stroke-width="3"
@@ -238,7 +240,7 @@
                 <text
                   :x="el.x + fixtureXOffset(fx.position, barForEl(el)?.length_cm, el.w || 160)"
                   :y="el.y + (el.h || 28) / 2"
-                  fill="white" font-size="13" font-weight="700" text-anchor="middle" dominant-baseline="central"
+                  fill="white" font-size="18" font-weight="700" text-anchor="middle" dominant-baseline="central"
                 >{{ channelNrById(fx.channel_id) }}</text>
               </g>
             </g>
@@ -388,9 +390,9 @@
         class="absolute pointer-events-none z-40"
         :style="{ left: ghostPos.x + 'px', top: ghostPos.y + 'px', transform: 'translate(-50%, -50%)' }"
       >
-        <svg width="90" height="54" viewBox="0 0 90 54" style="overflow: visible;">
-          <rect x="0" y="0" width="90" height="54" rx="6" fill="var(--color-card)" stroke="var(--color-accent)" stroke-width="2" opacity="0.85" />
-          <text x="45" y="27" fill="var(--color-foreground)" font-size="13" font-weight="700" text-anchor="middle" dominant-baseline="middle">{{ (pendingTowerForPlacement.name || '').slice(0, 11) }}</text>
+        <svg width="120" height="70" viewBox="0 0 120 70" style="overflow: visible;">
+          <rect x="0" y="0" width="120" height="70" rx="6" fill="var(--color-accent)" fill-opacity="0.45" stroke="var(--color-accent)" stroke-width="2" opacity="0.85" />
+          <text x="60" y="35" fill="var(--color-foreground)" font-size="13" font-weight="700" text-anchor="middle" dominant-baseline="middle">{{ (pendingTowerForPlacement.name || '').slice(0, 11) }}</text>
         </svg>
       </div>
 
@@ -980,7 +982,7 @@ function getBounds(el) {
   if (el.type === 'rect') return { x: el.x, y: el.y, w: el.w, h: el.h }
   if (el.type === 'ellipse') return { x: el.x - el.rx, y: el.y - el.ry, w: el.rx * 2, h: el.ry * 2 }
   if (el.type === 'text') return { x: el.x - 5, y: el.y - 5, w: (el.fontSize||16)*5, h: (el.fontSize||16)+10 }
-  if (el.type === 'tower') return { x: el.x, y: el.y, w: el.w || 90, h: el.h || 54 }
+  if (el.type === 'tower') return { x: el.x, y: el.y, w: el.w || 120, h: el.h || 70 }
   if (el.type === 'bar') return { x: el.x, y: el.y, w: el.w || 160, h: el.h || 28 }
   return { x: 0, y: 0, w: 0, h: 0 }
 }
@@ -1148,7 +1150,7 @@ function onContainerMouseUp(e) {
   if (activeTool.value === 'tower-pending' && pendingTowerForPlacement.value && drawStart.value) {
     const pos = getPointerPos(e)
     const tower = pendingTowerForPlacement.value
-    addElement({ id: uuid(), type: 'tower', x: snap(pos.x - 45), y: snap(pos.y - 27), w: 90, h: 54, towerId: tower.id, towerName: tower.name, rotation: 0 })
+    addElement({ id: uuid(), type: 'tower', x: snap(pos.x - 60), y: snap(pos.y - 35), w: 120, h: 70, towerId: tower.id, towerName: tower.name, rotation: 0 })
     pendingTowerForPlacement.value = null
     ghostPos.value = null
     activeTool.value = 'select'

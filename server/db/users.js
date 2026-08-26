@@ -18,8 +18,8 @@ export async function changePassword(username, newPassword, requiresChange = 0) 
 }
 
 export function listUsers() {
-  return getDb().prepare('SELECT username, email FROM users').all()
-    .map(u => ({ username: u.username, email: u.email || '', source: 'db' }))
+  return getDb().prepare('SELECT username, email, pending FROM users').all()
+    .map(u => ({ username: u.username, email: u.email || '', pending: u.pending === 1, source: 'db' }))
 }
 
 export function getUserEmail(username) {
@@ -62,8 +62,22 @@ export async function createUser(username, password, email = '') {
     .run(username, hash, email)
 }
 
+// Reiner INSERT ohne ON CONFLICT-Klausel: der öffentliche Self-Register-Endpoint
+// darf niemals bestehende Zugangsdaten überschreiben (kein UPSERT-Pfad).
+// SQLite wirft bei Username-Konflikt — der Aufrufer fängt das als 409 ab.
+export async function createSelfRegisteredUser(username, password, email) {
+  const hash = await hashPassword(password)
+  getDb().prepare('INSERT INTO users (username, password, email, requires_password_change, pending) VALUES (?, ?, ?, 1, 1)')
+    .run(username, hash, email)
+}
+
 export function deleteUser(username) {
   getDb().prepare('DELETE FROM users WHERE username = ?').run(username)
+}
+
+// Schaltet einen selbst-registrierten Nutzer frei (jeder bestehende Nutzer darf das).
+export function approveUser(username) {
+  getDb().prepare('UPDATE users SET pending = 0 WHERE username = ?').run(username)
 }
 
 export function getUserPreferences(username) {

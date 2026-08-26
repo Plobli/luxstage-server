@@ -48,7 +48,7 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 | Datei | Beschreibung |
 |---|---|
 | `./server/index.js` | HTTP-Server-Einstieg mit CORS, Security-Headern und Job-Starter. |
-| `./server/router.js` | HTTP-Router für API-Endpunkte und Datei-Serving; öffentliche API-Ausnahmen sind an Methode und Pfad gebunden, API- und Show-Unterressourcen laufen über geordnete Handler-Listen. Globales IP-Rate-Limiting greift vor jedem API-Request. Fehler in Route-Handlern werden abgefangen (500 statt Prozessabsturz). |
+| `./server/router.js` | HTTP-Router für API-Endpunkte und Datei-Serving; öffentliche API-Ausnahmen sind an Methode und Pfad gebunden, API- und Show-Unterressourcen laufen über geordnete Handler-Listen. Globales IP-Rate-Limiting greift vor jedem API-Request. Fehler in Route-Handlern werden abgefangen (500 statt Prozessabsturz). Liefert hostunabhängig `/.well-known/apple-app-site-association` für Apple Universal Links (Passwort-Reset → App-Login). |
 | `./server/config.js` | Lädt Umgebungsvariablen und Konfigurationsdefaults, einschließlich explizitem Reverse-Proxy-Vertrauen. |
 | `./server/bootstrap.js` | Einmaliges Setup-Skript; legt den ersten Admin an (Login = `ADMIN_EMAIL`). |
 | `./server/db.js` | Re-Export der Datenbank-Funktionen aus `db/index.js`. |
@@ -72,7 +72,7 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 | `./server/pdf/floorplan-vector.js` | Zeichnet die Grundriss-Seite direkt als Vektorgrafik aus canvas_data (alle 7 Elementtypen inkl. Rotation, Fixture-Pins, Slot-Badges) statt eines Raster-Snapshots; optionales Hintergrundbild wird weiterhin als Raster eingebettet. |
 | `./server/pdf/utils.js` | Kanalgruppierung, Datumsformat, Bildgrößen-Ermittlung aus PNG/JPEG-Buffer. |
 | `./server/sse.js` | Server-Sent Events für Echtzeit-Kanal-Updates und Präsenz, pro Mandant gescopt; Heartbeat blockiert keine Einmalprozesse; sendToUser() für gezielte Zustellung an einen User (z.B. Lock-Übernahme-Anfrage). |
-| `./server/email.js` | SMTP-Konfiguration und Email-Versand mit Fallback-Support. |
+| `./server/email.js` | SMTP-Konfiguration und Email-Versand mit Fallback-Support (u.a. Willkommens-, Bestätigungs- und Freischalt-Anfrage-Mails). |
 | `./server/package.json` | NPM-Abhängigkeiten (sqlite, pdfkit, sharp, bcrypt, jwt). |
 | `./server/test/helpers/test-env.js` | Isolierte Testumgebung mit temporärem Datenpfad und HTTP-Response-Stub für Backend-Tests. |
 | `./server/test/register.test.js` | Regressionstests für atomare SaaS-Registrierungsbestätigung und Cleanup bei Registry-Konflikten. |
@@ -95,7 +95,7 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 |---|---|
 | `./server/db/index.js` | Barrel-Export aller DB-Module. |
 | `./server/db/shows.js` | DB-Zugriff für Shows-Tabelle (Erstellen, Lesen, Archivieren, Löschen). |
-| `./server/db/users.js` | DB-Zugriff für Benutzer und Passwort-Reset-Tokens. |
+| `./server/db/users.js` | DB-Zugriff für Benutzer, Passwort-Reset-Tokens und Freischaltung selbst-registrierter (pending) Nutzer. |
 | `./server/db/channels.js` | DB-Zugriff für Kanäle-Tabelle, Beleuchtungs-Checks und mandantenweite Farbnutzungsstatistik. |
 | `./server/db/bars.js` | DB-Zugriff für Obermaschinerie-Elemente (Zugstange/Traverse/Punktzug via bar_type) und deren Befestigungen (Fixtures); restoreBars() ersetzt den kompletten Bars-Zustand einer Show (für Undo/Redo). |
 | `./server/db/towers.js` | DB-Zugriff für Show-Türme und deren Slots. |
@@ -119,7 +119,7 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 |---|---|
 | `./server/routes/shows.js` | API-Routen für Shows (CRUD, Lock inkl. Übernahme-Anfrage und -Übergabe, Events, Templates, Undo/Redo). |
 | `./server/routes/auth.js` | API-Routen für Login, Passwort-Änderung, Passwort-Reset sowie begrenztes IP-Rate-Limiting. |
-| `./server/routes/users.js` | API-Routen für Benutzer-Verwaltung und Preferences. |
+| `./server/routes/users.js` | API-Routen für Benutzer-Verwaltung, Preferences, Selbst-Registrierung (`/api/self-register`) und Freischaltung pending Nutzer. |
 | `./server/routes/register.js` | API-Routen für Self-Service-Registrierung (Double Opt-In). |
 | `./server/routes/channels.js` | API-Routen für Kanäle, Beleuchtungs-Checks und mandantenweite Farbnutzungsstatistik (`/api/channels/color-usage`); zeichnet Undo-Operation pro Save auf. |
 | `./server/routes/bars.js` | API-Routen für Obermaschinerie-Elemente, Fixtures (inkl. side/positionText), Reordering; jede Aktion zeichnet den kompletten Bars-Zustand als Undo-Operation auf. |
@@ -226,8 +226,9 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 
 | Datei | Beschreibung |
 |---|---|
-| `./web-app/src/views/LoginView.vue` | Anmeldung mit E-Mail und Passwort. |
+| `./web-app/src/views/LoginView.vue` | Anmeldung mit E-Mail und Passwort; zeigt Hinweis bei Konto mit ausstehender Freischaltung, verlinkt Selbst-Registrierung. |
 | `./web-app/src/views/RegisterView.vue` | Team-Registrierung mit E-Mail-Bestätigung. |
+| `./web-app/src/views/SelfRegisterView.vue` | Selbst-Registrierung neuer Nutzer innerhalb eines bestehenden Tenants; Konto bleibt pending bis ein bestehender Nutzer freischaltet. |
 | `./web-app/src/views/ConfirmView.vue` | Bestätigung der Team-Registrierung via E-Mail-Link. |
 | `./web-app/src/views/ForgotPasswordView.vue` | Passwort-Zurücksetzen anfordern per E-Mail. |
 | `./web-app/src/views/ResetPasswordView.vue` | Passwort-Zurücksetzen nach E-Mail-Link. |
@@ -237,7 +238,7 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 | `./web-app/src/views/TemplatesView.vue` | Vorlagenliste, Neu-Anlegen, Löschen; Detail-Bearbeitung an TemplateDetailPanel, Upload an TemplateUploadDialog delegiert. |
 | `./web-app/src/views/SettingsView.vue` | Sub-Navigation zu verschiedenen Einstellungsbereichen. |
 | `./web-app/src/views/settings/AccountView.vue` | Passwort-Änderung, Druckeinstellungen, Abmelden. |
-| `./web-app/src/views/settings/UsersView.vue` | Benutzerverwaltung, Rollen, Passwort-Reset für Admin. |
+| `./web-app/src/views/settings/UsersView.vue` | Benutzerverwaltung: Anlegen, Löschen, Freischalten selbst-registrierter Nutzer, Passwort-Reset. |
 | `./web-app/src/views/settings/DisplayView.vue` | Sprach- und Maßeinheit-Einstellungen (Deutsch/Englisch). |
 | `./web-app/src/views/settings/ServerView.vue` | Server-URL, Versionsinformationen und Speicherstatus. |
 | `./web-app/src/views/settings/BackupView.vue` | Datenbank-Backup-Download und Wiederherstellung, beides Admin-only. |

@@ -114,12 +114,30 @@ async function serveStatic(req, res, pathname) {
 
 const nil = (r) => r === null
 
+// Apple Universal Links: gilt hostunabhängig (Root- und alle Mandanten-Subdomains),
+// damit der App-Login-Deep-Link auf jeder team.luxstage.app funktioniert.
+const APPLE_APP_SITE_ASSOCIATION = JSON.stringify({
+  applinks: {
+    details: [
+      {
+        appIDs: ['4YH5HQEUK5.de.christopherrohde.LuxStageApp'],
+        components: [{ '/': '/reset-password', comment: 'Login nach Passwort-Reset in der App öffnen' }],
+      },
+    ],
+  },
+})
+
 export async function router(req, res) {
   let pathname, params
   try {
     ;({ pathname, params } = parseUrl(req.url))
   } catch {
     return notFound(res)
+  }
+
+  if (req.method === 'GET' && pathname === '/.well-known/apple-app-site-association') {
+    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'public, max-age=3600' })
+    return res.end(APPLE_APP_SITE_ASSOCIATION)
   }
 
   if (pathname.startsWith('/api/')) {

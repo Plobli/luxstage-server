@@ -12,11 +12,19 @@
           <li v-for="u in users" :key="u.username" class="flex items-center justify-between py-3">
             <div class="flex items-center gap-3">
               <span class="text-foreground font-medium">{{ u.username }}</span>
+              <span v-if="u.pending" class="rounded-full bg-amber-500/10 px-2 py-0.5 text-xs font-medium text-amber-600">
+                {{ t('settings.users.pending') }}
+              </span>
             </div>
-            <Button v-if="u.source === 'db'" variant="ghost" size="sm" @click="doDeleteUser(u.username)"
-              class="text-xs text-destructive hover:text-destructive hover:bg-destructive/10">
-              {{ t('settings.users.delete') }}
-            </Button>
+            <div class="flex items-center gap-2">
+              <Button v-if="u.pending" variant="outline" size="sm" @click="doApproveUser(u.username)">
+                {{ t('settings.users.approve') }}
+              </Button>
+              <Button v-if="u.source === 'db'" variant="ghost" size="sm" @click="doDeleteUser(u.username)"
+                class="text-xs text-destructive hover:text-destructive hover:bg-destructive/10">
+                {{ t('settings.users.delete') }}
+              </Button>
+            </div>
           </li>
         </ul>
         <Alert v-if="deleteMsg" :variant="deleteMsg.startsWith('✓') ? 'default' : 'destructive'" class="mt-3">
@@ -60,7 +68,7 @@ import { Label } from '@/components/ui/label'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { useLocale } from '../../composables/useLocale.js'
 import { useConfirm } from '../../composables/useConfirm.js'
-import { listUsers, createUser, deleteUser } from '../../api/client.js'
+import { listUsers, createUser, deleteUser, approveUser } from '../../api/client.js'
 
 const { t } = useLocale()
 const { confirm } = useConfirm()
@@ -87,6 +95,15 @@ async function doCreateUser() {
     usersMsg.value = t('settings.users.error', { message: e.message })
   } finally {
     usersLoading.value = false
+  }
+}
+
+async function doApproveUser(username) {
+  try {
+    await approveUser(username)
+    await loadUsers()
+  } catch (e) {
+    deleteMsg.value = t('settings.users.error', { message: e.message })
   }
 }
 

@@ -31,7 +31,10 @@
             />
           </div>
 
-          <Alert v-if="error" variant="destructive">
+          <Alert v-if="pending" variant="default">
+            <AlertDescription>{{ t('auth.login.pending') }}</AlertDescription>
+          </Alert>
+          <Alert v-else-if="error" variant="destructive">
             <AlertDescription>{{ t('auth.login.error') }}</AlertDescription>
           </Alert>
 
@@ -52,6 +55,11 @@
               </RouterLink>
             </div>
             <p v-else class="text-xs text-muted-foreground">{{ t('auth.reset.hint') }}</p>
+            <div>
+              <RouterLink to="/self-register" class="text-sm text-muted-foreground hover:text-foreground">
+                {{ t('auth.self_register.link') }}
+              </RouterLink>
+            </div>
           </div>
         </form>
 
@@ -63,7 +71,7 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { useRouter, RouterLink } from 'vue-router'
-import { login, api, isOnline } from '../api/client.js'
+import { login, api, isOnline, isPendingApprovalError } from '../api/client.js'
 import { useLocale } from '../composables/useLocale.js'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -76,6 +84,7 @@ const { t } = useLocale()
 const username = ref('')
 const password = ref('')
 const error = ref(false)
+const pending = ref(false)
 const loading = ref(false)
 // Bis der Status vorliegt (und wenn er nicht abrufbar ist) gilt „kein SMTP" —
 // dann steht der Admin-Hinweis da statt eines Links, der ins Leere führt.
@@ -99,13 +108,15 @@ async function pingServer() {
 
 async function handleLogin() {
   error.value = false
+  pending.value = false
   loading.value = true
   try {
     const { requiresPasswordChange } = await login(username.value, password.value)
     await pingServer()
     router.push(requiresPasswordChange ? { path: '/settings/account', query: { forceChange: '1' } } : '/')
-  } catch {
-    error.value = true
+  } catch (e) {
+    if (isPendingApprovalError(e)) pending.value = true
+    else error.value = true
   } finally {
     loading.value = false
   }

@@ -65,6 +65,10 @@ export async function authRoutes(req, res, pathname) {
       console.log(`[auth] fehlgeschlagener Login: user=${username} ip=${ip}`)
       return json(res, 401, { error: 'Ungültige Anmeldedaten' })
     }
+    if (loginResult.pending) {
+      console.log(`[auth] Login blockiert (pending): user=${username} ip=${ip}`)
+      return json(res, 403, { error: 'pending', message: 'Konto wartet auf Freischaltung durch ein Teammitglied' })
+    }
     console.log(`[auth] Login erfolgreich: user=${username} ip=${ip}`)
     return json(res, 200, loginResult)
   }

@@ -156,6 +156,18 @@ export async function login(username: string, password: string): Promise<{ requi
   return { requiresPasswordChange: !!requiresPasswordChange }
 }
 
+/** true, wenn der Fehler bedeutet, dass ein Login-Versuch auf ein noch nicht freigeschaltetes Konto trifft. */
+export function isPendingApprovalError(e: unknown): boolean {
+  return e instanceof ApiError && e.status === 403 && e.body?.error === 'pending'
+}
+
+/** Selbst-Registrierung innerhalb eines bestehenden Tenants — Konto bleibt pending bis Freischaltung. */
+export async function selfRegister(email: string, password: string): Promise<void> {
+  await request('POST', '/api/self-register', { body: { email, password }, authenticated: false })
+}
+
+export function approveUser(username: string): Promise<any> { return api.post(`/api/users/${encodeURIComponent(username)}/approve`, {}) }
+
 export async function logout(): Promise<void> { clearToken() }
 
 /** SaaS-Registrierung: legt eine unbestätigte Anmeldung an, Server verschickt Opt-In-Mail. */

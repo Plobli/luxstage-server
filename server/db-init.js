@@ -168,7 +168,8 @@ function _initSchema(database) {
       username                  TEXT PRIMARY KEY,
       password                  TEXT NOT NULL,
       requires_password_change  INTEGER NOT NULL DEFAULT 0,
-      email                     TEXT NOT NULL DEFAULT ''
+      email                     TEXT NOT NULL DEFAULT '',
+      pending                   INTEGER NOT NULL DEFAULT 0
     );
 
     CREATE TABLE IF NOT EXISTS settings (

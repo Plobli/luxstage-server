@@ -99,6 +99,7 @@ export async function login(username, password) {
     const hash = await hashPassword(password)
     getDb().prepare('UPDATE users SET password = ? WHERE username = ?').run(hash, row.username)
   }
+  if (row.pending === 1) return { pending: true }
   return {
     token: signToken(row.username),
     requiresPasswordChange: row.requires_password_change === 1,

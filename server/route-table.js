@@ -32,12 +32,13 @@ export const PUBLIC_ROUTES = new Set([
   'GET /api/health',
   'POST /api/register',
   'GET /api/register/confirm',
+  'POST /api/self-register',
 ])
 
 // Globale API-Gruppen, per Pfad-Präfix oder Prädikat erkannt.
 export const API_ROUTE_HANDLERS = [
   { matches: pathname => pathname.startsWith('/api/auth/'), handler: authRoutes },
-  { matches: pathname => pathname.startsWith('/api/me/') || pathname.startsWith('/api/users'), handler: userRoutes },
+  { matches: pathname => pathname.startsWith('/api/me/') || pathname.startsWith('/api/users') || pathname === '/api/self-register', handler: userRoutes },
   { matches: pathname => pathname.startsWith('/api/smtp'), handler: smtpRoutes },
   { matches: pathname => pathname.startsWith('/api/settings/'), handler: displayRoutes },
   { matches: pathname => pathname.startsWith('/api/update'), handler: updateRoutes },

@@ -12,7 +12,6 @@ const STAGE_H = Math.round(2000 / (267 / 160))
 // Theme-unabhängiges Farbschema für Server-/Print-Kontext).
 const COLOR_ACCENT = '#dc3740'
 const COLOR_ACCENT_FOREGROUND = '#ffffff'
-const COLOR_CARD = '#ffffff'
 const COLOR_FOREGROUND = '#0a0a0a'
 
 function parseCanvasData(canvasData) {
@@ -146,9 +145,9 @@ export function drawFloorplanVector(doc, { canvasData, towers, bars, channels, i
 
     if (el.type === 'tower') {
       const tower = towerById.get(el.towerId)
-      const w = el.w || 90, h = el.h || 54
+      const w = el.w || 120, h = el.h || 70
       doc.roundedRect(px(el.x), py(el.y), w * scale, h * scale, 6 * scale)
-        .fillColor(COLOR_CARD).fill()
+        .fillColor(COLOR_ACCENT).fillOpacity(0.18).fill().fillOpacity(1)
         .strokeColor(COLOR_ACCENT).lineWidth(2 * scale).stroke()
       if (tower?.side) {
         const bx = px(el.x + w) - 22 * scale, by = py(el.y) + 5 * scale
@@ -158,9 +157,19 @@ export function drawFloorplanVector(doc, { canvasData, towers, bars, channels, i
           .text(tower.side, bx, by + (15 * scale - doc.currentLineHeight()) / 2, { width: 17 * scale, align: 'center', lineBreak: false })
       }
       const name = (tower?.name || el.towerName || 'Turm').slice(0, 11)
-      doc.font(FONT_BOLD).fontSize(12 * scale)
+      const towerCh = (tower?.slots ?? [])
+        .filter(slot => slot.channel_id)
+        .sort((a, b) => a.slot_index - b.slot_index)
+        .map(slot => channelById.get(slot.channel_id)?.channel)
+        .filter(Boolean)
+      doc.font(FONT_BOLD).fontSize(18 * scale)
       doc.fillColor(COLOR_FOREGROUND)
-        .text(name, px(el.x), py(el.y + h / 2) - doc.currentLineHeight() / 2, { width: w * scale, align: 'center', lineBreak: false })
+        .text(name, px(el.x), py(el.y + h / 2) - 11 * scale - doc.currentLineHeight() / 2, { width: w * scale, align: 'center', lineBreak: false })
+      if (towerCh.length) {
+        doc.font(FONT_NORMAL).fontSize(18 * scale)
+        doc.fillColor(COLOR_FOREGROUND)
+          .text(towerCh.join(', '), px(el.x), py(el.y + h / 2) + 13 * scale - doc.currentLineHeight() / 2, { width: w * scale, align: 'center', lineBreak: false })
+      }
       continue
     }
 
@@ -181,11 +190,11 @@ export function drawFloorplanVector(doc, { canvasData, towers, bars, channels, i
       for (const fx of (bar?.fixtures ?? [])) {
         const fxx = px(el.x + fixtureXOffset(fx.position, bar?.length_cm, w))
         const fxy = py(el.y + h / 2)
-        const r = 18 * scale
+        const r = 22 * scale
         doc.circle(fxx, fxy, r).fillColor('#dc3740').fill()
           .strokeColor('#dc3740').strokeOpacity(0.4).lineWidth(3 * scale).stroke().strokeOpacity(1)
         const label = String(channelById.get(fx.channel_id)?.channel ?? '?')
-        doc.font(FONT_BOLD).fontSize(13 * scale)
+        doc.font(FONT_BOLD).fontSize(18 * scale)
         doc.fillColor('white')
           .text(label, fxx - r, fxy - doc.currentLineHeight() / 2, { width: r * 2, align: 'center', lineBreak: false })
       }

@@ -25,7 +25,7 @@ const TPL_ID               = /^\/api\/templates\/(.+)$/
 
 function mimeFromFilename(filename) {
   const ext = (filename || '').split('.').pop().toLowerCase()
-  return { jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', webp: 'image/webp', gif: 'image/gif' }['.' + ext]
+  return { jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', webp: 'image/webp', gif: 'image/gif' }[ext]
     || 'application/octet-stream'
 }
 

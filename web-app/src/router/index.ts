@@ -21,6 +21,12 @@ const routes: RouteRecordRaw[] = [
     meta: { public: true },
   },
   {
+    path: '/self-register',
+    name: 'self-register',
+    component: () => import('../views/SelfRegisterView.vue'),
+    meta: { public: true },
+  },
+  {
     path: '/forgot-password',
     name: 'forgot-password',
     component: () => import('../views/ForgotPasswordView.vue'),

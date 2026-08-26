@@ -80,6 +80,22 @@ export async function sendPasswordResetLink(email, username, resetUrl) {
   )
 }
 
+export async function sendPendingRegistrationEmail(email) {
+  await sendMail(
+    email,
+    'LuxStage – Registrierung eingegangen',
+    `Hallo,\n\ndeine Registrierung bei LuxStage ist eingegangen. Ein Teammitglied muss deinen Zugang noch freischalten, bevor du dich anmelden kannst.\n\nLuxStage`
+  )
+}
+
+export async function sendApprovalRequestEmail(toEmails, newUserEmail) {
+  await Promise.all(toEmails.map(to => sendMail(
+    to,
+    'LuxStage – Neue Registrierung wartet auf Freischaltung',
+    `Hallo,\n\n${newUserEmail} hat sich bei eurem LuxStage-Team registriert und wartet auf Freischaltung.\n\nZum Freischalten: ${config.appUrl} → Einstellungen → Benutzer.\n\nLuxStage`
+  )))
+}
+
 export async function sendTestEmail(to, cfg) {
   const transport = createTransport(cfg)
   if (!transport) throw new Error('SMTP nicht konfiguriert')
