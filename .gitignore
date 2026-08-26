@@ -65,3 +65,4 @@ tmp-release.zip
 ios-app/**/*.xcarchive
 ios-app/Pods/
 
+.mcp.json
