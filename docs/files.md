@@ -109,6 +109,7 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 | `./server/db/template-apply.js` | Anwendung von Templates auf Shows (einzeln und auf alle Shows eines Templates) sowie Rück-Speichern von Show-Items als Template-Einträge. |
 | `./server/db/locks.js` | DB-Zugriff für Show-weiten Schreib-Lock: acquire/release/touch/get/transfer (direkte Übergabe an anderen User) sowie listLocks() für die Show-Übersicht. |
 | `./server/db/operations.js` | DB-Zugriff für serverseitiges Undo/Redo: recordOperation (ein Eintrag pro Save, alter/neuer Zustand einer Ressource, Prune auf 50), in-memory Redo-Stack pro Show. |
+| `./server/db/network.js` | DB-Zugriff für Netzwerk-Elemente (network_nodes: Typ, Raum, Portanzahl bei Switches, Position im Graph), deren Verbindungen (network_connections) und einen speicherbaren Positions-Snapshot der Topologie-Ansicht (network_layout_snapshot). |
 | `./server/db/settings.js` | DB-Zugriff für generische Key-Value-Settings-Tabelle (SMTP-Konfig, Anzeige-Einstellungen). |
 | `./server/db/migrations/index.js` | Geordnete Liste aller Schema-Migrationen. |
 | `./server/db/migrations/NNN-*.js` | Einzelne Schema-Migration (`up`, `alreadyApplied`); wird von `db-init.js` einmalig ausgeführt und in `schema_migrations` getrackt. |
@@ -135,6 +136,7 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 | `./server/routes/update.js` | API-Routen für Versions-Check und Server-Update; entpackt Release-ZIP streamend, spart Infrastruktur-Dateien aus, sichert den Stand vorher und macht bei Fehlschlag (npm install, Modul-Rauchtest) automatisch ein Rollback. |
 | `./server/routes/smtp.js` | API-Routen für SMTP-Konfiguration und Test-E-Mails. |
 | `./server/routes/operator.js` | API-Routen für Betreiber-Panel (Mandanten-Verwaltung, Server-Version). |
+| `./server/routes/network.js` | API-Routen für die gebäudeweite Netzwerk-Übersicht (Elemente wie Dose/Switch/Gerät und deren Verbindungen), unabhängig von einzelnen Shows. |
 
 ## web-app/ (Vue 3 + TypeScript Frontend, Vite)
 
@@ -217,6 +219,7 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 | `./web-app/src/api/sections.ts` | Lädt/speichert benutzerdefinierte Abschnitte für Shows und Templates. |
 | `./web-app/src/api/photos.ts` | Lädt, hochladen, löscht Fotos mit Progress-Tracking; Beschriftungen und Kreis-Zuordnungen pro Foto. |
 | `./web-app/src/api/floorplan.ts` | Speichert/lädt Grundriss-Canvas-Daten und Bilder (PDF-Grundriss wird serverseitig live aus Canvas-Daten gerendert, kein Snapshot-Upload mehr). |
+| `./web-app/src/api/network.ts` | CRUD-API für Netzwerk-Elemente und -Verbindungen (gebäudeweite Netzwerk-Übersicht). |
 | `./web-app/src/api/templates.ts` | Verwaltet Templates (Vorlagen) mit Anwendungs- und Upload-Funktionen. |
 | `./web-app/src/api/templateBars.ts` | CRUD-API für Bars in Vorlagen. |
 | `./web-app/src/api/templateTowers.ts` | CRUD-API für Towers in Vorlagen mit Slot-Verwaltung. |
@@ -235,6 +238,9 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 | `./web-app/src/views/ShowsView.vue` | Übersicht aller Produktionen mit Sortierung; zeigt Schreib-Sperre pro Show (Schloss-Icon); Erstellung per Schnell-Dialog oder ShowWizardDialog (FAB-Menü). |
 | `./web-app/src/views/ShowDetailView.vue` | Hauptansicht einer Show mit Kanaltabelle und Editoren; read-only-Overlay bei fremdem Schreib-Lock (leitet Scroll-Events an den Content weiter), Übernahme-Anfrage-Dialog. |
 | `./web-app/src/views/ArchiveView.vue` | Anzeige und Verwaltung archivierter Produktionen mit Wiederherstellung. |
+| `./web-app/src/views/NetworkView.vue` | Gebäudeweite Netzwerk-Übersicht: Tabellen für Elemente (Dose/Switch/Gerät je Raum, Portanzahl bei Switches) und Verbindungen (Port-zu-Port); Topologie wird als interaktiver Vue-Flow-Graph gerendert (frei verschiebbare Knoten, Kanten passen sich automatisch an, dagre-Auto-Layout für neue Elemente ohne gespeicherte Position). |
+| `./web-app/src/components/network/SwitchNode.vue` | Vue-Flow-Knotenkomponente für Switches: zeigt nummerierte Ports (zwei Reihen, ungerade/gerade) als eigene Handles, belegte Ports farblich hervorgehoben. |
+| `./web-app/src/components/network/DeviceNode.vue` | Vue-Flow-Knotenkomponente für Dose/Gerät: einfache Box mit einem Handle je Seite. |
 | `./web-app/src/views/TemplatesView.vue` | Vorlagenliste, Neu-Anlegen, Löschen; Detail-Bearbeitung an TemplateDetailPanel, Upload an TemplateUploadDialog delegiert. |
 | `./web-app/src/views/SettingsView.vue` | Sub-Navigation zu verschiedenen Einstellungsbereichen. |
 | `./web-app/src/views/settings/AccountView.vue` | Passwort-Änderung, Druckeinstellungen, Abmelden. |

@@ -14,6 +14,7 @@ import { updateRoutes } from './routes/update.js'
 import { pdfRoutes } from './routes/pdf.js'
 import { towerRoutes } from './routes/towers.js'
 import { barRoutes } from './routes/bars.js'
+import { networkRoutes } from './routes/network.js'
 
 // Deklarative Route-Tabelle: eine Zeile pro Handler-Gruppe (nicht pro
 // Einzelendpoint — die Handler-Dateien parsen Methode/Pfad innerhalb ihrer
@@ -45,6 +46,7 @@ export const API_ROUTE_HANDLERS = [
   { matches: pathname => pathname.startsWith('/api/floorplans/'), handler: floorplanRoutes },
   { matches: pathname => pathname.startsWith('/api/templates'), handler: templateRoutes },
   { matches: pathname => pathname.startsWith('/api/channels/color-usage'), handler: channelStatsRoutes },
+  { matches: pathname => pathname.startsWith('/api/network/'), handler: networkRoutes },
 ]
 
 // Show-Unterressourcen unter /api/shows/:id/... — erste Übereinstimmung

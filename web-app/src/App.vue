@@ -83,7 +83,7 @@
         <!-- Hauptnavigation -->
         <nav class="mt-2 flex-1">
           <ul role="list" class="flex flex-col gap-1 px-2">
-            <li v-for="item in navigation.slice(0, 1)" :key="item.name" class="w-full">
+            <li v-for="item in navigation.slice(0, 2)" :key="item.name" class="w-full">
               <RouterLink
                 :to="item.to"
                 class="group relative flex items-center gap-3 rounded-lg px-3 h-9 w-full transition-colors"
@@ -139,7 +139,7 @@
         <!-- Archiv, Templates, Settings, Logout -->
         <div class="flex flex-col gap-1 px-2">
           <RouterLink
-            v-for="item in navigation.slice(1)"
+            v-for="item in navigation.slice(2)"
             :key="item.name"
             :to="item.to"
             class="group relative flex items-center gap-3 rounded-lg px-3 h-9 w-full transition-colors"
@@ -246,6 +246,7 @@ import {
   X,
   LogOut,
   Layers,
+  Network,
   Archive,
   Files,
   Settings,
@@ -320,6 +321,7 @@ function isActiveRoute(item) {
 
 const navigation = computed(() => [
   { name: t('nav.shows'), to: '/', routeName: 'shows', icon: Layers },
+  { name: t('nav.network'), to: '/network', routeName: 'network', icon: Network },
   { name: t('nav.archive'), to: '/archive', routeName: 'archive', icon: Archive },
   { name: t('nav.templates'), to: '/templates', routeName: 'templates', icon: Files },
 ])

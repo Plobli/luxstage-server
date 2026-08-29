@@ -50,6 +50,11 @@ const routes: RouteRecordRaw[] = [
     props: true,
   },
   {
+    path: '/network',
+    name: 'network',
+    component: () => import('../views/NetworkView.vue'),
+  },
+  {
     path: '/archive',
     name: 'archive',
     component: () => import('../views/ArchiveView.vue'),

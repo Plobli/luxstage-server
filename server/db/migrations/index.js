@@ -31,6 +31,11 @@ import * as m030 from './030-channels-default-nc-color.js'
 import * as m031 from './031-operations-table.js'
 import * as m032 from './032-users-drop-role.js'
 import * as m033 from './033-users-pending-flag.js'
+import * as m034 from './034-network-tables.js'
+import * as m035 from './035-network-nodes-port-count.js'
+import * as m036 from './036-network-nodes-position.js'
+import * as m037 from './037-network-layout-snapshot.js'
+import * as m038 from './038-network-nodes-is-main.js'
 
 // Reihenfolge ist bindend — manche Migrationen setzen das Ergebnis vorheriger
 // voraus (z.B. 024 liest Titel, die erst durch 023 umbenannt wurden).
@@ -38,5 +43,5 @@ export const migrations = [
   m001, m002, m003, m004, m005, m006, m007, m008, m009, m010,
   m011, m012, m013, m014, m015, m016, m017, m018, m019, m020,
   m021, m022, m023, m024, m025, m026, m027, m028, m029, m030,
-  m031, m032, m033,
+  m031, m032, m033, m034, m035, m036, m037, m038,
 ]

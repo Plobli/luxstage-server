@@ -38,6 +38,7 @@ export default defineConfig({
           'vendor-ui': ['reka-ui'],
           'vendor-utils': ['@vueuse/core'],
           'vendor-icons': ['lucide-vue-next'],
+          'vendor-network': ['@vue-flow/core', '@vue-flow/background', '@vue-flow/controls', 'dagre'],
         },
       },
     },
