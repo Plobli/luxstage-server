@@ -2,7 +2,8 @@ import * as db from '../db.js'
 import { requireAuth } from '../auth.js'
 import { readJsonBody, json, notFound } from '../helpers.js'
 import { subscribe, broadcast, sendToUser, getPresence } from '../sse.js'
-import { getLastOperation, deleteOperation, pushRedo, popRedo, recordOperation } from '../db/operations.js'
+import { getLastOperation, deleteOperation, pushRedo, popRedo } from '../db/operations.js'
+import { readFullShowState, writeFullShowState } from '../db/full-state.js'
 import { restoreTowers } from '../db/towers.js'
 import { restoreBars } from '../db/bars.js'
 
@@ -165,10 +166,11 @@ export async function showRoutes(req, res, pathname, params) {
       const op = getLastOperation(show.id)
       if (!op) return json(res, 400, { error: 'Nichts zum Rückgängigmachen' })
 
-      const { old: oldValue, new: newValue } = JSON.parse(op.payload)
-      applyOperationValue(slug, op.resource_type, user.username, oldValue)
+      const stateBefore = JSON.parse(op.snapshot)
+      const stateAfter = readFullShowState(slug)
+      writeFullShowState(slug, stateBefore, user.username)
       deleteOperation(op.id)
-      pushRedo(show.id, { resource_type: op.resource_type, old: oldValue, new: newValue })
+      pushRedo(show.id, stateAfter)
       return json(res, 200, { ok: true })
     }
   }
@@ -184,8 +186,10 @@ export async function showRoutes(req, res, pathname, params) {
       const entry = popRedo(show.id)
       if (!entry) return json(res, 400, { error: 'Nichts zum Wiederholen' })
 
-      applyOperationValue(slug, entry.resource_type, user.username, entry.new)
-      recordOperation(show.id, user.username, entry.resource_type, entry.old, entry.new)
+      const stateBefore = readFullShowState(slug)
+      const stateAfter = JSON.parse(entry.snapshot)
+      writeFullShowState(slug, stateAfter, user.username)
+      pushRedo(show.id, stateBefore)
       return json(res, 200, { ok: true })
     }
   }

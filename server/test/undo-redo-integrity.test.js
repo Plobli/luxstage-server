@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { Readable } from 'node:stream'
 import { test } from 'node:test'
 import './helpers/test-env.js'
 
@@ -9,6 +10,26 @@ const { readShow } = await import('../db/shows.js')
 const { createShow } = await import('../db/shows.js')
 const { readFullShowState, writeFullShowState, computeStateHash } = await import('../db/full-state.js')
 const { withUndoSnapshot, getLastOperation, pushRedo, popRedo, clearRedo } = await import('../db/operations.js')
+const { channelRoutes } = await import('../routes/channels.js')
+const { showRoutes } = await import('../routes/shows.js')
+
+function jsonRequest(method, user, body) {
+  const req = Readable.from([Buffer.from(JSON.stringify(body))])
+  req.method = method
+  req.user = user
+  req.headers = { 'content-type': 'application/json' }
+  return req
+}
+
+function createResponseLocal() {
+  let status = null, body = null
+  return {
+    writeHead(code) { status = code },
+    end(content) { body = content ? JSON.parse(content) : null },
+    get status() { return status },
+    get body() { return body },
+  }
+}
 
 test('Migration 039 legt operations (neues Schema) und redo_stack an', () => {
   const conn = dbCtx.getDb()
@@ -72,4 +93,26 @@ test('withUndoSnapshot rollt bei Fehler in mutate() vollständig zurück', () =>
   })
 
   assert.equal(getLastOperation(show.id), null)
+})
+
+test('Undo nach Channel-Änderung stellt exakt den vorherigen Full-State wieder her', async () => {
+  createShow('test-show-crossres', { name: 'Cross-Res-Test', importSections: false })
+  const show = readShow('test-show-crossres')
+  const user = { username: 'tester' }
+
+  const putReq = jsonRequest('PUT', user, [{ channel: '1', address: '1/001', device: 'PAR', position: 'Turm 1', color: '', notes: 'erste Notiz' }])
+  const putRes = createResponseLocal()
+  await channelRoutes(putReq, putRes, `/api/shows/test-show-crossres/channels`)
+  assert.equal(putRes.status, 200)
+
+  const beforeUndo = readFullShowState('test-show-crossres')
+  assert.equal(beforeUndo.channels[0].notes, 'erste Notiz')
+
+  const undoReq = jsonRequest('POST', user, {})
+  const undoRes = createResponseLocal()
+  await showRoutes(undoReq, undoRes, `/api/shows/test-show-crossres/undo`)
+  assert.equal(undoRes.status, 200)
+
+  const afterUndo = readFullShowState('test-show-crossres')
+  assert.equal(afterUndo.channels.length, 0)
 })

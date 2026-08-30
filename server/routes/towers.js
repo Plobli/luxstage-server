@@ -2,7 +2,7 @@ import * as db from '../db.js'
 import { restoreTowers } from '../db/towers.js'
 import { readJsonBody, json } from '../helpers.js'
 import { broadcast } from '../sse.js'
-import { recordOperation, clearRedo } from '../db/operations.js'
+import { withUndoSnapshot } from '../db/operations.js'
 
 const SHOW_TOWERS         = /^\/api\/shows\/([^/]+)\/towers$/
 const SHOW_TOWERS_RESTORE = /^\/api\/shows\/([^/]+)\/towers\/restore$/
@@ -19,9 +19,11 @@ export async function towerRoutes(req, res, pathname) {
       const user = req.user
       const body = await readJsonBody(req, res); if (body === null) return
       const show = db.readShow(slug)
-      const oldTowers = db.readTowers(slug)
-      restoreTowers(slug, body.towers ?? [])
-      recordTowersOperation(show, user, oldTowers, body.towers ?? [])
+      if (!show) return json(res, 404, { error: 'Show nicht gefunden' })
+
+      withUndoSnapshot(slug, show.id, user.username, () => {
+        restoreTowers(slug, body.towers ?? [])
+      })
       broadcast(slug, 'towers-updated', {})
       return json(res, 200, { ok: true })
     }
@@ -38,10 +40,13 @@ export async function towerRoutes(req, res, pathname) {
       const user = req.user
       const body = await readJsonBody(req, res); if (body === null) return
       const show = db.readShow(slug)
-      const oldTowers = db.readTowers(slug)
-      const towerId = db.writeTower(slug, body)
-      db.ensureTowerSlots(towerId, body.slot_count ?? 4)
-      recordTowersOperation(show, user, oldTowers, db.readTowers(slug))
+      if (!show) return json(res, 404, { error: 'Show nicht gefunden' })
+
+      let towerId
+      withUndoSnapshot(slug, show.id, user.username, () => {
+        towerId = db.writeTower(slug, body)
+        db.ensureTowerSlots(towerId, body.slot_count ?? 4)
+      })
       broadcast(slug, 'towers-updated', {})
       return json(res, 201, { id: towerId })
     }
@@ -54,19 +59,23 @@ export async function towerRoutes(req, res, pathname) {
       const user = req.user
       const body = await readJsonBody(req, res); if (body === null) return
       const show = db.readShow(slug)
-      const oldTowers = db.readTowers(slug)
-      db.writeTower(slug, { ...body, id: towerId })
-      if (body.slot_count != null) db.ensureTowerSlots(towerId, body.slot_count)
-      recordTowersOperation(show, user, oldTowers, db.readTowers(slug))
+      if (!show) return json(res, 404, { error: 'Show nicht gefunden' })
+
+      withUndoSnapshot(slug, show.id, user.username, () => {
+        db.writeTower(slug, { ...body, id: towerId })
+        if (body.slot_count != null) db.ensureTowerSlots(towerId, body.slot_count)
+      })
       broadcast(slug, 'towers-updated', {})
       return json(res, 200, { ok: true })
     }
     if (method === 'DELETE') {
       const user = req.user
       const show = db.readShow(slug)
-      const oldTowers = db.readTowers(slug)
-      db.deleteTower(towerId)
-      recordTowersOperation(show, user, oldTowers, db.readTowers(slug))
+      if (!show) return json(res, 404, { error: 'Show nicht gefunden' })
+
+      withUndoSnapshot(slug, show.id, user.username, () => {
+        db.deleteTower(towerId)
+      })
       broadcast(slug, 'towers-updated', {})
       return json(res, 200, { ok: true })
     }
@@ -81,27 +90,19 @@ export async function towerRoutes(req, res, pathname) {
       const body = await readJsonBody(req, res); if (body === null) return
       const { channelId } = body
       const show = db.readShow(slug)
-      const oldTowers = db.readTowers(slug)
-      if (channelId) {
-        db.writeTowerSlot(towerId, slotIndex, channelId)
-      } else {
-        db.clearTowerSlot(towerId, slotIndex)
-      }
-      recordTowersOperation(show, user, oldTowers, db.readTowers(slug))
+      if (!show) return json(res, 404, { error: 'Show nicht gefunden' })
+
+      withUndoSnapshot(slug, show.id, user.username, () => {
+        if (channelId) {
+          db.writeTowerSlot(towerId, slotIndex, channelId)
+        } else {
+          db.clearTowerSlot(towerId, slotIndex)
+        }
+      })
       broadcast(slug, 'towers-updated', {})
       return json(res, 200, { ok: true })
     }
   }
 
   return null
-}
-
-// Jede Tower-Aktion (anlegen, ändern, löschen, Slot zuweisen) zeichnet den
-// kompletten Towers-Zustand der Show auf — konsistent mit dem "ein Eintrag
-// pro Save"-Modell der übrigen Ressourcen, kein Sonderfall für Einzel-Towers
-// nötig beim Undo/Redo-Anwenden (siehe applyOperationValue in shows.js).
-function recordTowersOperation(show, user, oldTowers, newTowers) {
-  if (!show || !user) return
-  recordOperation(show.id, user.username, 'towers', oldTowers, newTowers)
-  clearRedo(show.id)
 }

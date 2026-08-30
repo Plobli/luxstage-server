@@ -3,7 +3,7 @@ import * as db from '../db.js'
 import * as photosLib from '../photos.js'
 import { readJsonBody, json } from '../helpers.js'
 import { broadcast } from '../sse.js'
-import { recordOperation, clearRedo } from '../db/operations.js'
+import { withUndoSnapshot } from '../db/operations.js'
 import { requireAuth } from '../auth.js'
 import { analyzeCircuitScan } from '../circuit-scan.js'
 
@@ -34,12 +34,11 @@ export async function channelRoutes(req, res, pathname) {
       const channels = await readJsonBody(req, res); if (channels === null) return
 
       const show = db.readShow(slug)
-      const oldChannels = db.readChannels(slug).map(({ show_id: _, sort_order: __, ...ch }) => ch)
-      db.writeChannels(slug, channels, user.username)
-      if (show) {
-        recordOperation(show.id, user.username, 'channels', oldChannels, channels)
-        clearRedo(show.id)
-      }
+      if (!show) return json(res, 404, { error: 'Show nicht gefunden' })
+
+      withUndoSnapshot(slug, show.id, user.username, () => {
+        db.writeChannels(slug, channels, user.username)
+      })
       broadcast(slug, 'channels-updated', { updatedBy: user.username })
       return json(res, 200, { ok: true })
     }

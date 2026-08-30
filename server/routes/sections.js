@@ -2,7 +2,7 @@ import * as db from '../db.js'
 import { requireAuth } from '../auth.js'
 import { readJsonBody, json } from '../helpers.js'
 import { broadcast } from '../sse.js'
-import { recordOperation, clearRedo } from '../db/operations.js'
+import { withUndoSnapshot } from '../db/operations.js'
 
 const SHOW_SECTIONS      = /^\/api\/shows\/([^/]+)\/sections$/
 const SHOW_SECTION_DEFS  = /^\/api\/shows\/([^/]+)\/section-defs$/
@@ -22,14 +22,12 @@ export async function sectionRoutes(req, res, pathname) {
       const sections = await readJsonBody(req, res); if (sections === null) return
 
       const show = db.readShow(slug)
-      const oldMap = db.readShowSections(slug)
-      const oldSections = [...oldMap.entries()].map(([id, content]) => ({ id, content }))
+      if (!show) return json(res, 404, { error: 'Show nicht gefunden' })
+
       const map = new Map(sections.map(s => [s.id, s.content]))
-      db.writeShowSections(slug, map, user.username)
-      if (show) {
-        recordOperation(show.id, user.username, 'sections', oldSections, sections)
-        clearRedo(show.id)
-      }
+      withUndoSnapshot(slug, show.id, user.username, () => {
+        db.writeShowSections(slug, map, user.username)
+      })
       broadcast(slug, 'sections-updated', { updatedBy: user.username })
       return json(res, 200, { ok: true })
     }
@@ -45,12 +43,11 @@ export async function sectionRoutes(req, res, pathname) {
       const body = await readJsonBody(req, res); if (body === null) return
 
       const show = db.readShow(slug)
-      const oldDefs = db.readShowSectionDefs(slug)
-      db.writeShowSectionDefs(slug, body.sections, user.username)
-      if (show) {
-        recordOperation(show.id, user.username, 'section-defs', oldDefs, body.sections)
-        clearRedo(show.id)
-      }
+      if (!show) return json(res, 404, { error: 'Show nicht gefunden' })
+
+      withUndoSnapshot(slug, show.id, user.username, () => {
+        db.writeShowSectionDefs(slug, body.sections, user.username)
+      })
       broadcast(slug, 'sections-updated', { updatedBy: user.username })
       return json(res, 200, { ok: true })
     }
