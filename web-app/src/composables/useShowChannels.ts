@@ -80,7 +80,16 @@ export function useShowChannels({
   const eosMergePreview = ref<EosMergePreview>({ open: false, newActive: [], nowGone: [], untouched: [], addressMismatch: [], deviceMismatch: [], previouslyExcluded: new Set() })
   let _eosMergeResolve: ((v: { ok: boolean, applyAddresses: Set<string>, applyDevices: Set<string>, excludedChannels: Set<string> }) => void) | null = null
 
-  const persistChannels = useDebounceFn(async () => {
+  // 800ms Pause seit letzter Änderung bevor gespeichert wird — verhindert, dass
+  // jeder einzelne Tastendruck in einem Freitextfeld (z.B. ch.notes) einen
+  // eigenen Undo-Eintrag erzeugt und den Undo-Stack (max. 50 Einträge) nach
+  // einem einzigen getippten Satz aufbraucht. maxWait sorgt dafür, dass bei
+  // ununterbrochenem Tippen trotzdem spätestens alle 4s gespeichert wird
+  // (Schutz gegen Datenverlust bei Absturz/Tab-Schließen während langer Eingabe).
+  const SAVE_DEBOUNCE_MS = 800
+  const SAVE_MAX_WAIT_MS = 4000
+
+  async function doPersistChannels(): Promise<void> {
     try {
       await saveChannels(showId, channels.value)
       markSaved()
@@ -98,11 +107,22 @@ export function useShowChannels({
     } finally {
       channelsSaving.value = false
     }
-  }, 50)
+  }
+
+  const persistChannels = useDebounceFn(doPersistChannels, SAVE_DEBOUNCE_MS, { maxWait: SAVE_MAX_WAIT_MS })
 
   function scheduleChannelsSave(): void {
     channelsSaving.value = true
     persistChannels()
+  }
+
+  // Erzwingt ein sofortiges Speichern, ohne auf die Debounce-Pause zu warten —
+  // an @blur eines Notiz-/Textfelds hängen, damit ein Verlassen des Felds nie
+  // auf die nächste Pause wartet und die Änderung bei einem Wechsel zu einem
+  // anderen Bereich sicher übernommen ist.
+  async function flushChannelsSave(): Promise<void> {
+    if (!channelsSaving.value) return
+    await doPersistChannels()
   }
 
   const { undo: undoRaw, redo: redoRaw, canUndo, canRedo, markSaved } = useUndoRedo(showId, onLockConflict)
@@ -681,6 +701,7 @@ export function useShowChannels({
     hideEosInactive,
     groupedChannels,
     scheduleChannelsSave,
+    flushChannelsSave,
     persistChannels,
     deleteChannel,
     clearChannel,

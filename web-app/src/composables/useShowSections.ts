@@ -21,11 +21,29 @@ export function useShowSections(showId: string, meta: Ref<any>, onLockConflict?:
   const sectionContents = ref<Map<string, string>>(new Map())
   const sectionsSaving = ref(false)
 
+  // 800ms Pause seit letzter Änderung bevor gespeichert wird — verhindert, dass
+  // jeder einzelne Tastendruck in einem Freitextfeld einen eigenen Undo-Eintrag
+  // erzeugt und den Undo-Stack (max. 50 Einträge) nach einem einzigen getippten
+  // Satz aufbraucht. maxWait sorgt dafür, dass bei ununterbrochenem Tippen trotzdem
+  // spätestens alle 4s gespeichert wird (Schutz gegen Datenverlust bei Absturz/
+  // Tab-Schließen während langer Eingabe).
+  const SAVE_DEBOUNCE_MS = 800
+  const SAVE_MAX_WAIT_MS = 4000
+
   const persistSectionsDebounced = useDebounceFn(async () => {
     await doPersistSections()
-  }, 50)
+  }, SAVE_DEBOUNCE_MS, { maxWait: SAVE_MAX_WAIT_MS })
 
   async function persistSections(): Promise<void> {
+    await doPersistSections()
+  }
+
+  // Erzwingt ein sofortiges Speichern, ohne auf die Debounce-Pause zu warten —
+  // an @blur eines Textfelds hängen, damit ein Verlassen des Felds nie auf die
+  // nächste Pause wartet und die Änderung bei einem Wechsel zu einem anderen
+  // Bereich sicher übernommen ist.
+  async function flushSectionsSave(): Promise<void> {
+    if (!sectionsSaving.value) return
     await doPersistSections()
   }
 
@@ -77,6 +95,7 @@ export function useShowSections(showId: string, meta: Ref<any>, onLockConflict?:
     sectionsSaving,
     persistSectionsDebounced,
     persistSections,
+    flushSectionsSave,
     persistSectionDefs,
     loadSections,
   }
