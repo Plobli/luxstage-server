@@ -2,10 +2,8 @@ import * as db from '../db.js'
 import { requireAuth } from '../auth.js'
 import { readJsonBody, json, notFound } from '../helpers.js'
 import { subscribe, broadcast, sendToUser, getPresence } from '../sse.js'
-import { getLastOperation, deleteOperation, pushRedo, popRedo } from '../db/operations.js'
-import { readFullShowState, writeFullShowState } from '../db/full-state.js'
-import { restoreTowers } from '../db/towers.js'
-import { restoreBars } from '../db/bars.js'
+import { getLastOperation, deleteOperation, pushRedo, popRedo, recordSnapshot } from '../db/operations.js'
+import { readFullShowState, writeFullShowState, computeStateHash } from '../db/full-state.js'
 
 const SHOW_LIST          = /^\/api\/shows$/
 const SHOW_ARCHIVED      = /^\/api\/shows\/archived$/
@@ -21,38 +19,6 @@ const SHOW_FROM_TEMPLATE = /^\/api\/shows\/([^/]+)\/from-template$/
 const SHOW_TO_TEMPLATE   = /^\/api\/shows\/([^/]+)\/to-template$/
 const SHOW_UNDO          = /^\/api\/shows\/([^/]+)\/undo$/
 const SHOW_REDO          = /^\/api\/shows\/([^/]+)\/redo$/
-
-// Wendet alt/neu-Payload einer Operation an — dieselbe DB-Schreibfunktion wie
-// der jeweilige Route-Handler, aber ohne recordOperation() erneut aufzurufen
-// (sonst würde Undo selbst eine neue Operation erzeugen und den Stack verfälschen).
-function applyOperationValue(slug, resourceType, username, value) {
-  switch (resourceType) {
-    case 'channels':
-      db.writeChannels(slug, value, username)
-      broadcast(slug, 'channels-updated', { updatedBy: username })
-      break
-    case 'sections': {
-      const map = new Map(value.map(s => [s.id, s.content]))
-      db.writeShowSections(slug, map, username)
-      broadcast(slug, 'sections-updated', { updatedBy: username })
-      break
-    }
-    case 'section-defs':
-      db.writeShowSectionDefs(slug, value, username)
-      broadcast(slug, 'sections-updated', { updatedBy: username })
-      break
-    case 'towers':
-      restoreTowers(slug, value)
-      broadcast(slug, 'towers-updated', {})
-      break
-    case 'bars':
-      restoreBars(slug, value)
-      broadcast(slug, 'bars-updated', {})
-      break
-    default:
-      throw new Error(`Unbekannter resource_type: ${resourceType}`)
-  }
-}
 
 export async function showRoutes(req, res, pathname, params) {
   const { method } = req
@@ -166,11 +132,20 @@ export async function showRoutes(req, res, pathname, params) {
       const op = getLastOperation(show.id)
       if (!op) return json(res, 400, { error: 'Nichts zum Rückgängigmachen' })
 
-      const stateBefore = JSON.parse(op.snapshot)
-      const stateAfter = readFullShowState(slug)
-      writeFullShowState(slug, stateBefore, user.username)
+      const targetState = JSON.parse(op.snapshot)
+      if (computeStateHash(targetState) !== op.hash) {
+        return json(res, 409, { error: 'Snapshot-Hash stimmt nicht überein — Undo abgebrochen' })
+      }
+
+      const currentState = readFullShowState(slug)
+      writeFullShowState(slug, targetState, user.username)
       deleteOperation(op.id)
-      pushRedo(show.id, stateAfter)
+      pushRedo(show.id, currentState)
+
+      broadcast(slug, 'channels-updated', { updatedBy: user.username })
+      broadcast(slug, 'sections-updated', { updatedBy: user.username })
+      broadcast(slug, 'towers-updated', {})
+      broadcast(slug, 'bars-updated', {})
       return json(res, 200, { ok: true })
     }
   }
@@ -186,10 +161,19 @@ export async function showRoutes(req, res, pathname, params) {
       const entry = popRedo(show.id)
       if (!entry) return json(res, 400, { error: 'Nichts zum Wiederholen' })
 
-      const stateBefore = readFullShowState(slug)
-      const stateAfter = JSON.parse(entry.snapshot)
-      writeFullShowState(slug, stateAfter, user.username)
-      pushRedo(show.id, stateBefore)
+      const targetState = JSON.parse(entry.snapshot)
+      if (computeStateHash(targetState) !== entry.hash) {
+        return json(res, 409, { error: 'Snapshot-Hash stimmt nicht überein — Redo abgebrochen' })
+      }
+
+      const currentState = readFullShowState(slug)
+      writeFullShowState(slug, targetState, user.username)
+      recordSnapshot(show.id, user.username, currentState)
+
+      broadcast(slug, 'channels-updated', { updatedBy: user.username })
+      broadcast(slug, 'sections-updated', { updatedBy: user.username })
+      broadcast(slug, 'towers-updated', {})
+      broadcast(slug, 'bars-updated', {})
       return json(res, 200, { ok: true })
     }
   }
