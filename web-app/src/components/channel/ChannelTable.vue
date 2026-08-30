@@ -83,6 +83,7 @@
             :colorPlaceholder="labels.color"
             :deleteTitle="labels.delete"
             :onKeydownFn="onKeydownFn"
+            :flushChannelsSave="flushChannelsSave"
             :onAddRow="() => startAdd(item.group.position)"
             :isMobileProp="isMobile"
             @change="emit('change')"
@@ -287,6 +288,7 @@ const props = defineProps({
   channelStatusFn: { type: Function, required: true },
   toggleChannelStatusFn: { type: Function, required: true },
   onKeydownFn: { type: Function, default: null },
+  flushChannelsSave: { type: Function, default: null },
   labels: { type: Object, required: true },
 })
 

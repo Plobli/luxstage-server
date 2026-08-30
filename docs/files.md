@@ -80,6 +80,7 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 | `./server/test/router.test.js` | Regressionstests für öffentliche API-Methoden und Authentifizierungsgrenzen des HTTP-Routers. |
 | `./server/test/photos.test.js` | Regressionstest für gestreamtes Multipart-Staging und garantiertes Cleanup temporärer Foto-Uploads. |
 | `./server/test/tenant-backup.test.js` | Regressionstests für Tenant-Snapshot-Restore und Rollback bei fehlgeschlagener Aktivierung. |
+| `./server/test/undo-redo-integrity.test.js` | Integrationstests für Full-Snapshot-Undo/Redo-Architektur: Snapshot-Konsistenz, Hash-Verifikation, Redo-Stack-Persistierung, mehrfaches Undo/Redo ohne Datenverlust. |
 | `./server/.env` | Server-Development-Umgebungsvariablen. |
 | `./server/saas.js` | Kapsel für SaaS-Funktionalität, lädt Module nur im SaaS-Modus. |
 | `./server/registry.js` | Zentrale Registrierung für Mandantenverzeichnis und Doppel-Opt-In; aktiviert Tenant-Eintrag und verbraucht Bestätigungslink atomar. |
@@ -103,23 +104,25 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 | `./server/db/sections.js` | DB-Zugriff für Show-Sections und deren Definitionen. |
 | `./server/db/photos.js` | DB-Zugriff für Fotos, Beschreibungen, Reihenfolge, Channel-Fotos. |
 | `./server/db/floorplan.js` | DB-Zugriff für Template- und Show-Grundrisse (Bilder, Canvas-Daten). |
+| `./server/db/full-state.js` | Liest/schreibt kompletten Show-Zustand (Channels, Sections, Bars, Towers) atomar als Snapshot; Basis für Undo/Redo-Integrität. |
 | `./server/db/templates.js` | DB-Zugriff für Spielort-Vorlagen (Stammdaten, Kanäle). |
 | `./server/db/template-sections.js` | DB-Zugriff für Template-Sections und deren Definitionen. |
 | `./server/db/template-bars.js` | DB-Zugriff für Template-Bars und deren Fixtures. |
 | `./server/db/template-towers.js` | DB-Zugriff für Template-Towers und deren Slots. |
 | `./server/db/template-apply.js` | Anwendung von Templates auf Shows (einzeln und auf alle Shows eines Templates) sowie Rück-Speichern von Show-Items als Template-Einträge. |
 | `./server/db/locks.js` | DB-Zugriff für Show-weiten Schreib-Lock: acquire/release/touch/get/transfer (direkte Übergabe an anderen User) sowie listLocks() für die Show-Übersicht. |
-| `./server/db/operations.js` | DB-Zugriff für serverseitiges Undo/Redo: recordOperation (ein Eintrag pro Save, alter/neuer Zustand einer Ressource, Prune auf 50), in-memory Redo-Stack pro Show. |
+| `./server/db/operations.js` | DB-Zugriff für serverseitiges Undo/Redo: Full-Snapshot-Historie (kompletter Show-Zustand), persistenter Redo-Stack in DB, Funktion `withUndoSnapshot()` für transaktionale Snapshots. |
 | `./server/db/network.js` | DB-Zugriff für Netzwerk-Elemente (network_nodes: Typ, Raum, Portanzahl bei Switches, Position im Graph), deren Verbindungen (network_connections) und einen speicherbaren Positions-Snapshot der Topologie-Ansicht (network_layout_snapshot). |
 | `./server/db/settings.js` | DB-Zugriff für generische Key-Value-Settings-Tabelle (SMTP-Konfig, Anzeige-Einstellungen). |
 | `./server/db/migrations/index.js` | Geordnete Liste aller Schema-Migrationen. |
+| `./server/db/migrations/039-operations-full-snapshot.js` | Migration: ändert operations-Tabelle für Full-Snapshot-Historie, fügt redo_stack-Tabelle für persistente Redo-Stack hinzu. |
 | `./server/db/migrations/NNN-*.js` | Einzelne Schema-Migration (`up`, `alreadyApplied`); wird von `db-init.js` einmalig ausgeführt und in `schema_migrations` getrackt. |
 
 ### server/routes/ (API-Endpunkte)
 
 | Datei | Beschreibung |
 |---|---|
-| `./server/routes/shows.js` | API-Routen für Shows (CRUD, Lock inkl. Übernahme-Anfrage und -Übergabe, Events, Templates, Undo/Redo). |
+| `./server/routes/shows.js` | API-Routen für Shows (CRUD, Lock inkl. Übernahme-Anfrage und -Übergabe, Events, Templates, Undo/Redo mit Full-Snapshot-Verifikation: Hash-Check bei Undo/Redo, 409 bei manipuliertem Snapshot). |
 | `./server/routes/auth.js` | API-Routen für Login, Passwort-Änderung, Passwort-Reset sowie begrenztes IP-Rate-Limiting. |
 | `./server/routes/users.js` | API-Routen für Benutzer-Verwaltung, Preferences, Selbst-Registrierung (`/api/self-register`) und Freischaltung pending Nutzer. |
 | `./server/routes/register.js` | API-Routen für Self-Service-Registrierung (Double Opt-In). |

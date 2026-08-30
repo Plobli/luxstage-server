@@ -85,6 +85,7 @@
             :data-nav-row="rowIndex"
             data-nav-col="3"
             @input="emit('change')"
+            @blur="onNotesBlur"
             @keydown="onKeydownCol3"
           />
           <div v-if="mountRefLabel" class="px-2 pb-1 w-full">
@@ -201,6 +202,7 @@
               :data-nav-row="rowIndex"
               data-nav-col="3"
               @input="emit('change')"
+              @blur="onNotesBlur"
               @keydown="onKeydownCol3"
             />
           </div>
@@ -231,6 +233,7 @@ const props = defineProps({
   colorPlaceholder: { type: String, default: '' },
   deleteTitle: { type: String, default: '' },
   onKeydownFn: { type: Function, default: null },
+  flushChannelsSave: { type: Function, default: null },
   onAddRow: { type: Function, default: null },
   isMobileProp: { type: Boolean, default: null },
 })
@@ -272,6 +275,10 @@ function onAddressBlur() {
     ch.address = normalized
     emit('change')
   }
+}
+
+function onNotesBlur() {
+  props.flushChannelsSave?.()
 }
 
 const _isMobileViewport = useIsMobile()

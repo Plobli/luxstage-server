@@ -123,6 +123,7 @@
               :channelStatusFn="channelStatus"
               :toggleChannelStatusFn="toggleChannelStatus"
               :onKeydownFn="onKeydown"
+              :flushChannelsSave="flushChannelsSave"
               :allShowPhotos="photos"
               :labels="{
                 channel: t('field.channel'),
@@ -534,7 +535,7 @@ let afterUndoRedoImpl = null
 const {
   channels, channelsSaving, search, healthFilter, activateHealthFilter, eosActiveChannels, eosExcludedChannels, eosMergePreview,
   dupWarning, dupChannelWarning, dupChannelNrs, dupFilter, hideEosInactive, groupedChannels,
-  scheduleChannelsSave, persistChannels, deleteChannel, clearChannel,
+  scheduleChannelsSave, persistChannels, deleteChannel, clearChannel, flushChannelsSave,
   onCsvImportSelected, onCircuitScanFileSelected, circuitScanUploading, circuitScanStatus, circuitScanPreview, resolveCircuitScanPreview, onEosFileSelected, resolveEosMergePreview,
   channelStatus, toggleChannelStatus,
   undo, redo, canUndo, canRedo, onUndoRedoKeydown,
