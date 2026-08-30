@@ -73,6 +73,11 @@
 
         <!-- Kanaltabelle -->
         <TabsContent value="channels" class="mt-0 outline-none">
+          <div class="flex justify-end mb-3">
+            <Button variant="outline" size="sm" @click="downloadPdfVordruck">
+              {{ t('template.pdf_blank') }}
+            </Button>
+          </div>
           <div class="h-[calc(100vh-16rem)] overflow-hidden rounded-lg border border-border">
             <ChannelTable
               :channels="detailChannels"
@@ -246,7 +251,7 @@
 import { ref, computed, watch, nextTick } from 'vue'
 import { ArrowLeft, Pencil } from 'lucide-vue-next'
 import { useLocale } from '../../composables/useLocale.js'
-import { fetchTemplateChannels, saveTemplate, saveTemplateOscHost, renameTemplate, applyTemplateToAllShows } from '../../api/templates.js'
+import { fetchTemplateChannels, saveTemplate, saveTemplateOscHost, renameTemplate, applyTemplateToAllShows, fetchTemplatePdfUrl } from '../../api/templates.js'
 import { fetchTemplateSections, saveTemplateSections } from '../../api/sections.js'
 import { fetchShows } from '../../api/shows.js'
 import { templateDisplayName } from '../../utils/templateName.js'
@@ -399,6 +404,11 @@ async function persist() {
   detailSaving.value = true
   await saveTemplate(props.templateName, detailChannels.value)
   detailSaving.value = false
+}
+
+async function downloadPdfVordruck() {
+  const url = await fetchTemplatePdfUrl(props.templateName)
+  window.open(url, '_blank')
 }
 
 async function loadFloorplan() {

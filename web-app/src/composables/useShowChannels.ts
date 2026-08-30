@@ -1,10 +1,25 @@
 import { ref, computed, watch, type Ref } from 'vue'
 import { useDebounceFn } from '@vueuse/core'
-import { fetchChannels, saveChannels, mergeChannels, parseChannelsCsv, type Channel } from '../api/channels'
+import { fetchChannels, saveChannels, mergeChannels, parseChannelsCsv, scanCircuitSheet, type Channel } from '../api/channels'
 import { updateMeta } from '../api/shows'
 import { invalidate } from '../api/cache'
 import { ApiError } from '../api/client'
 import { useUndoRedo } from './useUndoRedo'
+
+export interface CircuitScanFieldChange {
+  key: 'address' | 'device' | 'position' | 'color' | 'notes';
+  oldValue: string;
+  newValue: string;
+}
+export interface CircuitScanUpdatedRow {
+  channel: string;
+  changes: CircuitScanFieldChange[];
+}
+export interface CircuitScanPreview {
+  open: boolean;
+  updated: CircuitScanUpdatedRow[];
+  added: Channel[];
+}
 
 export interface EosMergePreview {
   open: boolean;
@@ -22,7 +37,8 @@ export function useShowChannels({
   setupMarkdown,
   t,
   localeReady,
-  onLockConflict
+  onLockConflict,
+  onAfterUndoRedo
 }: {
   showId: string;
   meta: Ref<any>;
@@ -30,15 +46,31 @@ export function useShowChannels({
   t: (key: string, params?: any) => string;
   localeReady: () => Promise<void>;
   onLockConflict?: (body: { lockedBy?: string, since?: number }) => void;
+  /** Wird nach einem erfolgreichen Undo/Redo aufgerufen — muss alle vom Server
+   *  geänderten Show-Daten (Kanäle, Sections, Türme, Bars) neu laden, da der
+   *  Server sie nur ändert, ohne den neuen Stand direkt zurückzusenden. */
+  onAfterUndoRedo?: () => void | Promise<void>;
 }) {
   const channels = ref<Channel[]>([])
   const channelsSaving = ref(false)
+  const circuitScanUploading = ref(false)
+  const circuitScanStatus = ref<{ type: 'success' | 'error', message: string } | null>(null)
+  let circuitScanStatusTimer: ReturnType<typeof setTimeout> | null = null
+  const circuitScanPreview = ref<CircuitScanPreview>({ open: false, updated: [], added: [] })
+  let _circuitScanResolve: ((v: { ok: boolean, excludedChannels: Set<string> }) => void) | null = null
+
+  function resolveCircuitScanPreview(ok: boolean, excludedChannels?: Set<string>): void {
+    circuitScanPreview.value.open = false
+    _circuitScanResolve?.({ ok, excludedChannels: excludedChannels ?? new Set() })
+    _circuitScanResolve = null
+  }
+
+  function setCircuitScanStatus(type: 'success' | 'error', message: string, ttlMs: number): void {
+    if (circuitScanStatusTimer) clearTimeout(circuitScanStatusTimer)
+    circuitScanStatus.value = { type, message }
+    circuitScanStatusTimer = setTimeout(() => { circuitScanStatus.value = null }, ttlMs)
+  }
   const search = ref('')
-  // Serverstand, auf dem die aktuelle channels.value-Kopie basiert. Wird bei
-  // jedem erfolgreichen Laden/Speichern aktualisiert; weicht der Server beim
-  // nächsten Save davon ab, hat jemand anders inzwischen gespeichert.
-  const channelsVersion = ref<string | null>(null)
-  const channelsConflict = ref<{ serverVersion: string, serverChannels: Channel[] } | null>(null)
   const healthFilter = ref<'noDevice' | 'noPosition' | 'noAddress' | 'incomplete' | null>(null)
   // Eingefrorene Kanal-IDs beim Aktivieren des Filters — reagiert nicht auf Tipp-Änderungen
   const healthFilterSnapshot = ref<Set<string> | null>(null)
@@ -50,18 +82,14 @@ export function useShowChannels({
 
   const persistChannels = useDebounceFn(async () => {
     try {
-      const { version } = await saveChannels(showId, channels.value, channelsVersion.value)
-      channelsVersion.value = version
+      await saveChannels(showId, channels.value)
+      markSaved()
       if (meta.value) {
         meta.value.datum = new Date().toISOString().split('T')[0]
         await updateMeta(showId, { ...meta.value })
       }
       invalidate('shows')
     } catch (e) {
-      if (e instanceof ApiError && e.status === 409) {
-        channelsConflict.value = { serverVersion: e.body.serverVersion, serverChannels: e.body.serverChannels }
-        return
-      }
       if (e instanceof ApiError && e.status === 423) {
         onLockConflict?.(e.body)
         return
@@ -72,30 +100,24 @@ export function useShowChannels({
     }
   }, 50)
 
-  /** Konfliktauflösung: eigene Änderung verwerfen, Serverstand übernehmen. */
-  function resolveConflictReload(): void {
-    if (!channelsConflict.value) return
-    channels.value = channelsConflict.value.serverChannels
-    channelsVersion.value = channelsConflict.value.serverVersion
-    channelsConflict.value = null
-  }
-
-  /** Konfliktauflösung: eigene Änderung trotzdem erzwingen (überschreibt den
-   *  fremden Zwischenstand — bewusste Entscheidung, kein stiller Verlust mehr). */
-  async function resolveConflictForce(): Promise<void> {
-    if (!channelsConflict.value) return
-    const target = channelsConflict.value.serverVersion
-    channelsConflict.value = null
-    channelsVersion.value = target
-    scheduleChannelsSave()
-  }
-
   function scheduleChannelsSave(): void {
     channelsSaving.value = true
     persistChannels()
   }
 
-  const { undo, redo, canUndo, canRedo } = useUndoRedo(showId, onLockConflict)
+  const { undo: undoRaw, redo: redoRaw, canUndo, canRedo, markSaved } = useUndoRedo(showId, onLockConflict)
+
+  // Der Server ändert die Daten bei Undo/Redo nur — er sendet den neuen Stand
+  // nicht automatisch zurück. Ohne den Reload hier bliebe die Ansicht auf dem
+  // alten Stand stehen, bis zufällig woanders neu geladen wird (führte dazu,
+  // dass wiederholtes Klicken unbemerkt beliebig weit zurückspulte).
+  async function undo(): Promise<void> {
+    if (await undoRaw()) await onAfterUndoRedo?.()
+  }
+
+  async function redo(): Promise<void> {
+    if (await redoRaw()) await onAfterUndoRedo?.()
+  }
 
   function onUndoRedoKeydown(e: KeyboardEvent): void {
     // Undo/Redo läuft serverseitig auf der letzten gespeicherten Aktion, nicht
@@ -240,6 +262,71 @@ export function useShowChannels({
     }
     reader.readAsText(file)
     event.target.value = ''
+  }
+
+  const CIRCUIT_SCAN_DIFF_FIELDS = ['address', 'device', 'position', 'color', 'notes'] as const
+
+  function buildCircuitScanDiff(existing: Channel[], rows: Channel[]): { updated: CircuitScanUpdatedRow[], added: Channel[] } {
+    const byChannel = new Map(existing.map(ch => [ch.channel, ch]))
+    const updated: CircuitScanUpdatedRow[] = []
+    const added: Channel[] = []
+    for (const row of rows) {
+      const match = byChannel.get(row.channel)
+      if (!match) { added.push(row); continue }
+      const changes: CircuitScanFieldChange[] = []
+      for (const key of CIRCUIT_SCAN_DIFF_FIELDS) {
+        const newValue = row[key]
+        if (newValue === undefined || newValue === '') continue
+        const oldValue = match[key] ?? ''
+        if (newValue !== oldValue) changes.push({ key, oldValue, newValue })
+      }
+      if (changes.length > 0) updated.push({ channel: row.channel, changes })
+    }
+    return { updated, added }
+  }
+
+  async function onCircuitScanFileSelected(event: any): Promise<void> {
+    const file = event.target.files?.[0]
+    event.target.value = ''
+    if (!file) return
+    circuitScanUploading.value = true
+    circuitScanStatus.value = null
+    try {
+      const result = await scanCircuitSheet(showId, file)
+      const imported = result.rows
+      if (imported.length === 0) {
+        setCircuitScanStatus('success', t('import.modal.scan.status.empty'), 4000)
+        return
+      }
+      const { updated, added } = buildCircuitScanDiff(channels.value, imported)
+      if (updated.length === 0 && added.length === 0) {
+        setCircuitScanStatus('success', t('import.modal.scan.status.empty'), 4000)
+        return
+      }
+
+      circuitScanPreview.value = { open: true, updated, added }
+      const { ok, excludedChannels } = await new Promise<{ ok: boolean, excludedChannels: Set<string> }>(resolve => { _circuitScanResolve = resolve })
+      if (!ok) return
+
+      const filteredImported = imported.filter(row => !excludedChannels.has(row.channel))
+      if (filteredImported.length === 0) {
+        setCircuitScanStatus('success', t('import.modal.scan.status.empty'), 4000)
+        return
+      }
+
+      channels.value = mergeChannels(channels.value, filteredImported)
+      scheduleChannelsSave()
+      const appliedUpdated = updated.filter(row => !excludedChannels.has(row.channel)).length
+      const appliedAdded = added.filter(row => !excludedChannels.has(row.channel)).length
+      setCircuitScanStatus('success', t('import.modal.scan.status.success', {
+        updated: appliedUpdated,
+        added: appliedAdded,
+      }), 5000)
+    } catch (e: any) {
+      setCircuitScanStatus('error', e?.message || t('import.modal.scan.error'), 8000)
+    } finally {
+      circuitScanUploading.value = false
+    }
   }
 
   function parseEosCsv(text: string): { activeChannels: string[] | null, movingLightChannels: Set<string>, channelAddresses: Map<string, string>, channelDevices: Map<string, string>, error: string | null } {
@@ -521,8 +608,7 @@ export function useShowChannels({
     }
 
     if (channelsChanged) {
-      const { version } = await saveChannels(showId, channels.value, channelsVersion.value)
-      channelsVersion.value = version
+      await saveChannels(showId, channels.value)
     }
 
     // eosActiveChannels muss weiterhin alle aktiven Kanäle enthalten (nicht
@@ -574,9 +660,8 @@ export function useShowChannels({
   }
 
   async function loadChannels(): Promise<void> {
-    const { channels: chs, version } = await fetchChannels(showId)
+    const chs = await fetchChannels(showId)
     channels.value = Array.isArray(chs) ? chs : []
-    channelsVersion.value = version
   }
 
   return {
@@ -600,6 +685,11 @@ export function useShowChannels({
     deleteChannel,
     clearChannel,
     onCsvImportSelected,
+    onCircuitScanFileSelected,
+    circuitScanUploading,
+    circuitScanStatus,
+    circuitScanPreview,
+    resolveCircuitScanPreview,
     onEosFileSelected,
     resolveEosMergePreview,
     channelStatus,
@@ -610,9 +700,6 @@ export function useShowChannels({
     canRedo,
     onUndoRedoKeydown,
     loadChannels,
-    channelsConflict,
-    resolveConflictReload,
-    resolveConflictForce
   }
 }
 

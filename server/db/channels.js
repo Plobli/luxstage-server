@@ -61,17 +61,10 @@ export function writeChannels(slug, channels, editedBy = null) {
       }
     }
 
-    getDb().prepare('UPDATE shows SET updated_at = ?, channels_version = channels_version + 1 WHERE id = ?').run(now(), show.id)
+    getDb().prepare('UPDATE shows SET updated_at = ? WHERE id = ?').run(now(), show.id)
     if (editedBy) touchLastEdited(show.id, editedBy)
   })
   tx()
-}
-
-/** Nur für die Konflikterkennung beim Channels-Save — getrennt von updated_at,
- *  das auch von Meta-Updates u.a. verändert wird. */
-export function getChannelsVersion(slug) {
-  const show = readShow(slug)
-  return show ? String(show.channels_version) : null
 }
 
 export function getChecks(showSlug) {

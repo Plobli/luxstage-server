@@ -44,6 +44,9 @@
             </div>
           </div>
           <div class="flex flex-none items-center gap-x-4" @click.stop>
+            <Button variant="outline" size="sm" @click="downloadPdfVordruck(tpl.name)">
+              {{ t('template.pdf_blank') }}
+            </Button>
             <Button variant="outline" size="sm" @click="openDetail(tpl.name)">
               {{ t('action.edit') }}
             </Button>
@@ -103,7 +106,7 @@ import { ref, onMounted } from 'vue'
 import { Upload, Plus } from 'lucide-vue-next'
 import { useLocale } from '../composables/useLocale.js'
 import { useConfirm } from '../composables/useConfirm.js'
-import { fetchTemplates, saveTemplate, deleteTemplate } from '../api/templates.js'
+import { fetchTemplates, saveTemplate, deleteTemplate, fetchTemplatePdfUrl } from '../api/templates.js'
 import { templateDisplayName } from '../utils/templateName.js'
 import TemplateDetailPanel from '../components/template/TemplateDetailPanel.vue'
 import TemplateUploadDialog from '../components/template/TemplateUploadDialog.vue'
@@ -174,6 +177,11 @@ function openUpload() {
 
 async function onUploaded() {
   templates.value = await fetchTemplates()
+}
+
+async function downloadPdfVordruck(name) {
+  const url = await fetchTemplatePdfUrl(name)
+  window.open(url, '_blank')
 }
 
 // ── Detail ──────────────────────────────────────────────────────────────────

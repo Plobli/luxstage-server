@@ -5,6 +5,8 @@ import * as floorplan from '../floorplan.js'
 import * as photosLib from '../photos.js'
 import { requireAuth } from '../auth.js'
 import { readJsonBody, json, notFound } from '../helpers.js'
+import { generatePDF } from '../pdf.js'
+import { getDisplayUnit, getPhotosPerPage } from './display.js'
 
 const TPL_LIST             = /^\/api\/templates$/
 const TPL_CHANNELS         = /^\/api\/templates\/([^/]+)\/channels$/
@@ -21,6 +23,7 @@ const TPL_TOWER_SLOT       = /^\/api\/templates\/([^/]+)\/towers\/([^/]+)\/slots
 const TPL_FP               = /^\/api\/templates\/([^/]+)\/floorplan$/
 const TPL_FP_IMAGE         = /^\/api\/templates\/([^/]+)\/floorplan\/image$/
 const TPL_APPLY            = /^\/api\/templates\/([^/]+)\/apply-to-shows$/
+const TPL_PDF              = /^\/api\/templates\/([^/]+)\/pdf$/
 const TPL_ID               = /^\/api\/templates\/(.+)$/
 
 function mimeFromFilename(filename) {
@@ -269,6 +272,18 @@ export async function templateRoutes(req, res, pathname) {
       const body = await readJsonBody(req, res); if (body === null) return
       db.writeTemplateSections(name, body.sections)
       return json(res, 200, { ok: true })
+    }
+  }
+
+  if (m = TPL_PDF.exec(pathname)) {
+    const name = decodeURIComponent(m[1])
+    const tpl = db.getTemplateByName(name)
+    if (!tpl) return notFound(res)
+    if (method === 'GET') {
+      const channels = db.readTemplate(name).map(({ template_id: _, sort_order: __, ...ch }) => ch)
+      const show = { name, datum: null, template: null }
+      await generatePDF(show, channels, new Map(), [], [], res, null, getDisplayUnit(), getPhotosPerPage(), { blank: true })
+      return
     }
   }
 

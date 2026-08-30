@@ -58,15 +58,10 @@ export function writeShowSectionDefs(slug, defs, editedBy = null) {
         insertContent.run(def.id, show.id, contentMap.get(def.id) ?? (def.type === 'fields' ? '{}' : ''))
       }
     }
-    getDb().prepare('UPDATE shows SET updated_at = ?, section_defs_version = section_defs_version + 1 WHERE id = ?').run(now(), show.id)
+    getDb().prepare('UPDATE shows SET updated_at = ? WHERE id = ?').run(now(), show.id)
     if (editedBy) touchLastEdited(show.id, editedBy)
   })
   tx()
-}
-
-export function getSectionDefsVersion(slug) {
-  const show = readShow(slug)
-  return show ? String(show.section_defs_version) : null
 }
 
 export function readShowSections(slug) {
@@ -85,13 +80,8 @@ export function writeShowSections(slug, map, editedBy = null) {
   const upsertContent = getDb().prepare('INSERT OR REPLACE INTO section_contents (section_id, show_id, content) VALUES (?, ?, ?)')
   const tx = getDb().transaction(() => {
     for (const [sectionId, content] of map) upsertContent.run(sectionId, show.id, content)
-    getDb().prepare('UPDATE shows SET updated_at = ?, section_contents_version = section_contents_version + 1 WHERE id = ?').run(now(), show.id)
+    getDb().prepare('UPDATE shows SET updated_at = ? WHERE id = ?').run(now(), show.id)
     if (editedBy) touchLastEdited(show.id, editedBy)
   })
   tx()
-}
-
-export function getSectionContentsVersion(slug) {
-  const show = readShow(slug)
-  return show ? String(show.section_contents_version) : null
 }

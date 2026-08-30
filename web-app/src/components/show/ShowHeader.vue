@@ -35,8 +35,8 @@
           <History class="size-3.5" />
           {{ labels.history }}
         </Button>
-        <Button variant="outline" size="sm" class="text-muted-foreground hover:text-foreground" @click="importModalOpen = true">
-          {{ labels.import }}
+        <Button variant="outline" size="sm" class="text-muted-foreground hover:text-foreground" :disabled="circuitScanUploading" @click="importModalOpen = true">
+          {{ circuitScanUploading ? '…' : labels.import }}
         </Button>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -64,7 +64,7 @@
           <DropdownMenuContent align="end" class="w-48">
             <DropdownMenuItem class="cursor-pointer" @click="emit('openHistory')">{{ labels.history }}</DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem class="cursor-pointer" @click="importModalOpen = true">{{ labels.import }}</DropdownMenuItem>
+            <DropdownMenuItem class="cursor-pointer" :disabled="circuitScanUploading" @click="importModalOpen = true">{{ circuitScanUploading ? '…' : labels.import }}</DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem class="cursor-pointer" @click="emit('openPdf')">{{ labels.pdf }}</DropdownMenuItem>
             <DropdownMenuItem class="cursor-pointer text-muted-foreground" @click="emit('downloadCsv')">{{ labels.csvExport }}</DropdownMenuItem>
@@ -74,6 +74,7 @@
 
       <input ref="eosFileInput" type="file" accept=".csv" class="hidden" @change="emit('eosFileSelected', $event)" />
       <input ref="csvImportInput" type="file" accept=".csv" class="hidden" @change="emit('csvFileSelected', $event)" />
+      <input ref="circuitScanInput" type="file" accept="image/*" class="hidden" @change="emit('circuitScanFileSelected', $event)" />
     </div>
   </div>
 
@@ -115,6 +116,7 @@
     :open="importModalOpen"
     @chooseEos="importModalOpen = false; eosFileInput?.click()"
     @chooseCsv="importModalOpen = false; csvImportInput?.click()"
+    @chooseCircuitScan="importModalOpen = false; circuitScanInput?.click()"
     @cancel="importModalOpen = false"
   />
 </template>
@@ -141,17 +143,19 @@ const props = defineProps({
   showDate: { type: String, default: '' },
   showMeta: { type: Object, default: () => ({}) },
   labels: { type: Object, required: true },
+  circuitScanUploading: { type: Boolean, default: false },
 })
 
 const emit = defineEmits([
   'update:showName',
   'update:meta',
   'openHistory', 'openPdf', 'downloadCsv',
-  'eosFileSelected', 'csvFileSelected',
+  'eosFileSelected', 'csvFileSelected', 'circuitScanFileSelected',
 ])
 
 const eosFileInput = ref(null)
 const csvImportInput = ref(null)
+const circuitScanInput = ref(null)
 const editingName = ref(false)
 const editName = ref('')
 const nameInput = ref(null)

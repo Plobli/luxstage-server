@@ -20,6 +20,10 @@ export async function fetchTemplateChannels(name: string): Promise<Channel[]> {
   return api.get(`/api/templates/${encodeURIComponent(name)}/channels`)
 }
 
+export async function fetchTemplatePdfUrl(name: string): Promise<string> {
+  return api.downloadUrl(`/api/templates/${encodeURIComponent(name)}/pdf`)
+}
+
 export async function saveTemplate(name: string, channels: Channel[]): Promise<any> {
   return api.put(`/api/templates/${encodeURIComponent(name)}`, channels)
 }

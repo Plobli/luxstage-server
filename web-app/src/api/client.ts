@@ -103,34 +103,6 @@ export const api = {
   send: <T = unknown>(method: string, path: string, body: BodyInit, contentType: string) =>
     request<T>(method, path, { body, contentType }),
 
-  /** GET, das auch Response-Header zurückgibt (z.B. X-Show-Version) —
-   *  request<T>() gibt nur den geparsten Body zurück. */
-  getWithHeaders: async <T = unknown>(path: string): Promise<{ data: T, headers: Headers }> => {
-    const res = await fetch(BASE() + path, { headers: headers({ authenticated: true, contentType: null }) })
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}))
-      throw new ApiError(err.error || `HTTP ${res.status}`, res.status, err)
-    }
-    return { data: await res.json(), headers: res.headers }
-  },
-
-  /** PUT mit optimistischer Konflikterkennung: baseVersion geht als If-Match-
-   *  Header mit, die neue Version kommt per X-Show-Version zurück. Weicht
-   *  baseVersion vom Serverstand ab, wirft dies eine ApiError mit status 409
-   *  und body.serverVersion/body.serverChannels. */
-  putWithVersion: async <T = unknown>(path: string, body: unknown, baseVersion: string | null): Promise<{ data: T, version: string | null }> => {
-    const res = await fetch(BASE() + path, {
-      method: 'PUT',
-      headers: headers({ authenticated: true, contentType: 'application/json', extraHeaders: baseVersion ? { 'If-Match': baseVersion } : undefined }),
-      body: JSON.stringify(body),
-    })
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}))
-      throw new ApiError(err.error || `HTTP ${res.status}`, res.status, err)
-    }
-    return { data: await res.json(), version: res.headers.get('X-Show-Version') }
-  },
-
   /** URL mit kurzlebigem, wiederverwendbarem Token (15 Min TTL) für Inline-
    *  Ressourcen (img src). Für einmalige Downloads (PDF, Backup) stattdessen
    *  downloadUrl() nutzen. */

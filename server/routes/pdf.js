@@ -7,12 +7,13 @@ import { getDisplayUnit, getPhotosPerPage } from './display.js'
 
 const SHOW_PDF = /^\/api\/shows\/([^/]+)\/pdf$/
 
-export async function pdfRoutes(req, res, pathname) {
+export async function pdfRoutes(req, res, pathname, params) {
   const { method } = req
   let m
 
   if (method === 'GET' && (m = SHOW_PDF.exec(pathname))) {
     const slug = m[1]
+    const blank = params?.blank === '1'
     const show = db.readShow(slug)
     if (!show) return notFound(res)
     const unit = getDisplayUnit()
@@ -45,7 +46,7 @@ export async function pdfRoutes(req, res, pathname) {
       imagePath,
       towers,
       bars,
-    }, unit, getPhotosPerPage())
+    }, unit, getPhotosPerPage(), { blank })
     return
   }
 

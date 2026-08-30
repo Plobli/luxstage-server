@@ -1,4 +1,4 @@
-import { api } from './client'
+import { api, getToken, BASE } from './client'
 
 export interface Channel {
   channel: string;
@@ -10,14 +10,8 @@ export interface Channel {
   [key: string]: any;
 }
 
-export interface ChannelsConflictError {
-  serverVersion: string;
-  serverChannels: Channel[];
-}
-
-export async function fetchChannels(showId: string): Promise<{ channels: Channel[], version: string | null }> {
-  const { data, headers } = await api.getWithHeaders<Channel[]>(`/api/shows/${showId}/channels`)
-  return { channels: data, version: headers.get('X-Show-Version') }
+export async function fetchChannels(showId: string): Promise<Channel[]> {
+  return api.get<Channel[]>(`/api/shows/${showId}/channels`)
 }
 
 /** Häufigkeit verwendeter Farbcodes über alle Shows hinweg, absteigend sortiert. */
@@ -25,13 +19,31 @@ export async function fetchColorUsage(): Promise<{ color: string, count: number 
   return api.get<{ color: string, count: number }[]>('/api/channels/color-usage')
 }
 
-/** Wirft ApiError mit status 409 und body {serverVersion, serverChannels}, falls
- *  baseVersion nicht mehr dem Serverstand entspricht (jemand anders hat
- *  inzwischen gespeichert). baseVersion === null überspringt die Prüfung
- *  (z.B. beim allerersten Save nach dem Laden, falls keine Version vorliegt). */
-export async function saveChannels(showId: string, channels: Channel[], baseVersion: string | null = null): Promise<{ version: string | null }> {
-  const { version } = await api.putWithVersion<{ ok: true }>(`/api/shows/${showId}/channels`, channels, baseVersion)
-  return { version }
+export async function saveChannels(showId: string, channels: Channel[]): Promise<void> {
+  await api.put(`/api/shows/${showId}/channels`, channels)
+}
+
+export interface CircuitScanResult {
+  rows: Channel[]
+}
+
+/** Lädt ein Foto des ausgefüllten Kreislisten-Vordrucks hoch und lässt es per
+ *  Claude Vision auswerten. Schreibt nichts in die Show — liefert nur den
+ *  Vorschlag zur Vorschau/Bestätigung durch den Nutzer. */
+export function scanCircuitSheet(showId: string, file: File): Promise<CircuitScanResult> {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest()
+    xhr.open('POST', `${BASE()}/api/shows/${showId}/circuit-scan`)
+    xhr.setRequestHeader('Authorization', 'Bearer ' + (getToken() || ''))
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) resolve(JSON.parse(xhr.responseText))
+      else reject(new Error(JSON.parse(xhr.responseText || '{}')?.error || `Scan fehlgeschlagen: ${xhr.status}`))
+    }
+    xhr.onerror = () => reject(new Error('Netzwerkfehler'))
+    const formData = new FormData()
+    formData.append('photo', file, file.name)
+    xhr.send(formData)
+  })
 }
 
 export function parseChannelsCsv(text: string): Channel[] {

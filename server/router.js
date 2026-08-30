@@ -15,7 +15,7 @@ const WRITE_METHODS = new Set(['PUT', 'POST', 'DELETE'])
 // unabhängig vom Schreib-Lock funktionieren müssen (Lock selbst, SSE-Subscription,
 // History-Restore hat einen eigenen, engeren Lock-Check in history.js).
 const SHOW_WRITE_PATH = /^\/api\/shows\/([^/]+)\//
-const LOCK_CHECK_EXEMPT = /^\/api\/shows\/[^/]+\/(lock|events|history\/[^/]+\/restore)(\/|$)/
+const LOCK_CHECK_EXEMPT = /^\/api\/shows\/[^/]+\/(lock|events|history\/[^/]+\/restore|circuit-scan)(\/|$)/
 
 const distPath = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'web-app', 'dist')
 const operatorPanelPath = path.join(path.dirname(fileURLToPath(import.meta.url)), 'operator-panel.html')

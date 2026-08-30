@@ -52,7 +52,7 @@ export const API_ROUTE_HANDLERS = [
 // Show-Unterressourcen unter /api/shows/:id/... — erste Übereinstimmung
 // gewinnt, Fallback ist showRoutes selbst (Show-CRUD, Meta).
 export const SHOW_ROUTE_HANDLERS = [
-  { matches: pathname => /\/channels(\/|$)|\/checks(\/|$)/.test(pathname), handler: channelRoutes },
+  { matches: pathname => /\/channels(\/|$)|\/checks(\/|$)|\/circuit-scan$/.test(pathname), handler: channelRoutes },
   { matches: pathname => /\/photos(\/|$)|\/photo-/.test(pathname), handler: photoRoutes },
   { matches: pathname => /\/sections(\/|$)|\/section-defs/.test(pathname), handler: sectionRoutes },
   { matches: pathname => /\/floorplan(\/|$)/.test(pathname), handler: floorplanRoutes },

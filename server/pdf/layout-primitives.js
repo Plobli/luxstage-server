@@ -1,9 +1,9 @@
 import { mm, PAGE_MARGIN, FONT_NORMAL, FONT_BOLD, COLOR_SWATCH_R, MAX_ROW_H, ROW_MIN_H } from './constants.js'
 import { leeHex } from './filter-colors.js'
 
-export function calcRowHeight(doc, cols) {
+export function calcRowHeight(doc, cols, minH = ROW_MIN_H) {
   doc.font(FONT_NORMAL).fontSize(8)
-  let maxH = ROW_MIN_H
+  let maxH = minH
   for (const col of cols) {
     if (!col.wrap || !col.text) continue
     const w = col.w - mm(2)
@@ -14,8 +14,8 @@ export function calcRowHeight(doc, cols) {
   return Math.min(maxH, MAX_ROW_H)
 }
 
-export function drawRow(doc, y, usableW, cols, isHeader) {
-  const rowH = isHeader ? ROW_MIN_H : calcRowHeight(doc, cols)
+export function drawRow(doc, y, usableW, cols, isHeader, minRowH = ROW_MIN_H) {
+  const rowH = isHeader ? ROW_MIN_H : calcRowHeight(doc, cols, minRowH)
 
   // Hintergrund Header: sehr helles Grau, keine Außenbox
   if (isHeader) {

@@ -1,36 +1,4 @@
 <template>
-  <!-- Kanal-Konflikt Dialog -->
-  <Dialog :open="!!channelsConflict" @update:open="val => { if (!val) emit('resolveConflictReload') }">
-    <DialogContent class="sm:max-w-md">
-      <DialogHeader>
-        <DialogTitle>{{ t('show.channels.conflict.title') }}</DialogTitle>
-      </DialogHeader>
-      <DialogBody>
-        <p class="text-sm text-muted-foreground">{{ t('show.channels.conflict.text') }}</p>
-      </DialogBody>
-      <DialogFooter>
-        <Button variant="outline" @click="emit('resolveConflictForce')">{{ t('show.channels.conflict.force') }}</Button>
-        <Button @click="emit('resolveConflictReload')">{{ t('show.channels.conflict.reload') }}</Button>
-      </DialogFooter>
-    </DialogContent>
-  </Dialog>
-
-  <!-- Sections-Konflikt Dialog -->
-  <Dialog :open="!!sectionsConflict" @update:open="val => { if (!val) emit('resolveSectionsConflictReload') }">
-    <DialogContent class="sm:max-w-md">
-      <DialogHeader>
-        <DialogTitle>{{ t('show.sections.conflict.title') }}</DialogTitle>
-      </DialogHeader>
-      <DialogBody>
-        <p class="text-sm text-muted-foreground">{{ t('show.sections.conflict.text') }}</p>
-      </DialogBody>
-      <DialogFooter>
-        <Button variant="outline" @click="emit('resolveSectionsConflictForce')">{{ t('show.sections.conflict.force') }}</Button>
-        <Button @click="emit('resolveSectionsConflictReload')">{{ t('show.sections.conflict.reload') }}</Button>
-      </DialogFooter>
-    </DialogContent>
-  </Dialog>
-
   <!-- Neuer Abschnitt Dialog -->
   <Dialog :open="newSectionDialog" @update:open="val => emit('update:newSectionDialog', val)">
     <DialogContent class="sm:max-w-lg">
@@ -181,8 +149,6 @@ const EosMergePreviewDialog = defineAsyncComponent(() => import('../EosMergePrev
 const { t } = useLocale()
 
 defineProps({
-  channelsConflict: { type: [Object, Boolean, null], default: null },
-  sectionsConflict: { type: [Object, Boolean, null], default: null },
   newSectionDialog: { type: Boolean, default: false },
   newSectionName: { type: String, default: '' },
   newSectionType: { type: String, default: 'markdown' },
@@ -198,10 +164,6 @@ defineProps({
 })
 
 const emit = defineEmits([
-  'resolveConflictReload',
-  'resolveConflictForce',
-  'resolveSectionsConflictReload',
-  'resolveSectionsConflictForce',
   'update:newSectionDialog',
   'update:newSectionName',
   'update:newSectionType',

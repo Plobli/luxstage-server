@@ -20,7 +20,9 @@ import { drawFloorplanVector } from './pdf/floorplan-vector.js'
 // photoEntries: [{ path, caption }]  — Fotos mit optionaler Beschreibung
 // floorplan: { imagePath, canvasData } — optionaler Grundriss
 // photosPerPage: Fotos je Druckseite (1, 2, 4, 6, 8, 9 oder 12)
-export async function generatePDF(show, channels, sectionsMap, templateSections, photoEntries, res, floorplan = null, unit = 'm', photosPerPage = 4) {
+export async function generatePDF(show, channels, sectionsMap, templateSections, photoEntries, res, floorplan = null, unit = 'm', photosPerPage = 4, opts = {}) {
+  const blank = opts.blank === true
+  const blankExtraRows = opts.blankExtraRows ?? 4
   const fm = { name: show.name, datum: show.datum, venue: show.template }
   const grouped = groupByPosition(channels)
 
@@ -33,7 +35,7 @@ export async function generatePDF(show, channels, sectionsMap, templateSections,
   const doc = new PDFDocument({ size: 'A4', layout: 'portrait', margin: PAGE_MARGIN, autoFirstPage: true })
   res.writeHead(200, {
     'Content-Type': 'application/pdf',
-    'Content-Disposition': `inline; filename="einleuchtplan-${fm.name || 'show'}.pdf"`,
+    'Content-Disposition': `inline; filename="${blank ? 'kreisliste-vordruck' : 'einleuchtplan'}-${fm.name || 'show'}.pdf"`,
     'Referrer-Policy': 'no-referrer',
   })
   doc.pipe(res)
@@ -70,13 +72,15 @@ export async function generatePDF(show, channels, sectionsMap, templateSections,
 
   // ── Titel ────────────────────────────────────────────────────────────────
   doc.font(FONT_BOLD).fontSize(16).fillColor('black')
-    .text(`Einleuchtplan — ${fm.name || ''}`, PAGE_MARGIN, PAGE_MARGIN)
+    .text(`${blank ? 'Kreisliste — Vordruck' : 'Einleuchtplan'} — ${fm.name || ''}`, PAGE_MARGIN, PAGE_MARGIN)
   doc.font(FONT_NORMAL).fontSize(10)
     .text(fm.venue ? `${fm.venue}   |   ${fmt(fm.datum)}` : fmt(fm.datum), PAGE_MARGIN, PAGE_MARGIN + mm(8))
   doc.moveDown(1.5)
 
   // ── Sections ─────────────────────────────────────────────────────────────
-  if (hasSections) {
+  if (blank) {
+    // Vordruck: keine Aufbau-/Sections-Texte, nur die auszufüllende Kreisliste
+  } else if (hasSections) {
     for (const sec of sortedSections) {
       const content = sectionContents.get(sec.id) ?? ''
       const hasContent = sec.type === 'kv-table'
@@ -111,7 +115,7 @@ export async function generatePDF(show, channels, sectionsMap, templateSections,
   const towers = floorplan?.towers ?? []
   const bars = floorplan?.bars ?? []
 
-  if (towers.length > 0 || bars.length > 0) {
+  if (!blank && (towers.length > 0 || bars.length > 0)) {
     let ty = doc.y
 
     if (bars.length > 0) {
@@ -148,8 +152,8 @@ export async function generatePDF(show, channels, sectionsMap, templateSections,
 
   let y = PAGE_MARGIN
   for (const [position, rows] of grouped) {
-    const filteredRows = rows.filter(r => r.notes?.trim())
-    if (!filteredRows.length) continue
+    const filteredRows = blank ? rows : rows.filter(r => r.notes?.trim())
+    if (!blank && !filteredRows.length) continue
 
     // Präventiver Seitenumbruch: Überschrift + Spaltenheader + mind. 1 Zeile müssen passen
     const minNeeded = GROUP_H + ROW_MIN_H + ROW_MIN_H
@@ -169,16 +173,28 @@ export async function generatePDF(show, channels, sectionsMap, templateSections,
     // Spalten-Header
     y = drawRow(doc, y, usableW, headerCols, true)
 
-    // Datenzeilen
-    for (const row of filteredRows) {
-      const rowCols = [
-        { text: row.channel, w: COL.channel, bold: true },
-        { text: row.color,   w: COL.color,   color: row.color },
-        { text: row.address, w: COL.address, wrap: true },
-        { text: row.device,  w: COL.device,  wrap: true },
-        { text: row.notes,   w: COL.notes,   wrap: true },
-      ]
-      const rowH = calcRowHeight(doc, rowCols)
+    // Datenzeilen — im Vordruck: Ch/Adresse/Gerät vorgedruckt, Filter/Notizen
+    // leer zum handschriftlichen Ausfüllen; zusätzlich Leerzeilen für neue Kreise
+    const dataRows = blank
+      ? [...filteredRows, ...Array.from({ length: blankExtraRows }, () => ({ channel: '', address: '', device: '' }))]
+      : filteredRows
+    for (const row of dataRows) {
+      const rowCols = blank
+        ? [
+            { text: row.channel, w: COL.channel, bold: true },
+            { text: '',          w: COL.color },
+            { text: row.address, w: COL.address, wrap: true },
+            { text: row.device,  w: COL.device,  wrap: true },
+            { text: '',          w: COL.notes, wrap: true },
+          ]
+        : [
+            { text: row.channel, w: COL.channel, bold: true },
+            { text: row.color,   w: COL.color,   color: row.color },
+            { text: row.address, w: COL.address, wrap: true },
+            { text: row.device,  w: COL.device,  wrap: true },
+            { text: row.notes,   w: COL.notes,   wrap: true },
+          ]
+      const rowH = calcRowHeight(doc, rowCols, blank ? mm(9) : ROW_MIN_H)
       if (y + rowH > printableBottom) {
         doc.addPage()
         addFooter()
@@ -191,10 +207,48 @@ export async function generatePDF(show, channels, sectionsMap, templateSections,
         y += GROUP_H
         y = drawRow(doc, y, usableW, headerCols, true)
       }
-      y = drawRow(doc, y, usableW, rowCols, false)
+      y = drawRow(doc, y, usableW, rowCols, false, blank ? mm(9) : ROW_MIN_H)
       await new Promise(resolve => setImmediate(resolve))
     }
     y += mm(3)
+  }
+
+  // ── Vordruck: Leerzeilen-Block für komplett neue Positionen/Kreise ────────
+  if (blank) {
+    const minNeeded = GROUP_H + ROW_MIN_H + ROW_MIN_H
+    if (y + minNeeded > printableBottom) {
+      doc.addPage()
+      addFooter()
+      y = PAGE_MARGIN
+    }
+    doc.rect(PAGE_MARGIN, y, usableW, GROUP_H).fill('#f0f0f0')
+    doc.fill('#555555').font(FONT_BOLD).fontSize(7.5)
+      .text('NEUE KREISE / ZUSÄTZLICHER AUFBAU', PAGE_MARGIN + mm(2), y + mm(1.6), { width: usableW - mm(4) })
+    doc.fill('black')
+    y += GROUP_H
+    y = drawRow(doc, y, usableW, headerCols, true)
+
+    const emptyRowCols = [
+      { text: '', w: COL.channel, bold: true },
+      { text: '', w: COL.color },
+      { text: '', w: COL.address, wrap: true },
+      { text: '', w: COL.device, wrap: true },
+      { text: '', w: COL.notes, wrap: true },
+    ]
+    for (let i = 0; i < (opts.newCircuitRows ?? 15); i++) {
+      if (y + mm(9) > printableBottom) {
+        doc.addPage()
+        addFooter()
+        y = PAGE_MARGIN
+        doc.rect(PAGE_MARGIN, y, usableW, GROUP_H).fill('#f0f0f0')
+        doc.fill('#555555').font(FONT_BOLD).fontSize(7.5)
+          .text('NEUE KREISE / ZUSÄTZLICHER AUFBAU (Forts.)', PAGE_MARGIN + mm(2), y + mm(1.6))
+        doc.fill('black')
+        y += GROUP_H
+        y = drawRow(doc, y, usableW, headerCols, true)
+      }
+      y = drawRow(doc, y, usableW, emptyRowCols, false, mm(9))
+    }
   }
 
   // ── Grundriss ─────────────────────────────────────────────────────────────
@@ -208,7 +262,7 @@ export async function generatePDF(show, channels, sectionsMap, templateSections,
     } catch { return false }
   })()
 
-  if (floorplan?.canvasData && hasCanvasObjects) {
+  if (!blank && floorplan?.canvasData && hasCanvasObjects) {
     doc.addPage()
     addFooter()
 
@@ -237,7 +291,7 @@ export async function generatePDF(show, channels, sectionsMap, templateSections,
     try { fs.accessSync(e.path); return true } catch { return false }
   })
 
-  if (validPhotos.length > 0) {
+  if (!blank && validPhotos.length > 0) {
     doc.addPage()
     addFooter()
     y = PAGE_MARGIN

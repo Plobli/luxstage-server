@@ -28,6 +28,8 @@
       @downloadCsv="downloadChannelsCsv(props.id, channels)"
       @eosFileSelected="onEosFileSelected($event)"
       @csvFileSelected="onCsvImportSelected($event)"
+      @circuitScanFileSelected="onCircuitScanFileSelected($event)"
+      :circuitScanUploading="circuitScanUploading"
     />
 
     <!-- ── Unterer Bereich: Content ──────────────────────────────────────── -->
@@ -367,8 +369,6 @@
     />
 
     <ShowDetailDialogs
-      :channelsConflict="channelsConflict"
-      :sectionsConflict="sectionsConflict"
       v-model:newSectionDialog="newSectionDialog"
       v-model:newSectionName="newSectionName"
       v-model:newSectionType="newSectionType"
@@ -381,16 +381,34 @@
       v-model:fromTemplateWithChannels="fromTemplateWithChannels"
       :fromTemplateLoading="fromTemplateLoading"
       :formatLength="formatLength"
-      @resolveConflictReload="resolveConflictReload"
-      @resolveConflictForce="resolveConflictForce"
-      @resolveSectionsConflictReload="resolveSectionsConflictReload"
-      @resolveSectionsConflictForce="resolveSectionsConflictForce"
       @confirmNewSection="confirmNewSection"
       @resolveEosMergePreview="(...args) => resolveEosMergePreview(...args)"
       @fromTemplateSelectAll="fromTemplateSelectAll"
       @fromTemplateSelectNone="fromTemplateSelectNone"
       @fromTemplateToggleId="fromTemplateToggleId"
       @confirmFromTemplate="confirmFromTemplate"
+    />
+
+    <!-- Statusanzeige Kreisliste-Scan -->
+    <Transition enter-active-class="transition-all duration-200" enter-from-class="opacity-0 translate-y-2" leave-active-class="transition-all duration-150" leave-to-class="opacity-0">
+      <div
+        v-if="circuitScanUploading || circuitScanStatus"
+        class="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 rounded-lg border px-4 py-2.5 text-sm shadow-lg"
+        :class="circuitScanStatus?.type === 'error'
+          ? 'border-destructive/30 bg-destructive/10 text-destructive'
+          : 'border-border bg-surface-raised text-foreground'"
+      >
+        <span v-if="circuitScanUploading" class="size-3.5 shrink-0 animate-spin rounded-full border-2 border-current border-t-transparent" />
+        <span>{{ circuitScanUploading ? t('import.modal.scan.status.loading') : circuitScanStatus?.message }}</span>
+      </div>
+    </Transition>
+
+    <CircuitScanPreviewDialog
+      :open="circuitScanPreview.open"
+      :updated="circuitScanPreview.updated"
+      :added="circuitScanPreview.added"
+      @resolve="(...args) => resolveCircuitScanPreview(...args)"
+      @cancel="resolveCircuitScanPreview(false)"
     />
 
   </div>
@@ -419,6 +437,7 @@ import { useShowTabs } from '../composables/useShowTabs.js'
 import { useTemplateInsertion } from '../composables/useTemplateInsertion.js'
 
 import ShowHeader from '../components/show/ShowHeader.vue'
+import CircuitScanPreviewDialog from '../components/show/CircuitScanPreviewDialog.vue'
 const ShowActionBar = defineAsyncComponent(() => import('../components/show/ShowActionBar.vue'))
 import { useShowSidebarNav } from '../composables/useShowSidebarNav.js'
 import { Button } from '@/components/ui/button'
@@ -480,7 +499,6 @@ const {
   sectionDefs, sectionContents, sectionsSaving,
   persistSectionsDebounced, persistSections, persistSectionDefs,
   loadSections,
-  sectionsConflict, resolveSectionsConflictReload, resolveSectionsConflictForce
 } = useShowSections(props.id, meta, onLockConflict)
 
 const aufbauFixedTabs = computed(() => [
@@ -507,26 +525,36 @@ const persistSetupDebounced = useDebounceFn(async () => {
 
 const towers = ref([])
 
+// useShowChannels() braucht den Reload-Callback schon beim Erzeugen, loadTowers/
+// loadBars entstehen aber erst danach (sie hängen von `channels` ab). Der Callback
+// wird daher über eine Closure verzögert aufgelöst — bei Ausführung (nur nach
+// erfolgreichem Undo/Redo, also erst nach dem Setup) sind alle vier Loader gesetzt.
+let afterUndoRedoImpl = null
+
 const {
   channels, channelsSaving, search, healthFilter, activateHealthFilter, eosActiveChannels, eosExcludedChannels, eosMergePreview,
   dupWarning, dupChannelWarning, dupChannelNrs, dupFilter, hideEosInactive, groupedChannels,
   scheduleChannelsSave, persistChannels, deleteChannel, clearChannel,
-  onCsvImportSelected, onEosFileSelected, resolveEosMergePreview,
+  onCsvImportSelected, onCircuitScanFileSelected, circuitScanUploading, circuitScanStatus, circuitScanPreview, resolveCircuitScanPreview, onEosFileSelected, resolveEosMergePreview,
   channelStatus, toggleChannelStatus,
   undo, redo, canUndo, canRedo, onUndoRedoKeydown,
   loadChannels,
-  channelsConflict, resolveConflictReload, resolveConflictForce
 } = useShowChannels({
   showId: props.id,
   meta,
   setupMarkdown,
   t,
   localeReady,
-  onLockConflict
+  onLockConflict,
+  onAfterUndoRedo: () => afterUndoRedoImpl?.(),
 })
 
 const { loadTowers, addTower, saveTower, removeTower, assignSlot } = useShowTowers(props.id, channels, towers, onLockConflict)
 const { bars, loadBars, addBar, saveBar, removeBar, assignFixture, updateFixtureNotes, unassignFixture, reorderBars } = useShowBars(props.id, channels, onLockConflict)
+
+afterUndoRedoImpl = async () => {
+  await Promise.all([loadChannels(), loadSections(), loadTowers(), loadBars()])
+}
 
 const {
   fromTemplateDialogOpen,
