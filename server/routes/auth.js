@@ -4,7 +4,7 @@ import * as db from '../db.js'
 import { readJsonBody, json, clientIp } from '../helpers.js'
 import { sendPasswordResetLink, isSmtpConfigured } from '../email.js'
 import { getTenantId } from '../db-context.js'
-import { tenantBaseUrl } from '../tenant-resolve.js'
+import { config } from '../config.js'
 import { PASSWORD_MIN_LENGTH } from '../../shared/constants.js'
 
 const loginAttempts = new Map()
@@ -113,7 +113,9 @@ export async function authRoutes(req, res, pathname) {
       db.clearResetTokens(username)
       const token = randomBytes(32).toString('hex')
       db.createResetToken(token, username, 60 * 60 * 1000) // 1 h
-      const resetUrl = `${tenantBaseUrl(getTenantId())}/reset-password?token=${token}`
+      const tenantId = getTenantId()
+      const baseUrl = config.baseDomain ? `https://${tenantId}.${config.baseDomain}` : config.appUrl
+      const resetUrl = `${baseUrl}/reset-password?token=${token}`
       sendPasswordResetLink(email, username, resetUrl)
         .catch(err => console.error('[email] Reset-Link fehlgeschlagen:', err))
       console.log(`[auth] Reset angefordert: user=${username} ip=${ip}`)
