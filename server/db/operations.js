@@ -1,19 +1,16 @@
 import { getDb } from '../db-context.js'
 import { randomUUID } from 'node:crypto'
+import { readFullShowState, computeStateHash } from './full-state.js'
 
 const MAX_HISTORY = 50
 
-// Redo ist bewusst nicht persistent: es ergibt nur bis zum nächsten aktiven
-// Schreibvorgang Sinn und wird davon ohnehin sofort verworfen (siehe clearRedo).
-// Map<show_id, entry[]> — pro Tenant-Prozess im Speicher, wie snapshotHashes in history.js.
-const redoStacks = new Map()
-
-export function recordOperation(showId, username, resourceType, oldValue, newValue) {
+export function recordSnapshot(showId, username, stateBefore) {
   const id = randomUUID()
+  const hash = computeStateHash(stateBefore)
   getDb().prepare(`
-    INSERT INTO operations (id, show_id, created_at, performed_by, resource_type, payload)
+    INSERT INTO operations (id, show_id, created_at, performed_by, snapshot, hash)
     VALUES (?, ?, ?, ?, ?, ?)
-  `).run(id, showId, Date.now(), username, resourceType, JSON.stringify({ old: oldValue, new: newValue }))
+  `).run(id, showId, Date.now(), username, JSON.stringify(stateBefore), hash)
 
   getDb().prepare(`
     DELETE FROM operations WHERE show_id = ? AND id NOT IN (
@@ -32,17 +29,43 @@ export function deleteOperation(id) {
   getDb().prepare('DELETE FROM operations WHERE id = ?').run(id)
 }
 
-export function pushRedo(showId, entry) {
-  if (!redoStacks.has(showId)) redoStacks.set(showId, [])
-  const stack = redoStacks.get(showId)
-  stack.push(entry)
-  if (stack.length > MAX_HISTORY) stack.shift()
+export function pushRedo(showId, state) {
+  const id = randomUUID()
+  const hash = computeStateHash(state)
+  getDb().prepare(`
+    INSERT INTO redo_stack (id, show_id, created_at, snapshot, hash)
+    VALUES (?, ?, ?, ?, ?)
+  `).run(id, showId, Date.now(), JSON.stringify(state), hash)
+
+  getDb().prepare(`
+    DELETE FROM redo_stack WHERE show_id = ? AND id NOT IN (
+      SELECT id FROM redo_stack WHERE show_id = ? ORDER BY created_at DESC LIMIT ?
+    )
+  `).run(showId, showId, MAX_HISTORY)
 }
 
 export function popRedo(showId) {
-  return redoStacks.get(showId)?.pop() ?? null
+  const entry = getDb().prepare(
+    'SELECT * FROM redo_stack WHERE show_id = ? ORDER BY created_at DESC LIMIT 1'
+  ).get(showId)
+  if (!entry) return null
+  getDb().prepare('DELETE FROM redo_stack WHERE id = ?').run(entry.id)
+  return entry
 }
 
 export function clearRedo(showId) {
-  redoStacks.delete(showId)
+  getDb().prepare('DELETE FROM redo_stack WHERE show_id = ?').run(showId)
+}
+
+// Führt mutate() aus und zeichnet den Zustand VOR der Änderung als Undo-Punkt
+// auf — beides in einer gemeinsamen Transaktion, damit ein Fehler in mutate()
+// nie eine Historie ohne zugehörige Datenänderung hinterlässt (und umgekehrt).
+export function withUndoSnapshot(slug, showId, username, mutate) {
+  const tx = getDb().transaction(() => {
+    const stateBefore = readFullShowState(slug)
+    mutate()
+    recordSnapshot(showId, username, stateBefore)
+  })
+  tx()
+  clearRedo(showId)
 }
