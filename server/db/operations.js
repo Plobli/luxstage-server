@@ -65,7 +65,7 @@ export function withUndoSnapshot(slug, showId, username, mutate) {
     const stateBefore = readFullShowState(slug)
     mutate()
     recordSnapshot(showId, username, stateBefore)
+    clearRedo(showId)
   })
   tx()
-  clearRedo(showId)
 }

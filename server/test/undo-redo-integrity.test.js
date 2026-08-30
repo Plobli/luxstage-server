@@ -60,3 +60,16 @@ test('Redo-Stack ist persistent (DB-Tabelle, keine In-Memory-Struktur)', () => {
   clearRedo(show.id)
   assert.equal(popRedo(show.id), null)
 })
+
+test('withUndoSnapshot rollt bei Fehler in mutate() vollständig zurück', () => {
+  createShow('test-show-rollback', { name: 'Rollback-Test', importSections: false })
+  const show = readShow('test-show-rollback')
+
+  assert.throws(() => {
+    withUndoSnapshot('test-show-rollback', show.id, 'tester', () => {
+      throw new Error('mutation failed')
+    })
+  })
+
+  assert.equal(getLastOperation(show.id), null)
+})
