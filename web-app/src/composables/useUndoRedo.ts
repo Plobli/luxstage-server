@@ -22,11 +22,12 @@ export interface UseUndoRedoReturn {
  * aber nicht automatisch an den Client zurücksendet.
  */
 export function useUndoRedo(showId: string, onLockConflict?: (body: { lockedBy?: string, since?: number }) => void): UseUndoRedoReturn {
-  // Der Server kennt die Stack-Tiefe nicht als eigenen Endpunkt — canUndo/canRedo
-  // starten optimistisch offen und schalten erst bei einem 400 (Stack leer) ab.
-  // Ein erfolgreicher Undo/Redo oder ein neuer Save (markSaved) öffnet canUndo wieder.
+  // Der Server kennt die Stack-Tiefe nicht als eigenen Endpunkt. canUndo startet
+  // optimistisch offen, canRedo optimistisch geschlossen (Redo-Stack ist nach dem
+  // Laden bzw. nach jedem Save immer leer). Beide schalten bei 400 (Stack leer) ab;
+  // ein erfolgreicher Undo öffnet canRedo, ein erfolgreicher Redo/Save öffnet canUndo.
   const canUndo = ref(true)
-  const canRedo = ref(true)
+  const canRedo = ref(false)
 
   async function undo(): Promise<boolean> {
     try {
@@ -56,6 +57,7 @@ export function useUndoRedo(showId: string, onLockConflict?: (body: { lockedBy?:
 
   function markSaved(): void {
     canUndo.value = true
+    canRedo.value = false
   }
 
   return { undo, redo, canUndo: computed(() => canUndo.value), canRedo: computed(() => canRedo.value), markSaved }

@@ -107,6 +107,7 @@
               variant="ghost"
               size="sm"
               class="h-7 rounded-sm px-2 text-[11px] text-muted-foreground hover:text-accent-foreground"
+              data-testid="channel-add-btn"
               @click="startAdd(item.group.position)"
             >+ {{ labels.add }}</Button>
             <template v-if="item.isLast">
@@ -168,6 +169,7 @@
             <div class="px-3">
               <Input
                 data-channel-nr-input
+                data-testid="channel-add-nr-input"
                 v-model="addForm.channel"
                 :placeholder="labels.channelNr"
                 class="h-7 w-[5.5ch] border-0 bg-transparent px-1 py-0 text-center font-mono text-base font-semibold leading-none text-foreground shadow-none placeholder:text-muted-foreground/60 focus-visible:bg-muted/20 focus-visible:ring-0"
@@ -217,6 +219,7 @@
               <Button
                 size="icon"
                 variant="ghost"
+                data-testid="channel-add-save"
                 class="size-8 rounded-sm text-green-500 hover:bg-green-500/10 hover:text-green-600"
                 @click="saveAdd"
               ><Check class="size-4" /></Button>
@@ -237,6 +240,7 @@
                 variant="ghost"
                 size="sm"
                 class="h-8 rounded-sm border border-border/50 px-3 text-muted-foreground hover:text-accent-foreground"
+                data-testid="channel-add-btn"
                 @click="startAdd('')"
               >+ {{ labels.add }}</Button>
             </div>

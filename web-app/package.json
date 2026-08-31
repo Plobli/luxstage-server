@@ -6,6 +6,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "typecheck": "vue-tsc --noEmit",
+    "test:e2e": "playwright test",
     "tolgee:push": "sh -c 'set -a; . ./.env.development.local; set +a; tolgee push --force-mode NO_FORCE'",
     "tolgee:pull-nach änderungen-in-tolgee": "sh -c 'set -a; . ./.env.development.local; set +a; tolgee pull -d \"\"'",
     "tolgee:sync-nach-änderungen-im-code": "sh -c 'set -a; . ./.env.development.local; set +a; tolgee push --force-mode OVERRIDE && tolgee pull -d \"\"'"
@@ -34,11 +35,13 @@
     "vue-router": "^4.3.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.62.1",
     "@tolgee/cli": "^2.20.0",
     "@types/dagre": "^0.7.54",
     "@types/node": "^25.6.0",
     "@vitejs/plugin-vue": "^6.0.5",
     "@vue/tsconfig": "^0.9.1",
+    "dotenv": "^17.4.2",
     "playwright": "^1.62.1",
     "typescript": "^6.0.3",
     "vite": "^6.4.1",

@@ -126,6 +126,7 @@
           <Button
             variant="ghost"
             size="icon"
+            data-testid="channel-row-delete"
             class="no-print size-7 rounded-sm text-muted-foreground hover:text-accent-foreground opacity-0 transition-all group-hover/row:opacity-100"
             @click="deleteDialogOpen = true"
             :title="deleteTitle"
@@ -144,7 +145,7 @@
             <AlertDialogFooter class="flex-col sm:flex-row gap-2">
               <AlertDialogCancel @click="deleteDialogOpen = false">{{ t('action.cancel') }}</AlertDialogCancel>
               <Button variant="outline" @click="() => { deleteDialogOpen = false; emit('clear', ch) }">{{ t('channel.row.clear') }}</Button>
-              <AlertDialogAction class="bg-destructive text-destructive-foreground hover:bg-destructive/90" @click="() => { deleteDialogOpen = false; emit('delete', ch) }">{{ t('channel.row.delete_row') }}</AlertDialogAction>
+              <AlertDialogAction data-testid="channel-row-delete-confirm" class="bg-destructive text-destructive-foreground hover:bg-destructive/90" @click="() => { deleteDialogOpen = false; emit('delete', ch) }">{{ t('channel.row.delete_row') }}</AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>

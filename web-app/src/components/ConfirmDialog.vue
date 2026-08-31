@@ -15,6 +15,7 @@
           {{ cancelLabel }}
         </AlertDialogCancel>
         <AlertDialogAction
+          data-testid="confirm-dialog-confirm"
           @click="confirm"
           :class="buttonVariants({ variant: 'destructive' })"
         >

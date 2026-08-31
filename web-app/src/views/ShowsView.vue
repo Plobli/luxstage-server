@@ -55,6 +55,7 @@
           <div
             v-for="(show, i) in group.shows"
             :key="show.id"
+            :data-testid="`show-row-${show.name || show.id}`"
             class="group grid grid-cols-[1fr_2rem] sm:grid-cols-[1fr_10rem_0.5fr_2rem] lg:grid-cols-[1fr_10rem_10rem_0.5fr_2rem] gap-0 items-center px-4 py-3 cursor-pointer transition-colors hover:bg-muted/50"
             :class="i > 0 ? 'border-t border-border/40' : ''"
             @click="router.push(`/shows/${show.id}`)"
@@ -72,7 +73,7 @@
             <span class="text-sm text-muted-foreground hidden lg:block">{{ show.spielzeit || '—' }}</span>
             <span class="text-sm text-muted-foreground truncate hidden sm:block">{{ show.last_edited_by }}</span>
             <div class="flex justify-end opacity-0 group-hover:opacity-100 transition-opacity" @click.stop>
-              <Button variant="ghost" size="icon" class="size-7 text-muted-foreground hover:text-foreground" @click="archive(show.id)" :title="t('show.archive')">
+              <Button data-testid="show-archive-btn" variant="ghost" size="icon" class="size-7 text-muted-foreground hover:text-foreground" @click="archive(show.id)" :title="t('show.archive')">
                 <Archive class="size-3.5" />
               </Button>
             </div>
@@ -130,7 +131,7 @@
           <Button variant="outline" type="button" @click="drawerOpen = false">
             {{ t('action.cancel') }}
           </Button>
-          <Button type="button" :disabled="creating" @click="handleCreate">
+          <Button data-testid="show-create-submit" type="button" :disabled="creating" @click="handleCreate">
             <Loader2 v-if="creating" class="mr-2 size-4 animate-spin" />
             {{ creating ? t('show.creating') : t('show.create') }}
           </Button>
@@ -143,12 +144,12 @@
   <!-- FAB -->
   <DropdownMenu>
     <DropdownMenuTrigger asChild>
-      <Button variant="accent" class="fixed bottom-6 right-6 h-11 px-5 shadow-lg border-0 flex items-center gap-2">
+      <Button data-testid="show-fab" variant="accent" class="fixed bottom-6 right-6 h-11 px-5 shadow-lg border-0 flex items-center gap-2">
         <Plus class="size-4" /> {{ t('show.new') }}
       </Button>
     </DropdownMenuTrigger>
     <DropdownMenuContent align="end" class="w-56">
-      <DropdownMenuItem class="cursor-pointer" @click="openCreate">
+      <DropdownMenuItem data-testid="show-create-quick" class="cursor-pointer" @click="openCreate">
         <Plus class="size-4 mr-2" /> {{ t('show.create.quick') }}
       </DropdownMenuItem>
       <DropdownMenuItem class="cursor-pointer" @click="wizardOpen = true">

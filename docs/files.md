@@ -71,6 +71,7 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 | `./server/pdf/towers.js` | Rendering von Beleuchtungsgestellen (Karten-Grid und Textliste). |
 | `./server/pdf/bars.js` | Rendering von Zugstangen/Traversen/Punktzug (Skala, Fixture-Kreise, Textliste). |
 | `./server/pdf/floorplan-vector.js` | Zeichnet die Grundriss-Seite direkt als Vektorgrafik aus canvas_data (alle 7 Elementtypen inkl. Rotation, Fixture-Pins, Slot-Badges) statt eines Raster-Snapshots; optionales Hintergrundbild wird weiterhin als Raster eingebettet. |
+| `./server/pdf/network.js` | PDF-Export der Netzwerk-Verkabelung: Port-Tabelle je Switch (Hauptswitch zuerst), Abschnitt „Sonstige Verbindungen“ für Switch-lose Verbindungen; nutzt dieselben Layout-Primitives wie `pdf.js`. |
 | `./server/pdf/utils.js` | Kanalgruppierung, Datumsformat, Bildgrößen-Ermittlung aus PNG/JPEG-Buffer. |
 | `./server/sse.js` | Server-Sent Events für Echtzeit-Kanal-Updates und Präsenz, pro Mandant gescopt; Heartbeat blockiert keine Einmalprozesse; sendToUser() für gezielte Zustellung an einen User (z.B. Lock-Übernahme-Anfrage). |
 | `./server/email.js` | SMTP-Konfiguration und Email-Versand mit Fallback-Support (u.a. Willkommens-, Bestätigungs- und Freischalt-Anfrage-Mails). |
@@ -113,6 +114,8 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 | `./server/db/locks.js` | DB-Zugriff für Show-weiten Schreib-Lock: acquire/release/touch/get/transfer (direkte Übergabe an anderen User) sowie listLocks() für die Show-Übersicht. |
 | `./server/db/operations.js` | DB-Zugriff für serverseitiges Undo/Redo: Full-Snapshot-Historie (kompletter Show-Zustand), persistenter Redo-Stack in DB, Funktion `withUndoSnapshot()` für transaktionale Snapshots. |
 | `./server/db/network.js` | DB-Zugriff für Netzwerk-Elemente (network_nodes: Typ, Raum, Portanzahl bei Switches, Position im Graph), deren Verbindungen (network_connections) und einen speicherbaren Positions-Snapshot der Topologie-Ansicht (network_layout_snapshot). |
+| `./server/db/network-state.js` | Liest/schreibt kompletten Netzwerk-Zustand (Elemente + Verbindungen) atomar als Snapshot; Basis für Netzwerk-Undo/Redo, analog zu `full-state.js` aber ohne Show-Bezug. |
+| `./server/db/network-operations.js` | DB-Zugriff für serverseitiges Netzwerk-Undo/Redo: einziger globaler Snapshot-Stack (kein show_id, da das Netzwerk gebäudeweit ist), `withNetworkUndoSnapshot()` für transaktionale Snapshots. |
 | `./server/db/settings.js` | DB-Zugriff für generische Key-Value-Settings-Tabelle (SMTP-Konfig, Anzeige-Einstellungen). |
 | `./server/db/migrations/index.js` | Geordnete Liste aller Schema-Migrationen. |
 | `./server/db/migrations/039-operations-full-snapshot.js` | Migration: ändert operations-Tabelle für Full-Snapshot-Historie, fügt redo_stack-Tabelle für persistente Redo-Stack hinzu. |
@@ -140,7 +143,7 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 | `./server/routes/update.js` | API-Routen für Versions-Check und Server-Update; entpackt Release-ZIP streamend, spart Infrastruktur-Dateien aus, sichert den Stand vorher und macht bei Fehlschlag (npm install, Modul-Rauchtest) automatisch ein Rollback. |
 | `./server/routes/smtp.js` | API-Routen für SMTP-Konfiguration und Test-E-Mails. |
 | `./server/routes/operator.js` | API-Routen für Betreiber-Panel (Mandanten-Verwaltung, Server-Version). |
-| `./server/routes/network.js` | API-Routen für die gebäudeweite Netzwerk-Übersicht (Elemente wie Dose/Switch/Gerät und deren Verbindungen), unabhängig von einzelnen Shows. |
+| `./server/routes/network.js` | API-Routen für die gebäudeweite Netzwerk-Übersicht (Elemente wie Dose/Switch/Gerät und deren Verbindungen), unabhängig von einzelnen Shows; validiert, dass Netzwerkdose↔Netzwerkdose und Gerät↔Gerät nicht direkt verbunden werden (nur über einen Switch) und dass Dose max. zwei Verbindungen (Durchschleifung rein/raus), Gerät max. eine hat (Switch-Ausnahme); jede Mutation läuft über `withNetworkUndoSnapshot()`, dazu `POST /api/network/undo`/`redo`; inkl. PDF-Export (`GET /api/network/pdf`, siehe `pdf/network.js`). |
 
 ## web-app/ (Vue 3 + TypeScript Frontend, Vite)
 
@@ -148,6 +151,13 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 |---|---|
 | `./web-app/index.html` | HTML-Entry-Point der Vue-Web-App. |
 | `./web-app/vite.config.js` | Vite-Build-Konfiguration; Code-Splitting, Proxy zum Server. |
+| `./web-app/playwright.config.ts` | Playwright-E2E-Testkonfiguration; Setup-Projekt loggt einmalig ein und teilt `storageState` mit dem authentifizierten Projekt, unauth-Tests laufen separat. |
+| `./web-app/e2e/auth.setup.ts` | Einmaliger Login vor den authentifizierten E2E-Tests, speichert Session in `e2e/.auth/user.json`. |
+| `./web-app/e2e/smoke.spec.ts` | E2E: Login-Seite lädt, Auth-Redirect, 404-Route (unauthentifiziert). |
+| `./web-app/e2e/login.spec.ts` | E2E: Login mit gültigen/ungültigen Zugangsdaten. |
+| `./web-app/e2e/shows-crud.spec.ts` | E2E: Show erstellen und wieder archivieren. |
+| `./web-app/e2e/channels-crud.spec.ts` | E2E: Kanal in einer Show anlegen, löschen, Show aufräumen. |
+| `./web-app/e2e/undo-redo.spec.ts` | E2E: Undo/Redo einer Kanal-Erstellung, einfach und mehrfach über mehrere Kanäle (LIFO-Stack). |
 | `./web-app/package.json` | Web-App-Dependencies: Vue 3, Tailwind, Shadcn-ui, Editor. |
 | `./web-app/tsconfig.json` | TypeScript-Compiler-Optionen für die Web-App. |
 | `./web-app/tsconfig.tsbuildinfo` | TypeScript-Build-Metadaten (Laufzeitartefakt). |
@@ -242,7 +252,7 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 | `./web-app/src/views/ShowsView.vue` | Übersicht aller Produktionen mit Sortierung; zeigt Schreib-Sperre pro Show (Schloss-Icon); Erstellung per Schnell-Dialog oder ShowWizardDialog (FAB-Menü). |
 | `./web-app/src/views/ShowDetailView.vue` | Hauptansicht einer Show mit Kanaltabelle und Editoren; read-only-Overlay bei fremdem Schreib-Lock (leitet Scroll-Events an den Content weiter), Übernahme-Anfrage-Dialog; fixierte Statusanzeige (Lade-Spinner/Erfolg/Fehler) beim Kreisliste-Scan. |
 | `./web-app/src/views/ArchiveView.vue` | Anzeige und Verwaltung archivierter Produktionen mit Wiederherstellung. |
-| `./web-app/src/views/NetworkView.vue` | Gebäudeweite Netzwerk-Übersicht: Tabellen für Elemente (Dose/Switch/Gerät je Raum, Portanzahl bei Switches) und Verbindungen (Port-zu-Port); Topologie wird als interaktiver Vue-Flow-Graph gerendert (frei verschiebbare Knoten, Kanten passen sich automatisch an, dagre-Auto-Layout für neue Elemente ohne gespeicherte Position). |
+| `./web-app/src/views/NetworkView.vue` | Gebäudeweite Netzwerk-Übersicht: Topologie als interaktiver, per Vollbild vergrößerbarer Vue-Flow-Graph (frei verschiebbare Knoten, Verbindungen per Drag zwischen Handles neu anlegen oder bestehende umhängen — `edges-updatable`/`@edge-update`; Löschen von Knoten/Kanten per Backspace direkt im Canvas wird über `@nodes-change`/`@edges-change` in die API persistiert, statt nur lokal im Vue-Flow-Modell zu verschwinden und beim nächsten Sync wiederzukehren; dagre-Auto-Layout für neue Elemente); Verbindungen als Port-Grid je Switch (Hauptswitch zuerst, freie Ports hervorgehoben) plus Tabelle für switchlose Verbindungen (neue Einträge als ungespeicherter Entwurf, bis beide Elemente gewählt sind); Dose hat max. zwei Verbindungen (rein/raus), Gerät max. eine — bei ausgeschöpftem Limit fragt die Zuweisung nach, ob die älteste Verbindung ersetzt wird (`claimNodeSlot`); Elemente-Tabelle nach Ort gruppiert/einklappbar mit Suche und neu-Markierung, neues Element per Dropdown mit Pflicht-Kategorie (Dose/Gerät/Switch) angelegt; Löschen von Elementen/Verbindungen fragt nach Bestätigung; Verbindungsauswahl blockt Dose↔Dose und Gerät↔Gerät; PDF-Export der Verkabelung über `GET /api/network/pdf`; serverseitiges Undo/Redo (⌘Z/⌘⇧Z, globaler Stack). |
 | `./web-app/src/components/network/SwitchNode.vue` | Vue-Flow-Knotenkomponente für Switches: zeigt nummerierte Ports (zwei Reihen, ungerade/gerade) als eigene Handles, belegte Ports farblich hervorgehoben. |
 | `./web-app/src/components/network/DeviceNode.vue` | Vue-Flow-Knotenkomponente für Dose/Gerät: einfache Box mit einem Handle je Seite. |
 | `./web-app/src/views/TemplatesView.vue` | Vorlagenliste, Neu-Anlegen, Löschen, Download des Kreislisten-Vordrucks (PDF); Detail-Bearbeitung an TemplateDetailPanel, Upload an TemplateUploadDialog delegiert. |

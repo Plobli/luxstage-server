@@ -7,6 +7,10 @@ export function listNetworkNodes() {
   return getDb().prepare('SELECT * FROM network_nodes ORDER BY created_at ASC').all()
 }
 
+export function getNetworkNode(id) {
+  return getDb().prepare('SELECT * FROM network_nodes WHERE id = ?').get(id)
+}
+
 export function createNetworkNode({ type, label, room, port_count, position_x, position_y, is_main }) {
   const id = randomUUID()
   getDb().prepare(

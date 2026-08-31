@@ -4,3 +4,6 @@ dist/
 *.local
 tsconfig.tsbuildinfo
 e2e-test.tmp.cjs
+e2e/.auth/
+test-results/
+playwright-report/

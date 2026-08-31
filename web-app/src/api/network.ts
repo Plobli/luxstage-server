@@ -39,3 +39,6 @@ export interface NetworkLayoutSnapshot {
 
 export const getNetworkLayoutSnapshot = (): Promise<NetworkLayoutSnapshot | null> => api.get('/api/network/layout-snapshot')
 export const saveNetworkLayoutSnapshot = (data: Record<string, { x: number, y: number }>): Promise<NetworkLayoutSnapshot> => api.put('/api/network/layout-snapshot', data)
+
+export const undoNetwork = (): Promise<{ ok: true }> => api.post('/api/network/undo', {})
+export const redoNetwork = (): Promise<{ ok: true }> => api.post('/api/network/redo', {})

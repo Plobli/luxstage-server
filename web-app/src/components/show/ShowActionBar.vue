@@ -4,7 +4,7 @@
     <div class="flex items-center gap-x-1 shrink-0 px-4 sm:px-6 lg:px-5">
       <Tooltip>
         <TooltipTrigger asChild>
-          <Button variant="ghost" size="icon" :disabled="!canUndo" class="no-print h-11 w-11 md:h-8 md:w-8 text-muted-foreground" @click="emit('undo')">
+          <Button variant="ghost" size="icon" data-testid="undo-btn" :disabled="!canUndo" class="no-print h-11 w-11 md:h-8 md:w-8 text-muted-foreground" @click="emit('undo')">
             <Undo2 class="size-4" /><span class="sr-only">{{ labels.undo }}</span>
           </Button>
         </TooltipTrigger>
@@ -12,7 +12,7 @@
       </Tooltip>
       <Tooltip>
         <TooltipTrigger asChild>
-          <Button variant="ghost" size="icon" :disabled="!canRedo" class="no-print h-11 w-11 md:h-8 md:w-8 text-muted-foreground" @click="emit('redo')">
+          <Button variant="ghost" size="icon" data-testid="redo-btn" :disabled="!canRedo" class="no-print h-11 w-11 md:h-8 md:w-8 text-muted-foreground" @click="emit('redo')">
             <Redo2 class="size-4" /><span class="sr-only">{{ labels.redo }}</span>
           </Button>
         </TooltipTrigger>

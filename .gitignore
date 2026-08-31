@@ -61,6 +61,10 @@ tmp-release.zip
 *.log
 **/.server.log
 
+# Playwright-Testartefakte
+test-results/
+playwright-report/
+
 # iOS Build-Artefakte
 ios-app/**/*.xcarchive
 ios-app/Pods/
