@@ -46,11 +46,24 @@ export function generateNetworkPDF(nodes, connections, res) {
   doc.font(FONT_NORMAL).fontSize(10).text(printedAt, PAGE_MARGIN, PAGE_MARGIN + mm(8))
   let y = PAGE_MARGIN + mm(16)
 
-  const portCols = [
-    { text: 'Port', w: mm(18) },
-    { text: 'Ziel', w: usableW - mm(18) - mm(22) },
-    { text: 'Zielport', w: mm(22) },
-  ]
+  // "Zielport" ist nur bei Switch-zu-Switch-Uplinks relevant (die Gegenseite
+  // hat dann ebenfalls einen Port). Kommt das im ganzen Dokument nirgends
+  // vor, entfällt die Spalte komplett statt nur Gedankenstriche zu zeigen.
+  const hasTargetPorts = connections.some(c => {
+    const fromType = byId.get(c.from_node_id)?.type
+    const toType = byId.get(c.to_node_id)?.type
+    return fromType === 'switch' && toType === 'switch' && !!(c.from_port || c.to_port)
+  })
+  const portCols = hasTargetPorts
+    ? [
+        { text: 'Port', w: mm(18) },
+        { text: 'Ziel', w: usableW - mm(18) - mm(22) },
+        { text: 'Zielport', w: mm(22) },
+      ]
+    : [
+        { text: 'Port', w: mm(18) },
+        { text: 'Ziel', w: usableW - mm(18) },
+      ]
 
   const switches = nodes.filter(n => n.type === 'switch')
     .sort((a, b) => (b.is_main ? 1 : 0) - (a.is_main ? 1 : 0) || nodeLabel(a).localeCompare(nodeLabel(b)))
@@ -83,8 +96,10 @@ export function generateNetworkPDF(nodes, connections, res) {
       const rowCols = [
         { text: String(port), w: portCols[0].w, bold: true },
         { text: nodeLabel(target), w: portCols[1].w },
-        { text: target?.type === 'switch' && targetPort ? String(targetPort) : '—', w: portCols[2].w },
       ]
+      if (hasTargetPorts) {
+        rowCols.push({ text: target?.type === 'switch' && targetPort ? String(targetPort) : '—', w: portCols[2].w })
+      }
       if (y + ROW_MIN_H > printableBottom) {
         doc.addPage(); addFooter(); y = PAGE_MARGIN
         y = drawRow(doc, y, usableW, portCols, true)

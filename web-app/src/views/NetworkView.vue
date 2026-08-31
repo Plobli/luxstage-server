@@ -816,6 +816,7 @@ function syncFlow() {
       data: {
         label: n.label || t('network.type.' + n.type),
         icon: nodeIconMap[n.type] || Cable,
+        elementType: n.type,
         portCount: n.port_count,
         isPortUsed: (p) => isPortUsed(n.id, p),
         isMain: !!n.is_main,
