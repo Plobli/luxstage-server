@@ -90,6 +90,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogB
 import { useLocale } from '../../composables/useLocale.js'
 import { getSmtpConfig, saveSmtpConfig, testSmtpConfig } from '../../api/client.js'
 import { jwtDecode } from '../../api/jwtDecode.js'
+import { isValidEmail } from '@shared/constants.js'
 
 const { t } = useLocale()
 
@@ -137,11 +138,9 @@ function doTest() {
   testDialogOpen.value = true
 }
 
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-
 async function confirmTest() {
   const to = testTo.value.trim()
-  if (!EMAIL_RE.test(to)) {
+  if (!isValidEmail(to)) {
     testToError.value = t('settings.smtp.test.dialog.error')
     return
   }

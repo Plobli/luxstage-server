@@ -14,6 +14,7 @@
 
 import bcrypt from 'bcrypt'
 import { dbContainer } from './db-init.js'
+import { isValidEmail } from '../shared/constants.js'
 
 const BCRYPT_COST = 12
 
@@ -25,7 +26,7 @@ if (!adminPassword) {
   process.exit(1)
 }
 
-if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(adminEmail)) {
+if (!isValidEmail(adminEmail)) {
   console.error('FEHLER: ADMIN_EMAIL fehlt oder ist keine gültige E-Mail-Adresse.')
   process.exit(1)
 }

@@ -3,11 +3,10 @@ import * as db from '../db.js'
 import { requireAuth } from '../auth.js'
 import { readJsonBody, json } from '../helpers.js'
 import { sendWelcomeEmail, sendApprovalRequestEmail, sendPendingRegistrationEmail } from '../email.js'
-import { PASSWORD_MIN_LENGTH } from '../../shared/constants.js'
+import { PASSWORD_MIN_LENGTH, isValidEmail } from '../../shared/constants.js'
 
 const USER_ID = /^\/api\/users\/([^/]+)$/
 const APPROVE_USER = /^\/api\/users\/([^/]+)\/approve$/
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 export async function userRoutes(req, res, pathname) {
   const { method } = req
@@ -61,7 +60,7 @@ export async function userRoutes(req, res, pathname) {
     const body = await readJsonBody(req, res); if (body === null) return
     const email = String(body.email || '').trim()
     const password = String(body.password || '')
-    if (!EMAIL_RE.test(email)) return json(res, 400, { error: 'Ungültige E-Mail-Adresse' })
+    if (!isValidEmail(email)) return json(res, 400, { error: 'Ungültige E-Mail-Adresse' })
     if (password.length < PASSWORD_MIN_LENGTH) return json(res, 400, { error: `Passwort zu kurz (min. ${PASSWORD_MIN_LENGTH} Zeichen)` })
     if (db.findUserByEmail(email)) return json(res, 409, { error: 'E-Mail-Adresse bereits registriert' })
 
