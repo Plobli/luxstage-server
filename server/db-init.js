@@ -7,12 +7,6 @@ import { migrations } from './db/migrations/index.js'
 
 export const dbContainer = { db: null }
 
-// Datenverzeichnis sicherstellen — bei frischem Deploy/Volume existiert es sonst nicht.
-fs.mkdirSync(config.dataPath, { recursive: true })
-
-const dbPath = path.join(config.dataPath, 'luxstage.db')
-dbContainer.db = new Database(dbPath)
-
 // Basis-Schema. Nur CREATE TABLE IF NOT EXISTS — idempotent.
 function _initSchema(database) {
   database.pragma('journal_mode = WAL')
@@ -227,7 +221,17 @@ export function initSchema(database) {
   return database
 }
 
-initSchema(dbContainer.db)
+// Öffnet die globale DB und fährt Schema + Migrationen. Muss von jedem
+// Einstiegspunkt (index.js, bootstrap.js, Tests) vor dem ersten Zugriff
+// aufgerufen werden — der Import allein legt bewusst keine Datei mehr an,
+// damit db/-Module ohne vollständige Umgebung importierbar bleiben.
+export function initDb(dbPath = path.join(config.dataPath, 'luxstage.db')) {
+  if (dbContainer.db) return dbContainer.db
+  fs.mkdirSync(path.dirname(dbPath), { recursive: true })
+  dbContainer.db = new Database(dbPath)
+  initSchema(dbContainer.db)
+  return dbContainer.db
+}
 
 export function resetDb() {
   if (dbContainer.db) dbContainer.db.close()

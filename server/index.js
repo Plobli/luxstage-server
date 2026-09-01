@@ -5,6 +5,7 @@ import { router } from './router.js'
 import { config } from './config.js'
 import { startHistoryJob } from './history.js'
 import { saasEnabled } from './saas.js'
+import { initDb } from './db-init.js'
 
 const pkg = JSON.parse(fs.readFileSync(new URL('../package.json', import.meta.url)))
 
@@ -40,9 +41,12 @@ function acquireLock() {
 }
 acquireLock()
 
+// Erst nach dem Lock öffnen — zwei Prozesse dürfen die Datei nie gleichzeitig anfassen.
+initDb()
+
 const corsOrigins = (process.env.CORS_ORIGINS || process.env.CORS_ORIGIN || '')
   .split(',').map(s => s.trim()).filter(Boolean)
-const isDev = process.env.NODE_ENV === 'development'
+const isDev = process.env.NODE_ENV === 'development' && !config.baseDomain
 
 const server = http.createServer((req, res) => {
   const origin = req.headers['origin'] || ''

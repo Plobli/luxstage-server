@@ -13,7 +13,7 @@
 //   ADMIN_EMAIL="..." ADMIN_PASSWORD="..." JWT_SECRET="..." node bootstrap.js
 
 import bcrypt from 'bcrypt'
-import { dbContainer } from './db-init.js'
+import { dbContainer, initDb } from './db-init.js'
 import { isValidEmail } from '../shared/constants.js'
 
 const BCRYPT_COST = 12
@@ -30,6 +30,8 @@ if (!isValidEmail(adminEmail)) {
   console.error('FEHLER: ADMIN_EMAIL fehlt oder ist keine gültige E-Mail-Adresse.')
   process.exit(1)
 }
+
+initDb()
 
 const insert = dbContainer.db.prepare(
   'INSERT OR IGNORE INTO users (username, password, email) VALUES (?, ?, ?)'

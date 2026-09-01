@@ -7,6 +7,7 @@ import fs from 'node:fs'
 import fsp from 'node:fs/promises'
 import unzipper from 'unzipper'
 import { execFile } from 'node:child_process'
+import { randomBytes } from 'node:crypto'
 
 const repoDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const GITHUB_REPO = 'Plobli/LuxStage'
@@ -194,10 +195,9 @@ export async function updateRoutes(req, res, pathname, params) {
         // Echter Modul-Import in einem separaten Prozess, nicht nur `node --check`:
         // --check prüft ausschließlich Syntax, keine Imports — genau das ließ den
         // fehlenden shared/-Ordner (ERR_MODULE_NOT_FOUND) früher unbemerkt durch.
-        // router.js importiert transitiv db-init.js, das beim Modul-Top-Level
-        // sofort eine DB öffnet und Migrationen fährt — mit eigenem, temporärem
-        // DATA_PATH getestet, damit die Produktions-DB des laufenden Prozesses
-        // dabei nicht angefasst wird.
+        // Läuft bewusst in einem separaten Prozess mit eigenem, temporärem
+        // DATA_PATH: der neue Code könnte beim Laden Konfiguration erwarten
+        // oder (bei älteren Ständen) noch beim Import eine DB öffnen.
         const smokeTestDataDir = path.join(repoDir, '.update-smoketest-data')
         const routerUrl = pathToFileURL(path.join(repoDir, 'server', 'router.js')).href
         await removeIfExists(smokeTestDataDir)
@@ -206,7 +206,7 @@ export async function updateRoutes(req, res, pathname, params) {
           // Sonderzeichen enthalten, die die -e-Inline-Auswertung sonst zerlegen.
           await run(
             `node --input-type=module -e "import('${routerUrl}').then(() => process.exit(0))"`,
-            { DATA_PATH: smokeTestDataDir, JWT_SECRET: 'smoketest-only-not-used-0123456789ab' }
+            { DATA_PATH: smokeTestDataDir, JWT_SECRET: randomBytes(24).toString('hex') }
           )
         } finally {
           await removeIfExists(smokeTestDataDir)

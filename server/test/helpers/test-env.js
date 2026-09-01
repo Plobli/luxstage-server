@@ -8,6 +8,11 @@ process.env.DATA_PATH = dataPath
 process.env.JWT_SECRET = 'test-secret-with-at-least-thirty-two-characters'
 process.env.BASE_DOMAIN = 'luxstage.test'
 
+// Erst nach dem Setzen von DATA_PATH importieren — db-init.js liest config.js,
+// die den Pfad beim Import auswertet.
+const { initDb } = await import('../../db-init.js')
+initDb()
+
 export function createResponse() {
   let status = null
   let body = null
