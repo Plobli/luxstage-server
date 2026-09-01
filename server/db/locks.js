@@ -45,16 +45,21 @@ export function touchLock(slug, username) {
     .run(Date.now(), show.id, username)
 }
 
+// Läuft vor jedem Schreibzugriff auf eine Show (router.js) — daher ein Join
+// statt readShow() + separatem Lock-Query. shows.slug ist UNIQUE und damit indiziert.
 export function getLock(slug) {
-  const show = readShow(slug)
-  if (!show) return null
-  const lock = getDb().prepare('SELECT * FROM locks WHERE show_id = ?').get(show.id)
-  if (!lock) return null
-  if (Date.now() - lock.since >= config.lockTimeout) {
-    getDb().prepare('DELETE FROM locks WHERE show_id = ?').run(show.id)
+  const row = getDb().prepare(`
+    SELECT l.show_id, l.username, l.since
+      FROM locks l
+      JOIN shows s ON s.id = l.show_id
+     WHERE s.slug = ?
+  `).get(slug)
+  if (!row) return null
+  if (Date.now() - row.since >= config.lockTimeout) {
+    getDb().prepare('DELETE FROM locks WHERE show_id = ?').run(row.show_id)
     return null
   }
-  return { user: lock.username, since: lock.since }
+  return { user: row.username, since: row.since }
 }
 
 /** Alle aktiven Locks als Map<show_id, {user, since}> — für die Show-Liste,

@@ -87,6 +87,7 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 | `./server/test/photos.test.js` | Regressionstest für gestreamtes Multipart-Staging und garantiertes Cleanup temporärer Foto-Uploads. |
 | `./server/test/tenant-backup.test.js` | Regressionstests für Tenant-Snapshot-Restore und Rollback bei fehlgeschlagener Aktivierung. |
 | `./server/test/secrets.test.js` | Regressionstests für AES-256-GCM-Verschlüsselung der SMTP-Settings und SHA-256-Hashing der Passwort-Reset-Token (inkl. Ablauf, Einmal-Einlösung). |
+| `./server/test/locks.test.js` | Tests für Show-Locks: Erwerb, Ablauf-Aufräumen, Übergabe und Freigabe nur durch den Inhaber. |
 | `./server/test/history-job.test.js` | Tests, dass der DB-Kontext (`runWithDb`) über await-Grenzen des asynchronen History-Laufs erhalten bleibt. |
 | `./server/test/tenants-lru.test.js` | Tests für die LRU-Obergrenze offener Mandanten-Verbindungen (Verdrängung, Wiederöffnen, Schutz des zuletzt Genutzten). |
 | `./server/test/shared-constants.test.js` | Tests für die geteilten Konstanten (`isValidEmail`, `PASSWORD_MIN_LENGTH`) aus `shared/constants.js`. |
