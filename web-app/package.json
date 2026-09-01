@@ -6,6 +6,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "typecheck": "vue-tsc --noEmit",
+    "test": "vitest run",
     "test:e2e": "playwright test",
     "tolgee:push": "sh -c 'set -a; . ./.env.development.local; set +a; tolgee push --force-mode NO_FORCE'",
     "tolgee:pull-nach änderungen-in-tolgee": "sh -c 'set -a; . ./.env.development.local; set +a; tolgee pull -d \"\"'",
@@ -45,6 +46,7 @@
     "playwright": "^1.62.1",
     "typescript": "^6.0.3",
     "vite": "^6.4.1",
+    "vitest": "^4.1.11",
     "vue-tsc": "^3.2.7"
   }
 }

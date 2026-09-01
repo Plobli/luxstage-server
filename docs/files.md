@@ -36,6 +36,11 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 | `./Dev-Server-App/LuxStageMenu.swift` | macOS-Menüleisten-App; startet/stoppt/restartet Dev-Server via `dev.sh`, zeigt Live-Status (Backend/Web-App erreichbar, Version, PID, Laufzeit), Web-App- und Log-Öffnen-Aktionen. |
 | `./Dev-Server-App/LuxStageMenu` | Kompilierte macOS-Executable der Menüleisten-App. |
 | `./Dev-Server-App/dev.sh` | Startet Server + Web-App lokal für Entwicklung; von der Menüleisten-App aufgerufen. |
+| `./audits/secrets-management-audit-2026-09-01.md` | Secrets-Management-Audit vom 2026-09-01: Findings zu Klartext-Credentials in der DB, Backup-Zugriff, Rotation und Key-Storage; enthält keine echten Secrets. |
+| `./audits/solid-principles-audit-2026-09-01.md` | SOLID-Audit vom 2026-09-01: SRP-Verstöße im Frontend (FloorplanEditor, useShowChannels), OCP-Streuung der Section-/Element-Typen, ISP der db.js-Fassade, DIP-Trade-offs. |
+| `./audits/architecture-analysis-2026-09-01.md` | Architektur-Analyse vom 2026-09-01: Schichten- und Datenflussdiagramme, Zyklenprüfung (keine Zyklen), Bottlenecks (History-Job, Mandanten-Verbindungscache, prozesslokaler Zustand), Modularitätsbewertung 7/10. |
+| `./audits/architecture-analysis-frontend-2026-09-01.md` | Architektur-Analyse Frontend vom 2026-09-01: Schichtmessung, Zyklenprüfung (nur shadcn-ui-Barrels), God-Komponenten, ungenutzte SSE-Events, fehlendes State-Aggregat; Modularität 6/10. |
+| `./audits/design-patterns-audit-2026-09-01.md` | Design-Pattern-Audit vom 2026-09-01: Pattern-Inventar Server + Frontend, Memento/CoR/Facade als Positivbefunde, dreifaches Memento, unterbenutzte Strategy, fehlender Logger und Value Objects. |
 | `./docs/saas-betrieb.md` | Dokumentation für Multi-Mandanten-SaaS-Betrieb mit alternativem Wildcard- oder On-Demand-TLS. |
 | `./docs/deploy-cx43.md` | Deployment-Anleitung für Hetzner-CX43-Server. |
 | `./shared/locales/de.json` | Übersetzungen für deutsche Oberfläche. |
@@ -58,7 +63,7 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 | `./server/helpers.js` | Utility-Funktionen für Body-Parsing, JSON, Fehlerbehandlung, Client-IP-Ermittlung. |
 | `./server/rate-limit.js` | Grobes globales IP-Rate-Limiting (300 Req/Min) für alle API-Routen, ergänzt das strengere Login-spezifische Limit in `routes/auth.js`. |
 | `./server/history.js` | Periodische Snapshots von Show-State zur Versionierung; sichert vor dem Wiederherstellen den aktuellen Stand. |
-| `./server/backup.js` | ZIP-basierte Backup- und Wiederherstellungsfunktionen mit request-isoliertem Staging, Restore-Lock, Rollback und Grenzen für ZIP-Einträge sowie entpackte Daten. |
+| `./server/backup.js` | ZIP-basierte Backup- und Wiederherstellungsfunktionen mit request-isoliertem Staging, Restore-Lock, Rollback und Grenzen für ZIP-Einträge sowie entpackte Daten; entfernt SMTP-Passwort und Reset-Token vor dem Export aus der Backup-Kopie. |
 | `./server/photos.js` | Gestreamter Foto-Upload mit Gesamt-, Datei- und Dateianzahlgrenzen, Skalierung und Thumbnail-Generierung; Ablage pro Mandant unter dessen Mandantenordner. |
 | `./server/floorplan.js` | Grundrissbild-Verwaltung mit Format-Validierung (nur PNG/JPEG); Ablage pro Mandant unter dessen Mandantenordner; Pfadauflösung für den PDF-Export. |
 | `./server/migrate-tenant-media.js` | Einmaliges Migrationsskript: verschiebt Fotos/Grundrisse aus dem alten mandantenübergreifend flachen Verzeichnis in die jeweiligen Mandantenordner. |
@@ -81,6 +86,7 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 | `./server/test/router.test.js` | Regressionstests für öffentliche API-Methoden und Authentifizierungsgrenzen des HTTP-Routers. |
 | `./server/test/photos.test.js` | Regressionstest für gestreamtes Multipart-Staging und garantiertes Cleanup temporärer Foto-Uploads. |
 | `./server/test/tenant-backup.test.js` | Regressionstests für Tenant-Snapshot-Restore und Rollback bei fehlgeschlagener Aktivierung. |
+| `./server/test/secrets.test.js` | Regressionstests für AES-256-GCM-Verschlüsselung der SMTP-Settings und SHA-256-Hashing der Passwort-Reset-Token (inkl. Ablauf, Einmal-Einlösung). |
 | `./server/test/undo-redo-integrity.test.js` | Integrationstests für Full-Snapshot-Undo/Redo-Architektur: Snapshot-Konsistenz, Hash-Verifikation, Redo-Stack-Persistierung, mehrfaches Undo/Redo ohne Datenverlust. |
 | `./server/.env` | Server-Development-Umgebungsvariablen. |
 | `./server/saas.js` | Kapsel für SaaS-Funktionalität, lädt Module nur im SaaS-Modus. |
@@ -98,7 +104,7 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 |---|---|
 | `./server/db/index.js` | Barrel-Export aller DB-Module. |
 | `./server/db/shows.js` | DB-Zugriff für Shows-Tabelle (Erstellen, Lesen, Archivieren, Löschen). |
-| `./server/db/users.js` | DB-Zugriff für Benutzer, Passwort-Reset-Tokens und Freischaltung selbst-registrierter (pending) Nutzer. |
+| `./server/db/users.js` | DB-Zugriff für Benutzer, Passwort-Reset-Tokens (SHA-256-gehasht gespeichert) und Freischaltung selbst-registrierter (pending) Nutzer. |
 | `./server/db/channels.js` | DB-Zugriff für Kanäle-Tabelle, Beleuchtungs-Checks und mandantenweite Farbnutzungsstatistik. |
 | `./server/db/bars.js` | DB-Zugriff für Obermaschinerie-Elemente (Zugstange/Traverse/Punktzug via bar_type) und deren Befestigungen (Fixtures); restoreBars() ersetzt den kompletten Bars-Zustand einer Show (für Undo/Redo). |
 | `./server/db/towers.js` | DB-Zugriff für Show-Türme und deren Slots. |
@@ -116,7 +122,7 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 | `./server/db/network.js` | DB-Zugriff für Netzwerk-Elemente (network_nodes: Typ, Raum, Portanzahl bei Switches, Position im Graph), deren Verbindungen (network_connections) und einen speicherbaren Positions-Snapshot der Topologie-Ansicht (network_layout_snapshot). |
 | `./server/db/network-state.js` | Liest/schreibt kompletten Netzwerk-Zustand (Elemente + Verbindungen) atomar als Snapshot; Basis für Netzwerk-Undo/Redo, analog zu `full-state.js` aber ohne Show-Bezug. |
 | `./server/db/network-operations.js` | DB-Zugriff für serverseitiges Netzwerk-Undo/Redo: einziger globaler Snapshot-Stack (kein show_id, da das Netzwerk gebäudeweit ist), `withNetworkUndoSnapshot()` für transaktionale Snapshots. |
-| `./server/db/settings.js` | DB-Zugriff für generische Key-Value-Settings-Tabelle (SMTP-Konfig, Anzeige-Einstellungen). |
+| `./server/db/settings.js` | DB-Zugriff für generische Key-Value-Settings-Tabelle (SMTP-Konfig, Anzeige-Einstellungen); `setSecretSetting`/`getSecretSetting` verschlüsseln Secrets (z. B. SMTP-Passwort) at rest mit AES-256-GCM, Schlüssel aus `JWT_SECRET` abgeleitet. |
 | `./server/db/migrations/index.js` | Geordnete Liste aller Schema-Migrationen. |
 | `./server/db/migrations/039-operations-full-snapshot.js` | Migration: ändert operations-Tabelle für Full-Snapshot-Historie, fügt redo_stack-Tabelle für persistente Redo-Stack hinzu. |
 | `./server/db/migrations/NNN-*.js` | Einzelne Schema-Migration (`up`, `alreadyApplied`); wird von `db-init.js` einmalig ausgeführt und in `schema_migrations` getrackt. |
@@ -218,6 +224,8 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 | `./web-app/src/utils/index.ts` | Exportiert `cn()`-Utility für Tailwind/clsx Klassenkombination. |
 | `./web-app/src/utils/filterColors.ts` | Normalisiert und validiert Filterfarben-Codes (Lee/Rosco). |
 | `./web-app/src/utils/floorplanSnapshot.js` | Rendert Floorplan-SVG+Hintergrundbild in Canvas für den PNG-Export-Button; Bild wird unverzerrt (contain) eingepasst. |
+| `./web-app/src/utils/eos-csv.ts` | Parst ETC-Eos-CSV-Exporte: aktive Kanäle, Moving-Light-Erkennung, Adressnormalisierung, Gerätenamen. |
+| `./web-app/src/utils/eos-csv.test.ts` | Unit-Tests für den Eos-CSV-Parser (vitest). |
 
 ### web-app/src/api/ (HTTP-Client-Layer zum Server)
 

@@ -28,6 +28,10 @@ export default defineConfig({
       '@shared': resolve(__dirname, '../shared'),
     },
   },
+  test: {
+    // Nur Unit-Tests unter src/ — e2e/ gehört Playwright.
+    include: ['src/**/*.test.ts'],
+  },
   build: {
     outDir: 'dist', // direkt relativ zum Projektroot, kein Umweg über ../web-app/
     emptyOutDir: true, // alte Artefakte vor jedem Build bereinigen
