@@ -21,6 +21,11 @@ import { networkRoutes } from './routes/network.js'
 // Gruppe weiterhin selbst). Zentralisiert, was vorher als drei getrennte
 // Strukturen (PUBLIC_ROUTES / API_ROUTE_HANDLERS / SHOW_ROUTE_HANDLERS) direkt
 // in router.js stand, ohne deren Matching-Verhalten zu ändern.
+//
+// Handler-Vertrag: `null` zurückgeben heißt "nicht zuständig" — der nächste
+// Handler bzw. 404 übernimmt. Jede andere Rückgabe (auch `undefined`) heißt
+// "zuständig"; dann MUSS die Response geschrieben sein. dispatchRoute() in
+// router.js antwortet sonst mit 500 statt den Request hängen zu lassen.
 
 // Öffentliche API-Endpunkte ohne Auth (im jeweiligen DB-Kontext ausgeführt).
 // Methode und Pfad gehören zusammen, damit etwa ein POST auf den Health-Pfad
