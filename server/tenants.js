@@ -11,7 +11,29 @@ import { initSchema } from './db-init.js'
 const TENANTS_DIR = path.join(config.dataPath, 'tenants')
 
 // Offene Verbindungen wiederverwenden (better-sqlite3 ist synchron, eine Verbindung pro DB genügt).
+// Map hält Einfügereihenfolge — der älteste Eintrag ist damit der am längsten
+// ungenutzte und wird beim Erreichen der Grenze verdrängt. Ohne Obergrenze
+// hielte jeder je aktive Mandant dauerhaft ein Datei-Handle samt WAL offen.
+export const MAX_OPEN_TENANT_DBS = 50
 const connections = new Map() // tenantId → Database
+
+// Anzahl aktuell offener Mandanten-Verbindungen (Diagnose/Tests).
+export function openConnectionCount() {
+  return connections.size
+}
+
+function touch(tenantId, db) {
+  connections.delete(tenantId)
+  connections.set(tenantId, db)
+}
+
+function evictOldest() {
+  while (connections.size >= MAX_OPEN_TENANT_DBS) {
+    const [oldest, db] = connections.entries().next().value
+    if (db?.open) db.close()
+    connections.delete(oldest)
+  }
+}
 
 // tenantId strikt validieren: nur Kleinbuchstaben, Ziffern, Bindestrich.
 // Verhindert Pfad-Traversal und uneindeutige Dateinamen.
@@ -38,8 +60,9 @@ export function tenantExists(tenantId) {
 export function openTenantDb(tenantId) {
   if (!isValidTenantId(tenantId)) throw new Error(`Ungültige tenantId: ${tenantId}`)
   const cached = connections.get(tenantId)
-  if (cached && cached.open) return cached
+  if (cached && cached.open) { touch(tenantId, cached); return cached }
   if (!tenantExists(tenantId)) throw new Error(`Mandant existiert nicht: ${tenantId}`)
+  evictOldest()
   const db = new Database(tenantDbPath(tenantId))
   initSchema(db) // idempotent — hält bestehende DBs auf aktuellem Schema
   connections.set(tenantId, db)
@@ -52,6 +75,7 @@ export function createTenant(tenantId) {
   if (!isValidTenantId(tenantId)) throw new Error(`Ungültige tenantId: ${tenantId}`)
   if (tenantExists(tenantId)) throw new Error(`Mandant existiert bereits: ${tenantId}`)
   fs.mkdirSync(tenantDir(tenantId), { recursive: true })
+  evictOldest()
   const db = new Database(tenantDbPath(tenantId))
   initSchema(db)
   connections.set(tenantId, db)
