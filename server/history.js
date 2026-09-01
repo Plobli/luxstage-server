@@ -1,5 +1,6 @@
 // LuxStage/server/history.js
 import { createHash, randomUUID } from 'node:crypto'
+import { setTimeout as sleep } from 'node:timers/promises'
 import { getDb, runWithDb } from './db-context.js'
 import { saasEnabled } from './saas.js'
 import * as db from './db.js'
@@ -42,56 +43,72 @@ function initHashes() {
   }
 }
 
-function takeSnapshots() {
+function snapshotOneShow(show) {
+  let newHash = null
+  const tx = getDb().transaction(() => {
+    const channels = db.readChannels(show.slug)
+    const sections = db.readShowSections(show.slug)
+    const currentHash = computeHash(channels, sections)
+    if (currentHash === snapshotHashes.get(show.id)) return  // early return from transaction
+
+    const id = randomUUID()
+    const sectionsObj = Object.fromEntries(sections)
+    getDb().prepare(`
+      INSERT INTO history (id, show_id, created_at, channels, sections)
+      VALUES (?, ?, ?, ?, ?)
+    `).run(id, show.id, Date.now(), JSON.stringify(channels), JSON.stringify(sectionsObj))
+
+    getDb().prepare(`
+      DELETE FROM history WHERE show_id = ? AND id NOT IN (
+        SELECT id FROM history WHERE show_id = ? ORDER BY created_at DESC LIMIT ?
+      )
+    `).run(show.id, show.id, MAX_HISTORY)
+
+    newHash = currentHash
+  })
+  tx()
+  if (newHash) snapshotHashes.set(show.id, newHash)
+}
+
+// better-sqlite3 ist synchron: ohne die Pause zwischen den Shows blockiert ein
+// Lauf über viele Shows (im SaaS zusätzlich über alle Mandanten) den einzigen
+// Node-Thread am Stück — kein SSE-Heartbeat, kein Login, kein Upload solange.
+async function takeSnapshots() {
   const shows = getDb().prepare('SELECT id, slug FROM shows WHERE archived = 0').all()
   for (const show of shows) {
-    let newHash = null
-    const tx = getDb().transaction(() => {
-      const channels = db.readChannels(show.slug)
-      const sections = db.readShowSections(show.slug)
-      const currentHash = computeHash(channels, sections)
-      if (currentHash === snapshotHashes.get(show.id)) return  // early return from transaction
-
-      const id = randomUUID()
-      const sectionsObj = Object.fromEntries(sections)
-      getDb().prepare(`
-        INSERT INTO history (id, show_id, created_at, channels, sections)
-        VALUES (?, ?, ?, ?, ?)
-      `).run(id, show.id, Date.now(), JSON.stringify(channels), JSON.stringify(sectionsObj))
-
-      getDb().prepare(`
-        DELETE FROM history WHERE show_id = ? AND id NOT IN (
-          SELECT id FROM history WHERE show_id = ? ORDER BY created_at DESC LIMIT ?
-        )
-      `).run(show.id, show.id, MAX_HISTORY)
-
-      newHash = currentHash
-    })
-    tx()
-    if (newHash) snapshotHashes.set(show.id, newHash)
+    snapshotOneShow(show)
+    await sleep(0)
   }
 }
 
 // Führt fn für jeden Mandanten im jeweiligen DB-Kontext aus. Im Self-Hosted-Modus
 // (keine SaaS-Module) läuft fn einmal gegen die globale DB.
-function forEachTenant(fn) {
-  if (!saasMod) { fn(); return } // Self-Hosted: globale DB
+async function forEachTenant(fn) {
+  if (!saasMod) return fn() // Self-Hosted: globale DB
   const ids = saasMod.listTenantIds()
-  if (ids.length === 0) { fn(); return }
+  if (ids.length === 0) return fn()
   for (const id of ids) {
     try {
-      runWithDb(saasMod.openTenantDb(id), fn, id)
+      await runWithDb(saasMod.openTenantDb(id), fn, id)
     } catch (err) {
       console.error(`[history] Mandant ${id} übersprungen:`, err.message)
     }
   }
 }
 
+// Macht die Blockierdauer sichtbar, bevor sie im Betrieb schmerzt.
+async function runSnapshotCycle() {
+  const t0 = Date.now()
+  await forEachTenant(takeSnapshots)
+  const ms = Date.now() - t0
+  if (ms > 1000) console.warn(`[history] Snapshot-Lauf dauerte ${ms}ms — Event-Loop blockiert`)
+}
+
 export async function startHistoryJob() {
   await loadSaasHelpers()
-  forEachTenant(initHashes)
+  await forEachTenant(initHashes)
   // Automatische Snapshots laufen weiter als Fallback (z.B. für Änderungen via API ohne Browser)
-  setInterval(() => forEachTenant(takeSnapshots), INTERVAL_MS)
+  setInterval(() => { runSnapshotCycle().catch(err => console.error('[history] Snapshot-Lauf fehlgeschlagen:', err)) }, INTERVAL_MS)
 
   // Abgelaufene Registrierungen periodisch aufräumen — nur SaaS (Doppel-Opt-In-TTL).
   if (saasMod) {

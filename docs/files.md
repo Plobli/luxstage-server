@@ -62,7 +62,7 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 | `./server/auth.js` | JWT-Token, Passwort-Hashing und kurzlebige Download-Token-Verwaltung; Cleanup-Timer blockiert keine Einmalprozesse. |
 | `./server/helpers.js` | Utility-Funktionen für Body-Parsing, JSON, Fehlerbehandlung, Client-IP-Ermittlung. |
 | `./server/rate-limit.js` | Grobes globales IP-Rate-Limiting (300 Req/Min) für alle API-Routen, ergänzt das strengere Login-spezifische Limit in `routes/auth.js`. |
-| `./server/history.js` | Periodische Snapshots von Show-State zur Versionierung; sichert vor dem Wiederherstellen den aktuellen Stand. |
+| `./server/history.js` | Periodische Snapshots von Show-State zur Versionierung; sichert vor dem Wiederherstellen den aktuellen Stand. Der Snapshot-Lauf gibt zwischen den Shows den Event-Loop frei und warnt bei Laufzeiten über 1s. |
 | `./server/backup.js` | ZIP-basierte Backup- und Wiederherstellungsfunktionen mit request-isoliertem Staging, Restore-Lock, Rollback und Grenzen für ZIP-Einträge sowie entpackte Daten; entfernt SMTP-Passwort und Reset-Token vor dem Export aus der Backup-Kopie. |
 | `./server/photos.js` | Gestreamter Foto-Upload mit Gesamt-, Datei- und Dateianzahlgrenzen, Skalierung und Thumbnail-Generierung; Ablage pro Mandant unter dessen Mandantenordner. |
 | `./server/floorplan.js` | Grundrissbild-Verwaltung mit Format-Validierung (nur PNG/JPEG); Ablage pro Mandant unter dessen Mandantenordner; Pfadauflösung für den PDF-Export. |
@@ -87,6 +87,7 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 | `./server/test/photos.test.js` | Regressionstest für gestreamtes Multipart-Staging und garantiertes Cleanup temporärer Foto-Uploads. |
 | `./server/test/tenant-backup.test.js` | Regressionstests für Tenant-Snapshot-Restore und Rollback bei fehlgeschlagener Aktivierung. |
 | `./server/test/secrets.test.js` | Regressionstests für AES-256-GCM-Verschlüsselung der SMTP-Settings und SHA-256-Hashing der Passwort-Reset-Token (inkl. Ablauf, Einmal-Einlösung). |
+| `./server/test/history-job.test.js` | Tests, dass der DB-Kontext (`runWithDb`) über await-Grenzen des asynchronen History-Laufs erhalten bleibt. |
 | `./server/test/tenants-lru.test.js` | Tests für die LRU-Obergrenze offener Mandanten-Verbindungen (Verdrängung, Wiederöffnen, Schutz des zuletzt Genutzten). |
 | `./server/test/shared-constants.test.js` | Tests für die geteilten Konstanten (`isValidEmail`, `PASSWORD_MIN_LENGTH`) aus `shared/constants.js`. |
 | `./server/test/undo-redo-integrity.test.js` | Integrationstests für Full-Snapshot-Undo/Redo-Architektur: Snapshot-Konsistenz, Hash-Verifikation, Redo-Stack-Persistierung, mehrfaches Undo/Redo ohne Datenverlust. |
