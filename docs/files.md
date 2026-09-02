@@ -89,6 +89,7 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 | `./server/test/photos.test.js` | Regressionstest für gestreamtes Multipart-Staging und garantiertes Cleanup temporärer Foto-Uploads. |
 | `./server/test/tenant-backup.test.js` | Regressionstests für Tenant-Snapshot-Restore und Rollback bei fehlgeschlagener Aktivierung. |
 | `./server/test/secrets.test.js` | Regressionstests für AES-256-GCM-Verschlüsselung der SMTP-Settings und SHA-256-Hashing der Passwort-Reset-Token (inkl. Ablauf, Einmal-Einlösung). |
+| `./server/test/network-undo.test.js` | Tests für den globalen Netzwerk-Undo-Stack: Snapshot vor der Änderung, Transaktions-Rollback, Redo-Reihenfolge, Hash-Integrität, Stack-Begrenzung. |
 | `./server/test/logger.test.js` | Tests für Format, Log-Level-Schwelle, stdout/stderr-Trennung und Feld-Quoting des Loggers. |
 | `./server/test/pdf-generate.test.js` | Tests, dass `generatePDF()` in einen beliebigen Stream rendert (ohne HTTP-Response) und `pdfFilename()` Einleuchtplan/Vordruck unterscheidet. |
 | `./server/test/section-renderers.test.js` | Tests für die Section-Renderer-Registry: Typ-Zuordnung, Default-Fallback, Content-Prüfung inkl. Regex-Escaping der Feldnamen. |
@@ -127,10 +128,11 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 | `./server/db/template-towers.js` | DB-Zugriff für Template-Towers und deren Slots. |
 | `./server/db/template-apply.js` | Anwendung von Templates auf Shows (einzeln und auf alle Shows eines Templates) sowie Rück-Speichern von Show-Items als Template-Einträge. |
 | `./server/db/locks.js` | DB-Zugriff für Show-weiten Schreib-Lock: acquire/release/touch/get/transfer (direkte Übergabe an anderen User) sowie listLocks() für die Show-Übersicht. |
-| `./server/db/operations.js` | DB-Zugriff für serverseitiges Undo/Redo: Full-Snapshot-Historie (kompletter Show-Zustand), persistenter Redo-Stack in DB, Funktion `withUndoSnapshot()` für transaktionale Snapshots. |
+| `./server/db/undo-stack.js` | Gemeinsame Mechanik der Undo/Redo-Stacks (`makeUndoStack`): Snapshot aufzeichnen, Redo-Stack, Begrenzung auf 50 Einträge, transaktionale Klammer. Zwei Varianten leiten sich daraus ab — je Show (`show_id`) und global fürs Netzwerk. |
+| `./server/db/operations.js` | Undo/Redo für Shows: Konfiguration von `makeUndoStack` mit Show-Scope und Full-Snapshot-Zustand; Funktion `withUndoSnapshot()` für transaktionale Snapshots. |
 | `./server/db/network.js` | DB-Zugriff für Netzwerk-Elemente (network_nodes: Typ, Raum, Portanzahl bei Switches, Position im Graph), deren Verbindungen (network_connections) und einen speicherbaren Positions-Snapshot der Topologie-Ansicht (network_layout_snapshot). |
 | `./server/db/network-state.js` | Liest/schreibt kompletten Netzwerk-Zustand (Elemente + Verbindungen) atomar als Snapshot; Basis für Netzwerk-Undo/Redo, analog zu `full-state.js` aber ohne Show-Bezug. |
-| `./server/db/network-operations.js` | DB-Zugriff für serverseitiges Netzwerk-Undo/Redo: einziger globaler Snapshot-Stack (kein show_id, da das Netzwerk gebäudeweit ist), `withNetworkUndoSnapshot()` für transaktionale Snapshots. |
+| `./server/db/network-operations.js` | Netzwerk-Undo/Redo: Konfiguration von `makeUndoStack` ohne Scope-Spalte (einziger globaler Stack, da das Netzwerk gebäudeweit ist), `withNetworkUndoSnapshot()` für transaktionale Snapshots. |
 | `./server/db/settings.js` | DB-Zugriff für generische Key-Value-Settings-Tabelle (SMTP-Konfig, Anzeige-Einstellungen); `setSecretSetting`/`getSecretSetting` verschlüsseln Secrets (z. B. SMTP-Passwort) at rest mit AES-256-GCM, Schlüssel aus `JWT_SECRET` abgeleitet. |
 | `./server/db/migrations/index.js` | Geordnete Liste aller Schema-Migrationen. |
 | `./server/db/migrations/039-operations-full-snapshot.js` | Migration: ändert operations-Tabelle für Full-Snapshot-Historie, fügt redo_stack-Tabelle für persistente Redo-Stack hinzu. |
