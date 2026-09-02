@@ -1,6 +1,7 @@
 import { getDb } from '../db-context.js'
 import { randomUUID } from 'node:crypto'
 import { ensureTemplateTowerSlots } from './template-towers.js'
+import { sectionTypeHasRows } from '../../shared/constants.js'
 
 // Wendet Template-Bars, Template-Towers oder Template-Bereiche (Sections) auf
 // eine einzelne Show an.
@@ -39,7 +40,7 @@ export function applyTemplateToShow(templateName, showSlug, scope, withChannels,
         if (existingTitles.has(tDef.title)) continue
         const newDefId = randomUUID()
         insertDef.run(newDefId, show.id, tDef.title, tDef.type, tDef.icon ?? '', sortBase++)
-        if (tDef.type === 'kv-table') {
+        if (sectionTypeHasRows(tDef.type)) {
           for (const tRow of (tRowsBySection.get(tDef.id) ?? [])) {
             insertKvRow.run(randomUUID(), newDefId, tRow.label, tRow.value, tRow.sort_order)
           }
@@ -313,7 +314,7 @@ export function applyTemplateToAllShows(templateName, scope) {
         if (!existingTitles.has(tDef.title)) {
           const newDefId = randomUUID()
           insertDef.run(newDefId, show.id, tDef.title, tDef.type, tDef.icon ?? '', existingDefCount + secIdx)
-          if (tDef.type === 'kv-table') {
+          if (sectionTypeHasRows(tDef.type)) {
             for (const tRow of (tRowsBySection.get(tDef.id) ?? [])) {
               insertKvRow.run(randomUUID(), newDefId, tRow.label, tRow.value, tRow.sort_order)
             }

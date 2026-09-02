@@ -1,5 +1,6 @@
 import { getDb } from '../db-context.js'
 import { randomUUID } from 'node:crypto'
+import { sectionTypeHasRows } from '../../shared/constants.js'
 
 function now() { return Date.now() }
 
@@ -75,7 +76,7 @@ function _copyTemplateToShow(templateId, showId, opts = { withChannels: false })
   for (const tDef of tDefs) {
     const newDefId = randomUUID()
     insertDef.run(newDefId, showId, tDef.title, tDef.type, tDef.icon ?? '', tDef.sort_order)
-    if (tDef.type === 'kv-table') {
+    if (sectionTypeHasRows(tDef.type)) {
       for (const tRow of (tRowsBySection.get(tDef.id) ?? [])) {
         insertKvRow.run(randomUUID(), newDefId, tRow.label, tRow.value, tRow.sort_order)
       }

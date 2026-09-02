@@ -1,5 +1,6 @@
 import { getDb } from '../db-context.js'
 import { randomUUID } from 'node:crypto'
+import { sectionTypeHasRows } from '../../shared/constants.js'
 
 export function readTemplateSections(name) {
   const tpl = getDb().prepare('SELECT * FROM templates WHERE name = ?').get(name)
@@ -13,7 +14,7 @@ export function readTemplateSections(name) {
   const rowsBySection = Map.groupBy(rowsAll, r => r.section_id)
   const fieldsBySection = Map.groupBy(fieldsAll, f => f.section_id)
   return defs.map(def => {
-    if (def.type === 'kv-table') {
+    if (sectionTypeHasRows(def.type)) {
       return {
         id: def.id, title: def.title, type: def.type, icon: def.icon ?? '', order: def.sort_order,
         rows: (rowsBySection.get(def.id) ?? []).map(r => ({ id: r.id, label: r.label, value: r.value, sort_order: r.sort_order })),
@@ -44,7 +45,7 @@ export function writeTemplateSections(name, defs) {
     for (let i = 0; i < defs.length; i++) {
       const def = defs[i]
       insertDef.run(def.id ?? randomUUID(), tpl.id, def.title, def.type, def.icon ?? '', def.order ?? i)
-      if (def.type === 'kv-table') {
+      if (sectionTypeHasRows(def.type)) {
         for (let j = 0; j < (def.rows ?? []).length; j++) {
           const r = def.rows[j]
           insertKvRow.run(r.id ?? randomUUID(), def.id, r.label ?? '', r.value ?? '', r.sort_order ?? j)

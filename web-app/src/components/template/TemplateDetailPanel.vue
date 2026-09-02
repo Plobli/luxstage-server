@@ -270,6 +270,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogB
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { Input } from '@/components/ui/input'
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectGroup, SelectItem } from '@/components/ui/select'
+import { isSectionTableType, sectionTypeHasRows } from '@shared/constants.js'
 
 const { t } = useLocale()
 
@@ -501,13 +502,13 @@ function deleteField(section, idx) {
 }
 
 function hasKvTableType() {
-  return templateSections.value.some(s => s.type === 'kv-table' || s.type === 'fields')
+  return templateSections.value.some(s => isSectionTableType(s.type))
 }
 
 function onTypeChange(section, newType) {
-  if (newType === 'kv-table' && hasKvTableType() && section.type !== 'kv-table' && section.type !== 'fields') return
+  if (isSectionTableType(newType) && hasKvTableType() && !isSectionTableType(section.type)) return
   section.type = newType
-  if (newType === 'kv-table' && !section.rows) section.rows = []
+  if (sectionTypeHasRows(newType) && !section.rows) section.rows = []
   persistSections()
 }
 

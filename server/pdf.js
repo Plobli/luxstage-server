@@ -6,8 +6,9 @@
 import PDFDocument from 'pdfkit'
 import fs from 'node:fs'
 import { mm, PAGE_MARGIN, COL, GROUP_H, ROW_MIN_H, FONT_NORMAL, FONT_BOLD } from './pdf/constants.js'
-import { calcRowHeight, drawRow, renderFieldsSection, renderKvTableSection } from './pdf/layout-primitives.js'
+import { calcRowHeight, drawRow } from './pdf/layout-primitives.js'
 import { parseSetupSection, renderSetupBlocks } from './pdf/tiptap-parse.js'
+import { rendererFor } from './pdf/section-renderers.js'
 import { drawTowerCards, renderGassenturmText } from './pdf/towers.js'
 import { renderHangereiBars, drawBarRows } from './pdf/bars.js'
 import { groupByPosition, fmt } from './pdf/utils.js'
@@ -83,28 +84,18 @@ export async function generatePDF(show, channels, sectionsMap, templateSections,
   } else if (hasSections) {
     for (const sec of sortedSections) {
       const content = sectionContents.get(sec.id) ?? ''
-      const hasContent = sec.type === 'kv-table'
-        ? (sec.rows ?? []).some(r => r.value?.trim())
-        : sec.type === 'fields'
-          ? (sec.fields ?? []).some(f => { const m = content.match(new RegExp(`^${f.key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}:\\s*(.+)$`, 'm')); return m?.[1]?.trim() })
-          : parseSetupSection(content).length > 0
-      if (!hasContent) continue
-      doc.font(FONT_BOLD).fontSize(11).text(sec.title, PAGE_MARGIN, doc.y)
+      const renderer = rendererFor(sec.type)
+      if (!renderer.hasContent(sec, content)) continue
+      const secTitle = sec.icon === 'setup' ? 'Notizen' : sec.title
+      doc.font(FONT_BOLD).fontSize(11).text(secTitle, PAGE_MARGIN, doc.y)
       doc.moveDown(0.4)
-      if (sec.type === 'kv-table') {
-        renderKvTableSection(doc, sec.rows ?? [], PAGE_MARGIN, usableW)
-      } else if (sec.type === 'fields') {
-        renderFieldsSection(doc, sec.fields, content, PAGE_MARGIN, usableW)
-      } else {
-        const blocks = parseSetupSection(content)
-        if (blocks.length) renderSetupBlocks(doc, blocks, PAGE_MARGIN, usableW)
-      }
+      renderer.render(doc, sec, content, PAGE_MARGIN, usableW)
       doc.moveDown(1)
     }
   } else {
     const setupBlocks = parseSetupSection((show.setup_markdown ?? '').replace(/^---\n[\s\S]*?\n---\n/, ''))
     if (setupBlocks.length) {
-      doc.font(FONT_BOLD).fontSize(11).text('Aufbau', PAGE_MARGIN, doc.y)
+      doc.font(FONT_BOLD).fontSize(11).text('Notizen', PAGE_MARGIN, doc.y)
       doc.moveDown(0.5)
       renderSetupBlocks(doc, setupBlocks, PAGE_MARGIN, usableW)
       doc.moveDown(1.5)

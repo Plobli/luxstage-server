@@ -46,7 +46,7 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 | `./shared/locales/de.json` | Übersetzungen für deutsche Oberfläche. |
 | `./shared/locales/en.json` | Übersetzungen für englische Oberfläche. |
 | `./shared/filters.json` | Farbfilter-Datenbank (Lee, Rosco etc.) mit Hex-Codes. |
-| `./shared/constants.js` | Gemeinsame Konstanten für Server und Web-App (z. B. `PASSWORD_MIN_LENGTH`). |
+| `./shared/constants.js` | Gemeinsame Konstanten und Prüffunktionen für Server und Web-App: `PASSWORD_MIN_LENGTH`, `isValidEmail`, Section-Typen (`sectionTypeHasRows`, `isSectionTableType`). |
 
 ## server/ (Node.js Backend)
 
@@ -77,6 +77,7 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 | `./server/pdf/bars.js` | Rendering von Zugstangen/Traversen/Punktzug (Skala, Fixture-Kreise, Textliste). |
 | `./server/pdf/floorplan-vector.js` | Zeichnet die Grundriss-Seite direkt als Vektorgrafik aus canvas_data (alle 7 Elementtypen inkl. Rotation, Fixture-Pins, Slot-Badges) statt eines Raster-Snapshots; optionales Hintergrundbild wird weiterhin als Raster eingebettet. |
 | `./server/pdf/network.js` | PDF-Export der Netzwerk-Verkabelung: Port-Tabelle je Switch (Hauptswitch zuerst), Abschnitt „Sonstige Verbindungen“ für Switch-lose Verbindungen; nutzt dieselben Layout-Primitives wie `pdf.js`. |
+| `./server/pdf/section-renderers.js` | Registry der Section-Typen für den PDF-Export (`kv-table`, `fields`, Default für Setup-Text); je Typ Content-Prüfung und Render-Funktion. Ein neuer Typ ist ein Eintrag hier, `pdf.js` bleibt unverändert. |
 | `./server/pdf/utils.js` | Kanalgruppierung, Datumsformat, Bildgrößen-Ermittlung aus PNG/JPEG-Buffer. |
 | `./server/sse.js` | Server-Sent Events für Echtzeit-Kanal-Updates und Präsenz, pro Mandant gescopt; Heartbeat blockiert keine Einmalprozesse; sendToUser() für gezielte Zustellung an einen User (z.B. Lock-Übernahme-Anfrage). |
 | `./server/email.js` | SMTP-Konfiguration und Email-Versand mit Fallback-Support (u.a. Willkommens-, Bestätigungs- und Freischalt-Anfrage-Mails). |
@@ -87,6 +88,7 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 | `./server/test/photos.test.js` | Regressionstest für gestreamtes Multipart-Staging und garantiertes Cleanup temporärer Foto-Uploads. |
 | `./server/test/tenant-backup.test.js` | Regressionstests für Tenant-Snapshot-Restore und Rollback bei fehlgeschlagener Aktivierung. |
 | `./server/test/secrets.test.js` | Regressionstests für AES-256-GCM-Verschlüsselung der SMTP-Settings und SHA-256-Hashing der Passwort-Reset-Token (inkl. Ablauf, Einmal-Einlösung). |
+| `./server/test/section-renderers.test.js` | Tests für die Section-Renderer-Registry: Typ-Zuordnung, Default-Fallback, Content-Prüfung inkl. Regex-Escaping der Feldnamen. |
 | `./server/test/locks.test.js` | Tests für Show-Locks: Erwerb, Ablauf-Aufräumen, Übergabe und Freigabe nur durch den Inhaber. |
 | `./server/test/history-job.test.js` | Tests, dass der DB-Kontext (`runWithDb`) über await-Grenzen des asynchronen History-Laufs erhalten bleibt. |
 | `./server/test/tenants-lru.test.js` | Tests für die LRU-Obergrenze offener Mandanten-Verbindungen (Verdrängung, Wiederöffnen, Schutz des zuletzt Genutzten). |

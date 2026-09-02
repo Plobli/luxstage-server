@@ -257,34 +257,37 @@
             <div
               v-if="sub.sectionId"
               v-show="aufbauTab === sub.key"
-              class="flex-1 min-h-0 overflow-y-auto pb-14 md:pb-0"
+              class="flex-1 min-h-0 flex flex-col pb-14 md:pb-0"
             >
-              <SectionEditor
-                :showId="props.id"
-                :sectionDefs="sectionDefs"
-                :sectionContents="sectionContents"
-                :setupMarkdown="setupMarkdown"
-                :singleSectionId="sub.sectionId"
-                :saveSectionDefsFn="persistSectionDefs"
-                :labels="{
-                  titlePlaceholder: t('sections.title.placeholder'),
-                  fieldLabel: t('sections.field.label'),
-                  fieldValue: t('sections.field.value'),
-                  fieldAdd: t('sections.field.add'),
-                  addMarkdown: t('sections.add.markdown'),
-                  addFields: t('sections.add.fields'),
-                  addHelp: t('section.add.help'),
-                }"
-                @update:sectionDefs="sectionDefs = $event"
-                @update:sectionContents="sectionContents = $event"
-                @update:setupMarkdown="onSetupChange($event)"
-                @sectionChange="persistSectionsDebounced"
-              />
+              <div class="flex-1 min-h-0 overflow-y-auto">
+                <SectionEditor
+                  :showId="props.id"
+                  :sectionDefs="sectionDefs"
+                  :sectionContents="sectionContents"
+                  :setupMarkdown="setupMarkdown"
+                  :singleSectionId="sub.sectionId"
+                  :saveSectionDefsFn="persistSectionDefs"
+                  :labels="{
+                    titlePlaceholder: t('sections.title.placeholder'),
+                    fieldLabel: t('sections.field.label'),
+                    fieldValue: t('sections.field.value'),
+                    fieldAdd: t('sections.field.add'),
+                    addMarkdown: t('sections.add.markdown'),
+                    addFields: t('sections.add.fields'),
+                    addHelp: t('section.add.help'),
+                  }"
+                  @update:sectionDefs="sectionDefs = $event"
+                  @update:sectionContents="sectionContents = $event"
+                  @update:setupMarkdown="onSetupChange($event)"
+                  @sectionChange="persistSectionsDebounced"
+                />
+              </div>
               <!-- Generierte Texte aus Bühne + Obermaschinerie — nur in der Aufbau-Section -->
               <GeneratedTextAccordion
                 v-if="sub.sectionId === aufbauSectionId"
                 :gassenturmEntries="gassenturmGenerated"
                 :hangereiEntries="hangerei"
+                class="shrink-0 max-h-[30vh] overflow-y-auto border-t border-border"
               />
             </div>
           </template>
@@ -451,6 +454,7 @@ const PhotoGallery = defineAsyncComponent(() => import('../components/show/Photo
 const HistorySlideOver = defineAsyncComponent(() => import('../components/show/HistorySlideOver.vue'))
 const ShowDetailDialogs = defineAsyncComponent(() => import('../components/show/ShowDetailDialogs.vue'))
 import { isOnline, api } from '../api/client.js'
+import { sectionTypeHasRows } from '@shared/constants.js'
 
 const ChannelTable = defineAsyncComponent(() => import('../components/channel/ChannelTable.vue'))
 const SectionEditor = defineAsyncComponent(() => import('../components/show/SectionEditor.vue'))
@@ -796,7 +800,7 @@ async function confirmNewSection() {
   if (!title) return
   newSectionDialog.value = false
   const id = uuid()
-  const newDefs = [...sectionDefs.value, { id, title, type: newSectionType.value, order: sectionDefs.value.length, rows: newSectionType.value === 'kv-table' ? [] : undefined }]
+  const newDefs = [...sectionDefs.value, { id, title, type: newSectionType.value, order: sectionDefs.value.length, rows: sectionTypeHasRows(newSectionType.value) ? [] : undefined }]
   sectionDefs.value = newDefs
   await persistSectionDefs()
   aufbauTab.value = `section:${id}`

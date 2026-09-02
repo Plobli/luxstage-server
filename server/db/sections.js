@@ -1,6 +1,7 @@
 import { getDb } from '../db-context.js'
 import { readShow, touchLastEdited } from './shows.js'
 import { randomUUID } from 'node:crypto'
+import { sectionTypeHasRows } from '../../shared/constants.js'
 
 function now() { return Date.now() }
 
@@ -16,7 +17,7 @@ export function readShowSectionDefs(slug) {
   const rowsBySection = Map.groupBy(rowsAll, r => r.section_id)
   const fieldsBySection = Map.groupBy(fieldsAll, f => f.section_id)
   return defs.map(def => {
-    if (def.type === 'kv-table') {
+    if (sectionTypeHasRows(def.type)) {
       return {
         id: def.id, title: def.title, type: def.type, icon: def.icon ?? '', order: def.sort_order,
         rows: (rowsBySection.get(def.id) ?? []).map(r => ({ id: r.id, label: r.label, value: r.value, sort_order: r.sort_order })),
@@ -43,7 +44,7 @@ export function writeShowSectionDefs(slug, defs, editedBy = null) {
     for (let i = 0; i < defs.length; i++) {
       const def = defs[i]
       insertDef.run(def.id, show.id, def.title, def.type, def.icon ?? '', def.order ?? i)
-      if (def.type === 'kv-table') {
+      if (sectionTypeHasRows(def.type)) {
         const rows = def.rows ?? []
         for (let j = 0; j < rows.length; j++) {
           const r = rows[j]
