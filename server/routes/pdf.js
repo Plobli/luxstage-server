@@ -2,7 +2,7 @@ import * as db from '../db.js'
 import * as photos from '../photos.js'
 import * as floorplan from '../floorplan.js'
 import { notFound } from '../helpers.js'
-import { generatePDF } from '../pdf.js'
+import { generatePDF, pdfFilename } from '../pdf.js'
 import { getDisplayUnit, getPhotosPerPage } from './display.js'
 
 const SHOW_PDF = /^\/api\/shows\/([^/]+)\/pdf$/
@@ -41,12 +41,19 @@ export async function pdfRoutes(req, res, pathname, params) {
         if (!canvasData && fp?.canvas_data) canvasData = fp.canvas_data
       }
     }
-    await generatePDF(show, channels, sectionsMap, templateSections, photoEntries, res, {
-      canvasData,
-      imagePath,
-      towers,
-      bars,
-    }, unit, getPhotosPerPage(), { blank })
+    res.writeHead(200, {
+      'Content-Type': 'application/pdf',
+      'Content-Disposition': `inline; filename="${pdfFilename(show.name, blank)}"`,
+      'Referrer-Policy': 'no-referrer',
+    })
+    await generatePDF(
+      {
+        show, channels, sectionsMap, templateSections, photoEntries,
+        floorplan: { canvasData, imagePath, towers, bars },
+      },
+      res,
+      { unit, photosPerPage: getPhotosPerPage(), blank },
+    )
     return
   }
 

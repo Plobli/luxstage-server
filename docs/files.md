@@ -68,7 +68,7 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 | `./server/floorplan.js` | Grundrissbild-Verwaltung mit Format-Validierung (nur PNG/JPEG); Ablage pro Mandant unter dessen Mandantenordner; Pfadauflösung für den PDF-Export. |
 | `./server/migrate-tenant-media.js` | Einmaliges Migrationsskript: verschiebt Fotos/Grundrisse aus dem alten mandantenübergreifend flachen Verzeichnis in die jeweiligen Mandantenordner. |
 | `./server/circuit-scan.js` | Wertet Foto einer Kreisliste per Claude Vision (`@anthropic-ai/sdk`, strukturierte Zod-Ausgabe) aus — Vordruck mit Handschrift oder komplett handschriftlich, ohne Vorlage; liefert pro erkannter Zeile alle Spalten (Kanal, Adresse, Gerät, Position, Filter, Notizen). |
-| `./server/pdf.js` | PDF-Export für Einleuchtpläne: Orchestrierung (Titel, Sections, Kanalliste, Grundriss, Fotos), Referrer-Schutz; optionaler Vordruck-Modus (`opts.blank`) für handschriftlich auszufüllende Kreislisten (Filter/Notizen leer, Leerzeilen je Position, Block „Neue Kreise“); Rendering-Details in `pdf/`. |
+| `./server/pdf.js` | PDF-Export für Einleuchtpläne: Orchestrierung (Titel, Sections, Kanalliste, Grundriss, Fotos). `generatePDF(data, stream, opts)` rendert in einen beliebigen Writable-Stream und kennt kein HTTP — Response-Header setzt der Aufrufer, Dateiname über `pdfFilename()`. Optionaler Vordruck-Modus (`opts.blank`) für handschriftlich auszufüllende Kreislisten (Filter/Notizen leer, Leerzeilen je Position, Block „Neue Kreise“); Rendering-Details in `pdf/`. |
 | `./server/pdf/constants.js` | Gemeinsame Layout-Konstanten (Maße, Farben, Fonts) für den PDF-Export. |
 | `./server/pdf/filter-colors.js` | Lee/Rosco-Filter-Code zu Hex-Farbe, Kontrastfarben-Berechnung. |
 | `./server/pdf/layout-primitives.js` | Low-Level-Zeichenhelfer für Tabellenzeilen und Key-Value-Sections; `drawRow`/`calcRowHeight` nehmen optionale `minRowH` für höhere Zeilen im Vordruck-Modus. |
@@ -88,6 +88,7 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 | `./server/test/photos.test.js` | Regressionstest für gestreamtes Multipart-Staging und garantiertes Cleanup temporärer Foto-Uploads. |
 | `./server/test/tenant-backup.test.js` | Regressionstests für Tenant-Snapshot-Restore und Rollback bei fehlgeschlagener Aktivierung. |
 | `./server/test/secrets.test.js` | Regressionstests für AES-256-GCM-Verschlüsselung der SMTP-Settings und SHA-256-Hashing der Passwort-Reset-Token (inkl. Ablauf, Einmal-Einlösung). |
+| `./server/test/pdf-generate.test.js` | Tests, dass `generatePDF()` in einen beliebigen Stream rendert (ohne HTTP-Response) und `pdfFilename()` Einleuchtplan/Vordruck unterscheidet. |
 | `./server/test/section-renderers.test.js` | Tests für die Section-Renderer-Registry: Typ-Zuordnung, Default-Fallback, Content-Prüfung inkl. Regex-Escaping der Feldnamen. |
 | `./server/test/locks.test.js` | Tests für Show-Locks: Erwerb, Ablauf-Aufräumen, Übergabe und Freigabe nur durch den Inhaber. |
 | `./server/test/history-job.test.js` | Tests, dass der DB-Kontext (`runWithDb`) über await-Grenzen des asynchronen History-Laufs erhalten bleibt. |

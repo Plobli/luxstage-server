@@ -5,7 +5,7 @@ import * as floorplan from '../floorplan.js'
 import * as photosLib from '../photos.js'
 import { requireAuth } from '../auth.js'
 import { readJsonBody, json, notFound } from '../helpers.js'
-import { generatePDF } from '../pdf.js'
+import { generatePDF, pdfFilename } from '../pdf.js'
 import { getDisplayUnit, getPhotosPerPage } from './display.js'
 
 const TPL_LIST             = /^\/api\/templates$/
@@ -282,7 +282,12 @@ export async function templateRoutes(req, res, pathname) {
     if (method === 'GET') {
       const channels = db.readTemplate(name).map(({ template_id: _, sort_order: __, ...ch }) => ch)
       const show = { name, datum: null, template: null }
-      await generatePDF(show, channels, new Map(), [], [], res, null, getDisplayUnit(), getPhotosPerPage(), { blank: true })
+      res.writeHead(200, {
+        'Content-Type': 'application/pdf',
+        'Content-Disposition': `inline; filename="${pdfFilename(show.name, true)}"`,
+        'Referrer-Policy': 'no-referrer',
+      })
+      await generatePDF({ show, channels }, res, { unit: getDisplayUnit(), photosPerPage: getPhotosPerPage(), blank: true })
       return
     }
   }

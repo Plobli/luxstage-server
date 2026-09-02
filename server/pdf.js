@@ -14,16 +14,38 @@ import { renderHangereiBars, drawBarRows } from './pdf/bars.js'
 import { groupByPosition, fmt } from './pdf/utils.js'
 import { drawFloorplanVector } from './pdf/floorplan-vector.js'
 
-// show: { name, datum, template, ... }
-// channels: [{ channel, address, device, position, color, notes }]
-// sectionsMap: Map<sectionId, contentString>  (from db.readShowSections)
-// templateSections: [{ id, title, order, type }]
-// photoEntries: [{ path, caption }]  — Fotos mit optionaler Beschreibung
-// floorplan: { imagePath, canvasData } — optionaler Grundriss
-// photosPerPage: Fotos je Druckseite (1, 2, 4, 6, 8, 9 oder 12)
-export async function generatePDF(show, channels, sectionsMap, templateSections, photoEntries, res, floorplan = null, unit = 'm', photosPerPage = 4, opts = {}) {
-  const blank = opts.blank === true
-  const blankExtraRows = opts.blankExtraRows ?? 4
+/** Dateiname für den Content-Disposition-Header — hier, damit alle
+ *  Auslieferungswege denselben Namen verwenden. */
+export function pdfFilename(showName, blank = false) {
+  return `${blank ? 'kreisliste-vordruck' : 'einleuchtplan'}-${showName || 'show'}.pdf`
+}
+
+/**
+ * Rendert den Einleuchtplan in einen beliebigen Writable-Stream.
+ *
+ * Kennt bewusst kein HTTP — die Response-Header setzt der Aufrufer, damit sich
+ * dasselbe PDF auch in eine Datei oder an einen Mail-Anhang schreiben lässt.
+ *
+ * data:
+ *   show            { name, datum, template, ... }
+ *   channels        [{ channel, address, device, position, color, notes }]
+ *   sectionsMap     Map<sectionId, contentString>  (aus db.readShowSections)
+ *   templateSections[{ id, title, order, type }]
+ *   photoEntries    [{ path, caption }]  — Fotos mit optionaler Beschreibung
+ *   floorplan       { imagePath, canvasData, towers, bars } — optionaler Grundriss
+ * opts:
+ *   unit, photosPerPage (1, 2, 4, 6, 8, 9 oder 12), blank, blankExtraRows
+ */
+export async function generatePDF(data, stream, opts = {}) {
+  const {
+    show,
+    channels,
+    sectionsMap = new Map(),
+    templateSections = [],
+    photoEntries = [],
+    floorplan = null,
+  } = data
+  const { unit = 'm', photosPerPage = 4, blank = false, blankExtraRows = 4 } = opts
   const fm = { name: show.name, datum: show.datum, venue: show.template }
   const grouped = groupByPosition(channels)
 
@@ -34,12 +56,7 @@ export async function generatePDF(show, channels, sectionsMap, templateSections,
     : null
 
   const doc = new PDFDocument({ size: 'A4', layout: 'portrait', margin: PAGE_MARGIN, autoFirstPage: true })
-  res.writeHead(200, {
-    'Content-Type': 'application/pdf',
-    'Content-Disposition': `inline; filename="${blank ? 'kreisliste-vordruck' : 'einleuchtplan'}-${fm.name || 'show'}.pdf"`,
-    'Referrer-Policy': 'no-referrer',
-  })
-  doc.pipe(res)
+  doc.pipe(stream)
 
   const pageW = doc.page.width
   const pageH = doc.page.height
