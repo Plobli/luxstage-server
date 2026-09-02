@@ -144,7 +144,31 @@ Backup = das Verzeichnis sichern (SQLite: Dateien konsistent kopieren, z. B. per
 `sqlite3 .backup` oder Volume-Snapshot bei ruhendem Container). Off-site empfohlen —
 es sind fremde Kundendaten.
 
-## 8. Kostenrahmen (Start)
+## 8. Skalierung
+
+LuxStage läuft als **ein** Prozess pro Instanz. Vertikal skalieren (mehr CPU/RAM),
+nicht horizontal.
+
+Grund: Ein Teil des Laufzeit-Zustands liegt im Prozessspeicher und nicht in der
+Datenbank — SSE-Verbindungen und Präsenz (`server/sse.js`), Download-/Inline-Token
+(`server/auth.js`), das globale Rate-Limit (`server/rate-limit.js`), die
+Login-Fehlversuche (`server/routes/auth.js`) und die History-Snapshot-Hashes
+(`server/history.js`). Ein zweiter Prozess hätte davon eine eigene Kopie: Nutzer
+an derselben Show sähen einander nicht mehr, und ein Download-Token wäre nur bei
+dem Prozess einlösbar, der es ausgestellt hat.
+
+Dazu kommt SQLite: zwei schreibende Prozesse auf derselben Datei beschädigen sie.
+`server/index.js` erzwingt das per PID-Lockfile und bricht einen zweiten Start ab.
+
+Wenn ein Prozess nicht mehr reicht: Mandanten auf mehrere Instanzen aufteilen
+(Sharding über die Subdomain), nicht dieselbe Instanz duplizieren — die
+Datenhaltung ist ohnehin schon pro Mandant getrennt.
+
+Aktuelle Grenzen im Prozess: maximal 50 gleichzeitig offene Mandanten-Verbindungen
+(`MAX_OPEN_TENANT_DBS` in `server/tenants.js`, LRU-Verdrängung; ein verdrängter
+Mandant öffnet beim nächsten Request in Millisekunden neu).
+
+## 9. Kostenrahmen (Start)
 
 - VPS: ~10 €/Monat
 - Domain: ~15 €/Jahr

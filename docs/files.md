@@ -41,7 +41,7 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 | `./audits/architecture-analysis-2026-09-01.md` | Architektur-Analyse vom 2026-09-01: Schichten- und Datenflussdiagramme, Zyklenprüfung (keine Zyklen), Bottlenecks (History-Job, Mandanten-Verbindungscache, prozesslokaler Zustand), Modularitätsbewertung 7/10. |
 | `./audits/architecture-analysis-frontend-2026-09-01.md` | Architektur-Analyse Frontend vom 2026-09-01: Schichtmessung, Zyklenprüfung (nur shadcn-ui-Barrels), God-Komponenten, ungenutzte SSE-Events, fehlendes State-Aggregat; Modularität 6/10. |
 | `./audits/design-patterns-audit-2026-09-01.md` | Design-Pattern-Audit vom 2026-09-01: Pattern-Inventar Server + Frontend, Memento/CoR/Facade als Positivbefunde, dreifaches Memento, unterbenutzte Strategy, fehlender Logger und Value Objects. |
-| `./docs/saas-betrieb.md` | Dokumentation für Multi-Mandanten-SaaS-Betrieb mit alternativem Wildcard- oder On-Demand-TLS. |
+| `./docs/saas-betrieb.md` | Dokumentation für Multi-Mandanten-SaaS-Betrieb mit alternativem Wildcard- oder On-Demand-TLS; Abschnitt „Skalierung" begründet den Ein-Prozess-Betrieb (prozesslokaler Zustand, SQLite) und nennt Sharding als Weg. |
 | `./docs/deploy-cx43.md` | Deployment-Anleitung für Hetzner-CX43-Server. |
 | `./shared/locales/de.json` | Übersetzungen für deutsche Oberfläche. |
 | `./shared/locales/en.json` | Übersetzungen für englische Oberfläche. |
