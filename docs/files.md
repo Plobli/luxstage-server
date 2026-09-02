@@ -236,6 +236,7 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 | `./web-app/src/utils/filterColors.ts` | Normalisiert und validiert Filterfarben-Codes (Lee/Rosco). |
 | `./web-app/src/utils/floorplanSnapshot.js` | Rendert Floorplan-SVG+Hintergrundbild in Canvas für den PNG-Export-Button; Bild wird unverzerrt (contain) eingepasst. |
 | `./web-app/src/utils/eos-csv.ts` | Parst ETC-Eos-CSV-Exporte: aktive Kanäle, Moving-Light-Erkennung, Adressnormalisierung, Gerätenamen. |
+| `./web-app/src/api/cache.test.ts` | Unit-Tests für den API-Cache: TTL, Invalidierung, In-Flight-Deduplizierung, Aufräumen nach Fehlern (vitest). |
 | `./web-app/src/utils/eos-csv.test.ts` | Unit-Tests für den Eos-CSV-Parser (vitest). |
 
 ### web-app/src/api/ (HTTP-Client-Layer zum Server)
