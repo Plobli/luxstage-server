@@ -218,7 +218,7 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 | `./web-app/src/composables/floorplan/useFloorplanState.ts` | Aktuell leer (Platzhalter, ungenutzt). |
 | `./web-app/src/composables/useShowLockEvents.ts` | Abonniert Lock-Status, Übernahme-Anfragen und Präsenz (`presentUsers` — wer die Show gerade offen hat, ohne den eigenen Zugang) über Server-Sent Events. |
 | `./web-app/src/composables/useShowLock.ts` | Show-weiter Schreib-Lock im Frontend: Akquise beim Öffnen, periodischer Heartbeat, Freigabe/Übergabe, Übernahme-Anfrage-Handling. |
-| `./web-app/src/composables/useShowHistory.js` | Verwaltet Öffnen und Wiederherstellen des Show-Versionsverlaufs inklusive Daten-Reload. |
+| `./web-app/src/composables/useShowHistory.ts` | Versionsverlauf einer Show: Liste und Einzelversion laden, Ladefehler, Verwerfen überholter Antworten, Wiederherstellen inklusive Daten-Reload. |
 | `./web-app/src/composables/useShowTowers.ts` | Verwaltet Türme (Lichtstative) mit Slot-Zuweisungen; meldet Schreib-Lock-Konflikte (423) über onLockConflict. |
 | `./web-app/src/composables/useShowPhotos.ts` | Lädt Fotos-Liste pro Show. |
 | `./web-app/src/composables/useUndoRedo.ts` | Serverseitiges Undo/Redo: `useServerUndoRedo()` trägt die Mechanik (optimistische canUndo/canRedo-Führung, 400 = leerer Stack, 423 = Lock-Konflikt, `onAfter`-Reload, Cmd/Ctrl+Z-Kürzel), `useUndoRedo(showId)` konfiguriert sie für Shows; die Netzwerk-Ansicht nutzt dieselbe Mechanik mit den Netzwerk-Endpunkten. `markSaved()` öffnet canUndo nach einem regulären Save wieder. |
@@ -235,7 +235,10 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 | `./web-app/src/utils/index.ts` | Exportiert `cn()`-Utility für Tailwind/clsx Klassenkombination. |
 | `./web-app/src/utils/filterColors.ts` | Normalisiert und validiert Filterfarben-Codes (Lee/Rosco). |
 | `./web-app/src/utils/floorplanSnapshot.js` | Rendert Floorplan-SVG+Hintergrundbild in Canvas für den PNG-Export-Button; Bild wird unverzerrt (contain) eingepasst. |
+| `./web-app/src/utils/template-csv.ts` | Parst Bühnen-Template-CSV (Semikolon, Kopfzeile ab `channel`) und leitet den Vorlagennamen aus dem Dateinamen ab. |
+| `./web-app/src/utils/template-csv.test.ts` | Unit-Tests für den Template-CSV-Parser (vitest). |
 | `./web-app/src/utils/eos-csv.ts` | Parst ETC-Eos-CSV-Exporte: aktive Kanäle, Moving-Light-Erkennung, Adressnormalisierung, Gerätenamen. |
+| `./web-app/src/composables/useShowHistory.test.ts` | Unit-Tests für den Versionsverlauf: Laden beim Öffnen, Fehlerfall, Verwerfen überholter Antworten, Wiederherstellen (vitest). |
 | `./web-app/src/api/currentUser.ts` | Liefert den eingeloggten Nutzernamen aus dem JWT (geteilt von Lock- und Präsenz-Logik). |
 | `./web-app/src/composables/useUndoRedo.test.ts` | Unit-Tests für die serverseitige Undo/Redo-Anbindung: Zustandsführung, 400/423-Mapping, onAfter-Reload, Tastaturkürzel (vitest). |
 | `./web-app/src/api/cache.test.ts` | Unit-Tests für den API-Cache: TTL, Invalidierung, In-Flight-Deduplizierung, Aufräumen nach Fehlern (vitest). |
@@ -305,7 +308,7 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 | `./web-app/src/components/show/ShowActionBar.vue` | Undo/Redo, Schreib-Sperre-Anzeige mit Übernahme-Button, Mitleser-Badges (Initialen mit Tooltip aus der SSE-Präsenz) und klickbare Warn-Badges (doppelte Adresse/Kreisnummer, unvollständige Kreise) die die Kanalliste filtern. |
 | `./web-app/src/components/show/ChannelPickerGrid.vue` | Wiederverwendbares Kreisauswahl-Grid (Suchfeld + nummerierte Buttons) für Scheinwerfer-/Kreis-hinzufügen-Modale; unterstützt Einzel- und Mehrfachauswahl. |
 | `./web-app/src/components/show/PhotoGallery.vue` | Fotogalerie mit Upload, Beschriftungen, Mehrfachauswahl von Kreisen aus der Kreisliste (ChannelPickerGrid) und Lightbox-Vorschau. |
-| `./web-app/src/components/show/HistorySlideOver.vue` | Snapshots älterer Kanalkonfigurationen zum Durchsuchen und Wiederherstellen; behandelt Ladefehler und verwirft veraltete Antworten nach dem Schließen. |
+| `./web-app/src/components/show/HistorySlideOver.vue` | Stellt Snapshots älterer Kanalkonfigurationen zum Durchsuchen und Wiederherstellen dar; reine Darstellung über Props/Emits, Daten und Fehlerbehandlung liefert `useShowHistory.ts`. |
 | `./web-app/src/components/show/ZugstangenView.vue` | Drag-Drop-Liste für Obermaschinerie-Elemente (Zugstange/Traverse/Punktzug, per Typ-Filter und -Auswahl) mit Scheinwerfer-Positionen und Vorlagen; vertikal zentrierter Empty-State mit Hinzufügen-Button, FAB nur bei vorhandenen Einträgen. |
 | `./web-app/src/components/show/SectionEditor.vue` | Bearbeitbare Markdown- oder Tabellen-Abschnitte mit Drag-Drop, komponentenlokalen KV-Table-Refs und Migrations-Fallback. |
 | `./web-app/src/components/show/GassenturmView.vue` | Beleuchtungsgestelle mit Slots und Kanalbelegung, Vorlagen und Drag-Drop; vertikal zentrierter Empty-State mit Hinzufügen-Button, FAB nur bei vorhandenen Einträgen. |

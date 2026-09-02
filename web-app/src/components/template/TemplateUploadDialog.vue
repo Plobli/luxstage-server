@@ -69,6 +69,7 @@
 import { ref, watch } from 'vue'
 import { useLocale } from '../../composables/useLocale.js'
 import { uploadTemplate } from '../../api/templates.js'
+import { parseTemplateCsv, templateNameFromFile } from '../../utils/template-csv'
 import { Button } from '@/components/ui/button'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Label } from '@/components/ui/label'
@@ -114,19 +115,11 @@ function onDrop(e) {
 }
 
 function processFile(file) {
-  importName.value = file.name.replace(/\.csv$/i, '')
+  importName.value = templateNameFromFile(file.name)
   const reader = new FileReader()
   reader.onload = (e) => {
     csvText.value = e.target.result
-    const lines = csvText.value.trim().split('\n').filter(Boolean)
-    const headerIdx = lines.findIndex(l => l.startsWith('channel'))
-    if (headerIdx !== -1) {
-      const headers = lines[headerIdx].split(';').map(h => h.trim())
-      previewChannels.value = lines.slice(headerIdx + 1).map(line => {
-        const vals = line.split(';')
-        return Object.fromEntries(headers.map((h, i) => [h, (vals[i] ?? '').trim()]))
-      })
-    }
+    previewChannels.value = parseTemplateCsv(csvText.value)
     step.value = 'preview'
   }
   reader.readAsText(file, 'utf-8')
@@ -136,7 +129,7 @@ async function handleImport() {
   importing.value = true
   importError.value = ''
   try {
-    const name = importName.value.trim().replace(/\.csv$/i, '')
+    const name = templateNameFromFile(importName.value)
     await uploadTemplate({ name, text: csvText.value })
     step.value = 'done'
     emit('uploaded')

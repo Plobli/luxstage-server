@@ -356,7 +356,10 @@
       <!-- ── Overlays ───────────────────────────────────────────────────────── -->
     <HistorySlideOver
       :open="historyOpen"
-      :showId="props.id"
+      :entries="historyEntries"
+      :currentEntry="historyCurrentEntry"
+      :loading="historyLoading"
+      :error="historyError"
       :labels="{
         title: t('history.title'),
         back: t('history.back'),
@@ -371,6 +374,8 @@
       }"
       @close="historyOpen = false"
       @restore="doRestoreHistory($event)"
+      @select="loadHistoryEntry($event)"
+      @back="historyCurrentEntry = null"
     />
 
     <ShowDetailDialogs
@@ -436,7 +441,7 @@ import { useShowFloorplan } from '../composables/useShowFloorplan.js'
 import { useShowTowers } from '../composables/useShowTowers.js'
 import { restoreTowersSnapshot } from '../api/towers.js'
 import { useShowBars } from '../composables/useShowBars.js'
-import { useShowHistory } from '../composables/useShowHistory.js'
+import { useShowHistory } from '../composables/useShowHistory'
 import { useMeasureUnit } from '../composables/useMeasureUnit'
 import { useShowTabs } from '../composables/useShowTabs.js'
 import { useTemplateInsertion } from '../composables/useTemplateInsertion.js'
@@ -581,7 +586,11 @@ const {
   confirmFromTemplate,
 } = useTemplateInsertion(props.id, meta, { loadBars, loadTowers })
 
-const { historyOpen, openHistory, restore: doRestoreHistory } = useShowHistory(props.id, {
+const {
+  historyOpen, openHistory, restore: doRestoreHistory,
+  entries: historyEntries, currentEntry: historyCurrentEntry,
+  loading: historyLoading, error: historyError, loadEntry: loadHistoryEntry,
+} = useShowHistory(props.id, {
   loadChannels,
   loadSections,
 })

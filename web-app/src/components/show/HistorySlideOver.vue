@@ -9,7 +9,7 @@
             variant="ghost"
             size="sm"
             class="h-auto px-2 py-1 text-xs text-muted-foreground"
-            @click="currentEntry = null"
+            @click="emit('back')"
           >
             {{ labels.back }}
           </Button>
@@ -34,7 +34,7 @@
           :key="entry.id"
           variant="ghost"
           class="w-full justify-start rounded-none px-4 py-6 border-b border-border/50 h-auto text-sm text-foreground font-normal hover:bg-muted/50"
-          @click="loadEntry(entry.id)"
+          @click="emit('select', entry.id)"
         >
           {{ new Date(entry.created_at).toLocaleString() }}
         </Button>
@@ -87,62 +87,30 @@
 </template>
 
 <script setup>
-import { ref, watch } from 'vue'
+import { ref } from 'vue'
 import { X } from 'lucide-vue-next'
-import { fetchHistory, fetchHistoryEntry } from '../../api/shows.js'
 import { Button } from '@/components/ui/button'
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet'
 import Spinner from '@/components/Spinner.vue'
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
 
+// Reine Darstellung: Daten kommen über Props herein, Aktionen gehen als Events
+// hinaus. Der Datenzugriff liegt in useShowHistory.js.
 const props = defineProps({
   open: { type: Boolean, default: false },
-  showId: { type: String, required: true },
+  entries: { type: Array, default: () => [] },
+  currentEntry: { type: Object, default: null },
+  loading: { type: Boolean, default: false },
+  error: { type: String, default: '' },
   labels: { type: Object, required: true },
 })
 
-const emit = defineEmits(['close', 'restore'])
+const emit = defineEmits(['close', 'restore', 'select', 'back'])
 
-const loading = ref(false)
-const entries = ref([])
-const currentEntry = ref(null)
 const confirmOpen = ref(false)
-const error = ref('')
-let requestVersion = 0
 
 function doRestore() {
   confirmOpen.value = false
-  emit('restore', currentEntry.value)
-}
-
-watch(() => props.open, async (val) => {
-  const version = ++requestVersion
-  confirmOpen.value = false
-  if (!val) { currentEntry.value = null; return }
-  loading.value = true
-  currentEntry.value = null
-  error.value = ''
-  try {
-    const nextEntries = await fetchHistory(props.showId)
-    if (version === requestVersion) entries.value = nextEntries
-  } catch {
-    if (version === requestVersion) error.value = 'Versionsverlauf konnte nicht geladen werden.'
-  } finally {
-    if (version === requestVersion) loading.value = false
-  }
-})
-
-async function loadEntry(id) {
-  const version = ++requestVersion
-  loading.value = true
-  error.value = ''
-  try {
-    const entry = await fetchHistoryEntry(props.showId, id)
-    if (version === requestVersion) currentEntry.value = entry
-  } catch {
-    if (version === requestVersion) error.value = 'Version konnte nicht geladen werden.'
-  } finally {
-    if (version === requestVersion) loading.value = false
-  }
+  emit('restore', props.currentEntry)
 }
 </script>
