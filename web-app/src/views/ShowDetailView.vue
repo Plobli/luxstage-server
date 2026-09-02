@@ -53,6 +53,7 @@
         :canRedo="canRedo"
         :saving="channelsSaving || sectionsSaving || setupSaving"
         :lockedByOther="showLock.isLockedByOther.value"
+        :presentUsers="presentUsers"
         :dupAddressWarning="dupWarning"
         :dupChannelWarning="dupChannelWarning"
         :healthStats="healthStats"
@@ -601,7 +602,7 @@ const gassenturmGenerated = computed(() => generateGassenturmEntries(towers.valu
 // generierte Text (Beleuchtungsgestelle/Obermaschinerie) weiter dort erscheinen.
 const aufbauSectionId = computed(() => sectionDefs.value.find(s => s.icon === 'setup')?.id ?? null)
 
-const { lock, initLockEvents, cleanupLockEvents } = useShowLockEvents(props.id, {
+const { lock, presentUsers, initLockEvents, cleanupLockEvents } = useShowLockEvents(props.id, {
   onTakeoverRequested: (data) => showLock.onTakeoverRequested(data),
   onLockStatus: (data) => showLock.onLockStatusChanged(data),
 })

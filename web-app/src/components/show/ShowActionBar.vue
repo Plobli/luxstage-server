@@ -33,6 +33,18 @@
     </div>
 
     <div class="flex items-center gap-x-3 shrink-0 pr-4 sm:pr-6 lg:pr-8">
+      <!-- Mitleser: wer die Show gerade offen hat (rein informativ, keine Sperre) -->
+      <div v-if="presentUsers.length" class="hidden sm:flex items-center -space-x-1.5">
+        <Tooltip v-for="u in presentUsers" :key="u.username">
+          <TooltipTrigger asChild>
+            <span
+              class="size-5 rounded-full bg-accent/20 border border-accent/40 text-[10px] font-medium text-accent
+                     flex items-center justify-center ring-1 ring-surface-raised cursor-default"
+            >{{ initials(u.username) }}</span>
+          </TooltipTrigger>
+          <TooltipContent>{{ u.username }}<span v-if="u.devices?.length"> ({{ u.devices.join(', ') }})</span></TooltipContent>
+        </Tooltip>
+      </div>
       <!-- Schreib-Sperre: fremder Halter -->
       <Badge v-if="lockedByOther" variant="outline" role="button" tabindex="0" @click="emit('requestTakeover')" class="text-orange-400 border-orange-500/30 bg-orange-500/10 text-xs flex cursor-pointer hover:bg-orange-500/20">
         <Lock class="size-3 mr-1" />{{ labels.lockedBy }}
@@ -119,6 +131,8 @@ defineProps({
   canRedo: { type: Boolean, default: false },
   saving: { type: Boolean, default: false },
   lockedByOther: { type: Boolean, default: false },
+  /** Nutzer, die die Show gerade offen haben (SSE-Präsenz). */
+  presentUsers: { type: Array, default: () => [] },
   dupAddressWarning: { type: Boolean, default: false },
   dupChannelWarning: { type: Boolean, default: false },
   search: { type: String, default: '' },
@@ -128,6 +142,14 @@ defineProps({
   hideEosInactive: { type: Boolean, default: false },
   labels: { type: Object, required: true },
 })
+
+// Kürzel für die Präsenz-Badges: erster Buchstabe des lokalen Teils der
+// E-Mail-Adresse, plus der erste Buchstabe nach einem Punkt (max@mustermann.de → MM).
+function initials(username) {
+  const local = String(username ?? '').split('@')[0]
+  const parts = local.split(/[._-]+/).filter(Boolean)
+  return (parts.slice(0, 2).map(p => p[0]).join('') || '?').toUpperCase()
+}
 
 const emit = defineEmits(['update:search', 'update:hideEosInactive', 'undo', 'redo', 'healthFilter', 'filterDup', 'requestTakeover'])
 

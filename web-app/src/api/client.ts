@@ -178,16 +178,27 @@ export function setServerUrl(url: string): void {
   localStorage.setItem('server_url', url.replace(/\/$/, ''))
 }
 
+export interface ShowPresenceUser {
+  username: string;
+  /** Geräte desselben Nutzers, z.B. ['web', 'ios']. */
+  devices: string[];
+  lastActivityAt: string;
+}
+
 /**
- * SSE-Verbindung pro Show, ausschließlich für Lock-Status/Übernahme-Anfragen
- * (Single-Editor-Sperre). Gibt eine Unsubscribe-Funktion zurück.
+ * SSE-Verbindung pro Show: Lock-Status/Übernahme-Anfragen (Single-Editor-Sperre)
+ * und Präsenz (wer die Show gerade offen hat). Gibt eine Unsubscribe-Funktion zurück.
  * Nutzt pro Verbindungsversuch ein frisches kurzlebiges Einmal-Token (statt
  * des langlebigen JWT), damit kein Dauer-Token in Server-/Proxy-Logs landet.
  * EventSource kann bei einem Einmal-Token nicht selbst reconnecten (das Token
  * ist nach dem ersten Connect verbraucht) — der Reconnect wird daher hier
  * manuell mit neuem Token durchgeführt.
  */
-export function subscribeShow(showId: string, { onLockStatus, onTakeoverRequested }: { onLockStatus?: (data: any) => void, onTakeoverRequested?: (data: any) => void } = {}): () => void {
+export function subscribeShow(showId: string, { onLockStatus, onTakeoverRequested, onPresence }: {
+  onLockStatus?: (data: any) => void,
+  onTakeoverRequested?: (data: any) => void,
+  onPresence?: (data: { users: ShowPresenceUser[] }) => void,
+} = {}): () => void {
   let es: EventSource | null = null
   let closed = false
   let retryTimer: ReturnType<typeof setTimeout> | null = null
@@ -206,6 +217,7 @@ export function subscribeShow(showId: string, { onLockStatus, onTakeoverRequeste
     es = new EventSource(url)
     if (onLockStatus) es.addEventListener('lock-status-updated', (e: any) => onLockStatus(JSON.parse(e.data)))
     if (onTakeoverRequested) es.addEventListener('lock-takeover-requested', (e: any) => onTakeoverRequested(JSON.parse(e.data)))
+    if (onPresence) es.addEventListener('presence-updated', (e: any) => onPresence(JSON.parse(e.data)))
     es.onerror = () => {
       es?.close()
       es = null

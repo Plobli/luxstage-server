@@ -1,15 +1,10 @@
 import { ref, computed, type Ref } from 'vue'
 import { acquireShowLock, releaseShowLock, touchShowLock, requestLockTakeover, type LockResult } from '../api/shows.js'
-import { getToken, ApiError } from '../api/client.js'
-import { jwtDecode } from '../api/jwtDecode.js'
+import { ApiError } from '../api/client.js'
+import { currentUsername } from '../api/currentUser.js'
 import type { ShowLock } from './useShowLockEvents.js'
 
 const HEARTBEAT_INTERVAL_MS = 3 * 60 * 1000 // deutlich unter config.lockTimeout (10 Minuten)
-
-function currentUsername(): string | null {
-  const token = getToken()
-  return token ? (jwtDecode(token)?.username ?? null) : null
-}
 
 /**
  * Verwaltet den Show-weiten Schreib-Lock im Frontend: Akquise beim Öffnen,

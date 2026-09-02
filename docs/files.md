@@ -216,7 +216,7 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 | `./web-app/src/composables/useShowSections.ts` | Lädt und speichert benutzerdefinierte Abschnitte pro Show. |
 | `./web-app/src/composables/useBreakpoint.ts` | Erkennt Bildschirmgröße via MediaQueryList-Listener. |
 | `./web-app/src/composables/floorplan/useFloorplanState.ts` | Aktuell leer (Platzhalter, ungenutzt). |
-| `./web-app/src/composables/useShowLockEvents.ts` | Abonniert Lock-Status und Übernahme-Anfragen über Server-Sent Events (einziger verbleibender SSE-Konsument der WebApp). |
+| `./web-app/src/composables/useShowLockEvents.ts` | Abonniert Lock-Status, Übernahme-Anfragen und Präsenz (`presentUsers` — wer die Show gerade offen hat, ohne den eigenen Zugang) über Server-Sent Events. |
 | `./web-app/src/composables/useShowLock.ts` | Show-weiter Schreib-Lock im Frontend: Akquise beim Öffnen, periodischer Heartbeat, Freigabe/Übergabe, Übernahme-Anfrage-Handling. |
 | `./web-app/src/composables/useShowHistory.js` | Verwaltet Öffnen und Wiederherstellen des Show-Versionsverlaufs inklusive Daten-Reload. |
 | `./web-app/src/composables/useShowTowers.ts` | Verwaltet Türme (Lichtstative) mit Slot-Zuweisungen; meldet Schreib-Lock-Konflikte (423) über onLockConflict. |
@@ -236,6 +236,7 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 | `./web-app/src/utils/filterColors.ts` | Normalisiert und validiert Filterfarben-Codes (Lee/Rosco). |
 | `./web-app/src/utils/floorplanSnapshot.js` | Rendert Floorplan-SVG+Hintergrundbild in Canvas für den PNG-Export-Button; Bild wird unverzerrt (contain) eingepasst. |
 | `./web-app/src/utils/eos-csv.ts` | Parst ETC-Eos-CSV-Exporte: aktive Kanäle, Moving-Light-Erkennung, Adressnormalisierung, Gerätenamen. |
+| `./web-app/src/api/currentUser.ts` | Liefert den eingeloggten Nutzernamen aus dem JWT (geteilt von Lock- und Präsenz-Logik). |
 | `./web-app/src/composables/useUndoRedo.test.ts` | Unit-Tests für die serverseitige Undo/Redo-Anbindung: Zustandsführung, 400/423-Mapping, onAfter-Reload, Tastaturkürzel (vitest). |
 | `./web-app/src/api/cache.test.ts` | Unit-Tests für den API-Cache: TTL, Invalidierung, In-Flight-Deduplizierung, Aufräumen nach Fehlern (vitest). |
 | `./web-app/src/utils/eos-csv.test.ts` | Unit-Tests für den Eos-CSV-Parser (vitest). |
@@ -244,7 +245,7 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 
 | Datei | Beschreibung |
 |---|---|
-| `./web-app/src/api/client.ts` | Typisierter HTTP-Client mit einheitlicher Auth-, Fehler-, Download- und SSE-Verwaltung; subscribeShow() inkl. Lock-Status- und Übernahme-Anfrage-Events. |
+| `./web-app/src/api/client.ts` | Typisierter HTTP-Client mit einheitlicher Auth-, Fehler-, Download- und SSE-Verwaltung; subscribeShow() für Lock-Status-, Übernahme-Anfrage- und Präsenz-Events. |
 | `./web-app/src/api/jwtDecode.ts` | Dekodiert JWT-Payload ohne externe Abhängigkeit. |
 | `./web-app/src/api/cache.ts` | Einfacher In-Memory-Cache mit TTL-Support. |
 | `./web-app/src/api/shows.ts` | CRUD-API für Shows, Meta-Daten, History und Snapshots, Show-Lock (inkl. Übergabe), Undo/Redo. |
@@ -301,7 +302,7 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 | `./web-app/src/components/show/ImportModal.vue` | Auswahl-Dialog für Kanal-Import: EOS, CSV oder Kreisliste-Scan (Foto des ausgefüllten Vordrucks oder komplett handschriftlicher Liste). |
 | `./web-app/src/components/show/CircuitScanPreviewDialog.vue` | Diff-Vorschau vor Übernahme des Kreisliste-Scans: aktualisierte Kreise (alt→neu je Feld) und neue Kreise, einzeln per Checkbox abwählbar (inkl. "Alle umschalten"); Übernehmen/Abbrechen. |
 | `./web-app/src/components/show/ShowWizardDialog.vue` | Mehrstufiger Assistent zum Anlegen einer Show: Vorlage, Name/Datum, Bereiche (Türme/Bars), dynamische Einzelauswahl-Schritte für Vorlagen-Bereiche/Obermaschinerie/Beleuchtungsgestelle, Zusammenfassung. |
-| `./web-app/src/components/show/ShowActionBar.vue` | Undo/Redo, Schreib-Sperre-Anzeige mit Übernahme-Button, und klickbare Warn-Badges (doppelte Adresse/Kreisnummer, unvollständige Kreise) die die Kanalliste filtern. |
+| `./web-app/src/components/show/ShowActionBar.vue` | Undo/Redo, Schreib-Sperre-Anzeige mit Übernahme-Button, Mitleser-Badges (Initialen mit Tooltip aus der SSE-Präsenz) und klickbare Warn-Badges (doppelte Adresse/Kreisnummer, unvollständige Kreise) die die Kanalliste filtern. |
 | `./web-app/src/components/show/ChannelPickerGrid.vue` | Wiederverwendbares Kreisauswahl-Grid (Suchfeld + nummerierte Buttons) für Scheinwerfer-/Kreis-hinzufügen-Modale; unterstützt Einzel- und Mehrfachauswahl. |
 | `./web-app/src/components/show/PhotoGallery.vue` | Fotogalerie mit Upload, Beschriftungen, Mehrfachauswahl von Kreisen aus der Kreisliste (ChannelPickerGrid) und Lightbox-Vorschau. |
 | `./web-app/src/components/show/HistorySlideOver.vue` | Snapshots älterer Kanalkonfigurationen zum Durchsuchen und Wiederherstellen; behandelt Ladefehler und verwirft veraltete Antworten nach dem Schließen. |
