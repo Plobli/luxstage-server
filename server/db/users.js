@@ -1,5 +1,8 @@
+import { createHash } from 'node:crypto'
 import { getDb } from '../db-context.js'
 import { hashPassword } from '../auth.js'
+
+const hashToken = t => createHash('sha256').update(t).digest('hex')
 
 export function getDbPassword(username) {
   const row = getDb().prepare('SELECT password FROM users WHERE username = ?').get(username)
@@ -38,15 +41,16 @@ export function createResetToken(token, username, ttlMs) {
   const now = Date.now()
   getDb().prepare(
     'INSERT INTO password_resets (token, username, created_at, expires_at) VALUES (?, ?, ?, ?)'
-  ).run(token, username, now, now + ttlMs)
+  ).run(hashToken(token), username, now, now + ttlMs)
 }
 
 // Löst den Token ein (einmalig): gibt username zurück oder null.
 export function takeResetToken(token) {
   const db = getDb()
-  const row = db.prepare('SELECT * FROM password_resets WHERE token = ?').get(token)
+  const key = hashToken(token)
+  const row = db.prepare('SELECT * FROM password_resets WHERE token = ?').get(key)
   if (!row) return null
-  db.prepare('DELETE FROM password_resets WHERE token = ?').run(token)
+  db.prepare('DELETE FROM password_resets WHERE token = ?').run(key)
   if (row.expires_at < Date.now()) return null
   return row.username
 }

@@ -1,6 +1,7 @@
 import nodemailer from 'nodemailer'
 import { config } from './config.js'
 import { getDb } from './db-context.js'
+import { getSecretSetting } from './db/settings.js'
 
 function getSmtpCfg() {
   // SaaS-Modus (BASE_DOMAIN gesetzt): immer die zentrale ENV-Config des Betreibers.
@@ -14,10 +15,12 @@ function getSmtpCfg() {
     const cfg = { host: '', port: 587, secure: false, user: '', pass: '', from: config.smtp.from }
     for (const { key, value } of rows) {
       const k = key.replace('smtp.', '')
+      if (k === 'pass') continue
       if (k === 'secure') cfg.secure = value === 'true'
       else if (k === 'port') cfg.port = parseInt(value) || 587
       else cfg[k] = value
     }
+    cfg.pass = getSecretSetting('smtp.pass')
     return cfg
   } catch {
     return config.smtp

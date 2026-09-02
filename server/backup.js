@@ -22,10 +22,18 @@ export async function streamBackup(res) {
 
   try {
     await dbContainer.db.backup(backupPath)
+
+    // Klartext-Credentials dürfen nicht im Export landen (SMTP-Passwort,
+    // einlösbare Reset-Token) — Backup ist für jeden authentifizierten Nutzer erreichbar.
+    const scrub = new Database(backupPath)
+    scrub.prepare("DELETE FROM settings WHERE key = 'smtp.pass'").run()
+    scrub.prepare('DELETE FROM password_resets').run()
+    scrub.close()
   } catch (err) {
     console.error('Backup fehlgeschlagen:', err)
     res.writeHead(500, { 'Content-Type': 'application/json' })
     res.end(JSON.stringify({ error: 'Backup fehlgeschlagen' }))
+    await fs.unlink(backupPath).catch(() => {})
     return
   }
 
@@ -43,8 +51,11 @@ export async function streamBackup(res) {
   archive.pipe(res)
   archive.file(backupPath, { name: 'luxstage.db' })
   archive.directory(path.join(config.dataPath, 'photos'), 'photos')
-  await archive.finalize()
-  fs.unlink(backupPath).catch(() => {})
+  try {
+    await archive.finalize()
+  } finally {
+    fs.unlink(backupPath).catch(() => {})
+  }
 }
 
 export async function restoreBackup(req, res) {

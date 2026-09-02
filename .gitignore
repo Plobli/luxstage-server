@@ -57,6 +57,10 @@ tmp-release.zip
 .update-backup/
 .update-smoketest-data/
 
+# Sicherheits-Audits: listen offene Schwachstellen mit Fundstellen.
+# Gehören nicht in ein öffentliches Repo, solange die Findings offen sind.
+audits/
+
 # Logs
 *.log
 **/.server.log

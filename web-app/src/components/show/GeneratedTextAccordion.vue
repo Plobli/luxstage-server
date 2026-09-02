@@ -7,8 +7,8 @@
     </div>
     <div class="px-6 pt-4 flex flex-col gap-5">
 
-    <div v-if="!gassenturmEntries.length && !hangereiEntries.length" class="flex flex-col items-center justify-center gap-3 py-10 text-center px-8">
-      <Cpu class="size-8 text-muted-foreground/40" />
+    <div v-if="!gassenturmEntries.length && !hangereiEntries.length" class="flex flex-col items-center justify-center gap-3 py-20 text-center px-8">
+      <Cpu class="size-7 text-muted-foreground/40" />
       <div>
         <p class="text-base font-medium text-foreground/70">{{ t('generated.empty') }}</p>
         <p class="text-sm text-muted-foreground mt-1">{{ t('generated.empty.desc') }}</p>

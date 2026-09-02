@@ -1,6 +1,6 @@
 import { requireAuth } from '../auth.js'
 import { readJsonBody, json } from '../helpers.js'
-import { getSettingsByPrefix, setSetting } from '../db/settings.js'
+import { getSettingsByPrefix, setSetting, getSecretSetting, setSecretSetting } from '../db/settings.js'
 import { config } from '../config.js'
 import { sendTestEmail } from '../email.js'
 
@@ -9,16 +9,19 @@ function getSmtpConfig() {
   const cfg = { host: '', port: '587', secure: false, user: '', pass: '', from: '' }
   for (const { key, value } of rows) {
     const k = key.replace('smtp.', '')
-    cfg[k] = k === 'secure' ? value === 'true' : (k === 'port' ? value : value)
+    if (k === 'pass') continue
+    cfg[k] = k === 'secure' ? value === 'true' : value
   }
+  cfg.pass = getSecretSetting('smtp.pass')
   return cfg
 }
 
 function saveSmtpConfig(cfg) {
-  const fields = ['host', 'port', 'secure', 'user', 'pass', 'from']
-  for (const field of fields) {
+  for (const field of ['host', 'port', 'secure', 'user', 'from']) {
     setSetting(`smtp.${field}`, String(cfg[field] ?? ''))
   }
+  // Leeres Feld heißt "unverändert" — die UI sendet das Passwort nur, wenn es neu gesetzt wird.
+  if (cfg.pass) setSecretSetting('smtp.pass', String(cfg.pass))
 }
 
 export async function smtpRoutes(req, res, pathname) {
@@ -41,6 +44,7 @@ export async function smtpRoutes(req, res, pathname) {
     const admin = requireAuth(req, res); if (!admin) return
     const body = await readJsonBody(req, res); if (body === null) return
     const { host, port, secure, user, pass, from } = body
+    if (pass === null) setSecretSetting('smtp.pass', '')
     if (host !== undefined) saveSmtpConfig({ host, port: port || '587', secure: !!secure, user: user || '', pass: pass || '', from: from || '' })
     return json(res, 200, { ok: true })
   }

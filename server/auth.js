@@ -2,7 +2,7 @@ import jwt from 'jsonwebtoken'
 import bcrypt from 'bcrypt'
 import { getDb, getTenantId } from './db-context.js'
 import { config } from './config.js'
-import { randomBytes, timingSafeEqual } from 'node:crypto'
+import { randomBytes } from 'node:crypto'
 
 // ── Kurzlebige Einmal-Token für URL-basierte Ressourcen (PDF, Fotos, Backup) ──
 // Speichert: token → { username, tenantId, expiresAt }
@@ -73,13 +73,7 @@ export async function hashPassword(plain) {
 }
 
 async function verifyPassword(plain, stored) {
-  // Klartext-Migration: gespeichertes Passwort ist noch kein bcrypt-Hash
-  if (!stored.startsWith('$2')) {
-    const a = Buffer.from(plain)
-    const b = Buffer.from(stored)
-    if (a.length !== b.length || !timingSafeEqual(a, b)) return false
-    return true // caller must rehash
-  }
+  if (!stored?.startsWith('$2')) return false
   return bcrypt.compare(plain, stored)
 }
 
@@ -95,10 +89,6 @@ export async function login(username, password) {
   if (!row) return null
   const ok = await verifyPassword(password, row.password)
   if (!ok) return null
-  if (!row.password.startsWith('$2')) {
-    const hash = await hashPassword(password)
-    getDb().prepare('UPDATE users SET password = ? WHERE username = ?').run(hash, row.username)
-  }
   if (row.pending === 1) return { pending: true }
   return {
     token: signToken(row.username),

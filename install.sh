@@ -255,6 +255,7 @@ ok "PM2-Konfiguration erstellt"
 step "Starte LuxStage mit PM2..."
 
 sudo -i -u "$SERVICE_USER" bash -c '. $HOME/.nvm/nvm.sh && pm2 start '"'$INSTALL_DIR/ecosystem.config.cjs'"' && pm2 save'
+sudo -i -u "$SERVICE_USER" bash -c 'chmod 600 "$HOME/.pm2/dump.pm2" 2>/dev/null || true'
 
 PM2_STARTUP=$(sudo -i -u "$SERVICE_USER" bash -c ". \$HOME/.nvm/nvm.sh && pm2 startup systemd -u $SERVICE_USER --hp $SERVICE_HOME" | grep "sudo env" || true)
 [ -n "$PM2_STARTUP" ] && eval "$PM2_STARTUP"

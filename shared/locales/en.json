@@ -422,7 +422,7 @@
   "section.fields.empty.desc": "Add fields to enter structured data.",
   "section.markdown.empty": "No content yet",
   "section.markdown.empty.desc": "Click here to add text.",
-  "section.setup.default_title": "Setup",
+  "section.setup.default_title": "Free text",
   "section.type.fields.desc": "Structured key-value pairs – for technical data",
   "section.type.fields.title": "Fields",
   "section.type.markdown.desc": "Free text with formatting – for descriptions and notes",
