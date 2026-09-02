@@ -207,7 +207,7 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 | `./web-app/src/composables/useUpdateCheck.ts` | Speichert globalen Zustand der Verfügbarkeit von Updates. |
 | `./web-app/src/composables/useShowFloorplan.ts` | Lädt und speichert Grundriss-Daten und Bilder pro Show. |
 | `./web-app/src/composables/useTokenRefresh.ts` | Erneuert JWT-Token automatisch vor Ablauf. |
-| `./web-app/src/composables/useShowChannels.ts` | Verwaltet Kanäle mit Suche, Filter, EOS-Import und Kreisliste-Scan-Import (inkl. Diff-Vorschau vor Übernahme, Lade-/Erfolg-/Fehler-Status); Undo/Redo läuft serverseitig über useUndoRedo.ts, lädt nach erfolgreichem Undo/Redo über `onAfterUndoRedo` die betroffenen Show-Daten neu. |
+| `./web-app/src/composables/useShowChannels.ts` | Verwaltet Kanäle mit Suche, Filter, EOS-Import und Kreisliste-Scan-Import (inkl. Diff-Vorschau vor Übernahme, Lade-/Erfolg-/Fehler-Status); Undo/Redo läuft serverseitig über useUndoRedo.ts, das nach erfolgreichem Undo/Redo über `onAfter` die betroffenen Show-Daten neu lädt. |
 | `./web-app/src/composables/useColorUsage.js` | Modulweiter Cache der mandantenweiten Farbnutzungsstatistik für ColorAutocomplete. |
 | `./web-app/src/composables/useShowTabs.js` | Verwaltet Show-Tab-, Subtab- und Sitzungs-Persistenz inklusive Timeout und validiert verfügbare Aufbau-Tabs. |
 | `./web-app/src/composables/useTemplateInsertion.js` | Verwaltet Auswahl, Einfügen und Speichern von Bar-/Turm-Vorlagen für eine Show. |
@@ -221,7 +221,7 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 | `./web-app/src/composables/useShowHistory.js` | Verwaltet Öffnen und Wiederherstellen des Show-Versionsverlaufs inklusive Daten-Reload. |
 | `./web-app/src/composables/useShowTowers.ts` | Verwaltet Türme (Lichtstative) mit Slot-Zuweisungen; meldet Schreib-Lock-Konflikte (423) über onLockConflict. |
 | `./web-app/src/composables/useShowPhotos.ts` | Lädt Fotos-Liste pro Show. |
-| `./web-app/src/composables/useUndoRedo.ts` | Ruft die serverseitigen Undo/Redo-Endpunkte auf (operations-Tabelle); reagiert auf leeren Stack (400) und Lock-Konflikt (423); undo/redo geben zurück, ob wirklich etwas angewendet wurde (Aufrufer muss danach neu laden); `markSaved()` öffnet canUndo nach einem regulären Save wieder. |
+| `./web-app/src/composables/useUndoRedo.ts` | Serverseitiges Undo/Redo: `useServerUndoRedo()` trägt die Mechanik (optimistische canUndo/canRedo-Führung, 400 = leerer Stack, 423 = Lock-Konflikt, `onAfter`-Reload, Cmd/Ctrl+Z-Kürzel), `useUndoRedo(showId)` konfiguriert sie für Shows; die Netzwerk-Ansicht nutzt dieselbe Mechanik mit den Netzwerk-Endpunkten. `markSaved()` öffnet canUndo nach einem regulären Save wieder. |
 | `./web-app/src/composables/useShowBars.ts` | Verwaltet Obermaschinerie-Elemente mit Fixtures (inkl. side/positionText) und Kanal-Zuordnungen; meldet Schreib-Lock-Konflikte (423) über onLockConflict. |
 | `./web-app/src/composables/useSaveToTemplateDialog.ts` | "Als Vorlage speichern"-Dialog-Logik (Namenskonflikt-Check, Speichern), geteilt von GassenturmView und ZugstangenView. |
 
@@ -236,6 +236,7 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 | `./web-app/src/utils/filterColors.ts` | Normalisiert und validiert Filterfarben-Codes (Lee/Rosco). |
 | `./web-app/src/utils/floorplanSnapshot.js` | Rendert Floorplan-SVG+Hintergrundbild in Canvas für den PNG-Export-Button; Bild wird unverzerrt (contain) eingepasst. |
 | `./web-app/src/utils/eos-csv.ts` | Parst ETC-Eos-CSV-Exporte: aktive Kanäle, Moving-Light-Erkennung, Adressnormalisierung, Gerätenamen. |
+| `./web-app/src/composables/useUndoRedo.test.ts` | Unit-Tests für die serverseitige Undo/Redo-Anbindung: Zustandsführung, 400/423-Mapping, onAfter-Reload, Tastaturkürzel (vitest). |
 | `./web-app/src/api/cache.test.ts` | Unit-Tests für den API-Cache: TTL, Invalidierung, In-Flight-Deduplizierung, Aufräumen nach Fehlern (vitest). |
 | `./web-app/src/utils/eos-csv.test.ts` | Unit-Tests für den Eos-CSV-Parser (vitest). |
 

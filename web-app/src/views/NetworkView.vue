@@ -299,13 +299,13 @@ import '@vue-flow/core/dist/theme-default.css'
 import '@vue-flow/controls/dist/style.css'
 import { useLocale } from '../composables/useLocale.js'
 import { useConfirm } from '../composables/useConfirm.js'
+import { useServerUndoRedo } from '../composables/useUndoRedo'
 import { api } from '../api/client.js'
 import {
   listNetworkNodes, createNetworkNode, updateNetworkNode, deleteNetworkNode,
   listNetworkConnections, createNetworkConnection, updateNetworkConnection, deleteNetworkConnection,
   getNetworkLayoutSnapshot, saveNetworkLayoutSnapshot, undoNetwork, redoNetwork,
 } from '../api/network.ts'
-import { ApiError } from '../api/client.js'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -338,48 +338,19 @@ function onFullscreenKeydown(e) {
   if (e.key === 'Escape' && isFullscreen.value) isFullscreen.value = false
 }
 
-// Undo/Redo läuft serverseitig auf einem einzigen globalen Netzwerk-Stack
-// (kein Show-Bezug) — analog zu useUndoRedo.ts, aber ohne showId. Nach
-// Undo/Redo lädt die Ansicht die Daten neu, da der Server sie nur ändert.
-const canUndo = ref(true)
-const canRedo = ref(false)
 async function reloadNetwork() {
   ;[nodes.value, connections.value] = await Promise.all([listNetworkNodes(), listNetworkConnections()])
   syncFlow()
 }
-async function undo() {
-  try {
-    await undoNetwork()
-    canUndo.value = true
-    canRedo.value = true
-    await reloadNetwork()
-  } catch (e) {
-    if (e instanceof ApiError && e.status === 400) { canUndo.value = false; return }
-    throw e
-  }
-}
-async function redo() {
-  try {
-    await redoNetwork()
-    canUndo.value = true
-    canRedo.value = true
-    await reloadNetwork()
-  } catch (e) {
-    if (e instanceof ApiError && e.status === 400) { canRedo.value = false; return }
-    throw e
-  }
-}
-function onUndoRedoKeydown(e) {
-  const isMac = navigator.userAgentData?.platform === 'macOS' || /Mac/.test(navigator.userAgent)
-  const mod = isMac ? e.metaKey : e.ctrlKey
-  if (mod && !e.shiftKey && e.key === 'z') {
-    e.preventDefault()
-    undo().catch(err => console.error('[undo] fehlgeschlagen:', err))
-  } else if ((mod && e.shiftKey && (e.key === 'z' || e.key === 'Z')) || (!isMac && mod && e.key === 'y')) {
-    e.preventDefault()
-    redo().catch(err => console.error('[redo] fehlgeschlagen:', err))
-  }
-}
+
+// Undo/Redo läuft serverseitig auf einem einzigen globalen Netzwerk-Stack
+// (kein Show-Bezug) — dieselbe Mechanik wie bei Shows, nur andere Endpunkte.
+// Nach Undo/Redo lädt die Ansicht die Daten neu, da der Server sie nur ändert.
+const { undo, redo, canUndo, canRedo, onUndoRedoKeydown } = useServerUndoRedo({
+  undo: undoNetwork,
+  redo: redoNetwork,
+  onAfter: reloadNetwork,
+})
 
 function onNetworkKeydown(e) {
   onFullscreenKeydown(e)

@@ -126,40 +126,12 @@ export function useShowChannels({
     await doPersistChannels()
   }
 
-  const { undo: undoRaw, redo: redoRaw, canUndo, canRedo, markSaved } = useUndoRedo(showId, onLockConflict)
-
   // Der Server ändert die Daten bei Undo/Redo nur — er sendet den neuen Stand
-  // nicht automatisch zurück. Ohne den Reload hier bliebe die Ansicht auf dem
-  // alten Stand stehen, bis zufällig woanders neu geladen wird (führte dazu,
+  // nicht automatisch zurück. Ohne den Reload (onAfter) bliebe die Ansicht auf
+  // dem alten Stand stehen, bis zufällig woanders neu geladen wird (führte dazu,
   // dass wiederholtes Klicken unbemerkt beliebig weit zurückspulte).
-  async function undo(): Promise<void> {
-    if (await undoRaw()) await onAfterUndoRedo?.()
-  }
-
-  async function redo(): Promise<void> {
-    if (await redoRaw()) await onAfterUndoRedo?.()
-  }
-
-  function onUndoRedoKeydown(e: KeyboardEvent): void {
-    // Undo/Redo läuft serverseitig auf der letzten gespeicherten Aktion, nicht
-    // auf Zeichen-Ebene — greift daher auch, während ein Eingabefeld fokussiert
-    // ist (sonst würde der Browser Cmd+Z/Cmd+Shift+Z selbst abfangen, z.B. als
-    // "letztes Fenster schließen"-Kürzel in Safari).
-    const isMac = (navigator as any).userAgentData?.platform === 'macOS' || /Mac/.test(navigator.userAgent)
-    const mod = isMac ? e.metaKey : e.ctrlKey
-
-    if (mod && !e.shiftKey && e.key === 'z') {
-      e.preventDefault()
-      undo().catch(err => console.error('[undo] fehlgeschlagen:', err))
-    } else if (
-      (mod && e.shiftKey && e.key === 'z') ||
-      (mod && e.shiftKey && e.key === 'Z') ||
-      (!isMac && mod && e.key === 'y')
-    ) {
-      e.preventDefault()
-      redo().catch(err => console.error('[redo] fehlgeschlagen:', err))
-    }
-  }
+  const { undo, redo, canUndo, canRedo, markSaved, onUndoRedoKeydown } =
+    useUndoRedo(showId, onLockConflict, onAfterUndoRedo)
 
   const dupAddressChannelNrs = computed(() => {
     const seen = new Map<string, string>()
