@@ -4,6 +4,9 @@ import { requireAuth } from '../auth.js'
 import { readJsonBody, json } from '../helpers.js'
 import { sendWelcomeEmail, sendApprovalRequestEmail, sendPendingRegistrationEmail } from '../email.js'
 import { PASSWORD_MIN_LENGTH, isValidEmail } from '../../shared/constants.js'
+import { logger } from '../logger.js'
+
+const log = logger('users')
 
 const USER_ID = /^\/api\/users\/([^/]+)$/
 const APPROVE_USER = /^\/api\/users\/([^/]+)\/approve$/
@@ -48,8 +51,8 @@ export async function userRoutes(req, res, pathname) {
     if (!username || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(username)) return json(res, 400, { error: 'Ungültige E-Mail-Adresse' })
     const password = randomBytes(12).toString('hex')
     await createUser(username, password, username)
-    sendWelcomeEmail(username, username, password).catch(err => console.error('[email] Willkommens-Email fehlgeschlagen:', err))
-    console.log(`[users] angelegt: user=${username} von=${user.username}`)
+    sendWelcomeEmail(username, username, password).catch(err => log.error('Willkommens-Mail fehlgeschlagen', { user: username, fehler: err.message }))
+    log.warn('Nutzer angelegt', { user: username, von: user.username })
     return json(res, 201, { ok: true })
   }
 
@@ -73,12 +76,12 @@ export async function userRoutes(req, res, pathname) {
       if (String(err.message).includes('UNIQUE')) return json(res, 409, { error: 'E-Mail-Adresse bereits registriert' })
       throw err
     }
-    console.log(`[users] Selbst-Registrierung: user=${email}`)
+    log.warn('Selbst-Registrierung', { user: email })
 
-    sendPendingRegistrationEmail(email).catch(err => console.error('[email] Pending-Mail fehlgeschlagen:', err))
+    sendPendingRegistrationEmail(email).catch(err => log.error('Pending-Mail fehlgeschlagen', { user: email, fehler: err.message }))
     const approverEmails = listUsers().filter(u => u.email && !u.pending).map(u => u.email)
     if (approverEmails.length) {
-      sendApprovalRequestEmail(approverEmails, email).catch(err => console.error('[email] Freischalt-Anfrage fehlgeschlagen:', err))
+      sendApprovalRequestEmail(approverEmails, email).catch(err => log.error('Freischalt-Anfrage fehlgeschlagen', { user: email, fehler: err.message }))
     }
 
     return json(res, 202, { ok: true, message: 'Registrierung eingegangen, wartet auf Freischaltung' })
@@ -89,7 +92,7 @@ export async function userRoutes(req, res, pathname) {
     const user = requireAuth(req, res); if (!user) return
     const username = m[1]
     approveUser(username)
-    console.log(`[users] freigeschaltet: user=${username} von=${user.username}`)
+    log.warn('Nutzer freigeschaltet', { user: username, von: user.username })
     return json(res, 200, { ok: true })
   }
 
@@ -98,7 +101,7 @@ export async function userRoutes(req, res, pathname) {
     const username = m[1]
     if (username === user.username) return json(res, 400, { error: 'Eigenen Account kann man nicht löschen' })
     deleteUser(username)
-    console.log(`[users] gelöscht: user=${username} von=${user.username}`)
+    log.warn('Nutzer gelöscht', { user: username, von: user.username })
     return json(res, 200, { ok: true })
   }
 

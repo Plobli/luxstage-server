@@ -6,6 +6,9 @@ import { sendPasswordResetLink, isSmtpConfigured } from '../email.js'
 import { getTenantId } from '../db-context.js'
 import { config } from '../config.js'
 import { PASSWORD_MIN_LENGTH } from '../../shared/constants.js'
+import { logger } from '../logger.js'
+
+const log = logger('auth')
 
 const loginAttempts = new Map()
 const MAX_LOGIN_ATTEMPTS = 10
@@ -62,14 +65,14 @@ export async function authRoutes(req, res, pathname) {
     const loginResult = await login(username, password)
     if (!loginResult) {
       recordFailedLogin(ip)
-      console.log(`[auth] fehlgeschlagener Login: user=${username} ip=${ip}`)
+      log.warn('Login fehlgeschlagen', { user: username, ip })
       return json(res, 401, { error: 'Ungültige Anmeldedaten' })
     }
     if (loginResult.pending) {
-      console.log(`[auth] Login blockiert (pending): user=${username} ip=${ip}`)
+      log.warn('Login blockiert (pending)', { user: username, ip })
       return json(res, 403, { error: 'pending', message: 'Konto wartet auf Freischaltung durch ein Teammitglied' })
     }
-    console.log(`[auth] Login erfolgreich: user=${username} ip=${ip}`)
+    log.info('Login erfolgreich', { user: username, ip })
     return json(res, 200, loginResult)
   }
 
@@ -116,8 +119,8 @@ export async function authRoutes(req, res, pathname) {
       const baseUrl = config.baseDomain ? `https://${tenantId}.${config.baseDomain}` : config.appUrl
       const resetUrl = `${baseUrl}/reset-password?token=${token}`
       sendPasswordResetLink(email, username, resetUrl)
-        .catch(err => console.error('[email] Reset-Link fehlgeschlagen:', err))
-      console.log(`[auth] Reset angefordert: user=${username} ip=${ip}`)
+        .catch(err => log.error('Reset-Link-Versand fehlgeschlagen', { user: username, fehler: err.message }))
+      log.warn('Passwort-Reset angefordert', { user: username, ip })
     } else {
       recordFailedLogin(ip) // bremst Enumeration
     }
@@ -134,7 +137,7 @@ export async function authRoutes(req, res, pathname) {
     const username = takeResetToken(token)
     if (!username) return json(res, 400, { error: 'Link ungültig oder abgelaufen' })
     await changePassword(username, newPassword, 0)
-    console.log(`[auth] Passwort zurückgesetzt: user=${username}`)
+    log.warn('Passwort zurückgesetzt', { user: username })
     return json(res, 200, { ok: true })
   }
 

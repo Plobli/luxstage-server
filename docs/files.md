@@ -60,6 +60,7 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 | `./server/db-init.js` | Datenbankverbindung, Basis-Schema und Migrations-Runner (führt `db/migrations/*` einmalig aus, getrackt in `schema_migrations`). |
 | `./server/db-context.js` | Request-gebundener DB-Kontext für Multi-Tenancy (AsyncLocalStorage). |
 | `./server/auth.js` | JWT-Token, Passwort-Hashing und kurzlebige Download-Token-Verwaltung; Cleanup-Timer blockiert keine Einmalprozesse. |
+| `./server/logger.js` | Strukturierter Logger mit Log-Level (`LOG_LEVEL`, Standard `info`) und key=value-Feldern; sicherheitsrelevante Ereignisse in `routes/auth.js` und `routes/users.js` laufen darüber. |
 | `./server/helpers.js` | Utility-Funktionen für Body-Parsing, JSON, Fehlerbehandlung, Client-IP-Ermittlung. |
 | `./server/rate-limit.js` | Grobes globales IP-Rate-Limiting (300 Req/Min) für alle API-Routen, ergänzt das strengere Login-spezifische Limit in `routes/auth.js`. |
 | `./server/history.js` | Periodische Snapshots von Show-State zur Versionierung; sichert vor dem Wiederherstellen den aktuellen Stand. Der Snapshot-Lauf gibt zwischen den Shows den Event-Loop frei und warnt bei Laufzeiten über 1s. |
@@ -88,6 +89,7 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 | `./server/test/photos.test.js` | Regressionstest für gestreamtes Multipart-Staging und garantiertes Cleanup temporärer Foto-Uploads. |
 | `./server/test/tenant-backup.test.js` | Regressionstests für Tenant-Snapshot-Restore und Rollback bei fehlgeschlagener Aktivierung. |
 | `./server/test/secrets.test.js` | Regressionstests für AES-256-GCM-Verschlüsselung der SMTP-Settings und SHA-256-Hashing der Passwort-Reset-Token (inkl. Ablauf, Einmal-Einlösung). |
+| `./server/test/logger.test.js` | Tests für Format, Log-Level-Schwelle, stdout/stderr-Trennung und Feld-Quoting des Loggers. |
 | `./server/test/pdf-generate.test.js` | Tests, dass `generatePDF()` in einen beliebigen Stream rendert (ohne HTTP-Response) und `pdfFilename()` Einleuchtplan/Vordruck unterscheidet. |
 | `./server/test/section-renderers.test.js` | Tests für die Section-Renderer-Registry: Typ-Zuordnung, Default-Fallback, Content-Prüfung inkl. Regex-Escaping der Feldnamen. |
 | `./server/test/locks.test.js` | Tests für Show-Locks: Erwerb, Ablauf-Aufräumen, Übergabe und Freigabe nur durch den Inhaber. |
