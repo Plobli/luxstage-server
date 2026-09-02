@@ -167,7 +167,7 @@ import { Archive, Loader2, Plus, Sparkles, Lock } from 'lucide-vue-next'
 import { useLocale } from '../composables/useLocale.js'
 import { fetchShows, createShow, archiveShow } from '../api/shows.js'
 import { fetchTemplates, fetchTemplateChannels } from '../api/templates.js'
-import { cached, invalidate } from '../api/cache.js'
+import { cached } from '../api/cache.js'
 import { saveChannels } from '../api/channels.js'
 import { templateDisplayName } from '../utils/templateName.js'
 
@@ -274,7 +274,6 @@ async function handleCreate() {
     const tplCreate = form.value.template === '__none__' ? '' : form.value.template
     const content = `---\nid: ${id}\nname: ${form.value.name || id}\ndatum: ${form.value.datum || new Date().toISOString().slice(0, 10)}\n${tplCreate ? `template: ${tplCreate}\n` : ''}---\n\n`
     await createShow({ id, name: form.value.name || id, datum: form.value.datum || new Date().toISOString().slice(0, 10), content, template: tplCreate || undefined, spielzeit: form.value.spielzeit || undefined, use_bars: form.value.use_bars, use_towers: form.value.use_towers })
-    invalidate('shows')
     const newShow = { id, name: form.value.name || id, datum: form.value.datum || new Date().toISOString().slice(0, 10), template: tplCreate }
     shows.value.push(newShow)
     if (tplCreate) {
@@ -295,7 +294,6 @@ async function handleCreate() {
 }
 
 function onWizardCreated(newShow) {
-  invalidate('shows')
   shows.value.push(newShow)
   wizardOpen.value = false
   router.push(`/shows/${newShow.id}`)
@@ -314,7 +312,6 @@ async function archive(showId) {
   const removed = shows.value.splice(idx, 1)[0]
   try {
     await archiveShow(showId)
-    invalidate('shows')
   } catch (e) {
     console.error('Failed to archive show:', e)
     shows.value.splice(idx, 0, removed)

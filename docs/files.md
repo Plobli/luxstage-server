@@ -241,6 +241,7 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 | `./web-app/src/composables/useShowHistory.test.ts` | Unit-Tests für den Versionsverlauf: Laden beim Öffnen, Fehlerfall, Verwerfen überholter Antworten, Wiederherstellen (vitest). |
 | `./web-app/src/api/currentUser.ts` | Liefert den eingeloggten Nutzernamen aus dem JWT (geteilt von Lock- und Präsenz-Logik). |
 | `./web-app/src/composables/useUndoRedo.test.ts` | Unit-Tests für die serverseitige Undo/Redo-Anbindung: Zustandsführung, 400/423-Mapping, onAfter-Reload, Tastaturkürzel (vitest). |
+| `./web-app/src/api/shows.test.ts` | Unit-Tests, dass Show-Mutationen den Listen-Cache verwerfen, lesende Aufrufe nicht, und ein Fehler nicht invalidiert (vitest). |
 | `./web-app/src/api/cache.test.ts` | Unit-Tests für den API-Cache: TTL, Invalidierung, In-Flight-Deduplizierung, Aufräumen nach Fehlern (vitest). |
 | `./web-app/src/utils/eos-csv.test.ts` | Unit-Tests für den Eos-CSV-Parser (vitest). |
 
@@ -251,7 +252,7 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 | `./web-app/src/api/client.ts` | Typisierter HTTP-Client mit einheitlicher Auth-, Fehler-, Download- und SSE-Verwaltung; subscribeShow() für Lock-Status-, Übernahme-Anfrage- und Präsenz-Events. |
 | `./web-app/src/api/jwtDecode.ts` | Dekodiert JWT-Payload ohne externe Abhängigkeit. |
 | `./web-app/src/api/cache.ts` | Einfacher In-Memory-Cache mit TTL-Support. |
-| `./web-app/src/api/shows.ts` | CRUD-API für Shows, Meta-Daten, History und Snapshots, Show-Lock (inkl. Übergabe), Undo/Redo. |
+| `./web-app/src/api/shows.ts` | CRUD-API für Shows, Meta-Daten, History und Snapshots, Show-Lock (inkl. Übergabe), Undo/Redo. Listenverändernde Aufrufe verwerfen den `shows`-Cache selbst (`mutatesShows()`) — Aufrufer müssen nicht daran denken. |
 | `./web-app/src/api/channels.ts` | CRUD und CSV-Im-/Export für Kanäle, Merging-Logik, Abruf der Farbnutzungsstatistik; `scanCircuitSheet` lädt Vordruck-Foto zur Vision-Auswertung hoch. |
 | `./web-app/src/api/bars.ts` | Verwaltet Obermaschinerie-Elemente (Zugstange/Traverse/Punktzug), Fixtures und deren Reihenfolge. |
 | `./web-app/src/api/towers.ts` | CRUD-API für Lichtstative und Slot-Zuweisungen. |

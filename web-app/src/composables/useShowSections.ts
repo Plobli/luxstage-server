@@ -1,7 +1,6 @@
 import { ref, type Ref } from 'vue'
 import { useDebounceFn } from '@vueuse/core'
 import { fetchShowSections, saveShowSections, fetchShowSectionDefs, saveShowSectionDefs } from '../api/sections'
-import { invalidate } from '../api/cache'
 import { updateMeta } from '../api/shows'
 import { ApiError } from '../api/client'
 
@@ -56,7 +55,6 @@ export function useShowSections(showId: string, meta: Ref<any>, onLockConflict?:
         meta.value.datum = new Date().toISOString().split('T')[0]
         await updateMeta(showId, { ...meta.value })
       }
-      invalidate('shows')
     } catch (e) {
       if (e instanceof ApiError && e.status === 423) {
         onLockConflict?.(e.body)

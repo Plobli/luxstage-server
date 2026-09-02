@@ -2,7 +2,6 @@ import { ref, computed, watch, type Ref } from 'vue'
 import { useDebounceFn } from '@vueuse/core'
 import { fetchChannels, saveChannels, mergeChannels, parseChannelsCsv, scanCircuitSheet, type Channel } from '../api/channels'
 import { updateMeta } from '../api/shows'
-import { invalidate } from '../api/cache'
 import { ApiError } from '../api/client'
 import { useUndoRedo } from './useUndoRedo'
 import { parseEosCsv } from '../utils/eos-csv'
@@ -98,7 +97,6 @@ export function useShowChannels({
         meta.value.datum = new Date().toISOString().split('T')[0]
         await updateMeta(showId, { ...meta.value })
       }
-      invalidate('shows')
     } catch (e) {
       if (e instanceof ApiError && e.status === 423) {
         onLockConflict?.(e.body)

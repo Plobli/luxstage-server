@@ -452,7 +452,6 @@ const ShowActionBar = defineAsyncComponent(() => import('../components/show/Show
 import { useShowSidebarNav } from '../composables/useShowSidebarNav.js'
 import { Button } from '@/components/ui/button'
 import { fetchShow, updateMeta, createSnapshot } from '../api/shows.js'
-import { invalidate } from '../api/cache.js'
 import { uuid } from '../utils/uuid.js'
 import { downloadChannelsCsv } from '../api/channels.js'
 import { generateHangereiEntries, generateGassenturmEntries } from '../utils/generateHangerei'
@@ -528,7 +527,6 @@ const persistSetupDebounced = useDebounceFn(async () => {
   setupSaving.value = true
   try {
     await updateMeta(props.id, { ...meta.value, setupMarkdown: pendingSetupMd })
-    invalidate('shows')
   } finally {
     setupSaving.value = false
   }
@@ -689,13 +687,11 @@ function onSetupChange(md) {
 async function onRenameShow(name) {
   meta.value.name = name
   await updateMeta(props.id, { ...meta.value })
-  invalidate('shows')
 }
 
 async function onUpdateMeta(fields) {
   meta.value = { ...meta.value, ...fields }
   await updateMeta(props.id, { ...meta.value })
-  invalidate('shows')
 }
 
 // ── PDF ────────────────────────────────────────────────────────────────────

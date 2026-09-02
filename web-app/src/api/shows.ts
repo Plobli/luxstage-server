@@ -1,13 +1,27 @@
 import { api } from './client'
+import { invalidate } from './cache'
+
+/**
+ * Wickelt einen Aufruf, der die Show-Liste verändert, und verwirft danach den
+ * Cache-Eintrag. Hier statt bei jedem Aufrufer: die Invalidierung gehört zur
+ * Mutation selbst, sonst muss jede neue Aufrufstelle daran denken.
+ */
+function mutatesShows<A extends any[], R>(fn: (...args: A) => Promise<R>): (...args: A) => Promise<R> {
+  return async (...args: A) => {
+    const result = await fn(...args)
+    invalidate('shows')
+    return result
+  }
+}
 
 export const fetchShows         = (): Promise<any[]> => api.get('/api/shows')
 export const fetchShow          = (id: string): Promise<any> => api.get(`/api/shows/${id}`)
-export const createShow         = (data: any): Promise<any> => api.post('/api/shows', data)
-export const updateMeta         = (id: string, fields: any): Promise<any> => api.put(`/api/shows/${id}/meta`, fields)
-export const archiveShow         = (id: string): Promise<any> => api.delete(`/api/shows/${id}`)
-export const deleteShowPermanent = (id: string): Promise<any> => api.delete(`/api/shows/${id}/permanent`)
+export const createShow         = mutatesShows((data: any): Promise<any> => api.post('/api/shows', data))
+export const updateMeta         = mutatesShows((id: string, fields: any): Promise<any> => api.put(`/api/shows/${id}/meta`, fields))
+export const archiveShow         = mutatesShows((id: string): Promise<any> => api.delete(`/api/shows/${id}`))
+export const deleteShowPermanent = mutatesShows((id: string): Promise<any> => api.delete(`/api/shows/${id}/permanent`))
 export const fetchArchivedShows  = (): Promise<any[]> => api.get('/api/shows/archived')
-export const restoreShow         = (id: string): Promise<any> => api.post(`/api/shows/${id}/restore`, {})
+export const restoreShow         = mutatesShows((id: string): Promise<any> => api.post(`/api/shows/${id}/restore`, {}))
 
 export interface SaveToTemplateFields {
   channel?: boolean
