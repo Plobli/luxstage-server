@@ -1,4 +1,4 @@
-import * as db from '../db.js'
+import { getLock } from '../db/locks.js'
 import { json, notFound } from '../helpers.js'
 import { listHistory, getHistoryEntry, restoreHistoryEntry, takeSnapshotNow } from '../history.js'
 
@@ -23,7 +23,7 @@ export async function historyRoutes(req, res, pathname) {
     if (method === 'POST') {
       const user = req.user
       const [, slug, historyId] = m
-      const lock = db.getLock(slug)
+      const lock = getLock(slug)
       if (lock && lock.user !== user.username) return json(res, 423, { lockedBy: lock.user })
       const ok = restoreHistoryEntry(slug, historyId)
       if (!ok) return notFound(res)

@@ -1,5 +1,7 @@
 import fs from 'node:fs'
-import * as db from '../db.js'
+import { getShowFloorplan, getTemplateFloorplan, upsertShowFloorplanData, upsertShowFloorplanImage } from '../db/floorplan.js'
+import { readShow } from '../db/shows.js'
+import { getTemplateByName } from '../db/templates.js'
 import * as floorplanLib from '../floorplan.js'
 import * as photosLib from '../photos.js'
 import { readJsonBody, json, notFound } from '../helpers.js'
@@ -29,7 +31,7 @@ export async function floorplanRoutes(req, res, pathname) {
   if (m = SHOW_FP_IMAGE.exec(pathname)) {
     const showId = m[1]
     if (method === 'POST') {
-      const show = db.readShow(showId)
+      const show = readShow(showId)
       if (!show) return notFound(res)
       const ct = req.headers['content-type'] || ''
       if (!ct.startsWith('multipart/form-data')) return json(res, 400, { error: 'Ungültiger Upload' })
@@ -41,7 +43,7 @@ export async function floorplanRoutes(req, res, pathname) {
         const mimeType = mimeFromExt(file.filename)
         const buffer = await fs.promises.readFile(file.path)
         const imgPath = await floorplanLib.saveFloorplanImage(show.id, file.filename, buffer, mimeType)
-        db.upsertShowFloorplanImage(show.id, imgPath)
+        upsertShowFloorplanImage(show.id, imgPath)
         return json(res, 200, { image_url: floorplanLib.floorplanUrl(imgPath) })
       } catch (e) {
         const status = /zu groß|zu viele/i.test(e.message) ? 413 : 400
@@ -51,11 +53,11 @@ export async function floorplanRoutes(req, res, pathname) {
       }
     }
     if (method === 'DELETE') {
-      const show = db.readShow(showId)
+      const show = readShow(showId)
       if (!show) return notFound(res)
-      const layer = db.getShowFloorplan(show.id)
+      const layer = getShowFloorplan(show.id)
       if (layer?.image_path) await floorplanLib.deleteFloorplanImage(layer.image_path)
-      db.upsertShowFloorplanImage(show.id, null)
+      upsertShowFloorplanImage(show.id, null)
       return json(res, 200, { ok: true })
     }
   }
@@ -63,17 +65,17 @@ export async function floorplanRoutes(req, res, pathname) {
   if (m = SHOW_FP.exec(pathname)) {
     const showId = m[1]
     if (method === 'GET') {
-      const show = db.readShow(showId)
+      const show = readShow(showId)
       if (!show) return notFound(res)
-      const layer = db.getShowFloorplan(show.id)
+      const layer = getShowFloorplan(show.id)
       let imageUrl = null
       let canvasData = layer?.canvas_data ?? null
       if (layer?.image_path) {
         imageUrl = floorplanLib.floorplanUrl(layer.image_path)
       } else if (show.template) {
-        const tpl = db.getTemplateByName(show.template)
+        const tpl = getTemplateByName(show.template)
         if (tpl) {
-          const fp = db.getTemplateFloorplan(tpl.id)
+          const fp = getTemplateFloorplan(tpl.id)
           if (fp?.image_path) imageUrl = floorplanLib.floorplanUrl(fp.image_path)
           if (!canvasData && fp?.canvas_data) canvasData = fp.canvas_data
         }
@@ -81,12 +83,12 @@ export async function floorplanRoutes(req, res, pathname) {
       return json(res, 200, { image_url: imageUrl, canvas_data: canvasData })
     }
     if (method === 'PUT') {
-      const show = db.readShow(showId)
+      const show = readShow(showId)
       if (!show) return notFound(res)
       const body = await readJsonBody(req, res); if (body === null) return
       const { canvas_data } = body
       if (typeof canvas_data !== 'string') return json(res, 400, { error: 'canvas_data fehlt' })
-      db.upsertShowFloorplanData(show.id, canvas_data)
+      upsertShowFloorplanData(show.id, canvas_data)
       return json(res, 200, { ok: true })
     }
   }

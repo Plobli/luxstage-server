@@ -1,5 +1,6 @@
 import fs from 'node:fs'
-import * as db from '../db.js'
+import { clearChecks, getChecks, getColorUsage, readChannels, setCheck, writeChannels } from '../db/channels.js'
+import { readShow } from '../db/shows.js'
 import * as photosLib from '../photos.js'
 import { readJsonBody, json } from '../helpers.js'
 import { broadcast } from '../sse.js'
@@ -14,7 +15,7 @@ const COLOR_USAGE       = /^\/api\/channels\/color-usage$/
 
 export async function channelStatsRoutes(req, res, pathname) {
   if (req.method === 'GET' && COLOR_USAGE.test(pathname)) {
-    return json(res, 200, db.getColorUsage())
+    return json(res, 200, getColorUsage())
   }
   return null
 }
@@ -26,18 +27,18 @@ export async function channelRoutes(req, res, pathname) {
   if (m = SHOW_CHANNELS.exec(pathname)) {
     const slug = m[1]
     if (method === 'GET') {
-      const channels = db.readChannels(slug).map(({ show_id: _, sort_order: __, ...ch }) => ch)
+      const channels = readChannels(slug).map(({ show_id: _, sort_order: __, ...ch }) => ch)
       return json(res, 200, channels)
     }
     if (method === 'PUT') {
       const user = req.user
       const channels = await readJsonBody(req, res); if (channels === null) return
 
-      const show = db.readShow(slug)
+      const show = readShow(slug)
       if (!show) return json(res, 404, { error: 'Show nicht gefunden' })
 
       withUndoSnapshot(slug, show.id, user.username, () => {
-        db.writeChannels(slug, channels, user.username)
+        writeChannels(slug, channels, user.username)
       })
       broadcast(slug, 'channels-updated', { updatedBy: user.username })
       return json(res, 200, { ok: true })
@@ -56,7 +57,7 @@ export async function channelRoutes(req, res, pathname) {
         const file = upload.files[0]
         if (!file) return json(res, 400, { error: 'Kein Bild gefunden' })
         const imageBuffer = await fs.promises.readFile(file.path)
-        const knownChannels = db.readChannels(slug).map(({ channel, address, device, position }) => ({ channel, address, device, position }))
+        const knownChannels = readChannels(slug).map(({ channel, address, device, position }) => ({ channel, address, device, position }))
         const result = await analyzeCircuitScan(imageBuffer, knownChannels)
         return json(res, 200, result)
       } catch (error) {
@@ -71,10 +72,10 @@ export async function channelRoutes(req, res, pathname) {
   if (m = SHOW_CHECKS.exec(pathname)) {
     const slug = m[1]
     if (method === 'GET') {
-      return json(res, 200, { checks: db.getChecks(slug) })
+      return json(res, 200, { checks: getChecks(slug) })
     }
     if (method === 'DELETE') {
-      db.clearChecks(slug)
+      clearChecks(slug)
       broadcast(slug, 'checks-updated', { checks: [] })
       return json(res, 200, { ok: true })
     }
@@ -83,8 +84,8 @@ export async function channelRoutes(req, res, pathname) {
       const body = await readJsonBody(req, res); if (body === null) return
       const { channelId, checked } = body
       if (!channelId || typeof checked !== 'boolean') return json(res, 400, { error: 'channelId und checked erforderlich' })
-      db.setCheck(slug, channelId, checked, user.username)
-      broadcast(slug, 'checks-updated', { checks: db.getChecks(slug) })
+      setCheck(slug, channelId, checked, user.username)
+      broadcast(slug, 'checks-updated', { checks: getChecks(slug) })
       return json(res, 200, { ok: true })
     }
   }

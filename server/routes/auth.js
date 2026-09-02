@@ -1,6 +1,6 @@
 import { randomBytes } from 'node:crypto'
 import { login, signToken, requireAuth, issueDownloadToken, issueInlineToken } from '../auth.js'
-import * as db from '../db.js'
+import { changePassword, clearResetTokens, createResetToken, findUserByEmail, getDbPassword, takeResetToken } from '../db/users.js'
 import { readJsonBody, json, clientIp } from '../helpers.js'
 import { sendPasswordResetLink, isSmtpConfigured } from '../email.js'
 import { getTenantId } from '../db-context.js'
@@ -93,12 +93,11 @@ export async function authRoutes(req, res, pathname) {
     const body = await readJsonBody(req, res); if (body === null) return
     const { currentPassword, newPassword } = body
     if (!newPassword || newPassword.length < PASSWORD_MIN_LENGTH) return json(res, 400, { error: `Passwort zu kurz (min. ${PASSWORD_MIN_LENGTH} Zeichen)` })
-    const storedPassword = db.getDbPassword(user.username)
-    const pwOk = storedPassword?.startsWith('$2')
-      ? await (await import('bcrypt')).compare(currentPassword, storedPassword)
-      : currentPassword === storedPassword
+    const storedPassword = getDbPassword(user.username)
+    const pwOk = !!storedPassword?.startsWith('$2')
+      && await (await import('bcrypt')).compare(currentPassword, storedPassword)
     if (!pwOk) return json(res, 403, { error: 'Aktuelles Passwort falsch' })
-    await db.changePassword(user.username, newPassword, 0)
+    await changePassword(user.username, newPassword, 0)
     return json(res, 200, { ok: true })
   }
 
@@ -108,11 +107,11 @@ export async function authRoutes(req, res, pathname) {
     if (isRateLimited(ip)) return json(res, 429, { error: 'Zu viele Versuche. Bitte warten.' })
     const body = await readJsonBody(req, res); if (body === null) return
     const email = String(body.email || '').trim()
-    const username = email ? db.findUserByEmail(email) : null
+    const username = email ? findUserByEmail(email) : null
     if (username) {
-      db.clearResetTokens(username)
+      clearResetTokens(username)
       const token = randomBytes(32).toString('hex')
-      db.createResetToken(token, username, 60 * 60 * 1000) // 1 h
+      createResetToken(token, username, 60 * 60 * 1000) // 1 h
       const tenantId = getTenantId()
       const baseUrl = config.baseDomain ? `https://${tenantId}.${config.baseDomain}` : config.appUrl
       const resetUrl = `${baseUrl}/reset-password?token=${token}`
@@ -132,9 +131,9 @@ export async function authRoutes(req, res, pathname) {
     const token = String(body.token || '')
     const newPassword = String(body.newPassword || '')
     if (newPassword.length < PASSWORD_MIN_LENGTH) return json(res, 400, { error: `Passwort zu kurz (min. ${PASSWORD_MIN_LENGTH} Zeichen)` })
-    const username = db.takeResetToken(token)
+    const username = takeResetToken(token)
     if (!username) return json(res, 400, { error: 'Link ungültig oder abgelaufen' })
-    await db.changePassword(username, newPassword, 0)
+    await changePassword(username, newPassword, 0)
     console.log(`[auth] Passwort zurückgesetzt: user=${username}`)
     return json(res, 200, { ok: true })
   }

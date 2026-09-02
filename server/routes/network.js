@@ -1,4 +1,4 @@
-import * as db from '../db.js'
+import { createNetworkConnection, createNetworkNode, deleteNetworkConnection, deleteNetworkNode, getNetworkLayoutSnapshot, getNetworkNode, listNetworkConnections, listNetworkNodes, saveNetworkLayoutSnapshot, updateNetworkConnection, updateNetworkNode } from '../db/network.js'
 import { requireAuth } from '../auth.js'
 import { readJsonBody, json } from '../helpers.js'
 import { generateNetworkPDF } from '../pdf/network.js'
@@ -36,7 +36,7 @@ function maxConnectionsForType(type) {
 function isNodeSlotFree(nodeType, nodeId, excludeConnId) {
   if (nodeType === 'switch') return true
   const max = maxConnectionsForType(nodeType)
-  const count = db.listNetworkConnections().filter(c => c.id !== excludeConnId && (c.from_node_id === nodeId || c.to_node_id === nodeId)).length
+  const count = listNetworkConnections().filter(c => c.id !== excludeConnId && (c.from_node_id === nodeId || c.to_node_id === nodeId)).length
   return count < max
 }
 
@@ -47,13 +47,13 @@ export async function networkRoutes(req, res, pathname) {
   if (m = NETWORK_NODES.exec(pathname)) {
     if (method === 'GET') {
       const user = requireAuth(req, res); if (!user) return
-      return json(res, 200, db.listNetworkNodes())
+      return json(res, 200, listNetworkNodes())
     }
     if (method === 'POST') {
       const user = requireAuth(req, res); if (!user) return
       const body = await readJsonBody(req, res); if (body === null) return
       let created
-      withNetworkUndoSnapshot(user.username, () => { created = db.createNetworkNode(body) })
+      withNetworkUndoSnapshot(user.username, () => { created = createNetworkNode(body) })
       return json(res, 201, created)
     }
   }
@@ -64,12 +64,12 @@ export async function networkRoutes(req, res, pathname) {
       const user = requireAuth(req, res); if (!user) return
       const body = await readJsonBody(req, res); if (body === null) return
       let updated
-      withNetworkUndoSnapshot(user.username, () => { updated = db.updateNetworkNode(id, body) })
+      withNetworkUndoSnapshot(user.username, () => { updated = updateNetworkNode(id, body) })
       return json(res, 200, updated)
     }
     if (method === 'DELETE') {
       const user = requireAuth(req, res); if (!user) return
-      withNetworkUndoSnapshot(user.username, () => { db.deleteNetworkNode(id) })
+      withNetworkUndoSnapshot(user.username, () => { deleteNetworkNode(id) })
       return json(res, 200, { ok: true })
     }
   }
@@ -77,13 +77,13 @@ export async function networkRoutes(req, res, pathname) {
   if (m = NETWORK_CONNECTIONS.exec(pathname)) {
     if (method === 'GET') {
       const user = requireAuth(req, res); if (!user) return
-      return json(res, 200, db.listNetworkConnections())
+      return json(res, 200, listNetworkConnections())
     }
     if (method === 'POST') {
       const user = requireAuth(req, res); if (!user) return
       const body = await readJsonBody(req, res); if (body === null) return
-      const fromType = db.getNetworkNode(body.from_node_id)?.type
-      const toType = db.getNetworkNode(body.to_node_id)?.type
+      const fromType = getNetworkNode(body.from_node_id)?.type
+      const toType = getNetworkNode(body.to_node_id)?.type
       if (!isValidConnectionPair(fromType, toType)) {
         return json(res, 400, { error: 'Netzwerkdosen können nicht mit Netzwerkdosen, Geräte nicht mit Geräten verbunden werden' })
       }
@@ -91,7 +91,7 @@ export async function networkRoutes(req, res, pathname) {
         return json(res, 400, { error: 'Element ist bereits verbunden' })
       }
       let created
-      withNetworkUndoSnapshot(user.username, () => { created = db.createNetworkConnection(body) })
+      withNetworkUndoSnapshot(user.username, () => { created = createNetworkConnection(body) })
       return json(res, 201, created)
     }
   }
@@ -101,8 +101,8 @@ export async function networkRoutes(req, res, pathname) {
     if (method === 'PUT') {
       const user = requireAuth(req, res); if (!user) return
       const body = await readJsonBody(req, res); if (body === null) return
-      const fromType = db.getNetworkNode(body.from_node_id)?.type
-      const toType = db.getNetworkNode(body.to_node_id)?.type
+      const fromType = getNetworkNode(body.from_node_id)?.type
+      const toType = getNetworkNode(body.to_node_id)?.type
       if (!isValidConnectionPair(fromType, toType)) {
         return json(res, 400, { error: 'Netzwerkdosen können nicht mit Netzwerkdosen, Geräte nicht mit Geräten verbunden werden' })
       }
@@ -110,12 +110,12 @@ export async function networkRoutes(req, res, pathname) {
         return json(res, 400, { error: 'Element ist bereits verbunden' })
       }
       let updated
-      withNetworkUndoSnapshot(user.username, () => { updated = db.updateNetworkConnection(id, body) })
+      withNetworkUndoSnapshot(user.username, () => { updated = updateNetworkConnection(id, body) })
       return json(res, 200, updated)
     }
     if (method === 'DELETE') {
       const user = requireAuth(req, res); if (!user) return
-      withNetworkUndoSnapshot(user.username, () => { db.deleteNetworkConnection(id) })
+      withNetworkUndoSnapshot(user.username, () => { deleteNetworkConnection(id) })
       return json(res, 200, { ok: true })
     }
   }
@@ -123,7 +123,7 @@ export async function networkRoutes(req, res, pathname) {
   if (NETWORK_PDF.test(pathname)) {
     if (method === 'GET') {
       const user = requireAuth(req, res); if (!user) return
-      generateNetworkPDF(db.listNetworkNodes(), db.listNetworkConnections(), res)
+      generateNetworkPDF(listNetworkNodes(), listNetworkConnections(), res)
       return
     }
   }
@@ -164,12 +164,12 @@ export async function networkRoutes(req, res, pathname) {
   if (m = NETWORK_LAYOUT_SNAPSHOT.exec(pathname)) {
     if (method === 'GET') {
       const user = requireAuth(req, res); if (!user) return
-      return json(res, 200, db.getNetworkLayoutSnapshot())
+      return json(res, 200, getNetworkLayoutSnapshot())
     }
     if (method === 'PUT') {
       const user = requireAuth(req, res); if (!user) return
       const body = await readJsonBody(req, res); if (body === null) return
-      return json(res, 200, db.saveNetworkLayoutSnapshot(body))
+      return json(res, 200, saveNetworkLayoutSnapshot(body))
     }
   }
 

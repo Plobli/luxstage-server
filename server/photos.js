@@ -8,7 +8,7 @@ import { Transform } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
 import sharp from 'sharp'
 import { config } from './config.js'
-import * as db from './db.js'
+import { deletePhotoOrderEntry, readPhotoOrder, writePhotoOrder } from './db/photos.js'
 import { getTenantId } from './db-context.js'
 
 // tenantId ist zu diesem Zeitpunkt bereits über resolveTenantId()/isValidTenantId()
@@ -129,7 +129,7 @@ export async function listPhotos(slug) {
     const raw = await fs.readFile(jsonPath, 'utf8')
     const jsonOrder = JSON.parse(raw)
     if (Array.isArray(jsonOrder) && jsonOrder.length > 0) {
-      db.writePhotoOrder(slug, jsonOrder)
+      writePhotoOrder(slug, jsonOrder)
     }
     await fs.unlink(jsonPath).catch(() => {})
   } catch { /* Datei existiert nicht oder ungültig — ignorieren */ }
@@ -141,21 +141,21 @@ export async function listPhotos(slug) {
   } catch { return [] }
 
   // Reihenfolge aus DB
-  const ordered = db.readPhotoOrder(slug).filter(f => files.includes(f))
+  const ordered = readPhotoOrder(slug).filter(f => files.includes(f))
   const rest = files.filter(f => !ordered.includes(f)).sort()
   return [...ordered, ...rest]
 }
 
 export async function savePhotoOrder(slug, order) {
   const safenames = order.map(f => path.basename(f).replace(/[^a-zA-Z0-9._-]/g, '_'))
-  db.writePhotoOrder(slug, safenames)
+  writePhotoOrder(slug, safenames)
 }
 
 export async function deletePhoto(slug, filename) {
   const dir = photosDir(slug)
   const safeName = path.basename(filename)
   await fs.unlink(path.join(dir, safeName))
-  db.deletePhotoOrderEntry(slug, safeName)
+  deletePhotoOrderEntry(slug, safeName)
 }
 
 export function getPhotoPath(slug, filename) {

@@ -1,6 +1,6 @@
 import path from 'node:path'
 import fs from 'node:fs'
-import * as db from '../db.js'
+import { addChannelPhoto, deletePhotoChannels, deletePhotoDescription, readAllPhotoChannels, readChannelPhotos, readPhotoDescriptions, removeChannelPhoto, reorderChannelPhotos, setPhotoChannels, writePhotoDescription } from '../db/photos.js'
 import * as photosLib from '../photos.js'
 import { requireAuth } from '../auth.js'
 import { readBody, readBodyBuffer, readJsonBody, json, notFound } from '../helpers.js'
@@ -54,7 +54,7 @@ export async function photoRoutes(req, res, pathname, params) {
 
   if (m = SHOW_PHOTO_CAPS.exec(pathname)) {
     if (method === 'GET') {
-      return json(res, 200, db.readPhotoDescriptions(m[1]))
+      return json(res, 200, readPhotoDescriptions(m[1]))
     }
   }
 
@@ -67,7 +67,7 @@ export async function photoRoutes(req, res, pathname, params) {
       }
       const body = await readJsonBody(req, res); if (body === null) return
       const { caption } = body
-      db.writePhotoDescription(id, filename, caption ?? '')
+      writePhotoDescription(id, filename, caption ?? '')
       return json(res, 200, { ok: true })
     }
   }
@@ -78,7 +78,7 @@ export async function photoRoutes(req, res, pathname, params) {
       const body = await readJsonBody(req, res); if (body === null) return
       const { photos: filenames } = body
       if (!Array.isArray(filenames)) return json(res, 400, { error: 'Photos muss ein Array sein' })
-      db.reorderChannelPhotos(channelId, filenames)
+      reorderChannelPhotos(channelId, filenames)
       return json(res, 200, { ok: true })
     }
   }
@@ -86,7 +86,7 @@ export async function photoRoutes(req, res, pathname, params) {
   if (m = CHAN_PHOTOS.exec(pathname)) {
     const channelId = m[2]
     if (method === 'GET') {
-      return json(res, 200, { photos: db.readChannelPhotos(channelId) })
+      return json(res, 200, { photos: readChannelPhotos(channelId) })
     }
     if (method === 'POST') {
       const body = await readJsonBody(req, res); if (body === null) return
@@ -94,7 +94,7 @@ export async function photoRoutes(req, res, pathname, params) {
       if (!filename || filename !== path.basename(filename) || filename.includes('..')) {
         return json(res, 400, { error: 'Ungültiger Dateiname' })
       }
-      db.addChannelPhoto(channelId, filename)
+      addChannelPhoto(channelId, filename)
       return json(res, 201, { ok: true })
     }
   }
@@ -103,14 +103,14 @@ export async function photoRoutes(req, res, pathname, params) {
     if (method === 'DELETE') {
       const channelId = m[2]
       const filename = path.basename(decodeURIComponent(m[3]))
-      db.removeChannelPhoto(channelId, filename)
+      removeChannelPhoto(channelId, filename)
       return json(res, 200, { ok: true })
     }
   }
 
   if (m = SHOW_PHOTO_CHANNELS_ALL.exec(pathname)) {
     if (method === 'GET') {
-      return json(res, 200, db.readAllPhotoChannels(m[1]))
+      return json(res, 200, readAllPhotoChannels(m[1]))
     }
   }
 
@@ -122,7 +122,7 @@ export async function photoRoutes(req, res, pathname, params) {
       const body = await readJsonBody(req, res); if (body === null) return
       const { channelIds } = body
       if (!Array.isArray(channelIds)) return json(res, 400, { error: 'channelIds muss ein Array sein' })
-      db.setPhotoChannels(id, filename, channelIds)
+      setPhotoChannels(id, filename, channelIds)
       return json(res, 200, { ok: true })
     }
   }
@@ -133,8 +133,8 @@ export async function photoRoutes(req, res, pathname, params) {
     if (method === 'DELETE') {
       const user = requireAuth(req, res); if (!user) return
       await photosLib.deletePhoto(slug, filename)
-      db.deletePhotoDescription(slug, filename)
-      db.deletePhotoChannels(slug, filename)
+      deletePhotoDescription(slug, filename)
+      deletePhotoChannels(slug, filename)
       return json(res, 200, { ok: true })
     }
     if (method === 'GET') {

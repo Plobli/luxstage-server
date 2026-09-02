@@ -1,5 +1,5 @@
-import * as db from '../db.js'
-import { restoreTowers } from '../db/towers.js'
+import { readShow } from '../db/shows.js'
+import { clearTowerSlot, deleteTower, ensureTowerSlots, readTowers, restoreTowers, writeTower, writeTowerSlot } from '../db/towers.js'
 import { readJsonBody, json } from '../helpers.js'
 import { broadcast } from '../sse.js'
 import { withUndoSnapshot } from '../db/operations.js'
@@ -18,7 +18,7 @@ export async function towerRoutes(req, res, pathname) {
     if (method === 'PUT') {
       const user = req.user
       const body = await readJsonBody(req, res); if (body === null) return
-      const show = db.readShow(slug)
+      const show = readShow(slug)
       if (!show) return json(res, 404, { error: 'Show nicht gefunden' })
 
       withUndoSnapshot(slug, show.id, user.username, () => {
@@ -32,20 +32,20 @@ export async function towerRoutes(req, res, pathname) {
   if (m = SHOW_TOWERS.exec(pathname)) {
     const slug = m[1]
     if (method === 'GET') {
-      const towers = db.readTowers(slug)
-      for (const tower of towers) db.ensureTowerSlots(tower.id, tower.slot_count)
-      return json(res, 200, db.readTowers(slug))
+      const towers = readTowers(slug)
+      for (const tower of towers) ensureTowerSlots(tower.id, tower.slot_count)
+      return json(res, 200, readTowers(slug))
     }
     if (method === 'POST') {
       const user = req.user
       const body = await readJsonBody(req, res); if (body === null) return
-      const show = db.readShow(slug)
+      const show = readShow(slug)
       if (!show) return json(res, 404, { error: 'Show nicht gefunden' })
 
       let towerId
       withUndoSnapshot(slug, show.id, user.username, () => {
-        towerId = db.writeTower(slug, body)
-        db.ensureTowerSlots(towerId, body.slot_count ?? 4)
+        towerId = writeTower(slug, body)
+        ensureTowerSlots(towerId, body.slot_count ?? 4)
       })
       broadcast(slug, 'towers-updated', {})
       return json(res, 201, { id: towerId })
@@ -58,23 +58,23 @@ export async function towerRoutes(req, res, pathname) {
     if (method === 'PUT') {
       const user = req.user
       const body = await readJsonBody(req, res); if (body === null) return
-      const show = db.readShow(slug)
+      const show = readShow(slug)
       if (!show) return json(res, 404, { error: 'Show nicht gefunden' })
 
       withUndoSnapshot(slug, show.id, user.username, () => {
-        db.writeTower(slug, { ...body, id: towerId })
-        if (body.slot_count != null) db.ensureTowerSlots(towerId, body.slot_count)
+        writeTower(slug, { ...body, id: towerId })
+        if (body.slot_count != null) ensureTowerSlots(towerId, body.slot_count)
       })
       broadcast(slug, 'towers-updated', {})
       return json(res, 200, { ok: true })
     }
     if (method === 'DELETE') {
       const user = req.user
-      const show = db.readShow(slug)
+      const show = readShow(slug)
       if (!show) return json(res, 404, { error: 'Show nicht gefunden' })
 
       withUndoSnapshot(slug, show.id, user.username, () => {
-        db.deleteTower(towerId)
+        deleteTower(towerId)
       })
       broadcast(slug, 'towers-updated', {})
       return json(res, 200, { ok: true })
@@ -89,14 +89,14 @@ export async function towerRoutes(req, res, pathname) {
       const user = req.user
       const body = await readJsonBody(req, res); if (body === null) return
       const { channelId } = body
-      const show = db.readShow(slug)
+      const show = readShow(slug)
       if (!show) return json(res, 404, { error: 'Show nicht gefunden' })
 
       withUndoSnapshot(slug, show.id, user.username, () => {
         if (channelId) {
-          db.writeTowerSlot(towerId, slotIndex, channelId)
+          writeTowerSlot(towerId, slotIndex, channelId)
         } else {
-          db.clearTowerSlot(towerId, slotIndex)
+          clearTowerSlot(towerId, slotIndex)
         }
       })
       broadcast(slug, 'towers-updated', {})

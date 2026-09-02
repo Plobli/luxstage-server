@@ -1,5 +1,5 @@
-import * as db from '../db.js'
-import { restoreBars } from '../db/bars.js'
+import { deleteBar, readBars, removeBarFixture, reorderBars, restoreBars, updateBarFixtureNotes, writeBar, writeBarFixture } from '../db/bars.js'
+import { readShow } from '../db/shows.js'
 import { readJsonBody, json } from '../helpers.js'
 import { broadcast } from '../sse.js'
 import { withUndoSnapshot } from '../db/operations.js'
@@ -20,7 +20,7 @@ export async function barRoutes(req, res, pathname) {
     if (method === 'PUT') {
       const user = req.user
       const body = await readJsonBody(req, res); if (body === null) return
-      const show = db.readShow(slug)
+      const show = readShow(slug)
       if (!show) return json(res, 404, { error: 'Show nicht gefunden' })
 
       withUndoSnapshot(slug, show.id, user.username, () => {
@@ -33,16 +33,16 @@ export async function barRoutes(req, res, pathname) {
 
   if (m = SHOW_BARS.exec(pathname)) {
     const slug = m[1]
-    if (method === 'GET') return json(res, 200, db.readBars(slug))
+    if (method === 'GET') return json(res, 200, readBars(slug))
     if (method === 'POST') {
       const user = req.user
       const body = await readJsonBody(req, res); if (body === null) return
-      const show = db.readShow(slug)
+      const show = readShow(slug)
       if (!show) return json(res, 404, { error: 'Show nicht gefunden' })
 
       let barId
       withUndoSnapshot(slug, show.id, user.username, () => {
-        barId = db.writeBar(slug, body)
+        barId = writeBar(slug, body)
       })
       broadcast(slug, 'bars-updated', {})
       return json(res, 201, { id: barId })
@@ -54,11 +54,11 @@ export async function barRoutes(req, res, pathname) {
     if (method === 'PUT') {
       const user = req.user
       const body = await readJsonBody(req, res); if (body === null) return
-      const show = db.readShow(slug)
+      const show = readShow(slug)
       if (!show) return json(res, 404, { error: 'Show nicht gefunden' })
 
       withUndoSnapshot(slug, show.id, user.username, () => {
-        db.reorderBars(slug, body.order ?? [])
+        reorderBars(slug, body.order ?? [])
       })
       broadcast(slug, 'bars-updated', {})
       return json(res, 200, { ok: true })
@@ -70,22 +70,22 @@ export async function barRoutes(req, res, pathname) {
     if (method === 'PUT') {
       const user = req.user
       const body = await readJsonBody(req, res); if (body === null) return
-      const show = db.readShow(slug)
+      const show = readShow(slug)
       if (!show) return json(res, 404, { error: 'Show nicht gefunden' })
 
       withUndoSnapshot(slug, show.id, user.username, () => {
-        db.writeBar(slug, { ...body, id: barId })
+        writeBar(slug, { ...body, id: barId })
       })
       broadcast(slug, 'bars-updated', {})
       return json(res, 200, { ok: true })
     }
     if (method === 'DELETE') {
       const user = req.user
-      const show = db.readShow(slug)
+      const show = readShow(slug)
       if (!show) return json(res, 404, { error: 'Show nicht gefunden' })
 
       withUndoSnapshot(slug, show.id, user.username, () => {
-        db.deleteBar(barId)
+        deleteBar(barId)
       })
       broadcast(slug, 'bars-updated', {})
       return json(res, 200, { ok: true })
@@ -99,12 +99,12 @@ export async function barRoutes(req, res, pathname) {
       const body = await readJsonBody(req, res); if (body === null) return
       const { channelId, position, notes, fixtureId, side, positionText } = body
       if (!channelId) return json(res, 400, { error: 'channelId erforderlich' })
-      const show = db.readShow(slug)
+      const show = readShow(slug)
       if (!show) return json(res, 404, { error: 'Show nicht gefunden' })
 
       let id
       withUndoSnapshot(slug, show.id, user.username, () => {
-        id = db.writeBarFixture(barId, channelId, position ?? 0, notes ?? '', fixtureId ?? null, side ?? 'out', positionText ?? '')
+        id = writeBarFixture(barId, channelId, position ?? 0, notes ?? '', fixtureId ?? null, side ?? 'out', positionText ?? '')
       })
       broadcast(slug, 'bars-updated', {})
       return json(res, 200, { ok: true, id })
@@ -116,22 +116,22 @@ export async function barRoutes(req, res, pathname) {
     if (method === 'PATCH') {
       const user = req.user
       const body = await readJsonBody(req, res); if (body === null) return
-      const show = db.readShow(slug)
+      const show = readShow(slug)
       if (!show) return json(res, 404, { error: 'Show nicht gefunden' })
 
       withUndoSnapshot(slug, show.id, user.username, () => {
-        db.updateBarFixtureNotes(fixtureId, body.notes ?? '')
+        updateBarFixtureNotes(fixtureId, body.notes ?? '')
       })
       broadcast(slug, 'bars-updated', {})
       return json(res, 200, { ok: true })
     }
     if (method === 'DELETE') {
       const user = req.user
-      const show = db.readShow(slug)
+      const show = readShow(slug)
       if (!show) return json(res, 404, { error: 'Show nicht gefunden' })
 
       withUndoSnapshot(slug, show.id, user.username, () => {
-        db.removeBarFixture(fixtureId)
+        removeBarFixture(fixtureId)
       })
       broadcast(slug, 'bars-updated', {})
       return json(res, 200, { ok: true })
