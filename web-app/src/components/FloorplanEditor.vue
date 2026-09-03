@@ -649,6 +649,7 @@
 import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { useLocale } from '@/composables/useLocale.js'
 import { useMeasureUnit } from '@/composables/useMeasureUnit'
+import { useEditorHistory } from '@/composables/useEditorHistory.js'
 const { t } = useLocale()
 const { formatLength } = useMeasureUnit()
 import { getToken } from '@/api/client'
@@ -721,8 +722,10 @@ const reassignTargetId = ref(null)
 const svgRef = ref(null)
 const containerEl = ref(null)
 const imageUploadInput = ref(null)
-const history = ref([])
-const historyIndex = ref(-1)
+// exportData()/parseData() sind unten als function-Deklarationen definiert und
+// dadurch hier bereits als Bindungen sichtbar (Hoisting) — die Composable
+// speichert nur die Referenzen, ruft sie erst bei push()/undo()/redo() auf.
+const editorHistory = useEditorHistory({ exportSnapshot: () => exportData(), applySnapshot: (snap) => parseData(snap) })
 const lassoRect = ref(null)
 const pendingDirectionId = ref(null)
 const pendingChannelForPlacement = ref(null)
@@ -1446,24 +1449,16 @@ function parseData(str) {
   } catch {}
 }
 
-function pushHistory() {
-  const snap = exportData()
-  let h = history.value.slice(0, historyIndex.value + 1)
-  h.push(snap); if (h.length > 100) h = h.slice(-100)
-  history.value = h; historyIndex.value = history.value.length - 1
-}
 function undo() {
-  if (historyIndex.value <= 0) return
-  historyIndex.value--; parseData(history.value[historyIndex.value])
-  emit('change', history.value[historyIndex.value])
+  const snap = editorHistory.undo()
+  if (snap) emit('change', snap)
 }
 function redo() {
-  if (historyIndex.value >= history.value.length - 1) return
-  historyIndex.value++; parseData(history.value[historyIndex.value])
-  emit('change', history.value[historyIndex.value])
+  const snap = editorHistory.redo()
+  if (snap) emit('change', snap)
 }
 function emitChange() {
-  pushHistory()
+  editorHistory.push()
   const data = exportData()
   emit('change', data)
 }
@@ -1529,7 +1524,7 @@ onUnmounted(() => {
 })
 
 watch(() => props.initialCanvasData, (newVal) => {
-  parseData(newVal); history.value = [exportData()]; historyIndex.value = 0
+  parseData(newVal); editorHistory.reset(exportData())
 }, { immediate: true })
 
 watch(() => props.pendingChannel, (ch) => {
