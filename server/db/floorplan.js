@@ -1,5 +1,6 @@
 import { getDb } from '../db-context.js'
 import { randomUUID } from 'node:crypto'
+import { readShow } from './shows.js'
 
 function now() { return Date.now() }
 
@@ -65,4 +66,21 @@ export function upsertShowFloorplanData(showId, canvasData) {
       'INSERT INTO show_floorplan_layers (id, show_id, canvas_data, updated_at) VALUES (?, ?, ?, ?)'
     ).run(randomUUID(), showId, canvasData, now())
   }
+}
+
+// Für den atomaren Show-Zustand (server/db/full-state.js) — Undo/Redo behandelt den Grundriss
+// wie Kanäle/Sections/Türme/Stangen: ein Feld im gemeinsamen Snapshot, per Slug statt der
+// sonst hier üblichen show_id-UUID adressiert (löst show.id intern auf, wie readTowers/
+// restoreTowers es für ihre Tabellen tun).
+export function readFloorplanForState(slug) {
+  const show = readShow(slug)
+  const layer = show ? getShowFloorplan(show.id) : null
+  return { canvas_data: layer?.canvas_data ?? null, image_path: layer?.image_path ?? null }
+}
+
+export function restoreFloorplan(slug, floorplanState) {
+  const show = readShow(slug)
+  if (!show) return
+  upsertShowFloorplanData(show.id, floorplanState?.canvas_data ?? null)
+  upsertShowFloorplanImage(show.id, floorplanState?.image_path ?? null)
 }

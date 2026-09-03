@@ -146,6 +146,7 @@ export async function showRoutes(req, res, pathname, params) {
       broadcast(slug, 'sections-updated', { updatedBy: user.username })
       broadcast(slug, 'towers-updated', {})
       broadcast(slug, 'bars-updated', {})
+      broadcast(slug, 'floorplan-updated', {})
       return json(res, 200, { ok: true })
     }
   }
@@ -174,6 +175,7 @@ export async function showRoutes(req, res, pathname, params) {
       broadcast(slug, 'sections-updated', { updatedBy: user.username })
       broadcast(slug, 'towers-updated', {})
       broadcast(slug, 'bars-updated', {})
+      broadcast(slug, 'floorplan-updated', {})
       return json(res, 200, { ok: true })
     }
   }

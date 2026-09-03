@@ -575,7 +575,7 @@ const { loadTowers, addTower, saveTower, removeTower, assignSlot } = useShowTowe
 const { bars, loadBars, addBar, saveBar, removeBar, assignFixture, updateFixtureNotes, unassignFixture, reorderBars } = useShowBars(props.id, channels, onLockConflict)
 
 afterUndoRedoImpl = async () => {
-  await Promise.all([loadChannels(), loadSections(), loadTowers(), loadBars()])
+  await Promise.all([loadChannels(), loadSections(), loadTowers(), loadBars(), loadFloorplan()])
 }
 
 const {

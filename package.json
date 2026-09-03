@@ -10,5 +10,12 @@
     "@anthropic-ai/sdk": "^0.122.0",
     "better-sqlite3": "^12.8.0",
     "zod": "^4.5.4"
+  },
+  "allowScripts": {
+    "vue-demi@0.14.10": true,
+    "bcrypt@6.0.0": true,
+    "better-sqlite3@12.9.0": true,
+    "esbuild@0.25.12": true,
+    "sharp@0.33.5": true
   }
 }

@@ -649,7 +649,6 @@
 import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { useLocale } from '@/composables/useLocale.js'
 import { useMeasureUnit } from '@/composables/useMeasureUnit'
-import { useEditorHistory } from '@/composables/useEditorHistory.js'
 const { t } = useLocale()
 const { formatLength } = useMeasureUnit()
 import { getToken } from '@/api/client'
@@ -722,10 +721,6 @@ const reassignTargetId = ref(null)
 const svgRef = ref(null)
 const containerEl = ref(null)
 const imageUploadInput = ref(null)
-// exportData()/parseData() sind unten als function-Deklarationen definiert und
-// dadurch hier bereits als Bindungen sichtbar (Hoisting) — die Composable
-// speichert nur die Referenzen, ruft sie erst bei push()/undo()/redo() auf.
-const editorHistory = useEditorHistory({ exportSnapshot: () => exportData(), applySnapshot: (snap) => parseData(snap) })
 const lassoRect = ref(null)
 const pendingDirectionId = ref(null)
 const pendingChannelForPlacement = ref(null)
@@ -1437,7 +1432,10 @@ function exportData() {
   return JSON.stringify(data)
 }
 function parseData(str) {
-  if (!str) return
+  // Kein Canvas-Data heißt leere Zeichnung — nicht einfach den bisherigen
+  // Stand stehen lassen. Sichtbar u.a. beim Undo bis zurück zum allerersten,
+  // nie gespeicherten Zustand (canvas_data ist dort null).
+  if (!str) { elements.value = []; scalePixelsPerMeter.value = 0; return }
   try {
     const parsed = JSON.parse(str)
     if (Array.isArray(parsed)) {
@@ -1449,28 +1447,11 @@ function parseData(str) {
   } catch {}
 }
 
-// initialCanvasData ist an denselben Zustand gebunden, den wir per 'change'
-// speichern (siehe ShowDetailView.vue/TemplateDetailPanel.vue) — jede eigene
-// Änderung kommt darüber als Prop-Update zurück. lastEmittedSnapshot erkennt
-// dieses Echo, damit der watch() unten nicht bei jeder Aktion die History
-// zurücksetzt (sonst wäre Undo/Redo praktisch wirkungslos).
-let lastEmittedSnapshot = null
-function emitSnapshot(data) {
-  lastEmittedSnapshot = data
-  emit('change', data)
-}
-
-function undo() {
-  const snap = editorHistory.undo()
-  if (snap) emitSnapshot(snap)
-}
-function redo() {
-  const snap = editorHistory.redo()
-  if (snap) emitSnapshot(snap)
-}
+// Undo/Redo läuft über den serverseitigen Show-Undo-Stack (Strg+Z/Strg+Y werden
+// global in ShowDetailView.vue behandelt, canvas_data ist Teil von
+// server/db/full-state.js) — hier nur noch speichern, keine eigene History.
 function emitChange() {
-  editorHistory.push()
-  emitSnapshot(exportData())
+  emit('change', exportData())
 }
 function exportPNG() {
   exportFloorplanPNG(svgRef.value, stageSize.value, bgImage.value)
@@ -1504,8 +1485,8 @@ function handleKeyDown(e) {
     }
   }
   if ((e.ctrlKey || e.metaKey)) {
-    if (e.key === 'z' && !e.shiftKey) { e.preventDefault(); undo(); return }
-    if (e.key === 'y' || (e.key === 'z' && e.shiftKey)) { e.preventDefault(); redo(); return }
+    // Strg+Z/Strg+Y absichtlich nicht hier: laufen global über
+    // ShowDetailView.vue (onUndoRedoKeydown, serverseitiger Show-Undo-Stack).
     if (e.key === 'c') { e.preventDefault(); copySelected(); return }
     if (e.key === 'v') { e.preventDefault(); pasteClipboard(); return }
     if (e.key === 'd') { e.preventDefault(); duplicateSelected(); return }
@@ -1534,8 +1515,7 @@ onUnmounted(() => {
 })
 
 watch(() => props.initialCanvasData, (newVal) => {
-  if (newVal === lastEmittedSnapshot) return
-  parseData(newVal); editorHistory.reset(exportData())
+  parseData(newVal)
 }, { immediate: true })
 
 watch(() => props.pendingChannel, (ch) => {

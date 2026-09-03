@@ -9,6 +9,7 @@ import { readChannels, writeChannels } from './channels.js'
 import { readShowSectionDefs, writeShowSectionDefs, readShowSections, writeShowSections } from './sections.js'
 import { readTowers, restoreTowers } from './towers.js'
 import { readBars, restoreBars } from './bars.js'
+import { readFloorplanForState, restoreFloorplan } from './floorplan.js'
 
 export function readFullShowState(slug) {
   const sections = readShowSections(slug)
@@ -31,6 +32,7 @@ export function readFullShowState(slug) {
     sections: [...sections.entries()].map(([id, content]) => ({ id, content })),
     towers: readTowers(slug),
     bars: readBars(slug),
+    floorplan: readFloorplanForState(slug),
   }
 }
 
@@ -41,6 +43,7 @@ export function writeFullShowState(slug, state, username) {
     writeShowSections(slug, new Map(state.sections.map(s => [s.id, s.content])), username)
     restoreTowers(slug, state.towers)
     restoreBars(slug, state.bars)
+    restoreFloorplan(slug, state.floorplan)
   })
   tx()
 }
