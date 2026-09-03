@@ -658,6 +658,9 @@ import { ELEMENT_TYPES, getElementLabel, getElementBounds, getElementCenter, get
 import { useCanvasViewport } from '@/composables/floorplan/useCanvasViewport'
 import { useElementPicker } from '@/composables/floorplan/useElementPicker'
 import { useEditorClipboard } from '@/composables/floorplan/useEditorClipboard'
+import { useRulerCalibration } from '@/composables/floorplan/useRulerCalibration'
+import { useInlineTextEdit } from '@/composables/floorplan/useInlineTextEdit'
+import { useElementDragResize } from '@/composables/floorplan/useElementDragResize'
 import {
   Copy, MousePointer2, Hand, Minus, Square, Circle, Type, CircleDot,
   Upload, ImageOff, Download, Trash2, Layers, AlignJustify, Ruler,
@@ -743,12 +746,20 @@ const a4GuideMaskPath = computed(() => {
   return `M0,0 H${sw} V${sh} H0 Z M${g.x},${g.y} H${g.x + g.w} V${g.y + g.h} H${g.x} Z`
 })
 
-const dragStartSnapshot = ref(null)
 const { copySelected, pasteClipboard, duplicateSelected } = useEditorClipboard(elements, selectedIds, uuid, emitChange)
-const textEditNode = ref(null)
-const textEditValue = ref('')
-const textEditStyle = ref({})
-const textareaRef = ref(null)
+const {
+  textEditNode, textEditValue, textEditStyle, textareaRef,
+  beginTextEdit, commitTextEdit, cancelTextEdit,
+} = useInlineTextEdit((id, text) => {
+  const el = elements.value.find(e => e.id === id)
+  if (el) { el.text = text; emitChange() }
+})
+const {
+  isElementDragging, elementWasDragged, isResizing, isArrowRotating, dragStartSnapshot,
+  beginElementDrag, startResizeLine, startResizeRectEllipse,
+  applyResizeMove, applyDragMove, finishResize, finishDrag,
+  updateRotation, startRotationDrag, startArrowRotateDrag,
+} = useElementDragResize(elements, selectedIds, snap, emitChange, getPointerPos)
 
 const selectedId = computed(() => selectedIds.value.size === 1 ? [...selectedIds.value][0] : null)
 const selectedElement = computed(() => elements.value.find(e => e.id === selectedId.value))
@@ -767,10 +778,6 @@ const elementsWithNotes = computed(() => {
   })
 })
 
-const isElementDragging = ref(false)
-const elementWasDragged = ref(false)
-const isResizing = ref(false)
-const isArrowRotating = ref(false)
 const hoveredId = ref(null)
 const propertiesOpen = ref(false)
 const tooltip = ref({ visible: false, x: 0, y: 0, title: '', sub: '', channels: [] })
@@ -804,26 +811,11 @@ function hideTooltip() {
   tooltip.value = { ...tooltip.value, visible: false }
 }
 
-const rulerPoints = ref([])
-const scalePixelsPerMeter = ref(0)
-const showRulerDialog = ref(false)
-const rulerDistanceInput = ref('')
-
-const scaleBarWidth = computed(() => {
-  if (scalePixelsPerMeter.value <= 0) return 0
-  const candidates = [0.25, 0.5, 1, 2, 5, 10, 20, 50]
-  const target = 80 / scalePixelsPerMeter.value
-  const m = candidates.reduce((a, b) => Math.abs(a - target) < Math.abs(b - target) ? a : b)
-  return m * scalePixelsPerMeter.value
-})
-const scaleBarLabel = computed(() => {
-  if (scalePixelsPerMeter.value <= 0) return ''
-  const candidates = [0.25, 0.5, 1, 2, 5, 10, 20, 50]
-  const target = 80 / scalePixelsPerMeter.value
-  const m = candidates.reduce((a, b) => Math.abs(a - target) < Math.abs(b - target) ? a : b)
-  return m >= 1 ? `${m} m` : `${Math.round(m * 100)} cm`
-})
-
+const {
+  rulerPoints, scalePixelsPerMeter, showRulerDialog, rulerDistanceInput,
+  scaleBarWidth, scaleBarLabel,
+  addRulerPoint, commitCalibration, cancelCalibration,
+} = useRulerCalibration()
 
 function towerForEl(el) { return props.towers.find(t => t.id === el.towerId) ?? null }
 function filledSlotsLabel(el) {
@@ -957,32 +949,14 @@ function onNodeMouseDown(id, e) {
     propertiesOpen.value = false
   }
 
-  isElementDragging.value = true
-  elementWasDragged.value = false
-  const pos = getPointerPos(e)
-  drawStart.value = pos
-
-  // Save initial state for dragging
-  dragStartSnapshot.value = [...selectedIds.value].map(sid => JSON.parse(JSON.stringify(elements.value.find(x => x.id === sid))))
+  drawStart.value = getPointerPos(e)
+  beginElementDrag()
 }
 
 function onNodeDblClick(id) {
   if (activeTool.value !== 'select') return
   selectedIds.value = new Set([id])
   propertiesOpen.value = true
-}
-
-let resizeObj = null
-function startResizeLine(id, point, e) {
-  e.stopPropagation()
-  isResizing.value = true
-  resizeObj = { id, point }
-}
-function startResizeRectEllipse(id, e) {
-  e.stopPropagation()
-  isResizing.value = true
-  const el = elements.value.find(x => x.id === id)
-  resizeObj = { id, initX: el.x, initY: el.y }
 }
 
 function onContainerMouseDown(e) {
@@ -1048,22 +1022,13 @@ function onContainerMouseMove(e) {
     return
   }
 
-  if (isResizing.value && resizeObj) {
-    const el = elements.value.find(x => x.id === resizeObj.id)
-    ELEMENT_TYPES[el.type]?.applyResize?.(el, resizeObj, pos)
+  if (isResizing.value) {
+    applyResizeMove(pos)
     return
   }
 
   if (isElementDragging.value && drawStart.value) {
-    const dx = pos.x - drawStart.value.x
-    const dy = pos.y - drawStart.value.y
-    if (Math.hypot(dx, dy) > 3) elementWasDragged.value = true
-    dragStartSnapshot.value.forEach(init => {
-      const el = elements.value.find(x => x.id === init.id)
-      if (!el) return
-      if (elementHasEndpoints(el.type)) { el.x1 = init.x1 + dx; el.y1 = init.y1 + dy; el.x2 = init.x2 + dx; el.y2 = init.y2 + dy }
-      else { el.x = init.x + dx; el.y = init.y + dy }
-    })
+    applyDragMove(pos, drawStart.value)
     return
   }
 
@@ -1114,25 +1079,13 @@ function handlePendingToolMouseUp(e) {
   }
   if (isPanning.value) { endPan(); return true }
   if (isResizing.value) {
-    isResizing.value = false; resizeObj = null
-    elements.value.forEach(el => { ELEMENT_TYPES[el.type]?.snapAfterResize?.(el, snap) })
-    emitChange()
+    finishResize()
     return true
   }
   if (isElementDragging.value) {
-    const wasDragged = elementWasDragged.value
-    isElementDragging.value = false
-    elementWasDragged.value = false
-    elements.value.forEach(el => {
-      if(!selectedIds.value.has(el.id)) return
-      // Gleiche Operation wie snapAfterResize bei line (dieselben vier Felder),
-      // hier nur nach einem Drag statt einem Resize ausgelöst.
-      if (elementHasEndpoints(el.type)) { ELEMENT_TYPES.line.snapAfterResize(el, snap) }
-      else { el.x=snap(el.x); el.y=snap(el.y) }
-    })
+    const shouldOpenProperties = finishDrag()
     drawStart.value = null
-    emitChange()
-    if (!wasDragged && selectedIds.value.size === 1) propertiesOpen.value = true
+    if (shouldOpenProperties) propertiesOpen.value = true
     return true
   }
   return false
@@ -1140,12 +1093,7 @@ function handlePendingToolMouseUp(e) {
 
 function handleDrawMouseUp(e) {
   if (activeTool.value === 'ruler') {
-    const pos = getPointerPos(e)
-    rulerPoints.value = [...rulerPoints.value, { x: pos.x, y: pos.y }]
-    if (rulerPoints.value.length === 2) {
-      rulerDistanceInput.value = ''
-      showRulerDialog.value = true
-    }
+    addRulerPoint(getPointerPos(e))
     drawStart.value = null
     return
   }
@@ -1198,28 +1146,9 @@ function onContainerDblClick(e) {
   if (activeTool.value !== 'select') return
   if (selectedIds.value.size === 1) {
     const el = elements.value.find(x => x.id === [...selectedIds.value][0])
-    if (el?.type === 'text') {
-      textEditNode.value = el
-      textEditValue.value = el.text
-      const CTM = svgRef.value.getScreenCTM()
-      const box = containerEl.value.getBoundingClientRect()
-      textEditStyle.value = {
-        top: (CTM.f + el.y * CTM.d - box.top) + 'px',
-        left: (CTM.e + el.x * CTM.a - box.left) + 'px',
-        minWidth: '80px', fontSize: (el.fontSize || 16) + 'px', transform: `rotate(${el.rotation || 0}deg)`, transformOrigin: '0 0'
-      }
-      nextTick(() => textareaRef.value?.focus())
-    }
+    if (el?.type === 'text') beginTextEdit(el, svgRef.value, containerEl.value)
   }
 }
-
-function commitTextEdit() {
-  if (!textEditNode.value) return
-  const el = elements.value.find(e => e.id === textEditNode.value.id)
-  if (el) { el.text = textEditValue.value; emitChange() }
-  textEditNode.value = null
-}
-function cancelTextEdit() { textEditNode.value = null }
 
 function addElement(el) { elements.value.push(el) }
 function deleteSelected() {
@@ -1258,13 +1187,10 @@ function placeBarNode(bar) {
 }
 
 function commitRuler() {
-  const normalized = rulerDistanceInput.value.replace(',', '.')
-  const meters = parseFloat(normalized)
-  if (!isNaN(meters) && meters > 0 && rulerPoints.value.length === 2) {
-    const dx = rulerPoints.value[1].x - rulerPoints.value[0].x
-    const dy = rulerPoints.value[1].y - rulerPoints.value[0].y
-    scalePixelsPerMeter.value = Math.sqrt(dx * dx + dy * dy) / meters
-    // Alle platzierten Bars auf neuen Maßstab anpassen, Mitte beibehalten
+  if (commitCalibration()) {
+    // Alle platzierten Bars auf neuen Maßstab anpassen, Mitte beibehalten. Bleibt hier
+    // (statt in useRulerCalibration), da es Bar-Elemente und barWidthPx mischt — siehe
+    // Kommentar dort.
     elements.value.forEach(el => {
       if (el.type !== 'bar') return
       const bar = props.bars.find(b => b.id === el.barId)
@@ -1276,13 +1202,10 @@ function commitRuler() {
     })
     emitChange()
   }
-  rulerPoints.value = []
-  showRulerDialog.value = false
   activeTool.value = 'select'
 }
 function cancelRuler() {
-  rulerPoints.value = []
-  showRulerDialog.value = false
+  cancelCalibration()
   activeTool.value = 'select'
 }
 
@@ -1303,44 +1226,6 @@ function reassignChannel(ch) {
   if (el) { el.channel = ch.channel; emitChange() }
   reassignTargetId.value = null
 }
-function updateRotation(id, deg) { const el = elements.value.find(e => e.id === id); if (el) { el.rotation = deg; emitChange() } }
-
-function startRotationDrag(el, event) {
-  event.preventDefault()
-  event.stopPropagation()
-  const rect = event.currentTarget.getBoundingClientRect()
-  const cx = rect.left + rect.width / 2
-  const cy = rect.top + rect.height / 2
-  function onMove(e) {
-    const angle = Math.atan2(e.clientY - cy, e.clientX - cx) * 180 / Math.PI + 90
-    updateRotation(el.id, Math.round(angle))
-  }
-  function onUp() {
-    window.removeEventListener('pointermove', onMove)
-    window.removeEventListener('pointerup', onUp)
-  }
-  window.addEventListener('pointermove', onMove)
-  window.addEventListener('pointerup', onUp)
-}
-
-function startArrowRotateDrag(el, event) {
-  event.preventDefault()
-  event.stopPropagation()
-  isArrowRotating.value = true
-  function onMove(e) {
-    const pos = getPointerPos(e)
-    const angle = Math.atan2(pos.y - el.y, pos.x - el.x) * 180 / Math.PI
-    updateRotation(el.id, Math.round(angle))
-  }
-  function onUp() {
-    isArrowRotating.value = false
-    window.removeEventListener('mousemove', onMove)
-    window.removeEventListener('mouseup', onUp)
-  }
-  window.addEventListener('mousemove', onMove)
-  window.addEventListener('mouseup', onUp)
-}
-
 function toggleNoArrow(el) { el.noArrow = !el.noArrow; emitChange() }
 function toggleFontStyle(el) { el.fontStyle = el.fontStyle === 'bold' ? 'normal' : 'bold'; emitChange() }
 function toggleFill(el) { el.fill = (el.fill && el.fill !== 'transparent') ? 'transparent' : '#ffffff'; emitChange() }

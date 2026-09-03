@@ -1,6 +1,18 @@
 /**
  * sse.js — Server-Sent Events für Realtime Kanal-Updates + Presence
  * Clients abonnieren /api/shows/:id/events
+ *
+ * Event-Katalog (broadcast()/sendToUser() in routes/*.js): channels-updated,
+ * sections-updated, towers-updated, bars-updated, floorplan-updated, checks-updated,
+ * lock-status-updated, lock-takeover-requested, presence-updated.
+ *
+ * Der Web-Client (web-app/src/api/client.ts, subscribeShow()) hört bewusst nur drei davon ab
+ * (lock-status-updated, lock-takeover-requested, presence-updated) — die sechs
+ * datenverändernden Events sind KEIN totes Gepäck, sondern für native Clients reserviert bzw.
+ * Grundlage für ein späteres optimistischeres Update-Modell im Web; das Fehlen ihrer Nutzung
+ * im Web-Client ist der Grund, warum der pessimistische Exklusiv-Lock (router.js,
+ * WRITE_METHODS-Gate) dort weiterhin architektonisch notwendig ist, nicht nur eine
+ * Vorsichtsmaßnahme. Siehe audits/architecture-analysis-2026-09-03.md, F-02.
  */
 import { getTenantId } from './db-context.js'
 

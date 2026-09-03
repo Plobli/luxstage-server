@@ -1,5 +1,6 @@
 import { getDb } from '../db-context.js'
 import { readShow } from './shows.js'
+import { readTowersWithSlotsCore } from './tower-read-core.js'
 import { randomUUID } from 'node:crypto'
 
 function now() { return Date.now() }
@@ -7,15 +8,7 @@ function now() { return Date.now() }
 export function readTowers(slug) {
   const show = readShow(slug)
   if (!show) return []
-  const towers = getDb().prepare(
-    'SELECT * FROM towers WHERE show_id = ? ORDER BY sort_order'
-  ).all(show.id)
-  for (const tower of towers) {
-    tower.slots = getDb().prepare(
-      'SELECT * FROM tower_slots WHERE tower_id = ? ORDER BY slot_index'
-    ).all(tower.id)
-  }
-  return towers
+  return readTowersWithSlotsCore('towers', 'tower_slots', 'show_id', show.id)
 }
 
 export function writeTower(slug, data) {

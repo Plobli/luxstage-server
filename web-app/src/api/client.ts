@@ -204,6 +204,12 @@ export interface ShowPresenceUser {
  * EventSource kann bei einem Einmal-Token nicht selbst reconnecten (das Token
  * ist nach dem ersten Connect verbraucht) — der Reconnect wird daher hier
  * manuell mit neuem Token durchgeführt.
+ *
+ * Der Server sendet neun Event-Typen (Katalog in server/sse.js); hier werden bewusst nur
+ * drei abgehört. Die sechs datenverändernden Events (channels-/sections-/towers-/bars-/
+ * floorplan-/checks-updated) bleiben ungenutzt — sie sind für native Clients reserviert bzw.
+ * Grundlage für ein späteres optimistischeres Update-Modell, kein totes Gepäck. Siehe
+ * audits/architecture-analysis-2026-09-03.md, F-02.
  */
 export function subscribeShow(showId: string, { onLockStatus, onTakeoverRequested, onPresence }: {
   onLockStatus?: (data: any) => void,

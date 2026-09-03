@@ -1,16 +1,11 @@
 import { getDb } from '../db-context.js'
+import { readTowersWithSlotsCore } from './tower-read-core.js'
 import { randomUUID } from 'node:crypto'
 
 export function readTemplateTowers(name) {
   const tpl = getDb().prepare('SELECT * FROM templates WHERE name = ?').get(name)
   if (!tpl) return []
-  const towers = getDb().prepare('SELECT * FROM template_towers WHERE template_id = ? ORDER BY sort_order').all(tpl.id)
-  for (const tower of towers) {
-    tower.slots = getDb().prepare(
-      'SELECT * FROM template_tower_slots WHERE tower_id = ? ORDER BY slot_index'
-    ).all(tower.id)
-  }
-  return towers
+  return readTowersWithSlotsCore('template_towers', 'template_tower_slots', 'template_id', tpl.id)
 }
 
 export function writeTemplateTower(name, data) {
