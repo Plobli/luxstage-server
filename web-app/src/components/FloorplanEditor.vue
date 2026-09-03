@@ -654,6 +654,7 @@ const { formatLength } = useMeasureUnit()
 import { getToken } from '@/api/client'
 import { uuid } from '../utils/uuid.js'
 import { exportFloorplanPNG } from '../utils/floorplanSnapshot.js'
+import { ELEMENT_TYPES, getElementLabel, getElementBounds, getElementCenter, getNoteAnchor, elementHasEndpoints } from '../utils/floorplanElementTypes'
 import {
   Copy, MousePointer2, Hand, Minus, Square, Circle, Type, CircleDot,
   Upload, ImageOff, Download, Trash2, Layers, AlignJustify, Ruler,
@@ -780,18 +781,7 @@ const elementsWithNotes = computed(() => {
   return elements.value.filter(el => el.type !== 'text' && el.notes && el.notes.trim()).map(el => {
     // _anchorX/Y: point on the element border where the line starts
     // _noteX/Y: center of the pill label
-    let ax, ay
-    if (el.type === 'line') {
-      ax = (el.x1 + el.x2) / 2; ay = (el.y1 + el.y2) / 2
-    } else if (el.type === 'rect') {
-      ax = el.x + el.w / 2; ay = el.y + el.h
-    } else if (el.type === 'ellipse') {
-      ax = el.x; ay = el.y + el.ry
-    } else if (el.type === 'channel') {
-      ax = el.x; ay = el.y + 18
-    } else {
-      ax = el.x; ay = el.y + 10
-    }
+    const { x: ax, y: ay } = getNoteAnchor(el)
     return { ...el, _anchorX: ax, _anchorY: ay, _noteX: ax, _noteY: ay + NOTE_LABEL_GAP }
   })
 })
@@ -876,7 +866,7 @@ function channelNrById(channelId) {
 }
 function pillW(_channel) { return 62 }
 function noteTextWidth(text) { return Math.max(40, (text?.length ?? 0) * 6.2 + 20) }
-function typeLabel(type) { return { line: 'Linie', rect: 'Rechteck', ellipse: 'Ellipse', text: 'Text', channel: 'Kanal', tower: 'Beleuchtungsgestell', bar: 'Zugstange' }[type] || type }
+function typeLabel(type) { return getElementLabel(type) }
 
 function getArrowPoints(channel, rot) {
   const rad = (rot || 0) * Math.PI / 180
@@ -976,29 +966,19 @@ function getPointerPos(e) {
   }
 }
 
-function getBounds(el) {
-  if (el.type === 'rect') return { x: el.x, y: el.y, w: el.w, h: el.h }
-  if (el.type === 'ellipse') return { x: el.x - el.rx, y: el.y - el.ry, w: el.rx * 2, h: el.ry * 2 }
-  if (el.type === 'text') return { x: el.x - 5, y: el.y - 5, w: (el.fontSize||16)*5, h: (el.fontSize||16)+10 }
-  if (el.type === 'tower') return { x: el.x, y: el.y, w: el.w || 120, h: el.h || 70 }
-  if (el.type === 'bar') return { x: el.x, y: el.y, w: el.w || 160, h: el.h || 28 }
-  return { x: 0, y: 0, w: 0, h: 0 }
-}
+function getBounds(el) { return getElementBounds(el) }
 
 function getTransform(el) {
   const rot = el.rotation || 0
-  if (!rot) {
-    if (el.type === 'channel') return `translate(${el.x}, ${el.y})`
-    return ''
-  }
-  let cx = 0, cy = 0
-  if (el.type === 'line') { cx = (el.x1 + el.x2) / 2; cy = (el.y1 + el.y2) / 2 } 
-  else if (el.type === 'rect') { cx = el.x + el.w / 2; cy = el.y + el.h / 2 } 
-  else if (el.type === 'ellipse') { cx = el.x; cy = el.y } 
-  else if (el.type === 'text') { cx = el.x; cy = el.y } 
-  else if (el.type === 'channel') {
-    return `translate(${el.x}, ${el.y})`
-  }
+  // channel positioniert sich immer über translate() statt x/y-Attribute —
+  // strukturell keine Rotation, unabhängig von rot bleibt es dabei.
+  if (el.type === 'channel') return `translate(${el.x}, ${el.y})`
+  if (!rot) return ''
+  // Nur Typen mit eigenem Rotationszentrum (line/rect/ellipse/text) rotieren
+  // um ihre Mitte; alles andere (aktuell nur tower/bar, die in der UI ohnehin
+  // keinen Rotationsgriff haben) fällt auf (0,0) zurück, wie im Original.
+  const getCenter = ELEMENT_TYPES[el.type]?.getCenter
+  const { x: cx, y: cy } = getCenter ? getCenter(el) : { x: 0, y: 0 }
   return `rotate(${rot} ${cx} ${cy})`
 }
 
@@ -1092,16 +1072,7 @@ function onContainerMouseMove(e) {
 
   if (isResizing.value && resizeObj) {
     const el = elements.value.find(x => x.id === resizeObj.id)
-    if (el.type === 'line') {
-      if (resizeObj.point === 1) { el.x1 = pos.x; el.y1 = pos.y }
-      else { el.x2 = pos.x; el.y2 = pos.y }
-    } else if (el.type === 'rect') {
-      el.w = Math.max(5, pos.x - resizeObj.initX)
-      el.h = Math.max(5, pos.y - resizeObj.initY)
-    } else if (el.type === 'ellipse') {
-      el.rx = Math.max(3, pos.x - resizeObj.initX)
-      el.ry = Math.max(3, pos.y - resizeObj.initY)
-    }
+    ELEMENT_TYPES[el.type]?.applyResize?.(el, resizeObj, pos)
     return
   }
 
@@ -1112,7 +1083,7 @@ function onContainerMouseMove(e) {
     clipboard.value.forEach(init => {
       const el = elements.value.find(x => x.id === init.id)
       if (!el) return
-      if (el.type === 'line') { el.x1 = init.x1 + dx; el.y1 = init.y1 + dy; el.x2 = init.x2 + dx; el.y2 = init.y2 + dy }
+      if (elementHasEndpoints(el.type)) { el.x1 = init.x1 + dx; el.y1 = init.y1 + dy; el.x2 = init.x2 + dx; el.y2 = init.y2 + dy }
       else { el.x = init.x + dx; el.y = init.y + dy }
     })
     return
@@ -1177,11 +1148,7 @@ function onContainerMouseUp(e) {
   if (isPanning.value) { isPanning.value = false; panStart.value = null; return }
   if (isResizing.value) { 
     isResizing.value = false; resizeObj = null
-    elements.value.forEach(el => {
-      if(el.type === 'line'){ el.x1=snap(el.x1); el.y1=snap(el.y1); el.x2=snap(el.x2); el.y2=snap(el.y2) }
-      else if (el.type === 'rect') { el.w=snap(el.w); el.h=snap(el.h) }
-      else if (el.type === 'ellipse') { el.rx=snap(el.rx); el.ry=snap(el.ry) }
-    })
+    elements.value.forEach(el => { ELEMENT_TYPES[el.type]?.snapAfterResize?.(el, snap) })
     emitChange()
     return
   }
@@ -1191,7 +1158,9 @@ function onContainerMouseUp(e) {
     elementWasDragged.value = false
     elements.value.forEach(el => {
       if(!selectedIds.value.has(el.id)) return
-      if(el.type === 'line'){ el.x1=snap(el.x1); el.y1=snap(el.y1); el.x2=snap(el.x2); el.y2=snap(el.y2) }
+      // Gleiche Operation wie snapAfterResize bei line (dieselben vier Felder),
+      // hier nur nach einem Drag statt einem Resize ausgelöst.
+      if (elementHasEndpoints(el.type)) { ELEMENT_TYPES.line.snapAfterResize(el, snap) }
       else { el.x=snap(el.x); el.y=snap(el.y) }
     })
     drawStart.value = null
@@ -1218,10 +1187,7 @@ function onContainerMouseUp(e) {
   if (activeTool.value === 'select' && lassoRect.value) {
     const { x, y, w, h } = lassoRect.value
     const inLasso = elements.value.filter(el => {
-      let cx, cy
-      if (el.type === 'line') { cx = (el.x1 + el.x2) / 2; cy = (el.y1 + el.y2) / 2 }
-      else if (el.type === 'rect') { cx = el.x + el.w / 2; cy = el.y + el.h / 2 }
-      else { cx = el.x; cy = el.y }
+      const { x: cx, y: cy } = getElementCenter(el)
       return cx >= x && cx <= x + w && cy >= y && cy <= y + h
     })
     selectedIds.value = new Set(inLasso.map(e => e.id))
@@ -1230,9 +1196,11 @@ function onContainerMouseUp(e) {
   }
 
   if (dist > 5) {
-    if (activeTool.value === 'line') { addElement({ id: uuid(), type: 'line', x1: snap(drawStart.value.x), y1: snap(drawStart.value.y), x2: snap(pos.x), y2: snap(pos.y), rotation: 0, color: '#6b7280', strokeWidth: 5 }); emitChange() }
-    else if (activeTool.value === 'rect') { addElement({ id: uuid(), type: 'rect', x: snap(Math.min(drawStart.value.x, pos.x)), y: snap(Math.min(drawStart.value.y, pos.y)), w: snap(Math.abs(pos.x - drawStart.value.x)), h: snap(Math.abs(pos.y - drawStart.value.y)), rotation: 0, color: 'transparent', strokeWidth: 0, fill: '#e5e5e8' }); emitChange() }
-    else if (activeTool.value === 'ellipse') { addElement({ id: uuid(), type: 'ellipse', x: snap((drawStart.value.x + pos.x) / 2), y: snap((drawStart.value.y + pos.y) / 2), rx: snap(Math.abs(pos.x - drawStart.value.x) / 2), ry: snap(Math.abs(pos.y - drawStart.value.y) / 2), rotation: 0, color: 'transparent', strokeWidth: 0, fill: '#e5e5e8' }); emitChange() }
+    const createFromDrag = ELEMENT_TYPES[activeTool.value]?.createFromDrag
+    if (createFromDrag) {
+      addElement({ id: uuid(), ...createFromDrag(drawStart.value, pos, snap) })
+      emitChange()
+    }
     activeTool.value = 'select'
   } else {
     if (activeTool.value === 'channel') {
