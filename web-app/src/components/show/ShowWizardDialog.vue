@@ -164,15 +164,10 @@
 </template>
 
 <script setup>
-import { ref, computed, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { Loader2, FileX, LayoutTemplate, Layers, AlignJustify, Radio, LayoutList } from 'lucide-vue-next'
 import { useLocale } from '../../composables/useLocale.js'
-import { createShow, applyTemplateToShow } from '../../api/shows.js'
-import { fetchTemplateChannels } from '../../api/templates.js'
-import { fetchTemplateSections } from '../../api/sections.js'
-import { fetchTemplateBars } from '../../api/templateBars.js'
-import { fetchTemplateTowers } from '../../api/templateTowers.js'
-import { saveChannels } from '../../api/channels.js'
+import { useShowWizard } from '../../composables/useShowWizard.js'
 import { templateDisplayName } from '../../utils/templateName.js'
 
 import Checkbox from '@/components/ui/checkbox/Checkbox.vue'
@@ -190,79 +185,21 @@ const emit = defineEmits(['update:open', 'created'])
 
 const { t } = useLocale()
 
+// Reine Darstellung + Schrittnavigation: Formularstate, Vorlagendetails und
+// das Anlegen der Show laufen über useShowWizard.js, damit die Komponente
+// ohne laufenden Server darstellbar bleibt (F-04).
+const {
+  form, templateSections, templateBars, templateTowers,
+  selectedSectionIds, selectedBarIds, selectedTowerIds,
+  creating, toggleSelection, reset: resetWizard, createShowFromWizard,
+} = useShowWizard()
+
 const stepIndex = ref(0)
-const creating = ref(false)
-
-function currentSpielzeit() {
-  const now = new Date()
-  const startYear = now.getMonth() >= 6 ? now.getFullYear() : now.getFullYear() - 1
-  return `${String(startYear).slice(-2)}/${String(startYear + 1).slice(-2)}`
-}
-
-function emptyForm() {
-  return {
-    name: '',
-    datum: new Date().toISOString().slice(0, 10),
-    template: '__none__',
-    spielzeit: currentSpielzeit(),
-    use_bars: true,
-    use_towers: true,
-    importChannels: true,
-  }
-}
-
-const form = ref(emptyForm())
-const templateSections = ref([])
-const templateBars = ref([])
-const templateTowers = ref([])
-const selectedSectionIds = ref(new Set())
-const selectedBarIds = ref(new Set())
-const selectedTowerIds = ref(new Set())
-
-function toggleSelection(set, id) {
-  const next = new Set(set.value)
-  if (next.has(id)) next.delete(id)
-  else next.add(id)
-  set.value = next
-}
 
 watch(() => props.open, (isOpen) => {
   if (isOpen) {
     stepIndex.value = 0
-    form.value = emptyForm()
-    templateSections.value = []
-    templateBars.value = []
-    templateTowers.value = []
-    selectedSectionIds.value = new Set()
-    selectedBarIds.value = new Set()
-    selectedTowerIds.value = new Set()
-  }
-})
-
-watch(() => form.value.template, async (name) => {
-  if (name === '__none__') {
-    templateSections.value = []
-    templateBars.value = []
-    templateTowers.value = []
-    return
-  }
-  try {
-    const [sections, bars, towers] = await Promise.all([
-      fetchTemplateSections(name),
-      fetchTemplateBars(name),
-      fetchTemplateTowers(name),
-    ])
-    templateSections.value = Array.isArray(sections) ? sections : (sections?.sections ?? [])
-    templateBars.value = bars
-    templateTowers.value = towers
-    selectedSectionIds.value = new Set(templateSections.value.map(s => s.id))
-    selectedBarIds.value = new Set(templateBars.value.map(b => b.id))
-    selectedTowerIds.value = new Set(templateTowers.value.map(t => t.id))
-  } catch (e) {
-    console.error('Failed to load template details:', e)
-    templateSections.value = []
-    templateBars.value = []
-    templateTowers.value = []
+    resetWizard()
   }
 })
 
@@ -325,14 +262,6 @@ function formatDatum(d) {
   return `${day}.${m}.${y}`
 }
 
-function generateId(name, datum) {
-  const slug = name.toLowerCase()
-    .replace(/ä/g, 'ae').replace(/ö/g, 'oe').replace(/ü/g, 'ue').replace(/ß/g, 'ss')
-    .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
-  const year = datum ? datum.slice(0, 4) : new Date().getFullYear()
-  return slug ? `${slug}-${year}` : ''
-}
-
 function onOpenChange(value) {
   if (!value) emit('update:open', false)
 }
@@ -354,58 +283,7 @@ async function next() {
 }
 
 async function handleCreate() {
-  creating.value = true
-  const id = generateId(form.value.name, form.value.datum)
-  try {
-    const tplCreate = form.value.template === '__none__' ? '' : form.value.template
-    const content = `---\nid: ${id}\nname: ${form.value.name || id}\ndatum: ${form.value.datum || new Date().toISOString().slice(0, 10)}\n${tplCreate ? `template: ${tplCreate}\n` : ''}---\n\n`
-    await createShow({
-      id,
-      name: form.value.name || id,
-      datum: form.value.datum || new Date().toISOString().slice(0, 10),
-      content,
-      template: tplCreate || undefined,
-      spielzeit: form.value.spielzeit || undefined,
-      use_bars: form.value.use_bars,
-      use_towers: form.value.use_towers,
-      importSections: false,
-    })
-
-    if (tplCreate && form.value.use_towers && selectedTowerIds.value.size) {
-      try {
-        await applyTemplateToShow(id, tplCreate, 'towers', false, [...selectedTowerIds.value])
-      } catch (e) {
-        console.error('Failed to apply template (towers):', e)
-      }
-    }
-    if (tplCreate && form.value.use_bars && selectedBarIds.value.size) {
-      try {
-        await applyTemplateToShow(id, tplCreate, 'bars', false, [...selectedBarIds.value])
-      } catch (e) {
-        console.error('Failed to apply template (bars):', e)
-      }
-    }
-    if (tplCreate && selectedSectionIds.value.size) {
-      try {
-        await applyTemplateToShow(id, tplCreate, 'sections', false, [...selectedSectionIds.value])
-      } catch (e) {
-        console.error('Failed to apply template (sections):', e)
-      }
-    }
-    if (tplCreate && form.value.importChannels) {
-      try {
-        const channels = await fetchTemplateChannels(tplCreate)
-        if (channels.length) await saveChannels(id, channels)
-      } catch (e) {
-        console.error('Failed to apply template channels:', e)
-      }
-    }
-
-    emit('created', { id, name: form.value.name || id, datum: form.value.datum || new Date().toISOString().slice(0, 10), template: tplCreate })
-  } catch (e) {
-    console.error('Failed to create show:', e)
-  } finally {
-    creating.value = false
-  }
+  const result = await createShowFromWizard()
+  if (result) emit('created', result)
 }
 </script>

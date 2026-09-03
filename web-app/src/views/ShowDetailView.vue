@@ -172,9 +172,16 @@
           <div class="flex-1 min-h-0 overflow-y-auto p-4">
             <PhotoGallery
               ref="photoGalleryRef"
-              :showId="props.id"
               :photos="photos"
               :channels="channels"
+              :captions="photoCaptions"
+              :photoChannelsMap="photoChannels"
+              :uploadQueue="photoUploadQueue"
+              :photoUrlFn="photoUrl"
+              :saveCaptionFn="savePhotoCaption"
+              :saveChannelsFn="savePhotoChannelsForPhoto"
+              :uploadFilesFn="uploadPhotoFiles"
+              :deletePhotoFn="removeShowPhoto"
               :labels="{
                 add: t('photo.add'),
                 empty: t('photo.empty'),
@@ -189,7 +196,6 @@
                 channelNone: t('gassenturm.channel.none'),
                 channelPickMultiHint: t('photo.channel_pick_multi_hint'),
               }"
-              @update:photos="photos = $event"
             />
           </div>
           <label v-if="photos.length > 0" class="absolute bottom-20 right-6 md:bottom-6 h-11 px-5 rounded-full shadow-lg bg-accent hover:bg-accent/90 text-accent-foreground flex items-center gap-2 cursor-pointer text-sm font-medium">
@@ -437,6 +443,7 @@ import { useShowSections } from '../composables/useShowSections.js'
 import { useShowLockEvents } from '../composables/useShowLockEvents.js'
 import { useShowLock } from '../composables/useShowLock.js'
 import { useShowChannels } from '../composables/useShowChannels.js'
+import { usePhotoGallery } from '../composables/usePhotoGallery'
 import { useShowFloorplan } from '../composables/useShowFloorplan.js'
 import { useShowTowers } from '../composables/useShowTowers.js'
 import { restoreTowersSnapshot } from '../api/towers.js'
@@ -488,6 +495,12 @@ const setupSaving = ref(false)
 // ── Composables ────────────────────────────────────────────────────────────
 const photoGalleryRef = ref(null)
 const { photos, loadPhotos } = useShowPhotos(props.id)
+const {
+  photoCaptions, photoChannels, uploadQueue: photoUploadQueue,
+  loadCaptionsAndChannels: loadPhotoCaptionsAndChannels,
+  saveCaption: savePhotoCaption, saveChannelsForPhoto: savePhotoChannelsForPhoto,
+  photoUrl, uploadFiles: uploadPhotoFiles, removePhoto: removeShowPhoto,
+} = usePhotoGallery(props.id, photos)
 const { floorplan, loadFloorplan, onFloorplanChange, onFloorplanImageUpload, onFloorplanImageDelete } = useShowFloorplan(props.id)
 
 // api.url() ist async (kurzlebiges Token muss ggf. nachgeladen werden) —
@@ -861,6 +874,7 @@ onMounted(async () => {
   snapshotInterval = setInterval(() => createSnapshot(props.id).catch(() => {}), 10 * 60 * 1000)
 
   loadPhotos().catch(() => {})
+  loadPhotoCaptionsAndChannels()
   loadFloorplan().catch(() => {})
   loadTowers().catch(() => {})
   loadBars().catch(() => {})

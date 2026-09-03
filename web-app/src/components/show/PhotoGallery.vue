@@ -35,7 +35,7 @@
       <ul role="list" class="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3">
         <li v-for="filename in photos" :key="filename" class="relative group flex flex-col gap-2 rounded-xl border border-border bg-card p-2">
           <div class="aspect-[4/3] block w-full overflow-hidden rounded-lg bg-muted cursor-pointer" @click="openLightbox(filename)">
-            <img :src="photoUrl(filename, { thumb: true })" :alt="filename" loading="lazy" class="pointer-events-none h-full w-full object-cover transition-opacity duration-200 group-hover:opacity-80" />
+            <img :src="photoUrlFn(filename, { thumb: true })" :alt="filename" loading="lazy" class="pointer-events-none h-full w-full object-cover transition-opacity duration-200 group-hover:opacity-80" />
           </div>
           <Button
             variant="ghost"
@@ -47,7 +47,7 @@
           <div class="mt-1 flex flex-col divide-y divide-border rounded-xl border border-input bg-background overflow-hidden">
             <input
               type="text"
-              :value="photoCaptions[filename]?.caption ?? ''"
+              :value="captions[filename]?.caption ?? ''"
               :placeholder="labels.captionPlaceholder"
               @blur="onCaptionBlur(filename, $event)"
               @keydown.enter="$event.target.blur()"
@@ -109,8 +109,8 @@
     <div v-for="(page, pageIdx) in photoPages" :key="pageIdx" class="photo-print-page">
       <div class="photo-print-grid" :data-cols="photoCols">
         <div v-for="filename in page" :key="filename" class="photo-print-item">
-          <img :src="photoUrl(filename)" :alt="photoCaptions[filename]?.caption || filename" />
-          <p v-if="photoCaptions[filename]?.caption" class="photo-print-caption">{{ photoCaptions[filename].caption }}</p>
+          <img :src="photoUrlFn(filename)" :alt="captions[filename]?.caption || filename" />
+          <p v-if="captions[filename]?.caption" class="photo-print-caption">{{ captions[filename].caption }}</p>
         </div>
       </div>
     </div>
@@ -139,12 +139,12 @@
       >
         <ChevronLeft class="size-6" />
       </Button>
-      <img :src="photoUrl(lightboxPhoto)" class="relative max-h-[85vh] max-w-[90vw] object-contain drop-shadow-2xl" @click.stop />
+      <img :src="photoUrlFn(lightboxPhoto)" class="relative max-h-[85vh] max-w-[90vw] object-contain drop-shadow-2xl" @click.stop />
       <p
-        v-if="photoCaptions[lightboxPhoto]?.caption"
+        v-if="captions[lightboxPhoto]?.caption"
         class="relative mt-3 text-sm text-muted-foreground max-w-lg text-center px-4"
         @click.stop
-      >{{ photoCaptions[lightboxPhoto].caption }}</p>
+      >{{ captions[lightboxPhoto].caption }}</p>
       <Button
         v-if="lightboxIndex < photos.length - 1"
         variant="ghost"
@@ -169,7 +169,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue'
+import { ref, computed, onBeforeUnmount, onMounted, watch } from 'vue'
 import { ChevronLeft, ChevronRight, X, Plus, Search, Image as ImageIcon } from 'lucide-vue-next'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
@@ -178,17 +178,25 @@ import ChannelPickerGrid from './ChannelPickerGrid.vue'
 import { useConfirm } from '../../composables/useConfirm.js'
 import { useLocale } from '../../composables/useLocale.js'
 import { usePhotoSettings } from '../../composables/usePhotoSettings.js'
-import { uploadPhoto, deletePhoto, fetchPhotos, fetchPhotoCaptions, savePhotoCaption, fetchAllPhotoChannels, savePhotoChannels } from '../../api/photos.js'
-import { getPhotoUrl } from '../../api/photos.js'
 
+// Reine Darstellung: Beschriftungen, Kreiszuordnung und Uploadfortschritt
+// kommen über Props herein, Persistenz läuft über die vom Aufrufer
+// übergebenen *Fn-Props. Der Datenzugriff liegt in usePhotoGallery.ts
+// (ShowDetailView.vue), damit die Komponente ohne laufenden Server
+// darstellbar bleibt (F-04).
 const props = defineProps({
-  showId: { type: String, required: true },
   photos: { type: Array, required: true },
   channels: { type: Array, required: true },
+  captions: { type: Object, required: true },
+  photoChannelsMap: { type: Object, required: true },
+  uploadQueue: { type: Array, required: true },
   labels: { type: Object, required: true },
+  photoUrlFn: { type: Function, required: true },
+  saveCaptionFn: { type: Function, required: true },
+  saveChannelsFn: { type: Function, required: true },
+  uploadFilesFn: { type: Function, required: true },
+  deletePhotoFn: { type: Function, required: true },
 })
-
-const emit = defineEmits(['update:photos'])
 
 const { confirm } = useConfirm()
 const { t } = useLocale()
@@ -196,9 +204,6 @@ const { photosPerPage } = usePhotoSettings()
 
 const dragging = ref(false)
 const lightboxPhoto = ref(null)
-const uploadQueue = ref([])
-const photoCaptions = ref({})
-const photoChannels = ref({})
 
 const channelById = computed(() => {
   const map = new Map()
@@ -207,7 +212,7 @@ const channelById = computed(() => {
 })
 
 function channelsForPhoto(filename) {
-  return (photoChannels.value[filename] ?? []).map(id => channelById.value.get(id)).filter(Boolean)
+  return (props.photoChannelsMap[filename] ?? []).map(id => channelById.value.get(id)).filter(Boolean)
 }
 
 const channelIdByNumber = computed(() => {
@@ -266,9 +271,14 @@ async function commitChannelInput(filename, event) {
     else unknown.push(token)
   }
   setInvalidTokens(filename, unknown)
-  photoChannels.value[filename] = channelIds
-  await savePhotoChannels(props.showId, filename, channelIds)
+  await props.saveChannelsFn(filename, channelIds)
 }
+
+watch(() => props.photos, () => {
+  if (lightboxPhoto.value && !props.photos.includes(lightboxPhoto.value)) {
+    lightboxPhoto.value = null
+  }
+})
 
 const photoPages = computed(() => {
   const n = photosPerPage.value
@@ -288,57 +298,8 @@ const photoCols = computed(() => {
   return 3
 })
 
-// getPhotoUrl() ist async (kurzlebiges Token muss ggf. vom Server geholt
-// werden), <img :src> braucht aber einen synchronen Wert — resolvedUrls hält
-// pro "showId:filename:thumb"-Schlüssel den zuletzt aufgelösten String, den
-// photoUrl() synchron zurückgibt. Nur beim ersten Zugriff je Schlüssel wird
-// nachgeladen, danach bleibt der Wert bis zum nächsten showId/photos-Wechsel
-// stehen (das darunterliegende Token erneuert sich unabhängig im Client).
-const resolvedUrls = ref({})
-const pendingUrls = new Set()
-
-function photoUrl(filename, { thumb = false } = {}) {
-  const key = `${props.showId}:${filename}:${thumb ? 1 : 0}`
-  if (!(key in resolvedUrls.value) && !pendingUrls.has(key)) {
-    pendingUrls.add(key)
-    getPhotoUrl(props.showId, filename, { thumb })
-      .then(url => { resolvedUrls.value[key] = url })
-      .finally(() => pendingUrls.delete(key))
-  }
-  return resolvedUrls.value[key] ?? ''
-}
-
-watch(() => [props.showId, ...props.photos], () => {
-  if (lightboxPhoto.value && !props.photos.includes(lightboxPhoto.value)) {
-    lightboxPhoto.value = null
-  }
-})
-
-onMounted(async () => {
-  try {
-    const caps = await fetchPhotoCaptions(props.showId)
-    const map = {}
-    if (Array.isArray(caps)) {
-      for (const c of caps) map[c.filename] = c
-    } else if (caps && typeof caps === 'object') {
-      // Fallback falls das Backend ein Objekt statt eines Arrays liefert
-      Object.assign(map, caps)
-    }
-    photoCaptions.value = map
-  } catch (e) {
-    console.error('Fehler beim Laden der Fotobeschriftungen:', e)
-  }
-  try {
-    photoChannels.value = await fetchAllPhotoChannels(props.showId)
-  } catch (e) {
-    console.error('Fehler beim Laden der Foto-Kreiszuordnungen:', e)
-  }
-})
-
 async function onCaptionBlur(filename, event) {
-  const caption = event.target.value
-  photoCaptions.value[filename] = { ...(photoCaptions.value[filename] ?? {}), caption }
-  await savePhotoCaption(props.showId, filename, caption)
+  await props.saveCaptionFn(filename, event.target.value)
 }
 
 // Kreis-Zuordnung
@@ -348,48 +309,28 @@ const pickerSelectedIds = ref([])
 
 function openChannelPicker(filename) {
   channelPickerFilename.value = filename
-  pickerSelectedIds.value = [...(photoChannels.value[filename] ?? [])]
+  pickerSelectedIds.value = [...(props.photoChannelsMap[filename] ?? [])]
   channelPickerOpen.value = true
 }
 
 async function confirmChannelPicker() {
   const filename = channelPickerFilename.value
   const channelIds = [...pickerSelectedIds.value]
-  photoChannels.value[filename] = channelIds
   channelPickerOpen.value = false
-  await savePhotoChannels(props.showId, filename, channelIds)
+  await props.saveChannelsFn(filename, channelIds)
 }
 
-async function uploadFiles(files) {
-  uploadQueue.value = files.map(f => ({ name: f.name, progress: 0, done: false, error: false }))
-  for (let i = 0; i < files.length; i++) {
-    try {
-      await uploadPhoto(props.showId, files[i], (p) => {
-        uploadQueue.value[i].progress = p
-      })
-      uploadQueue.value[i].done = true
-      emit('update:photos', await fetchPhotos(props.showId))
-    } catch {
-      uploadQueue.value[i].error = true
-    }
-  }
-  setTimeout(() => { uploadQueue.value = [] }, 2000)
-}
-
-function onFileInput(e) { uploadFiles([...e.target.files]); e.target.value = '' }
+function onFileInput(e) { props.uploadFilesFn([...e.target.files]); e.target.value = '' }
 function onDrop(e) {
   dragging.value = false
   const files = [...e.dataTransfer.files].filter(f => f.type.startsWith('image/'))
-  if (files.length) uploadFiles(files)
+  if (files.length) props.uploadFilesFn(files)
 }
 
 async function onDeletePhoto(filename) {
   const ok = await confirm({ t, titleKey: 'show.photo.delete.confirm', confirmKey: 'action.delete', cancelKey: 'action.cancel' })
   if (!ok) return
-  await deletePhoto(props.showId, filename)
-  emit('update:photos', props.photos.filter(f => f !== filename))
-  delete photoCaptions.value[filename]
-  delete photoChannels.value[filename]
+  await props.deletePhotoFn(filename)
 }
 
 const lightboxIndex = computed(() => props.photos.indexOf(lightboxPhoto.value))

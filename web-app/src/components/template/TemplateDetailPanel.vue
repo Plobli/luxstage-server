@@ -106,7 +106,7 @@
                 positionNamePlaceholder: t('channel.position.name.placeholder'),
               }"
               class="h-full"
-              @change="persist()"
+              @change="persistChannels()"
               @deleteChannel="deleteChannel($event)"
               @clearChannel="clearChannel($event)"
               @reorder="detailChannels.splice(0, detailChannels.length, ...$event)"
@@ -189,7 +189,7 @@
             :towers="[]"
             :bars="floorplanBars"
             @change="onFloorplanChange"
-            @upload-image="(f) => onFloorplanImageUpload({ target: { files: [f] } })"
+            @upload-image="onFloorplanImageUpload"
             @delete-image="removeFloorplanImage"
           />
           </div>
@@ -251,17 +251,12 @@
 import { ref, computed, watch, nextTick } from 'vue'
 import { ArrowLeft, Pencil } from 'lucide-vue-next'
 import { useLocale } from '../../composables/useLocale.js'
-import { fetchTemplateChannels, saveTemplate, saveTemplateOscHost, renameTemplate, applyTemplateToAllShows, fetchTemplatePdfUrl } from '../../api/templates.js'
-import { fetchTemplateSections, saveTemplateSections } from '../../api/sections.js'
-import { fetchShows } from '../../api/shows.js'
+import { useTemplateDetail } from '../../composables/useTemplateDetail.js'
 import { templateDisplayName } from '../../utils/templateName.js'
-import { uuid } from '../../utils/uuid.js'
 import ChannelTable from '../channel/ChannelTable.vue'
-import { fetchTemplateFloorplan, saveTemplateFloorplan, uploadTemplateFloorplanImage, deleteTemplateFloorplanImage } from '../../api/floorplan.js'
 import FloorplanEditor from '../FloorplanEditor.vue'
 import TemplateBarsPanel from './TemplateBarsPanel.vue'
 import TemplateTowersPanel from './TemplateTowersPanel.vue'
-import { api } from '../../api/client.js'
 
 import { Button } from '@/components/ui/button'
 import { Alert, AlertDescription } from '@/components/ui/alert'
@@ -270,7 +265,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogB
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { Input } from '@/components/ui/input'
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectGroup, SelectItem } from '@/components/ui/select'
-import { isSectionTableType, sectionTypeHasRows } from '@shared/constants.js'
 
 const { t } = useLocale()
 
@@ -280,6 +274,21 @@ const props = defineProps({
 })
 const emit = defineEmits(['close', 'renamed', 'oscHostChanged'])
 
+// Reine Darstellung: Kanäle, Abschnitte, Grundriss usw. laufen über
+// useTemplateDetail.js, damit die Komponente ohne laufenden Server
+// darstellbar bleibt (F-04).
+const {
+  detailChannels, detailLoading, detailSaving,
+  templateSections, sectionsSaving,
+  floorplanImageUrl, floorplanCanvasData, floorplanError,
+  loadChannelsAndSections, persistChannels, deleteChannel, clearChannel,
+  persistSections, addSection, deleteSection, moveSection, addField, deleteField,
+  hasKvTableType, onTypeChange,
+  loadFloorplan, onFloorplanChange, onFloorplanImageUpload, removeFloorplanImage,
+  saveOscHost, renameTo, fetchPdfUrl,
+  loadShowsUsingTemplate, applyToShows,
+} = useTemplateDetail(computed(() => props.templateName))
+
 const editingOscHost = ref(props.oscHost)
 const oscSaving = ref(false)
 const renamingName = ref(false)
@@ -288,16 +297,7 @@ const renameError = ref('')
 const renameSaving = ref(false)
 const renameInput = ref(null)
 
-const detailChannels = ref([])
-const detailLoading = ref(false)
-const detailSaving = ref(false)
 const activeTab = ref('channels')
-const templateSections = ref([])
-const sectionsSaving = ref(false)
-const floorplanImageUrl = ref(null)
-const floorplanCanvasData = ref(null)
-const floorplanUploading = ref(false)
-const floorplanError = ref('')
 
 const barsPanel = ref(null)
 const towersPanel = ref(null)
@@ -329,16 +329,9 @@ const groupedChannels = computed(() => {
 const floorplanBars = computed(() => barsPanel.value?.bars ?? [])
 
 async function loadDetail() {
-  detailLoading.value = true
   activeTab.value = 'channels'
   editingOscHost.value = props.oscHost
-  const [channels, sections] = await Promise.all([
-    fetchTemplateChannels(props.templateName),
-    fetchTemplateSections(props.templateName),
-  ])
-  detailChannels.value = channels
-  templateSections.value = Array.isArray(sections) ? sections : (sections?.sections ?? [])
-  detailLoading.value = false
+  await loadChannelsAndSections()
   await nextTick()
   await Promise.all([barsPanel.value?.loadBars(), towersPanel.value?.loadTowers()])
 }
@@ -350,7 +343,7 @@ watch(() => props.templateName, () => {
 
 async function persistOscHost() {
   oscSaving.value = true
-  await saveTemplateOscHost(props.templateName, editingOscHost.value)
+  await saveOscHost(editingOscHost.value)
   emit('oscHostChanged', editingOscHost.value)
   oscSaving.value = false
 }
@@ -389,7 +382,7 @@ async function commitRename() {
   renameSaving.value = true
   renameError.value = ''
   try {
-    await renameTemplate(props.templateName, newName)
+    await renameTo(newName)
     renamingName.value = false
     emit('renamed', newName)
   } catch (e) {
@@ -401,130 +394,22 @@ async function commitRename() {
   }
 }
 
-async function persist() {
-  detailSaving.value = true
-  await saveTemplate(props.templateName, detailChannels.value)
-  detailSaving.value = false
-}
-
 async function downloadPdfVordruck() {
-  const url = await fetchTemplatePdfUrl(props.templateName)
+  const url = await fetchPdfUrl()
   window.open(url, '_blank')
-}
-
-async function loadFloorplan() {
-  if (!props.templateName) return
-  const data = await fetchTemplateFloorplan(props.templateName).catch(() => null)
-  floorplanImageUrl.value = data?.image_url ? (await api.url(data.image_url)) + '&t=' + Date.now() : null
-  floorplanCanvasData.value = data?.canvas_data ?? null
-}
-
-function onFloorplanChange(canvasData) {
-  floorplanCanvasData.value = canvasData
-  saveTemplateFloorplan(props.templateName, canvasData).catch(() => {})
-}
-
-async function onFloorplanImageUpload(e) {
-  const file = e.target.files[0]
-  if (!file || floorplanUploading.value) return
-  floorplanUploading.value = true
-  floorplanError.value = ''
-  try {
-    const result = await uploadTemplateFloorplanImage(props.templateName, file)
-    floorplanImageUrl.value = result.image_url ? await api.url(result.image_url) : null
-    e.target.value = ''
-  } catch (err) {
-    floorplanError.value = err?.message || 'Upload fehlgeschlagen'
-  } finally {
-    floorplanUploading.value = false
-  }
-}
-
-async function removeFloorplanImage() {
-  floorplanError.value = ''
-  try {
-    await deleteTemplateFloorplanImage(props.templateName)
-    floorplanImageUrl.value = null
-  } catch (err) {
-    floorplanError.value = err?.message || 'Löschen fehlgeschlagen'
-  }
-}
-
-async function persistSections() {
-  sectionsSaving.value = true
-  await saveTemplateSections(props.templateName, templateSections.value)
-  sectionsSaving.value = false
-}
-
-async function deleteChannel(ch) {
-  detailChannels.value = detailChannels.value.filter(c => c.channel !== ch.channel)
-  await persist()
-}
-
-async function clearChannel(ch) {
-  ch.notes = ''
-  ch.color = ''
-  await persist()
-}
-
-// ── Sections ────────────────────────────────────────────────────────────────
-
-function addSection() {
-  templateSections.value.push({ id: uuid(), title: '', type: 'markdown', order: templateSections.value.length, rows: [] })
-  persistSections()
-}
-
-function deleteSection(idx) {
-  templateSections.value.splice(idx, 1)
-  templateSections.value.forEach((s, i) => s.order = i)
-  persistSections()
-}
-
-function moveSection(idx, dir) {
-  const arr = templateSections.value
-  const swap = idx + dir
-  if (swap < 0 || swap >= arr.length) return
-  ;[arr[idx], arr[swap]] = [arr[swap], arr[idx]]
-  arr.forEach((s, i) => s.order = i)
-  persistSections()
-}
-
-function addField(section) {
-  if (!section.rows) section.rows = []
-  section.rows.push({ key: uuid().slice(0, 8), label: '', value: '' })
-  persistSections()
-}
-
-function deleteField(section, idx) {
-  const arr = section.rows ?? section.fields
-  arr?.splice(idx, 1)
-  persistSections()
-}
-
-function hasKvTableType() {
-  return templateSections.value.some(s => isSectionTableType(s.type))
-}
-
-function onTypeChange(section, newType) {
-  if (isSectionTableType(newType) && hasKvTableType() && !isSectionTableType(section.type)) return
-  section.type = newType
-  if (sectionTypeHasRows(newType) && !section.rows) section.rows = []
-  persistSections()
 }
 
 // ── Auf alle Shows anwenden ─────────────────────────────────────────────────
 
 // Öffnet die Vorschau. Die betroffenen Shows sind die, deren template-Feld auf
-// diese Vorlage zeigt. Deckt sich mit der Server-Bedingung beim Übertragen
-// (template = ? AND archived = 0) — /api/shows liefert ohnehin nur unarchivierte.
+// diese Vorlage zeigt.
 async function handleApplyToAllShows(scope) {
   applyScope.value = scope
   applyShows.value = []
   applyShowsLoading.value = true
   applyDialogOpen.value = true
   try {
-    const shows = await fetchShows()
-    applyShows.value = shows.filter(s => s.template === props.templateName)
+    applyShows.value = await loadShowsUsingTemplate()
   } catch {
     applyShows.value = []
   } finally {
@@ -536,7 +421,7 @@ async function confirmApplyToAllShows() {
   const scope = applyScope.value
   applyingToShows.value = scope
   try {
-    const result = await applyTemplateToAllShows(props.templateName, scope)
+    const result = await applyToShows(scope)
     applyResultText.value = t(`template.apply_to_shows.${scope}.result`, {
       shows: result.shows,
       bars: result.barsAdded,
