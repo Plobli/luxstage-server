@@ -6,7 +6,7 @@
 import PDFDocument from 'pdfkit'
 import fs from 'node:fs'
 import { mm, PAGE_MARGIN, COL, GROUP_H, ROW_MIN_H, FONT_NORMAL, FONT_BOLD } from './pdf/constants.js'
-import { calcRowHeight, drawRow } from './pdf/layout-primitives.js'
+import { calcRowHeight, drawRow, drawHeaderRow } from './pdf/layout-primitives.js'
 import { parseSetupSection, renderSetupBlocks } from './pdf/tiptap-parse.js'
 import { rendererFor } from './pdf/section-renderers.js'
 import { drawTowerCards, renderGassenturmText } from './pdf/towers.js'
@@ -179,7 +179,7 @@ export async function generatePDF(data, stream, opts = {}) {
     y += GROUP_H
 
     // Spalten-Header
-    y = drawRow(doc, y, usableW, headerCols, true)
+    y = drawHeaderRow(doc, y, usableW, headerCols)
 
     // Datenzeilen — im Vordruck: Ch/Adresse/Gerät vorgedruckt, Filter/Notizen
     // leer zum handschriftlichen Ausfüllen; zusätzlich Leerzeilen für neue Kreise
@@ -213,9 +213,9 @@ export async function generatePDF(data, stream, opts = {}) {
           .text(`${position.toUpperCase()} (Forts.)`, PAGE_MARGIN + mm(2), y + mm(1.6))
         doc.fill('black')
         y += GROUP_H
-        y = drawRow(doc, y, usableW, headerCols, true)
+        y = drawHeaderRow(doc, y, usableW, headerCols)
       }
-      y = drawRow(doc, y, usableW, rowCols, false, blank ? mm(9) : ROW_MIN_H)
+      y = drawRow(doc, y, usableW, rowCols, { minRowH: blank ? mm(9) : ROW_MIN_H })
       await new Promise(resolve => setImmediate(resolve))
     }
     y += mm(3)
@@ -234,7 +234,7 @@ export async function generatePDF(data, stream, opts = {}) {
       .text('NEUE KREISE / ZUSÄTZLICHER AUFBAU', PAGE_MARGIN + mm(2), y + mm(1.6), { width: usableW - mm(4) })
     doc.fill('black')
     y += GROUP_H
-    y = drawRow(doc, y, usableW, headerCols, true)
+    y = drawHeaderRow(doc, y, usableW, headerCols)
 
     const emptyRowCols = [
       { text: '', w: COL.channel, bold: true },
@@ -253,9 +253,9 @@ export async function generatePDF(data, stream, opts = {}) {
           .text('NEUE KREISE / ZUSÄTZLICHER AUFBAU (Forts.)', PAGE_MARGIN + mm(2), y + mm(1.6))
         doc.fill('black')
         y += GROUP_H
-        y = drawRow(doc, y, usableW, headerCols, true)
+        y = drawHeaderRow(doc, y, usableW, headerCols)
       }
-      y = drawRow(doc, y, usableW, emptyRowCols, false, mm(9))
+      y = drawRow(doc, y, usableW, emptyRowCols, { minRowH: mm(9) })
     }
   }
 

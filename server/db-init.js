@@ -228,8 +228,15 @@ export function initSchema(database) {
 export function initDb(dbPath = path.join(config.dataPath, 'luxstage.db')) {
   if (dbContainer.db) return dbContainer.db
   fs.mkdirSync(path.dirname(dbPath), { recursive: true })
-  dbContainer.db = new Database(dbPath)
-  initSchema(dbContainer.db)
+  try {
+    dbContainer.db = new Database(dbPath)
+    initSchema(dbContainer.db)
+  } catch (err) {
+    console.error(`\nAbbruch: Datenbank unter ${dbPath} konnte nicht geöffnet werden.`)
+    console.error(`Ursache: ${err.message}`)
+    console.error('Falls die Datei beschädigt ist: aus einem Backup wiederherstellen (siehe /api/backup/restore) oder die Datei entfernen, um neu zu starten.\n')
+    process.exit(1)
+  }
   return dbContainer.db
 }
 

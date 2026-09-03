@@ -1,9 +1,16 @@
-import * as db from '../db.js'
 import * as photos from '../photos.js'
 import * as floorplan from '../floorplan.js'
 import { notFound } from '../helpers.js'
 import { generatePDF, pdfFilename } from '../pdf.js'
 import { getDisplayUnit, getPhotosPerPage } from './display.js'
+import { readShow } from '../db/shows.js'
+import { readChannels } from '../db/channels.js'
+import { readShowSections, readShowSectionDefs } from '../db/sections.js'
+import { readPhotoDescriptions } from '../db/photos.js'
+import { readTowers } from '../db/towers.js'
+import { readBars } from '../db/bars.js'
+import { getShowFloorplan, getTemplateFloorplan } from '../db/floorplan.js'
+import { getTemplateByName } from '../db/templates.js'
 
 const SHOW_PDF = /^\/api\/shows\/([^/]+)\/pdf$/
 
@@ -14,29 +21,29 @@ export async function pdfRoutes(req, res, pathname, params) {
   if (method === 'GET' && (m = SHOW_PDF.exec(pathname))) {
     const slug = m[1]
     const blank = params?.blank === '1'
-    const show = db.readShow(slug)
+    const show = readShow(slug)
     if (!show) return notFound(res)
     const unit = getDisplayUnit()
-    const channels = db.readChannels(slug)
-    const sectionsMap = db.readShowSections(slug)
-    const templateSections = db.readShowSectionDefs(slug)
+    const channels = readChannels(slug)
+    const sectionsMap = readShowSections(slug)
+    const templateSections = readShowSectionDefs(slug)
     const photoFilenames = await photos.listPhotos(slug)
-    const captionsMap = db.readPhotoDescriptions(slug)
+    const captionsMap = readPhotoDescriptions(slug)
     const photoEntries = photoFilenames.map(f => ({
       path: photos.getPhotoPath(slug, f),
       caption: captionsMap[f]?.caption ?? '',
     }))
-    const towers = db.readTowers(slug)
-    const bars = db.readBars(slug)
-    const floorplanRow = db.getShowFloorplan(show.id)
+    const towers = readTowers(slug)
+    const bars = readBars(slug)
+    const floorplanRow = getShowFloorplan(show.id)
     let imagePath = null
     let canvasData = floorplanRow?.canvas_data ?? null
     if (floorplanRow?.image_path) {
       imagePath = floorplan.resolveFloorplanImagePath(floorplanRow.image_path)
     } else if (show.template) {
-      const tpl = db.getTemplateByName(show.template)
+      const tpl = getTemplateByName(show.template)
       if (tpl) {
-        const fp = db.getTemplateFloorplan(tpl.id)
+        const fp = getTemplateFloorplan(tpl.id)
         if (fp?.image_path) imagePath = floorplan.resolveFloorplanImagePath(fp.image_path)
         if (!canvasData && fp?.canvas_data) canvasData = fp.canvas_data
       }

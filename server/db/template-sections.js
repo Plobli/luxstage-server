@@ -1,30 +1,12 @@
 import { getDb } from '../db-context.js'
 import { randomUUID } from 'node:crypto'
 import { sectionTypeHasRows } from '../../shared/constants.js'
+import { readSectionDefsCore } from './section-defs-core.js'
 
 export function readTemplateSections(name) {
   const tpl = getDb().prepare('SELECT * FROM templates WHERE name = ?').get(name)
   if (!tpl) return []
-  const defs = getDb().prepare('SELECT * FROM template_section_defs WHERE template_id = ? ORDER BY sort_order').all(tpl.id)
-  if (!defs.length) return []
-  const defIds = defs.map(d => d.id)
-  const ph = defIds.map(() => '?').join(',')
-  const rowsAll = getDb().prepare(`SELECT * FROM template_section_kv_rows WHERE section_id IN (${ph}) ORDER BY sort_order`).all(defIds)
-  const fieldsAll = getDb().prepare(`SELECT * FROM template_section_fields WHERE section_id IN (${ph}) ORDER BY sort_order`).all(defIds)
-  const rowsBySection = Map.groupBy(rowsAll, r => r.section_id)
-  const fieldsBySection = Map.groupBy(fieldsAll, f => f.section_id)
-  return defs.map(def => {
-    if (sectionTypeHasRows(def.type)) {
-      return {
-        id: def.id, title: def.title, type: def.type, icon: def.icon ?? '', order: def.sort_order,
-        rows: (rowsBySection.get(def.id) ?? []).map(r => ({ id: r.id, label: r.label, value: r.value, sort_order: r.sort_order })),
-      }
-    }
-    return {
-      id: def.id, title: def.title, type: def.type, icon: def.icon ?? '', order: def.sort_order,
-      fields: (fieldsBySection.get(def.id) ?? []).map(f => ({ id: f.id, key: f.key, label: f.label, unit: f.unit })),
-    }
-  })
+  return readSectionDefsCore('template_section_defs', 'template_section_kv_rows', 'template_section_fields', 'template_id', tpl.id)
 }
 
 export function writeTemplateSections(name, defs) {

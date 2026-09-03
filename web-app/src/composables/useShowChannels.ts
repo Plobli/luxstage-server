@@ -5,16 +5,9 @@ import { updateMeta } from '../api/shows'
 import { ApiError } from '../api/client'
 import { useUndoRedo } from './useUndoRedo'
 import { parseEosCsv } from '../utils/eos-csv'
+import { buildCircuitScanDiff, type CircuitScanFieldChange, type CircuitScanUpdatedRow } from '../utils/circuitScanDiff'
 
-export interface CircuitScanFieldChange {
-  key: 'address' | 'device' | 'position' | 'color' | 'notes';
-  oldValue: string;
-  newValue: string;
-}
-export interface CircuitScanUpdatedRow {
-  channel: string;
-  changes: CircuitScanFieldChange[];
-}
+export type { CircuitScanFieldChange, CircuitScanUpdatedRow }
 export interface CircuitScanPreview {
   open: boolean;
   updated: CircuitScanUpdatedRow[];
@@ -53,6 +46,7 @@ export function useShowChannels({
 }) {
   const channels = ref<Channel[]>([])
   const channelsSaving = ref(false)
+  const channelsSaveError = ref<string | null>(null)
   const circuitScanUploading = ref(false)
   const circuitScanStatus = ref<{ type: 'success' | 'error', message: string } | null>(null)
   let circuitScanStatusTimer: ReturnType<typeof setTimeout> | null = null
@@ -93,6 +87,7 @@ export function useShowChannels({
     try {
       await saveChannels(showId, channels.value)
       markSaved()
+      channelsSaveError.value = null
       if (meta.value) {
         meta.value.datum = new Date().toISOString().split('T')[0]
         await updateMeta(showId, { ...meta.value })
@@ -102,7 +97,11 @@ export function useShowChannels({
         onLockConflict?.(e.body)
         return
       }
-      throw e
+      // scheduleChannelsSave() ruft die debounced Version fire-and-forget auf (kein await,
+      // kein .catch()) — ein erneutes throw hier würde eine unhandled promise rejection
+      // erzeugen und der Nutzer würde nie erfahren, dass seine Änderung nicht gespeichert wurde.
+      channelsSaveError.value = e instanceof ApiError ? e.message : t('error.save_failed')
+      console.error('[useShowChannels] Autosave fehlgeschlagen:', e)
     } finally {
       channelsSaving.value = false
     }
@@ -255,27 +254,6 @@ export function useShowChannels({
     event.target.value = ''
   }
 
-  const CIRCUIT_SCAN_DIFF_FIELDS = ['address', 'device', 'position', 'color', 'notes'] as const
-
-  function buildCircuitScanDiff(existing: Channel[], rows: Channel[]): { updated: CircuitScanUpdatedRow[], added: Channel[] } {
-    const byChannel = new Map(existing.map(ch => [ch.channel, ch]))
-    const updated: CircuitScanUpdatedRow[] = []
-    const added: Channel[] = []
-    for (const row of rows) {
-      const match = byChannel.get(row.channel)
-      if (!match) { added.push(row); continue }
-      const changes: CircuitScanFieldChange[] = []
-      for (const key of CIRCUIT_SCAN_DIFF_FIELDS) {
-        const newValue = row[key]
-        if (newValue === undefined || newValue === '') continue
-        const oldValue = match[key] ?? ''
-        if (newValue !== oldValue) changes.push({ key, oldValue, newValue })
-      }
-      if (changes.length > 0) updated.push({ channel: row.channel, changes })
-    }
-    return { updated, added }
-  }
-
   async function onCircuitScanFileSelected(event: any): Promise<void> {
     const file = event.target.files?.[0]
     event.target.value = ''
@@ -320,13 +298,28 @@ export function useShowChannels({
     }
   }
 
+  // Wie doPersistChannels() bewusst ohne erneutes throw: beide Aufrufer
+  // (onEosFileSelected, toggleChannelStatus) rufen fire-and-forget aus einem
+  // Vue-Event-Handler auf (kein await/.catch() am Aufrufort) — ein throw hier
+  // würde eine unhandled promise rejection erzeugen, ohne dass der Nutzer
+  // erfährt, dass sein EOS-Import/Toggle nicht gespeichert wurde.
   async function persistEosChannels(): Promise<void> {
-    await updateMeta(showId, {
-      ...meta.value,
-      setupMarkdown: setupMarkdown.value,
-      eosActiveChannels: eosActiveChannels.value,
-      eosExcludedChannels: eosExcludedChannels.value,
-    })
+    try {
+      await updateMeta(showId, {
+        ...meta.value,
+        setupMarkdown: setupMarkdown.value,
+        eosActiveChannels: eosActiveChannels.value,
+        eosExcludedChannels: eosExcludedChannels.value,
+      })
+      channelsSaveError.value = null
+    } catch (e) {
+      if (e instanceof ApiError && e.status === 423) {
+        onLockConflict?.(e.body)
+        return
+      }
+      channelsSaveError.value = e instanceof ApiError ? e.message : t('error.save_failed')
+      console.error('[useShowChannels] EOS-Speichern fehlgeschlagen:', e)
+    }
   }
 
   async function onEosFileSelected(e: any): Promise<void> {
@@ -513,6 +506,7 @@ export function useShowChannels({
   return {
     channels,
     channelsSaving,
+    channelsSaveError,
     search,
     healthFilter,
     activateHealthFilter,

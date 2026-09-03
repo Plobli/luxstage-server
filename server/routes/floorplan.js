@@ -4,7 +4,7 @@ import { readShow } from '../db/shows.js'
 import { getTemplateByName } from '../db/templates.js'
 import * as floorplanLib from '../floorplan.js'
 import * as photosLib from '../photos.js'
-import { readJsonBody, json, notFound } from '../helpers.js'
+import { readJsonBody, json, notFound, uploadErrorStatus } from '../helpers.js'
 import { withUndoSnapshot } from '../db/operations.js'
 
 const FP_IMAGES       = /^\/api\/floorplans\/images\/(.+)$/
@@ -50,8 +50,7 @@ export async function floorplanRoutes(req, res, pathname) {
         })
         return json(res, 200, { image_url: floorplanLib.floorplanUrl(imgPath) })
       } catch (e) {
-        const status = /zu groß|zu viele/i.test(e.message) ? 413 : 400
-        return json(res, status, { error: e.message || 'Bild-Upload fehlgeschlagen' })
+        return json(res, uploadErrorStatus(e.message), { error: e.message || 'Bild-Upload fehlgeschlagen' })
       } finally {
         await upload?.cleanup()
       }

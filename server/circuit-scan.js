@@ -19,7 +19,7 @@ const ScanResultSchema = z.object({
   })),
 })
 
-function mimeFromBuffer(buf) {
+export function mimeFromBuffer(buf) {
   if (buf[0] === 0xff && buf[1] === 0xd8) return 'image/jpeg'
   if (buf[0] === 0x89 && buf[1] === 0x50) return 'image/png'
   if (buf.slice(0, 4).toString('ascii') === 'RIFF') return 'image/webp'
@@ -29,11 +29,12 @@ function mimeFromBuffer(buf) {
 // knownChannels: [{ channel, address, device, position }] — aus der aktuellen
 // Show, dient Claude als Kontext/Anker beim Lesen der vorgedruckten Spalten.
 export async function analyzeCircuitScan(imageBuffer, knownChannels) {
-  const client = new Anthropic(
-    process.env.ANTHROPIC_WORKSPACE_ID
+  const client = new Anthropic({
+    maxRetries: 2, // SDK-eigener Backoff bei 429/5xx — einziger externer Dienst im Repo ohne Fallback bei transientem Fehler
+    ...(process.env.ANTHROPIC_WORKSPACE_ID
       ? { defaultHeaders: { 'anthropic-workspace-id': process.env.ANTHROPIC_WORKSPACE_ID } }
-      : undefined
-  )
+      : {}),
+  })
   const mediaType = mimeFromBuffer(imageBuffer)
   const imageData = imageBuffer.toString('base64')
 
@@ -73,7 +74,7 @@ export async function analyzeCircuitScan(imageBuffer, knownChannels) {
       ],
     }],
     output_config: { format: zodOutputFormat(ScanResultSchema) },
-  })
+  }, { timeout: 45_000 }) // interaktiver Foto-Upload — SDK-Default ist deutlich großzügiger
 
   if (!response.parsed_output) throw new Error('Kreisliste konnte nicht ausgewertet werden')
   return response.parsed_output

@@ -1,9 +1,12 @@
-import * as db from '../db.js'
 import { requireAuth } from '../auth.js'
 import { readJsonBody, json, notFound } from '../helpers.js'
 import { subscribe, broadcast, sendToUser, getPresence } from '../sse.js'
 import { getLastOperation, deleteOperation, pushRedo, popRedo, recordSnapshot } from '../db/operations.js'
 import { readFullShowState, writeFullShowState, computeStateHash } from '../db/full-state.js'
+import { acquireLock, releaseLock, transferLock, touchLock, getLock, listLocks } from '../db/locks.js'
+import { applyTemplateToShow, saveShowItemsToTemplate } from '../db/template-apply.js'
+import { readChannels, writeChannels, getChecks } from '../db/channels.js'
+import { listShows, listArchivedShows, readShow, writeShow, createShow, archiveShow, restoreShow, deleteShow } from '../db/shows.js'
 
 const SHOW_LIST          = /^\/api\/shows$/
 const SHOW_ARCHIVED      = /^\/api\/shows\/archived$/
@@ -25,13 +28,13 @@ export async function showRoutes(req, res, pathname, params) {
   let m
 
   if (method === 'GET' && SHOW_LIST.test(pathname)) {
-    const shows = db.listShows()
-    const locks = db.listLocks()
+    const shows = listShows()
+    const locks = listLocks()
     return json(res, 200, shows.map(({ id: _id, ...s }) => ({ id: s.slug, ...s, lock: locks.get(_id) ?? null })))
   }
 
   if (method === 'GET' && SHOW_ARCHIVED.test(pathname)) {
-    const shows = db.listArchivedShows()
+    const shows = listArchivedShows()
     return json(res, 200, shows.map(({ id: _id, ...s }) => ({ id: s.slug, ...s })))
   }
 
@@ -39,8 +42,13 @@ export async function showRoutes(req, res, pathname, params) {
     const body = await readJsonBody(req, res); if (body === null) return
     const { id, name, datum, template, spielzeit, channels, use_bars, use_towers, importSections } = body
     if (!id || !/^[a-z0-9_-]+$/i.test(id)) return json(res, 400, { error: 'Ungültige ID' })
-    db.createShow(id, { name, datum, template, spielzeit, use_bars: use_bars !== false, use_towers: use_towers !== false, importSections })
-    if (Array.isArray(channels) && channels.length) db.writeChannels(id, channels)
+    try {
+      createShow(id, { name, datum, template, spielzeit, use_bars: use_bars !== false, use_towers: use_towers !== false, importSections })
+    } catch (err) {
+      if (err.code === 'SQLITE_CONSTRAINT_UNIQUE') return json(res, 409, { error: 'Eine Show mit dieser ID existiert bereits' })
+      throw err
+    }
+    if (Array.isArray(channels) && channels.length) writeChannels(id, channels)
     return json(res, 201, { id })
   }
 
@@ -58,7 +66,7 @@ export async function showRoutes(req, res, pathname, params) {
       if (use_towers !== undefined) fields.use_towers = use_towers ? 1 : 0
       fields.last_edited_by = user.username
       fields.last_edited_at = Date.now()
-      db.writeShow(slug, fields)
+      writeShow(slug, fields)
       return json(res, 200, { ok: true })
     }
   }
@@ -72,7 +80,7 @@ export async function showRoutes(req, res, pathname, params) {
       const withChannels = body.withChannels === true
       const selectedIds = Array.isArray(body.selectedIds) ? body.selectedIds : null
       try {
-        db.applyTemplateToShow(body.templateName, slug, scope, withChannels, selectedIds)
+        applyTemplateToShow(body.templateName, slug, scope, withChannels, selectedIds)
         if (scope !== 'sections') broadcast(slug, scope === 'bars' ? 'bars' : 'towers', {})
         return json(res, 200, { ok: true })
       } catch (e) {
@@ -91,12 +99,12 @@ export async function showRoutes(req, res, pathname, params) {
       const selectedIds = Array.isArray(body.selectedIds) ? body.selectedIds : []
       const fields = body.fields && typeof body.fields === 'object' ? body.fields : {}
       const overrideName = typeof body.overrideName === 'string' ? body.overrideName.trim() : null
-      const show = db.readShow(slug)
+      const show = readShow(slug)
       if (!show) return notFound(res)
       const templateName = body.templateName ?? show.template
       if (!templateName) return json(res, 400, { error: 'Kein Template zugeordnet' })
       try {
-        db.saveShowItemsToTemplate(templateName, slug, scope, selectedIds, fields, overrideName)
+        saveShowItemsToTemplate(templateName, slug, scope, selectedIds, fields, overrideName)
         return json(res, 200, { ok: true })
       } catch (e) {
         return json(res, 404, { error: e.message })
@@ -107,7 +115,7 @@ export async function showRoutes(req, res, pathname, params) {
   if (m = SHOW_RESTORE.exec(pathname)) {
     const slug = m[1]
     if (method === 'POST') {
-      db.restoreShow(slug)
+      restoreShow(slug)
       return json(res, 200, { ok: true })
     }
   }
@@ -116,7 +124,7 @@ export async function showRoutes(req, res, pathname, params) {
     const slug = m[1]
     if (method === 'DELETE') {
       const user = requireAuth(req, res); if (!user) return
-      db.deleteShow(slug)
+      deleteShow(slug)
       return json(res, 200, { ok: true })
     }
   }
@@ -126,7 +134,7 @@ export async function showRoutes(req, res, pathname, params) {
     if (method === 'POST') {
       // Lock bereits zentral in router.js geprüft (undo ist ein normaler Write).
       const user = req.user
-      const show = db.readShow(slug)
+      const show = readShow(slug)
       if (!show) return notFound(res)
 
       const op = getLastOperation(show.id)
@@ -156,7 +164,7 @@ export async function showRoutes(req, res, pathname, params) {
     if (method === 'POST') {
       // Lock bereits zentral in router.js geprüft (redo ist ein normaler Write).
       const user = req.user
-      const show = db.readShow(slug)
+      const show = readShow(slug)
       if (!show) return notFound(res)
 
       const entry = popRedo(show.id)
@@ -184,7 +192,7 @@ export async function showRoutes(req, res, pathname, params) {
     const slug = m[1]
     if (method === 'POST') {
       const user = req.user
-      const lock = db.getLock(slug)
+      const lock = getLock(slug)
       if (!lock) return json(res, 400, { error: 'Keine Sperre aktiv' })
       if (lock.user === user.username) return json(res, 400, { error: 'Du hältst bereits die Sperre' })
       sendToUser(slug, lock.user, 'lock-takeover-requested', { requestedBy: user.username })
@@ -196,24 +204,24 @@ export async function showRoutes(req, res, pathname, params) {
     const slug = m[1]
     if (method === 'POST') {
       const user = req.user
-      const result = db.acquireLock(slug, user.username)
-      if (result.ok) broadcast(slug, 'lock-status-updated', { lock: db.getLock(slug) })
+      const result = acquireLock(slug, user.username)
+      if (result.ok) broadcast(slug, 'lock-status-updated', { lock: getLock(slug) })
       return json(res, result.ok ? 200 : 423, result)
     }
     if (method === 'DELETE') {
       const user = req.user
       const body = await readJsonBody(req, res); if (body === null) return
       if (body.transferTo) {
-        db.transferLock(slug, user.username, body.transferTo)
+        transferLock(slug, user.username, body.transferTo)
       } else {
-        db.releaseLock(slug, user.username)
+        releaseLock(slug, user.username)
       }
-      broadcast(slug, 'lock-status-updated', { lock: db.getLock(slug) })
+      broadcast(slug, 'lock-status-updated', { lock: getLock(slug) })
       return json(res, 200, { ok: true })
     }
     if (method === 'PUT') {
       const user = req.user
-      db.touchLock(slug, user.username)
+      touchLock(slug, user.username)
       return json(res, 200, { ok: true })
     }
   }
@@ -223,7 +231,7 @@ export async function showRoutes(req, res, pathname, params) {
       const user = req.user
       const id = m[1]
       const device = params.device || 'web'
-      subscribe(id, res, user.username, device, db.getChecks)
+      subscribe(id, res, user.username, device, getChecks)
       return
     }
   }
@@ -237,10 +245,10 @@ export async function showRoutes(req, res, pathname, params) {
   if (m = SHOW_ID.exec(pathname)) {
     const slug = m[1]
     if (method === 'GET') {
-      const show = db.readShow(slug)
+      const show = readShow(slug)
       if (!show) return notFound(res)
-      const channels = db.readChannels(slug).map(({ show_id: _, sort_order: __, ...ch }) => ch)
-      const lock = db.getLock(slug)
+      const channels = readChannels(slug).map(({ show_id: _, sort_order: __, ...ch }) => ch)
+      const lock = getLock(slug)
       return json(res, 200, {
         id: show.slug,
         name: show.name,
@@ -257,7 +265,7 @@ export async function showRoutes(req, res, pathname, params) {
       })
     }
     if (method === 'DELETE') {
-      db.archiveShow(slug)
+      archiveShow(slug)
       return json(res, 200, { ok: true })
     }
   }

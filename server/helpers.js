@@ -63,3 +63,9 @@ export function parseUrl(url) {
   const u = new URL(url, 'http://localhost')
   return { pathname: u.pathname, search: u.search, params: Object.fromEntries(u.searchParams) }
 }
+
+// Multipart-Upload-Fehler (busboy-Limits, s. photos.js parseMultipart) tragen "zu groß"/
+// "zu viele" in der Message — alles andere ist ein regulärer Verarbeitungsfehler (400).
+export function uploadErrorStatus(message) {
+  return /zu groß|zu viele/i.test(message || '') ? 413 : 400
+}

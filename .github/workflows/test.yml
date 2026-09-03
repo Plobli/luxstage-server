@@ -1,0 +1,29 @@
+name: Tests
+
+# Führt die Backend- und Frontend-Testsuite bei jedem Push/PR gegen main aus.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4.2.2
+
+      - name: Node.js einrichten
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Abhängigkeiten installieren
+        run: npm ci
+
+      - name: Server-Tests
+        run: npm test -w server
+
+      - name: Web-App-Tests
+        run: npm test -w web-app

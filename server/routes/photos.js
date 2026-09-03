@@ -3,7 +3,7 @@ import fs from 'node:fs'
 import { addChannelPhoto, deletePhotoChannels, deletePhotoDescription, readAllPhotoChannels, readChannelPhotos, readPhotoDescriptions, removeChannelPhoto, reorderChannelPhotos, setPhotoChannels, writePhotoDescription } from '../db/photos.js'
 import * as photosLib from '../photos.js'
 import { requireAuth } from '../auth.js'
-import { readBody, readBodyBuffer, readJsonBody, json, notFound } from '../helpers.js'
+import { readBodyBuffer, readJsonBody, json, notFound, uploadErrorStatus } from '../helpers.js'
 
 const SHOW_PHOTOS        = /^\/api\/shows\/([^/]+)\/photos$/
 const SHOW_PHOTO_FILE    = /^\/api\/shows\/([^/]+)\/photos\/(.+)$/
@@ -34,8 +34,7 @@ export async function photoRoutes(req, res, pathname, params) {
         const saved = await Promise.all(upload.files.map(file => photosLib.savePhoto(id, file.filename, file.path)))
         return json(res, 201, { saved })
       } catch (error) {
-        const status = /zu groß|zu viele/i.test(error.message) ? 413 : 400
-        return json(res, status, { error: error.message || 'Foto-Upload fehlgeschlagen' })
+        return json(res, uploadErrorStatus(error.message), { error: error.message || 'Foto-Upload fehlgeschlagen' })
       } finally {
         await upload?.cleanup()
       }
@@ -46,7 +45,7 @@ export async function photoRoutes(req, res, pathname, params) {
     if (method === 'PUT') {
       const user = requireAuth(req, res); if (!user) return
       const id = m[1]
-      const body = JSON.parse(await readBody(req))
+      const body = await readJsonBody(req, res); if (body === null) return
       await photosLib.savePhotoOrder(id, body.order)
       return json(res, 200, { ok: true })
     }

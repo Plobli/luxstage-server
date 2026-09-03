@@ -655,6 +655,9 @@ import { getToken } from '@/api/client'
 import { uuid } from '../utils/uuid.js'
 import { exportFloorplanPNG } from '../utils/floorplanSnapshot.js'
 import { ELEMENT_TYPES, getElementLabel, getElementBounds, getElementCenter, getNoteAnchor, elementHasEndpoints } from '../utils/floorplanElementTypes'
+import { useCanvasViewport } from '@/composables/floorplan/useCanvasViewport'
+import { useElementPicker } from '@/composables/floorplan/useElementPicker'
+import { useEditorClipboard } from '@/composables/floorplan/useEditorClipboard'
 import {
   Copy, MousePointer2, Hand, Minus, Square, Circle, Type, CircleDot,
   Upload, ImageOff, Download, Trash2, Layers, AlignJustify, Ruler,
@@ -682,25 +685,16 @@ const elements = ref([])
 const selectedIds = ref(new Set())
 const preview = ref(null)
 const drawStart = ref(null)
-const showChannelPicker = ref(false)
-const channelPickerPos = ref({ x: 0, y: 0 })
-const channelSearch = ref('')
-const showTowerPicker = ref(false)
-const towerPickerPos = ref({ x: 0, y: 0 })
-const towerSearch = ref('')
-const showBarPicker = ref(false)
-const barPickerPos = ref({ x: 0, y: 0 })
-const barSearch = ref('')
-const filteredTowers = computed(() => {
-  const q = towerSearch.value.trim().toLowerCase()
-  if (!q) return props.towers
-  return props.towers.filter(tower => (tower.name ?? '').toLowerCase().includes(q) || (tower.side ?? '').toLowerCase().includes(q))
-})
-const filteredBars = computed(() => {
-  const q = barSearch.value.trim().toLowerCase()
-  if (!q) return props.bars
-  return props.bars.filter(bar => (bar.name ?? '').toLowerCase().includes(q))
-})
+const {
+  showChannelPicker, channelPickerPos, channelSearch,
+  showTowerPicker, towerPickerPos, towerSearch,
+  showBarPicker, barPickerPos, barSearch,
+  pendingChannelForPlacement, pendingTowerForPlacement, pendingBarForPlacement, ghostPos,
+  filteredTowers, filteredBars,
+  openChannelPlacer: openChannelPlacerAt, openTowerPlacer: openTowerPlacerAt, openBarPlacer: openBarPlacerAt,
+  placeTowerNode: pickTowerNode, placeBarNode: pickBarNode,
+  clearPending: clearPendingPlacement,
+} = useElementPicker(() => props.towers, () => props.bars)
 const ghostBarWidth = computed(() => barWidthPx(pendingBarForPlacement.value?.length_cm || 600))
 function channelNrForId(channelId) {
   return props.channels.find(c => c.id === channelId)?.channel ?? null
@@ -724,23 +718,16 @@ const containerEl = ref(null)
 const imageUploadInput = ref(null)
 const lassoRect = ref(null)
 const pendingDirectionId = ref(null)
-const pendingChannelForPlacement = ref(null)
-const pendingTowerForPlacement = ref(null)
-const pendingBarForPlacement = ref(null)
-const ghostPos = ref(null)
 
 const bgImage = ref(null)
 const bgImageSrc = ref('')
-const containerSize = ref({ width: 1200, height: 800 })
-const stageSize = ref({ width: 1200, height: 800 })
 
-const stageScale = computed(() => {
-  const sx = containerSize.value.width / stageSize.value.width
-  const sy = containerSize.value.height / stageSize.value.height
-  return Math.min(sx, sy, 1)
-})
-const containerOffsetX = computed(() => Math.round((containerSize.value.width - stageSize.value.width * stageScale.value) / 2))
-const containerOffsetY = computed(() => Math.round((containerSize.value.height - stageSize.value.height * stageScale.value) / 2))
+const {
+  containerSize, stageSize, stageScale, containerOffsetX, containerOffsetY,
+  showGrid, snapToGrid, panOffset, isPanning, spaceHeld,
+  gridLeft, gridTop, gridRight, gridBottom, gridVerticalLines, gridHorizontalLines,
+  snap, fitToContainer, resetView: resetViewport, startPan, updatePan, endPan,
+} = useCanvasViewport(containerEl)
 
 // Druckbereich im PDF-Export (A4 quer, minus Seitenränder/Titel/Fußzeile, siehe server/pdf.js)
 const PDF_PRINT_AREA_RATIO = 267 / 160
@@ -756,14 +743,8 @@ const a4GuideMaskPath = computed(() => {
   return `M0,0 H${sw} V${sh} H0 Z M${g.x},${g.y} H${g.x + g.w} V${g.y + g.h} H${g.x} Z`
 })
 
-const showGrid = ref(false)
-const snapToGrid = ref(false)
-const GRID_SIZE = 30
-const panOffset = ref({ x: 0, y: 0 })
-const isPanning = ref(false)
-const panStart = ref(null)
-const spaceHeld = ref(false)
-const clipboard = ref(null)
+const dragStartSnapshot = ref(null)
+const { copySelected, pasteClipboard, duplicateSelected } = useEditorClipboard(elements, selectedIds, uuid, emitChange)
 const textEditNode = ref(null)
 const textEditValue = ref('')
 const textEditStyle = ref({})
@@ -903,8 +884,6 @@ function getArrowPoints(channel, rot) {
   return { x1: bx, y1: by, x2: bx + dx * len, y2: by + dy * len }
 }
 
-function fitToContainer() { panOffset.value = { x: 0, y: 0 } }
-
 async function loadBackground(url) {
   if (!url) { bgImage.value = null; bgImageSrc.value = ''; return }
 
@@ -939,23 +918,6 @@ async function loadBackground(url) {
 }
 
 watch(() => props.imageUrl, loadBackground, { immediate: true })
-
-const gridLeft = computed(() => -panOffset.value.x)
-const gridTop = computed(() => -panOffset.value.y)
-const gridRight = computed(() => gridLeft.value + stageSize.value.width / stageScale.value)
-const gridBottom = computed(() => gridTop.value + stageSize.value.height / stageScale.value)
-const gridVerticalLines = computed(() => {
-  const lines = [], start = Math.floor(gridLeft.value / GRID_SIZE) * GRID_SIZE
-  for (let x = start; x <= gridRight.value; x += GRID_SIZE) lines.push(x)
-  return lines
-})
-const gridHorizontalLines = computed(() => {
-  const lines = [], start = Math.floor(gridTop.value / GRID_SIZE) * GRID_SIZE
-  for (let y = start; y <= gridBottom.value; y += GRID_SIZE) lines.push(y)
-  return lines
-})
-
-function snap(val) { return snapToGrid.value ? Math.round(val / GRID_SIZE) * GRID_SIZE : val }
 
 function getPointerPos(e) {
   if (!svgRef.value) return { x: 0, y: 0 }
@@ -1001,7 +963,7 @@ function onNodeMouseDown(id, e) {
   drawStart.value = pos
 
   // Save initial state for dragging
-  clipboard.value = [...selectedIds.value].map(sid => JSON.parse(JSON.stringify(elements.value.find(x => x.id === sid))))
+  dragStartSnapshot.value = [...selectedIds.value].map(sid => JSON.parse(JSON.stringify(elements.value.find(x => x.id === sid))))
 }
 
 function onNodeDblClick(id) {
@@ -1026,8 +988,7 @@ function startResizeRectEllipse(id, e) {
 function onContainerMouseDown(e) {
   const pos = getPointerPos(e)
   if (activeTool.value === 'pan' || spaceHeld.value) {
-    isPanning.value = true
-    panStart.value = { mx: e.clientX, my: e.clientY, ox: panOffset.value.x, oy: panOffset.value.y }
+    startPan(e)
     return
   }
   if (activeTool.value === 'select') {
@@ -1050,10 +1011,27 @@ function onContainerMouseDown(e) {
   }
 }
 
+// Tool-spezifisches Preview-Rendering während des Ziehens (nach dem Guard-Chain-Teil in
+// onContainerMouseMove, der Panning/Ghost/Resize/Drag behandelt und immer früh zurückkehrt).
+// Lookup statt if/else-Kette, analog zum Muster in handlePendingToolMouseUp.
+const DRAW_PREVIEW_HANDLERS = {
+  select: (pos, start) => {
+    lassoRect.value = { x: Math.min(pos.x, start.x), y: Math.min(pos.y, start.y), w: Math.abs(pos.x - start.x), h: Math.abs(pos.y - start.y) }
+  },
+  line: (pos) => {
+    preview.value = { ...preview.value, x2: pos.x, y2: pos.y }
+  },
+  rect: (pos, start) => {
+    preview.value = { x: Math.min(start.x, pos.x), y: Math.min(start.y, pos.y), w: Math.abs(pos.x - start.x), h: Math.abs(pos.y - start.y) }
+  },
+  ellipse: (pos, start) => {
+    preview.value = { cx: (start.x + pos.x) / 2, cy: (start.y + pos.y) / 2, rx: Math.abs(pos.x - start.x) / 2, ry: Math.abs(pos.y - start.y) / 2 }
+  },
+}
+
 function onContainerMouseMove(e) {
-  if (isPanning.value && panStart.value) {
-    const s = stageScale.value
-    panOffset.value = { x: panStart.value.ox + (e.clientX - panStart.value.mx) / s, y: panStart.value.oy + (e.clientY - panStart.value.my) / s }
+  if (isPanning.value) {
+    updatePan(e)
     return
   }
 
@@ -1080,7 +1058,7 @@ function onContainerMouseMove(e) {
     const dx = pos.x - drawStart.value.x
     const dy = pos.y - drawStart.value.y
     if (Math.hypot(dx, dy) > 3) elementWasDragged.value = true
-    clipboard.value.forEach(init => {
+    dragStartSnapshot.value.forEach(init => {
       const el = elements.value.find(x => x.id === init.id)
       if (!el) return
       if (elementHasEndpoints(el.type)) { el.x1 = init.x1 + dx; el.y1 = init.y1 + dy; el.x2 = init.x2 + dx; el.y2 = init.y2 + dy }
@@ -1091,66 +1069,55 @@ function onContainerMouseMove(e) {
 
   if (!drawStart.value) return
 
-  if (activeTool.value === 'select') {
-    lassoRect.value = { x: Math.min(pos.x, drawStart.value.x), y: Math.min(pos.y, drawStart.value.y), w: Math.abs(pos.x - drawStart.value.x), h: Math.abs(pos.y - drawStart.value.y) }
-  } else if (activeTool.value === 'line') {
-    preview.value = { ...preview.value, x2: pos.x, y2: pos.y }
-  } else if (activeTool.value === 'rect') {
-    preview.value = { x: Math.min(drawStart.value.x, pos.x), y: Math.min(drawStart.value.y, pos.y), w: Math.abs(pos.x - drawStart.value.x), h: Math.abs(pos.y - drawStart.value.y) }
-  } else if (activeTool.value === 'ellipse') {
-    preview.value = { cx: (drawStart.value.x + pos.x) / 2, cy: (drawStart.value.y + pos.y) / 2, rx: Math.abs(pos.x - drawStart.value.x) / 2, ry: Math.abs(pos.y - drawStart.value.y) / 2 }
-  }
+  DRAW_PREVIEW_HANDLERS[activeTool.value]?.(pos, drawStart.value)
 }
 
-function onContainerMouseUp(e) {
+// Gemeinsamer Ablauf für die drei "*-pending"-Platzierungswerkzeuge (Kanal/Turm/Stange):
+// Element aus der Pending-Auswahl an der Pointer-Position erzeugen, Pending-State räumen,
+// Folgewerkzeug aktivieren. buildElement bekommt die gerasterte Pointer-Position und liefert
+// die typ-spezifischen Felder; afterAdd erlaubt den channel-pending-Sonderfall (Richtung
+// setzen statt direkt zu 'select' zurückzukehren).
+function commitPendingPlacement(e, buildElement, { nextTool = 'select', afterAdd } = {}) {
+  const pos = getPointerPos(e)
+  const id = uuid()
+  addElement({ id, ...buildElement(pos) })
+  clearPendingPlacement()
+  afterAdd?.(id)
+  activeTool.value = nextTool
+  drawStart.value = null
+  emitChange()
+}
+
+function handlePendingToolMouseUp(e) {
   if (activeTool.value === 'channel-pending' && pendingChannelForPlacement.value && drawStart.value) {
-    const pos = getPointerPos(e)
     const ch = pendingChannelForPlacement.value
-    const id = uuid()
-    addElement({ id, type: 'channel', x: snap(pos.x), y: snap(pos.y), channel: ch.channel, rotation: 0 })
-    pendingChannelForPlacement.value = null
-    ghostPos.value = null
-    pendingDirectionId.value = id
-    activeTool.value = 'channel-direction'
-    drawStart.value = null
-    emitChange()
-    return
+    commitPendingPlacement(e, pos => ({ type: 'channel', x: snap(pos.x), y: snap(pos.y), channel: ch.channel, rotation: 0 }),
+      { nextTool: 'channel-direction', afterAdd: id => { pendingDirectionId.value = id } })
+    return true
   }
   if (activeTool.value === 'tower-pending' && pendingTowerForPlacement.value && drawStart.value) {
-    const pos = getPointerPos(e)
     const tower = pendingTowerForPlacement.value
-    addElement({ id: uuid(), type: 'tower', x: snap(pos.x - 60), y: snap(pos.y - 35), w: 120, h: 70, towerId: tower.id, towerName: tower.name, rotation: 0 })
-    pendingTowerForPlacement.value = null
-    ghostPos.value = null
-    activeTool.value = 'select'
-    drawStart.value = null
-    emitChange()
-    return
+    commitPendingPlacement(e, pos => ({ type: 'tower', x: snap(pos.x - 60), y: snap(pos.y - 35), w: 120, h: 70, towerId: tower.id, towerName: tower.name, rotation: 0 }))
+    return true
   }
   if (activeTool.value === 'bar-pending' && pendingBarForPlacement.value && drawStart.value) {
-    const pos = getPointerPos(e)
     const bar = pendingBarForPlacement.value
     const w = barWidthPx(bar.length_cm || 600)
-    addElement({ id: uuid(), type: 'bar', x: snap(pos.x - w / 2), y: snap(pos.y - 14), w, h: 28, barId: bar.id, barName: bar.name, rotation: 0 })
-    pendingBarForPlacement.value = null
-    ghostPos.value = null
-    activeTool.value = 'select'
-    drawStart.value = null
-    emitChange()
-    return
+    commitPendingPlacement(e, pos => ({ type: 'bar', x: snap(pos.x - w / 2), y: snap(pos.y - 14), w, h: 28, barId: bar.id, barName: bar.name, rotation: 0 }))
+    return true
   }
   if (activeTool.value === 'channel-direction' && pendingDirectionId.value) {
     const el = elements.value.find(x => x.id === pendingDirectionId.value)
     if (el) { el.rotation = Math.atan2(getPointerPos(e).y - el.y, getPointerPos(e).x - el.x) * 180 / Math.PI; emitChange() }
     pendingDirectionId.value = null; activeTool.value = 'select'
-    return
+    return true
   }
-  if (isPanning.value) { isPanning.value = false; panStart.value = null; return }
-  if (isResizing.value) { 
+  if (isPanning.value) { endPan(); return true }
+  if (isResizing.value) {
     isResizing.value = false; resizeObj = null
     elements.value.forEach(el => { ELEMENT_TYPES[el.type]?.snapAfterResize?.(el, snap) })
     emitChange()
-    return
+    return true
   }
   if (isElementDragging.value) {
     const wasDragged = elementWasDragged.value
@@ -1166,9 +1133,12 @@ function onContainerMouseUp(e) {
     drawStart.value = null
     emitChange()
     if (!wasDragged && selectedIds.value.size === 1) propertiesOpen.value = true
-    return
+    return true
   }
+  return false
+}
 
+function handleDrawMouseUp(e) {
   if (activeTool.value === 'ruler') {
     const pos = getPointerPos(e)
     rulerPoints.value = [...rulerPoints.value, { x: pos.x, y: pos.y }]
@@ -1217,7 +1187,12 @@ function onContainerMouseUp(e) {
   drawStart.value = null; preview.value = null; lassoRect.value = null
 }
 
-function resetView() { if (bgImage.value) fitToContainer(); else panOffset.value = { x: 0, y: 0 } }
+function onContainerMouseUp(e) {
+  if (handlePendingToolMouseUp(e)) return
+  handleDrawMouseUp(e)
+}
+
+function resetView() { resetViewport(!!bgImage.value) }
 
 function onContainerDblClick(e) {
   if (activeTool.value !== 'select') return
@@ -1246,21 +1221,6 @@ function commitTextEdit() {
 }
 function cancelTextEdit() { textEditNode.value = null }
 
-function copySelected() {
-  if (selectedIds.value.size === 0) return
-  clipboard.value = elements.value.filter(e => selectedIds.value.has(e.id)).map(e => ({ ...e }))
-}
-function pasteClipboard() {
-  if (!clipboard.value?.length) return
-  const newIds = new Set()
-  clipboard.value.forEach(el => {
-    const newEl = { ...el, id: uuid(), x: (el.x ?? el.x1 ?? 0) + 20, y: (el.y ?? el.y1 ?? 0) + 20 }
-    if (el.x1 !== undefined) { newEl.x1 = el.x1 + 20; newEl.y1 = el.y1 + 20; newEl.x2 = el.x2 + 20; newEl.y2 = el.y2 + 20 }
-    elements.value.push(newEl); newIds.add(newEl.id)
-  })
-  selectedIds.value = newIds; emitChange()
-}
-function duplicateSelected() { copySelected(); pasteClipboard() }
 function addElement(el) { elements.value.push(el) }
 function deleteSelected() {
   if (selectedIds.value.size === 0) return
@@ -1268,30 +1228,22 @@ function deleteSelected() {
   selectedIds.value = new Set(); emitChange()
 }
 function openChannelPlacer() {
-  channelPickerPos.value = { x: snap(stageSize.value.width / 2 - panOffset.value.x), y: snap(stageSize.value.height / 2 - panOffset.value.y) }
-  channelSearch.value = ''
+  openChannelPlacerAt({ x: snap(stageSize.value.width / 2 - panOffset.value.x), y: snap(stageSize.value.height / 2 - panOffset.value.y) })
   activeTool.value = 'channel'
-  showChannelPicker.value = true
 }
 function openTowerPlacer() {
-  towerPickerPos.value = { x: snap(stageSize.value.width / 2 - panOffset.value.x), y: snap(stageSize.value.height / 2 - panOffset.value.y) }
-  towerSearch.value = ''
-  showTowerPicker.value = true
+  openTowerPlacerAt({ x: snap(stageSize.value.width / 2 - panOffset.value.x), y: snap(stageSize.value.height / 2 - panOffset.value.y) })
 }
 function towerAlreadyPlaced(towerId) {
   return elements.value.some(e => e.type === 'tower' && e.towerId === towerId)
 }
 function placeTowerNode(tower) {
-  showTowerPicker.value = false
-  pendingTowerForPlacement.value = tower
+  pickTowerNode(tower)
   activeTool.value = 'tower-pending'
-  ghostPos.value = null
 }
 
 function openBarPlacer() {
-  barPickerPos.value = { x: snap(stageSize.value.width / 2 - panOffset.value.x - 80), y: snap(stageSize.value.height / 2 - panOffset.value.y) }
-  barSearch.value = ''
-  showBarPicker.value = true
+  openBarPlacerAt({ x: snap(stageSize.value.width / 2 - panOffset.value.x - 80), y: snap(stageSize.value.height / 2 - panOffset.value.y) })
 }
 function barAlreadyPlaced(barId) {
   return elements.value.some(e => e.type === 'bar' && e.barId === barId)
@@ -1301,10 +1253,8 @@ function barWidthPx(lengthCm) {
   return Math.min(Math.max(Math.round(lengthCm / 4), 80), 400)
 }
 function placeBarNode(bar) {
-  showBarPicker.value = false
-  pendingBarForPlacement.value = bar
+  pickBarNode(bar)
   activeTool.value = 'bar-pending'
-  ghostPos.value = null
 }
 
 function commitRuler() {
@@ -1439,7 +1389,7 @@ function handleKeyDown(e) {
     if (e.key === 'c' || e.key === 'C') { activeTool.value = 'channel'; return }
     if (e.key === 'g' || e.key === 'G') { showGrid.value = !showGrid.value; return }
     if (e.key === 'f' || e.key === 'F') { resetView(); return }
-    if (e.key === 'Escape') { if(activeTool.value==='channel-direction') pendingDirectionId.value=null; if(activeTool.value==='channel-pending') { pendingChannelForPlacement.value=null; ghostPos.value=null } if(activeTool.value==='tower-pending') { pendingTowerForPlacement.value=null; ghostPos.value=null } if(activeTool.value==='bar-pending') { pendingBarForPlacement.value=null; ghostPos.value=null } activeTool.value = 'select'; selectedIds.value = new Set(); return }
+    if (e.key === 'Escape') { pendingDirectionId.value=null; clearPendingPlacement(); activeTool.value = 'select'; selectedIds.value = new Set(); return }
     if (e.key === 'Delete' || e.key === 'Backspace') { deleteSelected(); return }
     if (['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.key) && selectedIds.value.size > 0) {
       e.preventDefault(); const step = e.shiftKey ? 10 : 1
@@ -1447,7 +1397,7 @@ function handleKeyDown(e) {
       const dy = e.key === 'ArrowUp' ? -step : e.key === 'ArrowDown' ? step : 0
       elements.value.forEach(el => {
         if (!selectedIds.value.has(el.id)) return
-        if (el.type === 'line') { el.x1 += dx; el.y1 += dy; el.x2 += dx; el.y2 += dy } else { el.x = (el.x || 0) + dx; el.y = (el.y || 0) + dy }
+        if (elementHasEndpoints(el.type)) { el.x1 += dx; el.y1 += dy; el.x2 += dx; el.y2 += dy } else { el.x = (el.x || 0) + dx; el.y = (el.y || 0) + dy }
       })
       emitChange(); return
     }
@@ -1464,22 +1414,13 @@ function handleKeyDown(e) {
 }
 function handleKeyUp(e) { if (e.key === ' ') spaceHeld.value = false }
 
-let resizeObserver = null
 onMounted(() => {
   window.addEventListener('keydown', handleKeyDown)
   window.addEventListener('keyup', handleKeyUp)
-  if (containerEl.value) {
-    resizeObserver = new ResizeObserver(entries => {
-      const { width, height } = entries[0].contentRect
-      if (width > 0 && height > 0) containerSize.value = { width, height }
-    })
-    resizeObserver.observe(containerEl.value)
-  }
 })
 onUnmounted(() => {
   window.removeEventListener('keydown', handleKeyDown)
   window.removeEventListener('keyup', handleKeyUp)
-  resizeObserver?.disconnect()
 })
 
 watch(() => props.initialCanvasData, (newVal) => {

@@ -52,6 +52,7 @@
         :canUndo="canUndo"
         :canRedo="canRedo"
         :saving="channelsSaving || sectionsSaving || setupSaving"
+        :saveError="channelsSaveError"
         :lockedByOther="showLock.isLockedByOther.value"
         :presentUsers="presentUsers"
         :dupAddressWarning="dupWarning"
@@ -73,8 +74,8 @@
           hideEosInactive: t('channel.hide_eos_inactive'),
           lockedBy: lock?.user ? t('lock.lockedBy', { user: lock.user }) : '',
         }"
-        @undo="undo()"
-        @redo="redo()"
+        @undo="undo().catch(() => { channelsSaveError = t('error.save_failed') })"
+        @redo="redo().catch(() => { channelsSaveError = t('error.save_failed') })"
         @filterDup="dupFilter = $event"
         @healthFilter="onHealthFilter($event)"
         @requestTakeover="showLock.requestTakeover()"
@@ -554,7 +555,7 @@ const towers = ref([])
 let afterUndoRedoImpl = null
 
 const {
-  channels, channelsSaving, search, healthFilter, activateHealthFilter, eosActiveChannels, eosExcludedChannels, eosMergePreview,
+  channels, channelsSaving, channelsSaveError, search, healthFilter, activateHealthFilter, eosActiveChannels, eosExcludedChannels, eosMergePreview,
   dupWarning, dupChannelWarning, dupChannelNrs, dupFilter, hideEosInactive, groupedChannels,
   scheduleChannelsSave, persistChannels, deleteChannel, clearChannel, flushChannelsSave,
   onCsvImportSelected, onCircuitScanFileSelected, circuitScanUploading, circuitScanStatus, circuitScanPreview, resolveCircuitScanPreview, onEosFileSelected, resolveEosMergePreview,

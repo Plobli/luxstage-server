@@ -16,6 +16,9 @@ import { getRegistry, tenantIdTaken, emailTaken, addPending, getPending, confirm
 import { runWithDb } from '../db-context.js'
 import { sendConfirmEmail } from '../email.js'
 import { PASSWORD_MIN_LENGTH, isValidEmail } from '../../shared/constants.js'
+import { logger } from '../logger.js'
+
+const log = logger('register')
 
 export const CONFIRM_TTL_MS = 24 * 60 * 60 * 1000 // 24 h
 
@@ -51,9 +54,9 @@ export async function registerRoutes(req, res, pathname) {
     // seine Subdomain würde 404 liefern.
     const confirmUrl = `${config.appUrl}/register/confirm?token=${token}`
     sendConfirmEmail(email, tenantId, confirmUrl)
-      .catch(err => console.error('[register] Bestätigungsmail fehlgeschlagen:', err))
+      .catch(err => log.error('Bestätigungsmail fehlgeschlagen', { team: tenantId, fehler: err.message }))
 
-    console.log(`[register] pending: team=${tenantId} email=${email}`)
+    log.info('pending', { team: tenantId, email })
     // Bewusst neutrale Antwort — kein Leak, ob Team/Mail existiert.
     return json(res, 202, { ok: true, message: 'Bitte E-Mail bestätigen.' })
   }
@@ -85,11 +88,11 @@ export async function registerRoutes(req, res, pathname) {
       }
     } catch (err) {
       if (tenantCreated) deleteTenant(row.tenant_id)
-      console.error(`[register] Bestätigung fehlgeschlagen: team=${row.tenant_id}`, err)
+      log.error('Bestätigung fehlgeschlagen', { team: row.tenant_id, fehler: err.message })
       return json(res, 409, { error: 'Bestätigungslink wurde bereits verarbeitet. Bitte erneut versuchen.' })
     }
 
-    console.log(`[register] bestätigt: team=${row.tenant_id} email=${row.email}`)
+    log.info('bestätigt', { team: row.tenant_id, email: row.email })
     return json(res, 200, { ok: true, tenantId: row.tenant_id, loginUrl: tenantBaseUrl(row.tenant_id) })
   }
 

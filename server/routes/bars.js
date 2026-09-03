@@ -104,7 +104,7 @@ export async function barRoutes(req, res, pathname) {
 
       let id
       withUndoSnapshot(slug, show.id, user.username, () => {
-        id = writeBarFixture(barId, channelId, position ?? 0, notes ?? '', fixtureId ?? null, side ?? 'out', positionText ?? '')
+        id = writeBarFixture(barId, channelId, { position, notes, fixtureId, side, positionText })
       })
       broadcast(slug, 'bars-updated', {})
       return json(res, 200, { ok: true, id })

@@ -3,7 +3,8 @@ import { createHash, randomUUID } from 'node:crypto'
 import { setTimeout as sleep } from 'node:timers/promises'
 import { getDb, runWithDb } from './db-context.js'
 import { saasEnabled } from './saas.js'
-import * as db from './db.js'
+import { readChannels, writeChannels } from './db/channels.js'
+import { readShowSections, writeShowSections } from './db/sections.js'
 
 // SaaS-Helfer (Mandanten-Iteration, Purge) nur im SaaS-Modus dynamisch laden.
 let saasMod = null
@@ -37,8 +38,8 @@ function computeHash(channels, sections) {
 function initHashes() {
   const shows = getDb().prepare('SELECT id, slug FROM shows WHERE archived = 0').all()
   for (const show of shows) {
-    const channels = db.readChannels(show.slug)
-    const sections = db.readShowSections(show.slug)
+    const channels = readChannels(show.slug)
+    const sections = readShowSections(show.slug)
     snapshotHashes.set(show.id, computeHash(channels, sections))
   }
 }
@@ -46,8 +47,8 @@ function initHashes() {
 function snapshotOneShow(show) {
   let newHash = null
   const tx = getDb().transaction(() => {
-    const channels = db.readChannels(show.slug)
-    const sections = db.readShowSections(show.slug)
+    const channels = readChannels(show.slug)
+    const sections = readShowSections(show.slug)
     const currentHash = computeHash(channels, sections)
     if (currentHash === snapshotHashes.get(show.id)) return  // early return from transaction
 
@@ -132,8 +133,8 @@ export function takeSnapshotNow(slug, includeArchived = false) {
 
   let newHash = null
   const tx = getDb().transaction(() => {
-    const channels = db.readChannels(slug)
-    const sections = db.readShowSections(slug)
+    const channels = readChannels(slug)
+    const sections = readShowSections(slug)
     const currentHash = computeHash(channels, sections)
 
     // Keinen doppelten Snapshot erstellen wenn sich seit dem letzten nichts geändert hat
@@ -197,8 +198,8 @@ export function restoreHistoryEntry(slug, historyId) {
   takeSnapshotNow(slug, true)
 
   const tx = getDb().transaction(() => {
-    db.writeChannels(slug, channels)
-    db.writeShowSections(slug, sections)
+    writeChannels(slug, channels)
+    writeShowSections(slug, sections)
   })
   tx()
 

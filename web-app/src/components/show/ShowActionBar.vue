@@ -18,7 +18,8 @@
         </TooltipTrigger>
         <TooltipContent side="bottom"><p>{{ labels.redo }}</p></TooltipContent>
       </Tooltip>
-      <span v-if="saving" class="text-xs text-muted-foreground">…</span>
+      <span v-if="saveError" class="text-xs text-destructive" role="alert">{{ saveError }}</span>
+      <span v-else-if="saving" class="text-xs text-muted-foreground">…</span>
     </div>
     <div v-if="activeTab === 'channels'" class="relative flex-1 self-stretch">
       <Input
@@ -130,6 +131,7 @@ defineProps({
   canUndo: { type: Boolean, default: false },
   canRedo: { type: Boolean, default: false },
   saving: { type: Boolean, default: false },
+  saveError: { type: String, default: null },
   lockedByOther: { type: Boolean, default: false },
   /** Nutzer, die die Show gerade offen haben (SSE-Präsenz). */
   presentUsers: { type: Array, default: () => [] },

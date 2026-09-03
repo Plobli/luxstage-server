@@ -110,7 +110,11 @@ export async function operatorRoutes(req, res, pathname) {
       console.log(`[operator] Snapshot wiederhergestellt: ${id}/${body.name}`)
       return json(res, 200, { ok: true })
     } catch (err) {
-      return json(res, 400, { error: err.message })
+      // err.message kann bei Dateisystemfehlern (fs.renameSync/openTenantDb in
+      // tenant-backup.js) rohe Pfade enthalten — nur loggen, nicht an den
+      // Client durchreichen (analog zum SMTP-Fix in routes/smtp.js).
+      console.error(`[operator] Snapshot-Restore fehlgeschlagen (${id}/${body.name}):`, err)
+      return json(res, 500, { error: 'Snapshot konnte nicht wiederhergestellt werden. Details siehe Server-Log.' })
     }
   }
 
@@ -155,7 +159,10 @@ export async function operatorRoutes(req, res, pathname) {
     try {
       await sendConfirmEmail(row.email, id, confirmUrl)
     } catch (err) {
-      return json(res, 502, { error: 'Mailversand fehlgeschlagen: ' + err.message })
+      // err.message (Nodemailer) kann SMTP-Host/Port/Auth-Details enthalten — nicht an
+      // den Client durchreichen, nur serverseitig loggen.
+      console.error('[operator] Mailversand fehlgeschlagen:', err)
+      return json(res, 502, { error: 'Mailversand fehlgeschlagen' })
     }
     console.log(`[operator] Bestätigungsmail erneut gesendet: ${id}`)
     return json(res, 200, { ok: true })

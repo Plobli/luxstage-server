@@ -73,7 +73,7 @@ export async function userRoutes(req, res, pathname) {
     try {
       await createSelfRegisteredUser(email, password, email)
     } catch (err) {
-      if (String(err.message).includes('UNIQUE')) return json(res, 409, { error: 'E-Mail-Adresse bereits registriert' })
+      if (err.code === 'SQLITE_CONSTRAINT_UNIQUE') return json(res, 409, { error: 'E-Mail-Adresse bereits registriert' })
       throw err
     }
     log.warn('Selbst-Registrierung', { user: email })

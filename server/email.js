@@ -46,6 +46,9 @@ function createTransport(cfg) {
     // aber häufig AAAA zuerst — ohne Zwang auf IPv4 hängt die Verbindung
     // bis zum Timeout (kein Happy-Eyeballs-Fallback in Nodemailer).
     family: 4,
+    connectionTimeout: 10_000, // Verbindungsaufbau
+    greetingTimeout: 10_000,   // SMTP-Greeting nach Connect
+    socketTimeout: 20_000,     // Inaktivität während der Übertragung
   })
 }
 

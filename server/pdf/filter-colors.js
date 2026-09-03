@@ -32,3 +32,12 @@ export function contrastColor(hex) {
   const r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16)
   return (0.299*r + 0.587*g + 0.114*b)/255 > 0.5 ? '#000000' : '#ffffff'
 }
+
+// LEE-Farbfilter-Kurznotation für den Text-Renderpfad (Hängerei/Gassenturm-Listen).
+export function fmtLeeColorLabel(color) {
+  if (!color) return undefined
+  const s = color.trim()
+  if (/^[LRlr]\d/.test(s)) return s.toUpperCase()
+  if (/^\d/.test(s)) return `L${s}`
+  return s
+}

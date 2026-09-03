@@ -1,5 +1,5 @@
 import { mm, PAGE_MARGIN, FONT_NORMAL, FONT_BOLD } from './constants.js'
-import { leeHex, contrastColor } from './filter-colors.js'
+import { leeHex, contrastColor, fmtLeeColorLabel as fmtColor } from './filter-colors.js'
 
 // Gassentürme als Karten-Grid (3 Spalten), Slots vertikal von oben nach unten
 export function drawTowerCards(doc, towers, channels, margin, usableW, startY, bottomLimit, addFooter) {
@@ -135,14 +135,6 @@ export function drawTowerCards(doc, towers, channels, margin, usableW, startY, b
 // Gassentürme als Textliste (eine Zeile pro Turm)
 export function renderGassenturmText(doc, towers, channels, margin, usableW, startY, bottomLimit, addFooter) {
   let ty = startY
-
-  function fmtColor(color) {
-    if (!color) return undefined
-    const s = color.trim()
-    if (/^[LRlr]\d/.test(s)) return s.toUpperCase()
-    if (/^\d/.test(s)) return `L${s}`
-    return s
-  }
 
   const sorted = [...towers].sort((a, b) => a.sort_order - b.sort_order)
   for (const tower of sorted) {

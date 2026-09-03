@@ -12,7 +12,12 @@ import { randomBytes } from 'node:crypto'
 const repoDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const GITHUB_REPO = 'Plobli/LuxStage'
 
-function run(cmd, env = {}, maxBuffer = 1024 * 1024) {
+// 5 Minuten Default: npm install kann bei kaltem Cache mehrere Minuten dauern,
+// der Node-Smoke-Test danach ist in Sekunden fertig. Ohne Obergrenze hängt ein
+// Netzwerkproblem/eine hängende Registry den kritischen Update-Prozess unbegrenzt
+// fest — der Endpunkt startet den Server am Ende neu, ein feststeckender Schritt
+// lässt ihn im schlimmsten Fall in einem Zwischenzustand stecken.
+function run(cmd, env = {}, maxBuffer = 1024 * 1024, timeout = 5 * 60_000) {
   // /bin/sh statt /bin/bash: das node:22-alpine-Laufzeitimage hat kein bash
   // installiert (nur ash über busybox). Ein fest verdrahtetes /bin/bash führte
   // zu 'spawn /bin/bash ENOENT' — der Fehler landete im catch-Zweig, bevor
@@ -20,12 +25,22 @@ function run(cmd, env = {}, maxBuffer = 1024 * 1024) {
   // ausgetauschten Dateien weiterlief (Server- und App-Version liefen auseinander).
   return new Promise((resolve, reject) =>
     execFile('/bin/sh', ['-c', cmd],
-      { maxBuffer, env: { ...process.env, ...env } },
+      { maxBuffer, timeout, env: { ...process.env, ...env } },
       (err, stdout, stderr) => {
         if (err) { err.stderr = stderr; reject(err) } else { resolve(stdout.trim()) }
       }
     )
   )
+}
+
+async function fetchWithTimeout(url, opts = {}, timeoutMs = 15_000) {
+  const controller = new AbortController()
+  const t = setTimeout(() => controller.abort(), timeoutMs)
+  try {
+    return await fetch(url, { ...opts, signal: controller.signal })
+  } finally {
+    clearTimeout(t)
+  }
 }
 
 // Räumt Backup-Verzeichnisse aus fehlgeschlagenen/erfolgreichen Läufen auf.
@@ -46,7 +61,7 @@ export async function updateRoutes(req, res, pathname, params) {
   if (method === 'GET' && pathname === '/api/update/branches') {
     const user = requireAuth(req, res); if (!user) return
     try {
-      const response = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/releases`, {
+      const response = await fetchWithTimeout(`https://api.github.com/repos/${GITHUB_REPO}/releases`, {
         headers: { 'User-Agent': 'LuxStage-Updater' }
       })
       if (!response.ok) throw new Error('GitHub API Error')
@@ -74,7 +89,7 @@ export async function updateRoutes(req, res, pathname, params) {
       
       if (!isNewer) return json(res, 200, { available: false, branch: tag })
       
-      const response = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/releases/tags/${tag}`, {
+      const response = await fetchWithTimeout(`https://api.github.com/repos/${GITHUB_REPO}/releases/tags/${tag}`, {
         headers: { 'User-Agent': 'LuxStage-Updater' }
       })
       if (!response.ok) throw new Error('Release nicht gefunden')
@@ -149,7 +164,9 @@ export async function updateRoutes(req, res, pathname, params) {
       const zipUrl = `https://github.com/${GITHUB_REPO}/releases/download/${tag}/luxstage-release.zip`
       step(`Lade Release herunter...`)
 
-      const response = await fetch(zipUrl)
+      // Größeres Timeout als bei den reinen API-Calls oben: lädt das komplette
+      // Release-Zip, nicht nur JSON-Metadaten.
+      const response = await fetchWithTimeout(zipUrl, {}, 60_000)
       if (!response.ok) throw new Error(`Download fehlgeschlagen: HTTP ${response.status}`)
 
       const buffer = await response.arrayBuffer()
@@ -212,7 +229,13 @@ export async function updateRoutes(req, res, pathname, params) {
           await removeIfExists(smokeTestDataDir)
         }
       } catch (err) {
-        await rollback()
+        try {
+          await rollback()
+        } catch (rollbackErr) {
+          step(`KRITISCH: Rollback fehlgeschlagen (${rollbackErr.message}). Dateisystem ist inkonsistent — manueller Eingriff nötig.`)
+          console.error('[update] Rollback fehlgeschlagen nach:', err, 'Rollback-Fehler:', rollbackErr)
+          throw new Error(`Update fehlgeschlagen (${err.message}) UND Rollback fehlgeschlagen (${rollbackErr.message}). Server manuell prüfen.`)
+        }
         throw err
       }
 

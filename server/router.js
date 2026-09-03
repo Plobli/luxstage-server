@@ -9,6 +9,9 @@ import { saasEnabled, getSaas } from './saas.js'
 import { PUBLIC_ROUTES, API_ROUTE_HANDLERS, SHOW_ROUTE_HANDLERS, showRoutes, systemRoutes } from './route-table.js'
 import { getLock } from './db/locks.js'
 import { isGloballyRateLimited } from './rate-limit.js'
+import { logger } from './logger.js'
+
+const log = logger('router')
 
 const WRITE_METHODS = new Set(['PUT', 'POST', 'DELETE'])
 // Reine Show-Ressource, kein Slug-Pfad (Liste/Anlegen) oder Endpunkte, die
@@ -143,7 +146,7 @@ export async function router(req, res) {
   if (pathname.startsWith('/api/')) {
     const start = Date.now()
     res.on('finish', () => {
-      console.log(`${req.method} ${pathname} ${res.statusCode} ${Date.now() - start}ms`)
+      log.info('request', { method: req.method, path: pathname, status: res.statusCode, ms: Date.now() - start })
     })
   }
 
@@ -202,7 +205,7 @@ export async function router(req, res) {
 
     return notFound(res)
   } catch (err) {
-    console.error(err)
+    log.error('Unbehandelter Fehler', { path: pathname, fehler: err.message, stack: err.stack })
     if (!res.headersSent) json(res, 500, { error: 'Interner Fehler' })
   }
 }
@@ -267,7 +270,7 @@ export async function dispatchRoute(handler, req, res, pathname, params) {
   try {
     result = await handler(req, res, pathname, params)
   } catch (err) {
-    console.error(err)
+    log.error('Unbehandelter Fehler', { path: pathname, fehler: err.message, stack: err.stack })
     if (!res.headersSent) json(res, 500, { error: 'Interner Serverfehler' })
     return
   }
@@ -275,7 +278,7 @@ export async function dispatchRoute(handler, req, res, pathname, params) {
   // Handler meldete Zuständigkeit, hat aber nichts gesendet. Ohne diese
   // Absicherung hinge der Request bis zum Client-Timeout, ohne Spur im Log.
   if (!res.headersSent) {
-    console.error(`[router] Handler ohne Antwort: ${req.method} ${pathname}`)
+    log.error('Handler ohne Antwort', { method: req.method, path: pathname })
     json(res, 500, { error: 'Interner Serverfehler' })
   }
 }

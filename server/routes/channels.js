@@ -2,7 +2,7 @@ import fs from 'node:fs'
 import { clearChecks, getChecks, getColorUsage, readChannels, setCheck, writeChannels } from '../db/channels.js'
 import { readShow } from '../db/shows.js'
 import * as photosLib from '../photos.js'
-import { readJsonBody, json } from '../helpers.js'
+import { readJsonBody, json, uploadErrorStatus } from '../helpers.js'
 import { broadcast } from '../sse.js'
 import { withUndoSnapshot } from '../db/operations.js'
 import { requireAuth } from '../auth.js'
@@ -61,8 +61,12 @@ export async function channelRoutes(req, res, pathname) {
         const result = await analyzeCircuitScan(imageBuffer, knownChannels)
         return json(res, 200, result)
       } catch (error) {
-        const status = /zu groß|zu viele/i.test(error.message) ? 413 : 400
-        return json(res, status, { error: error.message || 'Kreisliste konnte nicht ausgewertet werden' })
+        // Provider-seitiger Fehler (Rate-Limit/Überlastung/5xx bei Claude) ist kein
+        // Client-Fehler — uploadErrorStatus() würde das sonst pauschal als 400 einordnen.
+        if (error.status === 429 || error.status >= 500) {
+          return json(res, 503, { error: 'Kreisliste kann gerade nicht ausgewertet werden. Bitte in Kürze erneut versuchen.' })
+        }
+        return json(res, uploadErrorStatus(error.message), { error: error.message || 'Kreisliste konnte nicht ausgewertet werden' })
       } finally {
         await upload?.cleanup()
       }

@@ -58,7 +58,10 @@ export async function smtpRoutes(req, res, pathname) {
       await sendTestEmail(to, getSmtpConfig())
       return json(res, 200, { ok: true })
     } catch (err) {
-      return json(res, 500, { error: err.message })
+      // err.message (Nodemailer) kann SMTP-Host/Port/Auth-Details enthalten — nicht an
+      // den Client durchreichen, nur serverseitig loggen.
+      console.error('[smtp] Test-Mail fehlgeschlagen:', err)
+      return json(res, 502, { error: 'Test-Mail konnte nicht gesendet werden. Bitte SMTP-Einstellungen prüfen.' })
     }
   }
 

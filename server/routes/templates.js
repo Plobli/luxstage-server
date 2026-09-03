@@ -1,12 +1,26 @@
 import { randomUUID } from 'node:crypto'
 import fs from 'node:fs'
-import * as db from '../db.js'
 import * as floorplan from '../floorplan.js'
 import * as photosLib from '../photos.js'
 import { requireAuth } from '../auth.js'
-import { readJsonBody, json, notFound } from '../helpers.js'
+import { readJsonBody, json, notFound, uploadErrorStatus } from '../helpers.js'
 import { generatePDF, pdfFilename } from '../pdf.js'
 import { getDisplayUnit, getPhotosPerPage } from './display.js'
+import {
+  listTemplates, getTemplateByName, updateTemplateOscHost, renameTemplate,
+  readTemplate, writeTemplate, deleteTemplate,
+} from '../db/templates.js'
+import { applyTemplateToAllShows } from '../db/template-apply.js'
+import {
+  readTemplateBars, writeTemplateBar, deleteTemplateBar, reorderTemplateBars,
+  readTemplateBarFixtures, writeTemplateBarFixture, deleteTemplateBarFixture,
+} from '../db/template-bars.js'
+import {
+  readTemplateTowers, writeTemplateTower, deleteTemplateTower, reorderTemplateTowers,
+  writeTemplateTowerSlot, clearTemplateTowerSlot, ensureTemplateTowerSlots,
+} from '../db/template-towers.js'
+import { getTemplateFloorplan, upsertTemplateFloorplan, upsertTemplateFloorplanData } from '../db/floorplan.js'
+import { readTemplateSections, writeTemplateSections, deleteTemplateSections } from '../db/template-sections.js'
 
 const TPL_LIST             = /^\/api\/templates$/
 const TPL_CHANNELS         = /^\/api\/templates\/([^/]+)\/channels$/
@@ -37,7 +51,7 @@ export async function templateRoutes(req, res, pathname) {
   let m
 
   if (method === 'GET' && TPL_LIST.test(pathname)) {
-    return json(res, 200, db.listTemplates())
+    return json(res, 200, listTemplates())
   }
 
   if (method === 'PUT' && TPL_LIST.test(pathname)) {
@@ -45,21 +59,21 @@ export async function templateRoutes(req, res, pathname) {
     const body = await readJsonBody(req, res); if (body === null) return
     const { name, oscHost } = body
     if (!name || typeof name !== 'string') return json(res, 400, { error: 'Name fehlt' })
-    const tpl = db.getTemplateByName(name)
+    const tpl = getTemplateByName(name)
     if (!tpl) return json(res, 404, { error: 'Bühnen-Template nicht gefunden' })
     const host = typeof oscHost === 'string' ? oscHost.trim() : ''
     if (host.length > 253) return json(res, 400, { error: 'OSC-Host zu lang' })
-    db.updateTemplateOscHost(name, host)
+    updateTemplateOscHost(name, host)
     return json(res, 200, { ok: true })
   }
 
   if (m = TPL_BARS_REORDER.exec(pathname)) {
     const templateName = decodeURIComponent(m[1])
-    const tpl = db.getTemplateByName(templateName)
+    const tpl = getTemplateByName(templateName)
     if (!tpl) return notFound(res)
     if (method === 'PUT') {
       const body = await readJsonBody(req, res); if (body === null) return
-      db.reorderTemplateBars(tpl.id, body.order ?? [])
+      reorderTemplateBars(tpl.id, body.order ?? [])
       return json(res, 200, { ok: true })
     }
   }
@@ -70,12 +84,12 @@ export async function templateRoutes(req, res, pathname) {
     if (method === 'PUT') {
       const user = requireAuth(req, res); if (!user) return
       const body = await readJsonBody(req, res); if (body === null) return
-      db.writeTemplateBar(templateName, { ...body, id: barId })
+      writeTemplateBar(templateName, { ...body, id: barId })
       return json(res, 200, { ok: true })
     }
     if (method === 'DELETE') {
       const user = requireAuth(req, res); if (!user) return
-      db.deleteTemplateBar(barId)
+      deleteTemplateBar(barId)
       return json(res, 200, { ok: true })
     }
   }
@@ -83,12 +97,12 @@ export async function templateRoutes(req, res, pathname) {
   if (m = TPL_BARS.exec(pathname)) {
     const templateName = decodeURIComponent(m[1])
     if (method === 'GET') {
-      return json(res, 200, db.readTemplateBars(templateName))
+      return json(res, 200, readTemplateBars(templateName))
     }
     if (method === 'POST') {
       const user = requireAuth(req, res); if (!user) return
       const body = await readJsonBody(req, res); if (body === null) return
-      const barId = db.writeTemplateBar(templateName, body)
+      const barId = writeTemplateBar(templateName, body)
       return json(res, 201, { id: barId })
     }
   }
@@ -102,9 +116,9 @@ export async function templateRoutes(req, res, pathname) {
       const user = requireAuth(req, res); if (!user) return
       const body = await readJsonBody(req, res); if (body === null) return
       if (body.channel === null && body.device === null && body.color === null) {
-        db.clearTemplateTowerSlot(towerId, slotIndex)
+        clearTemplateTowerSlot(towerId, slotIndex)
       } else {
-        db.writeTemplateTowerSlot(towerId, slotIndex, body)
+        writeTemplateTowerSlot(towerId, slotIndex, body)
       }
       return json(res, 200, { ok: true })
     }
@@ -113,11 +127,11 @@ export async function templateRoutes(req, res, pathname) {
   // ── Tower ──────────────────────────────────────────────────────────────────
   if (m = TPL_TOWERS_REORDER.exec(pathname)) {
     const templateName = decodeURIComponent(m[1])
-    const tpl = db.getTemplateByName(templateName)
+    const tpl = getTemplateByName(templateName)
     if (!tpl) return notFound(res)
     if (method === 'PUT') {
       const body = await readJsonBody(req, res); if (body === null) return
-      db.reorderTemplateTowers(tpl.id, body.order ?? [])
+      reorderTemplateTowers(tpl.id, body.order ?? [])
       return json(res, 200, { ok: true })
     }
   }
@@ -128,13 +142,13 @@ export async function templateRoutes(req, res, pathname) {
     if (method === 'PUT') {
       const user = requireAuth(req, res); if (!user) return
       const body = await readJsonBody(req, res); if (body === null) return
-      db.writeTemplateTower(templateName, { ...body, id: towerId })
-      db.ensureTemplateTowerSlots(towerId, body.slot_count ?? 4)
+      writeTemplateTower(templateName, { ...body, id: towerId })
+      ensureTemplateTowerSlots(towerId, body.slot_count ?? 4)
       return json(res, 200, { ok: true })
     }
     if (method === 'DELETE') {
       const user = requireAuth(req, res); if (!user) return
-      db.deleteTemplateTower(towerId)
+      deleteTemplateTower(towerId)
       return json(res, 200, { ok: true })
     }
   }
@@ -142,13 +156,13 @@ export async function templateRoutes(req, res, pathname) {
   if (m = TPL_TOWERS.exec(pathname)) {
     const templateName = decodeURIComponent(m[1])
     if (method === 'GET') {
-      return json(res, 200, db.readTemplateTowers(templateName))
+      return json(res, 200, readTemplateTowers(templateName))
     }
     if (method === 'POST') {
       const user = requireAuth(req, res); if (!user) return
       const body = await readJsonBody(req, res); if (body === null) return
-      const towerId = db.writeTemplateTower(templateName, body)
-      db.ensureTemplateTowerSlots(towerId, body.slot_count ?? 4)
+      const towerId = writeTemplateTower(templateName, body)
+      ensureTemplateTowerSlots(towerId, body.slot_count ?? 4)
       return json(res, 201, { id: towerId })
     }
   }
@@ -159,12 +173,12 @@ export async function templateRoutes(req, res, pathname) {
     if (method === 'PUT') {
       const user = requireAuth(req, res); if (!user) return
       const body = await readJsonBody(req, res); if (body === null) return
-      db.writeTemplateBarFixture(m[2], { ...body, id: fixtureId })
+      writeTemplateBarFixture(m[2], { ...body, id: fixtureId })
       return json(res, 200, { ok: true })
     }
     if (method === 'DELETE') {
       const user = requireAuth(req, res); if (!user) return
-      db.deleteTemplateBarFixture(fixtureId)
+      deleteTemplateBarFixture(fixtureId)
       return json(res, 200, { ok: true })
     }
   }
@@ -172,12 +186,12 @@ export async function templateRoutes(req, res, pathname) {
   if (m = TPL_BAR_FIXTURES.exec(pathname)) {
     const barId = m[2]
     if (method === 'GET') {
-      return json(res, 200, db.readTemplateBarFixtures(barId))
+      return json(res, 200, readTemplateBarFixtures(barId))
     }
     if (method === 'POST') {
       const user = requireAuth(req, res); if (!user) return
       const body = await readJsonBody(req, res); if (body === null) return
-      const fixtureId = db.writeTemplateBarFixture(barId, body)
+      const fixtureId = writeTemplateBarFixture(barId, body)
       return json(res, 201, { id: fixtureId })
     }
   }
@@ -190,7 +204,7 @@ export async function templateRoutes(req, res, pathname) {
       const validScopes = ['bars', 'towers', 'sections']
       const scope = validScopes.includes(body.scope) ? body.scope : 'bars'
       try {
-        const stats = db.applyTemplateToAllShows(templateName, scope)
+        const stats = await applyTemplateToAllShows(templateName, scope)
         return json(res, 200, { ok: true, ...stats })
       } catch (e) {
         return json(res, 404, { error: e.message })
@@ -200,7 +214,7 @@ export async function templateRoutes(req, res, pathname) {
 
   if (m = TPL_FP_IMAGE.exec(pathname)) {
     const templateName = decodeURIComponent(m[1])
-    const tpl = db.getTemplateByName(templateName)
+    const tpl = getTemplateByName(templateName)
     if (!tpl) return notFound(res)
 
     if (method === 'POST') {
@@ -214,31 +228,30 @@ export async function templateRoutes(req, res, pathname) {
         const mimeType = mimeFromFilename(file.filename)
         const buffer = await fs.promises.readFile(file.path)
         const imgPath = await floorplan.saveFloorplanImage(tpl.id, file.filename, buffer, mimeType)
-        db.upsertTemplateFloorplan(tpl.id, imgPath)
+        upsertTemplateFloorplan(tpl.id, imgPath)
         return json(res, 200, { image_url: floorplan.floorplanUrl(imgPath) })
       } catch (e) {
-        const status = /zu groß|zu viele/i.test(e.message) ? 413 : 400
-        return json(res, status, { error: e.message || 'Bild-Upload fehlgeschlagen' })
+        return json(res, uploadErrorStatus(e.message), { error: e.message || 'Bild-Upload fehlgeschlagen' })
       } finally {
         await upload?.cleanup()
       }
     }
 
     if (method === 'DELETE') {
-      const fp = db.getTemplateFloorplan(tpl.id)
+      const fp = getTemplateFloorplan(tpl.id)
       if (fp?.image_path) await floorplan.deleteFloorplanImage(fp.image_path)
-      db.upsertTemplateFloorplan(tpl.id, null)
+      upsertTemplateFloorplan(tpl.id, null)
       return json(res, 200, { ok: true })
     }
   }
 
   if (m = TPL_FP.exec(pathname)) {
     const templateName = decodeURIComponent(m[1])
-    const tpl = db.getTemplateByName(templateName)
+    const tpl = getTemplateByName(templateName)
     if (!tpl) return notFound(res)
 
     if (method === 'GET') {
-      const fp = db.getTemplateFloorplan(tpl.id)
+      const fp = getTemplateFloorplan(tpl.id)
       return json(res, 200, {
         image_url: fp?.image_path ? floorplan.floorplanUrl(fp.image_path) : null,
         canvas_data: fp?.canvas_data ?? null
@@ -249,7 +262,7 @@ export async function templateRoutes(req, res, pathname) {
       const body = await readJsonBody(req, res)
       if (body === null) return
       const raw = typeof body.canvas_data === 'string' ? body.canvas_data : JSON.stringify(body.canvas_data ?? null)
-      db.upsertTemplateFloorplanData(tpl.id, raw)
+      upsertTemplateFloorplanData(tpl.id, raw)
       return json(res, 200, { ok: true })
     }
   }
@@ -257,7 +270,7 @@ export async function templateRoutes(req, res, pathname) {
   if (m = TPL_CHANNELS.exec(pathname)) {
     const name = decodeURIComponent(m[1])
     if (method === 'GET') {
-      const channels = db.readTemplate(name).map(({ template_id: _, sort_order: __, ...ch }) => ch)
+      const channels = readTemplate(name).map(({ template_id: _, sort_order: __, ...ch }) => ch)
       return json(res, 200, channels)
     }
   }
@@ -265,29 +278,30 @@ export async function templateRoutes(req, res, pathname) {
   if (m = TPL_SECTIONS.exec(pathname)) {
     const name = decodeURIComponent(m[1])
     if (method === 'GET') {
-      return json(res, 200, db.readTemplateSections(name))
+      return json(res, 200, readTemplateSections(name))
     }
     if (method === 'PUT') {
       const user = requireAuth(req, res); if (!user) return
       const body = await readJsonBody(req, res); if (body === null) return
-      db.writeTemplateSections(name, body.sections)
+      writeTemplateSections(name, body.sections)
       return json(res, 200, { ok: true })
     }
   }
 
   if (m = TPL_PDF.exec(pathname)) {
     const name = decodeURIComponent(m[1])
-    const tpl = db.getTemplateByName(name)
+    const tpl = getTemplateByName(name)
     if (!tpl) return notFound(res)
     if (method === 'GET') {
-      const channels = db.readTemplate(name).map(({ template_id: _, sort_order: __, ...ch }) => ch)
+      const channels = readTemplate(name).map(({ template_id: _, sort_order: __, ...ch }) => ch)
       const show = { name, datum: null, template: null }
+      const isBlankTemplate = true
       res.writeHead(200, {
         'Content-Type': 'application/pdf',
-        'Content-Disposition': `inline; filename="${pdfFilename(show.name, true)}"`,
+        'Content-Disposition': `inline; filename="${pdfFilename(show.name, isBlankTemplate)}"`,
         'Referrer-Policy': 'no-referrer',
       })
-      await generatePDF({ show, channels }, res, { unit: getDisplayUnit(), photosPerPage: getPhotosPerPage(), blank: true })
+      await generatePDF({ show, channels }, res, { unit: getDisplayUnit(), photosPerPage: getPhotosPerPage(), blank: isBlankTemplate })
       return
     }
   }
@@ -297,16 +311,16 @@ export async function templateRoutes(req, res, pathname) {
     if (!name || name.length > 100 || /[\x00-\x1F]/.test(name)) return json(res, 400, { error: 'Ungültiger Bühnen-Template-Name' })
 
     if (method === 'GET') {
-      const channels = db.readTemplate(name).map(({ template_id: _, sort_order: __, ...ch }) => ch)
+      const channels = readTemplate(name).map(({ template_id: _, sort_order: __, ...ch }) => ch)
       return json(res, 200, channels)
     }
     if (method === 'PUT') {
       const user = requireAuth(req, res); if (!user) return
       const channels = await readJsonBody(req, res); if (channels === null) return
-      db.writeTemplate(name, channels)
-      const existing = db.readTemplateSections(name)
+      writeTemplate(name, channels)
+      const existing = readTemplateSections(name)
       if (!existing.length) {
-        db.writeTemplateSections(name, [
+        writeTemplateSections(name, [
           { id: randomUUID(), title: 'Aufbau', type: 'markdown', order: 0, fields: [] },
           { id: randomUUID(), title: 'Besonderheiten', type: 'markdown', order: 1, fields: [] },
         ])
@@ -318,15 +332,15 @@ export async function templateRoutes(req, res, pathname) {
       const body = await readJsonBody(req, res); if (body === null) return
       const newName = typeof body.name === 'string' ? body.name.trim() : ''
       if (!newName || newName.length > 100 || /[\x00-\x1F]/.test(newName)) return json(res, 400, { error: 'Ungültiger Bühnen-Template-Name' })
-      const existing = db.getTemplateByName(newName)
+      const existing = getTemplateByName(newName)
       if (existing) return json(res, 409, { error: 'Name bereits vergeben' })
-      db.renameTemplate(name, newName)
+      renameTemplate(name, newName)
       return json(res, 200, { ok: true, name: newName })
     }
     if (method === 'DELETE') {
       const user = requireAuth(req, res); if (!user) return
-      db.deleteTemplate(name)
-      db.deleteTemplateSections(name)
+      deleteTemplate(name)
+      deleteTemplateSections(name)
       return json(res, 200, { ok: true })
     }
   }

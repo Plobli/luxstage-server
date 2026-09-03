@@ -41,6 +41,21 @@ function acquireLock() {
 }
 acquireLock()
 
+// Ohne diese Handler beendet Node den Prozess bei jedem unerwarteten Fehler außerhalb des
+// Request/Response-Zyklus (Timer-Callback, verpasste .catch()) — riskant, da der Prozess den
+// exklusiven DB-Lock oben hält und ein unsauberer Absturz die SQLite-Datei beschädigen kann
+// (siehe Kommentar zu acquireLock). unhandledRejection nur loggen: viele Fire-and-Forget-
+// Promises (E-Mail-Versand) sind bewusst so eingesetzt, ein Exit bei jeder verpassten .catch()
+// wäre zu aggressiv. uncaughtException loggen und fail-fast beenden, statt in undefiniertem
+// Zustand weiterzulaufen.
+process.on('unhandledRejection', (reason) => {
+  console.error('[fatal] Unhandled Rejection:', reason)
+})
+process.on('uncaughtException', (err) => {
+  console.error('[fatal] Uncaught Exception:', err)
+  process.exit(1)
+})
+
 // Erst nach dem Lock öffnen — zwei Prozesse dürfen die Datei nie gleichzeitig anfassen.
 initDb()
 
@@ -67,6 +82,15 @@ const server = http.createServer((req, res) => {
 
   router(req, res)
 })
+
+// Explizite Obergrenzen statt der impliziten Node-Defaults: ein langsam
+// sendender Client (z.B. schlechte Mobilfunkverbindung auf der Bühne) soll
+// einen Worker-Slot nicht unbegrenzt blockieren können. requestTimeout
+// bewusst großzügig gewählt (nicht die reguläre 60s der JSON-Endpunkte),
+// da derselbe Server auch Foto-/Backup-Uploads über langsame Verbindungen
+// bedient — ein knapperer Wert würde die künstlich abbrechen.
+server.headersTimeout = 30_000
+server.requestTimeout = 120_000
 
 server.on('error', (err) => {
   if (err.code === 'EADDRINUSE') {

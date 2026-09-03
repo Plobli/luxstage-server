@@ -126,6 +126,7 @@
               <span class="text-sm">{{ t('tab.bars') }}</span>
             </label>
           </div>
+          <p v-if="createError" role="alert" class="text-sm text-destructive">{{ createError }}</p>
         </DialogBody>
         <DialogFooter>
           <Button variant="outline" type="button" @click="drawerOpen = false">
@@ -166,6 +167,7 @@ import { useRouter } from 'vue-router'
 import { Archive, Loader2, Plus, Sparkles, Lock } from 'lucide-vue-next'
 import { useLocale } from '../composables/useLocale.js'
 import { fetchShows, createShow, archiveShow } from '../api/shows.js'
+import { ApiError } from '../api/client'
 import { fetchTemplates, fetchTemplateChannels } from '../api/templates.js'
 import { cached } from '../api/cache.js'
 import { saveChannels } from '../api/channels.js'
@@ -209,6 +211,7 @@ function setSort(key) {
 const creating = ref(false)
 const drawerOpen = ref(false)
 const wizardOpen = ref(false)
+const createError = ref('')
 
 function currentSpielzeit() {
   const now = new Date()
@@ -269,6 +272,7 @@ onMounted(async () => {
 
 async function handleCreate() {
   creating.value = true
+  createError.value = ''
   const id = generateId(form.value.name, form.value.datum)
   try {
     const tplCreate = form.value.template === '__none__' ? '' : form.value.template
@@ -287,7 +291,11 @@ async function handleCreate() {
     drawerOpen.value = false
     router.push(`/shows/${id}`)
   } catch (e) {
+    createError.value = e instanceof ApiError && e.status === 409
+      ? t('error.show_id_exists')
+      : t('error.show_create_failed')
     console.error('Failed to create show:', e)
+    // drawerOpen bewusst NICHT schließen, damit der Nutzer die Meldung sieht und korrigieren kann
   } finally {
     creating.value = false
   }
@@ -301,6 +309,7 @@ function onWizardCreated(newShow) {
 
 function openCreate() {
   form.value = { name: '', datum: new Date().toISOString().slice(0, 10), template: '__none__', spielzeit: currentSpielzeit(), use_bars: true, use_towers: true }
+  createError.value = ''
   drawerOpen.value = true
 }
 

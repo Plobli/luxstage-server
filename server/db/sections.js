@@ -2,32 +2,14 @@ import { getDb } from '../db-context.js'
 import { readShow, touchLastEdited } from './shows.js'
 import { randomUUID } from 'node:crypto'
 import { sectionTypeHasRows } from '../../shared/constants.js'
+import { readSectionDefsCore } from './section-defs-core.js'
 
 function now() { return Date.now() }
 
 export function readShowSectionDefs(slug) {
   const show = readShow(slug)
   if (!show) return []
-  const defs = getDb().prepare('SELECT * FROM section_defs WHERE show_id = ? ORDER BY sort_order').all(show.id)
-  if (!defs.length) return []
-  const defIds = defs.map(d => d.id)
-  const ph = defIds.map(() => '?').join(',')
-  const rowsAll = getDb().prepare(`SELECT * FROM section_kv_rows WHERE section_id IN (${ph}) ORDER BY sort_order`).all(defIds)
-  const fieldsAll = getDb().prepare(`SELECT * FROM section_fields WHERE section_id IN (${ph}) ORDER BY sort_order`).all(defIds)
-  const rowsBySection = Map.groupBy(rowsAll, r => r.section_id)
-  const fieldsBySection = Map.groupBy(fieldsAll, f => f.section_id)
-  return defs.map(def => {
-    if (sectionTypeHasRows(def.type)) {
-      return {
-        id: def.id, title: def.title, type: def.type, icon: def.icon ?? '', order: def.sort_order,
-        rows: (rowsBySection.get(def.id) ?? []).map(r => ({ id: r.id, label: r.label, value: r.value, sort_order: r.sort_order })),
-      }
-    }
-    return {
-      id: def.id, title: def.title, type: def.type, icon: def.icon ?? '', order: def.sort_order,
-      fields: (fieldsBySection.get(def.id) ?? []).map(f => ({ id: f.id, key: f.key, label: f.label, unit: f.unit })),
-    }
-  })
+  return readSectionDefsCore('section_defs', 'section_kv_rows', 'section_fields', 'show_id', show.id)
 }
 
 export function writeShowSectionDefs(slug, defs, editedBy = null) {

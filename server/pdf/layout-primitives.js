@@ -14,7 +14,7 @@ export function calcRowHeight(doc, cols, minH = ROW_MIN_H) {
   return Math.min(maxH, MAX_ROW_H)
 }
 
-export function drawRow(doc, y, usableW, cols, isHeader, minRowH = ROW_MIN_H) {
+export function drawRow(doc, y, usableW, cols, { isHeader = false, minRowH = ROW_MIN_H } = {}) {
   const rowH = isHeader ? ROW_MIN_H : calcRowHeight(doc, cols, minRowH)
 
   // Hintergrund Header: sehr helles Grau, keine Außenbox
@@ -90,6 +90,8 @@ export function drawRow(doc, y, usableW, cols, isHeader, minRowH = ROW_MIN_H) {
   }
   return y + rowH
 }
+
+export const drawHeaderRow = (doc, y, usableW, cols) => drawRow(doc, y, usableW, cols, { isHeader: true })
 
 export function renderFieldsSection(doc, fields, raw, margin, usableW) {
   const colLabelW = mm(45)

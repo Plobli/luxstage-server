@@ -1,7 +1,7 @@
 // pdf/network.js — Netzwerk-Verkabelung PDF-Export
 import PDFDocument from 'pdfkit'
 import { mm, PAGE_MARGIN, FONT_NORMAL, FONT_BOLD, ROW_MIN_H } from './constants.js'
-import { drawRow } from './layout-primitives.js'
+import { drawRow, drawHeaderRow } from './layout-primitives.js'
 
 const TYPE_LABELS = { dose: 'Dose', switch: 'Switch', geraet: 'Gerät' }
 function nodeLabel(n) { return n?.label || TYPE_LABELS[n?.type] || '' }
@@ -80,7 +80,7 @@ export function generateNetworkPDF(nodes, connections, res) {
 
     if (!sw.port_count) continue
 
-    y = drawRow(doc, y, usableW, portCols, true)
+    y = drawHeaderRow(doc, y, usableW, portCols)
 
     for (let port = 1; port <= sw.port_count; port++) {
       const conn = connections.find(c => {
@@ -102,9 +102,9 @@ export function generateNetworkPDF(nodes, connections, res) {
       }
       if (y + ROW_MIN_H > printableBottom) {
         doc.addPage(); addFooter(); y = PAGE_MARGIN
-        y = drawRow(doc, y, usableW, portCols, true)
+        y = drawHeaderRow(doc, y, usableW, portCols)
       }
-      y = drawRow(doc, y, usableW, rowCols, false)
+      y = drawRow(doc, y, usableW, rowCols)
     }
     y += mm(6)
   }
@@ -120,7 +120,7 @@ export function generateNetworkPDF(nodes, connections, res) {
       { text: 'Von', w: usableW / 2 },
       { text: 'Zu', w: usableW / 2 },
     ]
-    y = drawRow(doc, y, usableW, otherCols, true)
+    y = drawHeaderRow(doc, y, usableW, otherCols)
     for (const conn of otherConnections) {
       const rowCols = [
         { text: nodeLabel(byId.get(conn.from_node_id)), w: otherCols[0].w },
@@ -128,9 +128,9 @@ export function generateNetworkPDF(nodes, connections, res) {
       ]
       if (y + ROW_MIN_H > printableBottom) {
         doc.addPage(); addFooter(); y = PAGE_MARGIN
-        y = drawRow(doc, y, usableW, otherCols, true)
+        y = drawHeaderRow(doc, y, usableW, otherCols)
       }
-      y = drawRow(doc, y, usableW, rowCols, false)
+      y = drawRow(doc, y, usableW, rowCols)
     }
   }
 

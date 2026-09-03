@@ -62,7 +62,7 @@ export function reorderBars(slug, orderedIds) {
   tx()
 }
 
-export function writeBarFixture(barId, channelId, position, notes, fixtureId, side, positionText) {
+export function writeBarFixture(barId, channelId, { position = 0, notes = '', fixtureId = null, side = 'out', positionText = '' } = {}) {
   const id = fixtureId || randomUUID()
   const existing = fixtureId ? getDb().prepare('SELECT id FROM bar_fixtures WHERE id = ?').get(id) : null
   if (existing) {

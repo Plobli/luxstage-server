@@ -35,7 +35,10 @@ type RequestOptions = {
   authenticated?: boolean;
   contentType?: string | null;
   extraHeaders?: Record<string, string>;
+  timeoutMs?: number;
 }
+
+const DEFAULT_TIMEOUT_MS = 20_000
 
 function headers({ authenticated, contentType, extraHeaders }: Pick<RequestOptions, 'authenticated' | 'contentType' | 'extraHeaders'>): Record<string, string> {
   const result: Record<string, string> = { ...extraHeaders }
@@ -50,18 +53,24 @@ async function request<T>(method: string, path: string, {
   authenticated = true,
   contentType = 'application/json',
   extraHeaders,
+  timeoutMs = DEFAULT_TIMEOUT_MS,
 }: RequestOptions = {}): Promise<T> {
   const hadToken = authenticated && !!getToken()
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs)
   let res: Response
   try {
     res = await fetch(BASE() + path, {
       method,
       headers: headers({ authenticated, contentType, extraHeaders }),
       body: body === undefined ? undefined : contentType === 'application/json' ? JSON.stringify(body) : body as BodyInit,
+      signal: controller.signal,
     })
   } catch (e) {
     isOnline.value = false
     throw e
+  } finally {
+    clearTimeout(timeoutId)
   }
   isOnline.value = true
   if (res.status === 401) {
@@ -100,8 +109,10 @@ export const api = {
   put: <T = unknown>(path: string, body: unknown) => request<T>('PUT', path, { body }),
   patch: <T = unknown>(path: string, body: unknown) => request<T>('PATCH', path, { body }),
   delete: <T = unknown>(path: string, body?: unknown) => request<T>('DELETE', path, { body }),
+  /** Größeres Timeout als der Default — für Datei-Uploads (Backup-Restore),
+   *  ein einheitlicher globaler Wert würde große Uploads künstlich abbrechen. */
   send: <T = unknown>(method: string, path: string, body: BodyInit, contentType: string) =>
-    request<T>(method, path, { body, contentType }),
+    request<T>(method, path, { body, contentType, timeoutMs: 5 * 60_000 }),
 
   /** URL mit kurzlebigem, wiederverwendbarem Token (15 Min TTL) für Inline-
    *  Ressourcen (img src). Für einmalige Downloads (PDF, Backup) stattdessen
@@ -202,6 +213,16 @@ export function subscribeShow(showId: string, { onLockStatus, onTakeoverRequeste
   let es: EventSource | null = null
   let closed = false
   let retryTimer: ReturnType<typeof setTimeout> | null = null
+  let attempt = 0
+
+  // Exponentiell mit Obergrenze + Jitter statt fixem Delay — verhindert, dass
+  // bei einem längeren Serverausfall (z.B. während des Selbst-Update-Neustarts)
+  // jeder offene Tab jeder Show alle 3s unvermindert weiter reconnectet und den
+  // gerade erst wieder hochgefahrenen Server zusätzlich belastet.
+  function nextDelay(): number {
+    const base = Math.min(3000 * 2 ** attempt, 30_000)
+    return base / 2 + Math.random() * (base / 2)
+  }
 
   async function connect(): Promise<void> {
     if (closed) return
@@ -209,7 +230,7 @@ export function subscribeShow(showId: string, { onLockStatus, onTakeoverRequeste
     try {
       url = await api.downloadUrl(`/api/shows/${showId}/events?device=web`)
     } catch {
-      if (!closed) retryTimer = setTimeout(connect, 3000)
+      if (!closed) { retryTimer = setTimeout(connect, nextDelay()); attempt++ }
       return
     }
     if (closed) return
@@ -218,10 +239,11 @@ export function subscribeShow(showId: string, { onLockStatus, onTakeoverRequeste
     if (onLockStatus) es.addEventListener('lock-status-updated', (e: any) => onLockStatus(JSON.parse(e.data)))
     if (onTakeoverRequested) es.addEventListener('lock-takeover-requested', (e: any) => onTakeoverRequested(JSON.parse(e.data)))
     if (onPresence) es.addEventListener('presence-updated', (e: any) => onPresence(JSON.parse(e.data)))
+    es.onopen = () => { attempt = 0 }
     es.onerror = () => {
       es?.close()
       es = null
-      if (!closed) retryTimer = setTimeout(connect, 3000)
+      if (!closed) { retryTimer = setTimeout(connect, nextDelay()); attempt++ }
     }
   }
 

@@ -1,16 +1,9 @@
 import { mm, PAGE_MARGIN, FONT_NORMAL, FONT_BOLD, BAR_TYPE_LABELS } from './constants.js'
+import { fmtLeeColorLabel as fmtColor } from './filter-colors.js'
 
 // Hängerei als Textliste (eine Zeile pro Zug)
 export function renderHangereiBars(doc, bars, channels, margin, usableW, startY, bottomLimit, addFooter) {
   let ty = startY
-
-  function fmtColor(color) {
-    if (!color) return undefined
-    const s = color.trim()
-    if (/^[LRlr]\d/.test(s)) return s.toUpperCase()
-    if (/^\d/.test(s)) return `L${s}`
-    return s
-  }
 
   const sorted = [...bars].sort((a, b) => a.sort_order - b.sort_order)
   for (const bar of sorted) {
