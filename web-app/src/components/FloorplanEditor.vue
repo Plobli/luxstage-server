@@ -1449,18 +1449,28 @@ function parseData(str) {
   } catch {}
 }
 
+// initialCanvasData ist an denselben Zustand gebunden, den wir per 'change'
+// speichern (siehe ShowDetailView.vue/TemplateDetailPanel.vue) — jede eigene
+// Änderung kommt darüber als Prop-Update zurück. lastEmittedSnapshot erkennt
+// dieses Echo, damit der watch() unten nicht bei jeder Aktion die History
+// zurücksetzt (sonst wäre Undo/Redo praktisch wirkungslos).
+let lastEmittedSnapshot = null
+function emitSnapshot(data) {
+  lastEmittedSnapshot = data
+  emit('change', data)
+}
+
 function undo() {
   const snap = editorHistory.undo()
-  if (snap) emit('change', snap)
+  if (snap) emitSnapshot(snap)
 }
 function redo() {
   const snap = editorHistory.redo()
-  if (snap) emit('change', snap)
+  if (snap) emitSnapshot(snap)
 }
 function emitChange() {
   editorHistory.push()
-  const data = exportData()
-  emit('change', data)
+  emitSnapshot(exportData())
 }
 function exportPNG() {
   exportFloorplanPNG(svgRef.value, stageSize.value, bgImage.value)
@@ -1524,6 +1534,7 @@ onUnmounted(() => {
 })
 
 watch(() => props.initialCanvasData, (newVal) => {
+  if (newVal === lastEmittedSnapshot) return
   parseData(newVal); editorHistory.reset(exportData())
 }, { immediate: true })
 
