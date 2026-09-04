@@ -142,7 +142,6 @@
       @mousedown="onContainerMouseDown"
       @mousemove="onContainerMouseMove"
       @mouseup="onContainerMouseUp"
-      @dblclick="onContainerDblClick"
     >
       <div
         class="absolute origin-top-left" 
@@ -953,10 +952,20 @@ function onNodeMouseDown(id, e) {
   beginElementDrag()
 }
 
+// Text-Edit muss hier ausgelöst werden, nicht in einem separaten Container-Dblclick-Handler:
+// @dblclick.stop auf dem <g> unten verhindert, dass ein Doppelklick auf ein Element je den
+// Container erreicht (und ein Doppelklick daneben löscht die Auswahl schon beim ersten der
+// beiden Klicks, siehe onContainerMouseDown) — ein separater Handler auf dem Container wäre
+// für Text-Elemente strukturell unerreichbar.
 function onNodeDblClick(id) {
   if (activeTool.value !== 'select') return
   selectedIds.value = new Set([id])
-  propertiesOpen.value = true
+  const el = elements.value.find(x => x.id === id)
+  if (el?.type === 'text') {
+    beginTextEdit(el, svgRef.value, containerEl.value)
+  } else {
+    propertiesOpen.value = true
+  }
 }
 
 function onContainerMouseDown(e) {
@@ -1141,14 +1150,6 @@ function onContainerMouseUp(e) {
 }
 
 function resetView() { resetViewport(!!bgImage.value) }
-
-function onContainerDblClick(e) {
-  if (activeTool.value !== 'select') return
-  if (selectedIds.value.size === 1) {
-    const el = elements.value.find(x => x.id === [...selectedIds.value][0])
-    if (el?.type === 'text') beginTextEdit(el, svgRef.value, containerEl.value)
-  }
-}
 
 function addElement(el) { elements.value.push(el) }
 function deleteSelected() {
