@@ -8,6 +8,7 @@ import { getTenantId } from './db-context.js'
 import { saasEnabled, getSaas } from './saas.js'
 import { PUBLIC_ROUTES, API_ROUTE_HANDLERS, SHOW_ROUTE_HANDLERS, showRoutes, systemRoutes } from './route-table.js'
 import { getLock } from './db/locks.js'
+import { getResourceLock } from './db/resource-locks.js'
 import { isGloballyRateLimited } from './rate-limit.js'
 import { logger } from './logger.js'
 
@@ -19,6 +20,25 @@ const WRITE_METHODS = new Set(['PUT', 'POST', 'DELETE'])
 // History-Restore hat einen eigenen, engeren Lock-Check in history.js).
 const SHOW_WRITE_PATH = /^\/api\/shows\/([^/]+)\//
 const LOCK_CHECK_EXEMPT = /^\/api\/shows\/[^/]+\/(lock|events|history\/[^/]+\/restore|circuit-scan)(\/|$)/
+
+// Netzwerk und Templates sind wie Shows Mehrbenutzer-Ressourcen, haben aber
+// keine eigene shows-Zeile — ihr Lock läuft über den generischen
+// db/resource-locks.js-Mechanismus statt über db/locks.js (show_id-basiert).
+const NETWORK_WRITE_PATH = /^\/api\/network\//
+const NETWORK_LOCK_EXEMPT = /^\/api\/network\/lock(\/|$)/
+const TEMPLATE_WRITE_PATH = /^\/api\/templates\/([^/]+)\//
+const TEMPLATE_LOCK_EXEMPT = /^\/api\/templates\/[^/]+\/lock(\/|$)/
+
+// Liefert den Resource-Lock-Schlüssel für einen Schreib-Pfad außerhalb von
+// /api/shows/ — oder null, wenn der Pfad keiner gesperrten Ressource angehört.
+function otherResourceLockKey(pathname) {
+  if (!NETWORK_LOCK_EXEMPT.test(pathname) && NETWORK_WRITE_PATH.test(pathname)) return 'network'
+  if (!TEMPLATE_LOCK_EXEMPT.test(pathname)) {
+    const m = TEMPLATE_WRITE_PATH.exec(pathname)
+    if (m) return `template:${decodeURIComponent(m[1])}`
+  }
+  return null
+}
 
 const distPath = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'web-app', 'dist')
 const operatorPanelPath = path.join(path.dirname(fileURLToPath(import.meta.url)), 'operator-panel.html')
@@ -115,8 +135,6 @@ async function serveStatic(req, res, pathname) {
   }
 }
 
-const nil = (r) => r === null
-
 // Apple Universal Links: gilt hostunabhängig (Root- und alle Mandanten-Subdomains),
 // damit der App-Login-Deep-Link auf jeder team.luxstage.app funktioniert.
 const APPLE_APP_SITE_ASSOCIATION = JSON.stringify({
@@ -178,11 +196,31 @@ export async function router(req, res) {
         if (tenantId) {
           if (!saas.tenantExists(tenantId)) return json(res, 404, { error: 'Unbekannter Mandant' })
           if (saas.isSuspended(tenantId)) return json(res, 403, { error: 'Dieser Zugang wurde gesperrt' })
-          return saas.runWithDb(saas.openTenantDb(tenantId), () => handleApi(req, res, pathname, params), tenantId)
+          const tdb = saas.openTenantDb(tenantId)
+          // Markiert die Verbindung als in Benutzung, solange dieser Request läuft —
+          // evictOldest() (tenants.js) darf sie währenddessen nicht schließen.
+          saas.markTenantInUse(tenantId)
+          try {
+            return await saas.runWithDb(tdb, () => handleApi(req, res, pathname, params), tenantId)
+          } finally {
+            saas.releaseTenantInUse(tenantId)
+          }
         }
+
+        // Kein Mandant aus dem Host ableitbar (falsch konfigurierter Proxy, nackte
+        // IP, unbekannte Subdomain o.ä.): NICHT ohne DB-Kontext auf handleApi()
+        // durchfallen lassen — getDb() hätte dort keinen Mandanten-Kontext und
+        // würde im SaaS-Betrieb hart fehlschlagen (siehe db-context.js). Nur die
+        // Endpunkte durchlassen, die nachweislich ohne Mandanten-DB auskommen
+        // (Registrierung legt den Mandanten erst an; Health-Check greift nicht auf
+        // die DB zu) — alles andere ist hier per Definition nicht erreichbar.
+        if (pathname === '/api/register' || pathname === '/api/register/confirm' || pathname === '/api/health') {
+          return handleApi(req, res, pathname, params)
+        }
+        return notFound(res)
       }
 
-      // Kein Mandant (oder Self-Hosted): öffentlicher/globaler Kontext.
+      // Self-Hosted (kein BASE_DOMAIN): öffentlicher/globaler Kontext.
       return handleApi(req, res, pathname, params)
     }
 
@@ -237,10 +275,19 @@ async function dispatchApi(req, res, pathname, params) {
     return dispatchRoute(getSaas().registerRoutes, req, res, pathname, params)
   }
 
-  if (WRITE_METHODS.has(req.method) && !LOCK_CHECK_EXEMPT.test(pathname)) {
-    const m = SHOW_WRITE_PATH.exec(pathname)
-    if (m) {
-      const lock = getLock(m[1])
+  if (WRITE_METHODS.has(req.method)) {
+    if (!LOCK_CHECK_EXEMPT.test(pathname)) {
+      const m = SHOW_WRITE_PATH.exec(pathname)
+      if (m) {
+        const lock = getLock(m[1])
+        if (lock && lock.user !== req.user.username) {
+          return json(res, 423, { ok: false, lockedBy: lock.user, since: lock.since })
+        }
+      }
+    }
+    const lockKey = otherResourceLockKey(pathname)
+    if (lockKey) {
+      const lock = getResourceLock(lockKey)
       if (lock && lock.user !== req.user.username) {
         return json(res, 423, { ok: false, lockedBy: lock.user, since: lock.since })
       }
@@ -254,7 +301,7 @@ async function dispatchApi(req, res, pathname, params) {
     const showRoute = SHOW_ROUTE_HANDLERS.find(route => route.matches(pathname))
     if (showRoute) {
       const handled = await showRoute.handler(req, res, pathname, params)
-      if (!nil(handled)) return
+      if (handled !== null) return
     }
     return dispatchRoute(showRoutes, req, res, pathname, params)
   }
@@ -274,7 +321,7 @@ export async function dispatchRoute(handler, req, res, pathname, params) {
     if (!res.headersSent) json(res, 500, { error: 'Interner Serverfehler' })
     return
   }
-  if (nil(result)) return notFound(res)
+  if (result === null) return notFound(res)
   // Handler meldete Zuständigkeit, hat aber nichts gesendet. Ohne diese
   // Absicherung hinge der Request bis zum Client-Timeout, ohne Spur im Log.
   if (!res.headersSent) {

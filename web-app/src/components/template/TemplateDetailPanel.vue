@@ -32,6 +32,9 @@
         </Button>
       </template>
       <span v-if="detailSaving || sectionsSaving" class="text-xs text-muted-foreground">…</span>
+      <span v-if="templateLockedByOther" class="text-xs text-orange-500" role="status">
+        {{ t('lock.lockedBy', { user: templateLock?.user }) }}
+      </span>
     </div>
 
     <div v-if="detailLoading" class="text-sm text-muted-foreground">…</div>
@@ -85,7 +88,6 @@
               :dupChannelNrs="emptySet"
               :channelStatusFn="() => 'default'"
               :toggleChannelStatusFn="() => {}"
-              :allShowPhotos="[]"
               :labels="{
                 channel: t('field.channel'),
                 dmx: t('field.dmx_address'),
@@ -248,10 +250,12 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, nextTick } from 'vue'
+import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
 import { ArrowLeft, Pencil } from 'lucide-vue-next'
 import { useLocale } from '../../composables/useLocale.js'
 import { useTemplateDetail } from '../../composables/useTemplateDetail.js'
+import { useResourceLock } from '../../composables/useResourceLock'
+import { acquireTemplateLock, releaseTemplateLock, touchTemplateLock } from '../../api/templates.ts'
 import { templateDisplayName } from '../../utils/templateName.js'
 import ChannelTable from '../channel/ChannelTable.vue'
 import FloorplanEditor from '../FloorplanEditor.vue'
@@ -340,6 +344,19 @@ watch(() => props.templateName, () => {
   loadDetail()
   loadFloorplan()
 }, { immediate: true })
+
+// Schreib-Lock: verhindert, dass zwei Personen dasselbe Template gleichzeitig
+// bearbeiten. props.templateName ist für die Lebensdauer dieser Instanz fest
+// (der Parent setzt :key="editingName", ein Rename/Wechsel remountet also
+// statt die Prop live zu ändern) — die Lock-Aufrufe können sie daher einfach
+// einmalig einfangen statt auf Änderungen zu reagieren.
+const { lock: templateLock, isLockedByOther: templateLockedByOther, acquireOnOpen: acquireTemplateLockOnOpen, releaseOnClose: releaseTemplateLockOnClose } = useResourceLock({
+  acquire: () => acquireTemplateLock(props.templateName),
+  release: () => releaseTemplateLock(props.templateName),
+  touch: () => touchTemplateLock(props.templateName),
+})
+onMounted(() => { acquireTemplateLockOnOpen().catch(() => {}) })
+onUnmounted(() => { releaseTemplateLockOnClose() })
 
 async function persistOscHost() {
   oscSaving.value = true

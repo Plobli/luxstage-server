@@ -12,7 +12,9 @@ export function writeTemplateTower(name, data) {
   const tpl = getDb().prepare('SELECT * FROM templates WHERE name = ?').get(name)
   if (!tpl) throw new Error(`Template not found: ${name}`)
   const id = data.id || randomUUID()
-  const existing = getDb().prepare('SELECT id FROM template_towers WHERE id = ?').get(id)
+  // Auf template_id einschränken: sonst könnte eine fremde tower-ID (aus
+  // einem anderen Template) hier aktualisiert werden.
+  const existing = getDb().prepare('SELECT id FROM template_towers WHERE id = ? AND template_id = ?').get(id, tpl.id)
   if (existing) {
     getDb().prepare(
       'UPDATE template_towers SET name=?, side=?, stage_area=?, slot_count=?, sort_order=? WHERE id=?'
@@ -26,8 +28,11 @@ export function writeTemplateTower(name, data) {
   return id
 }
 
-export function deleteTemplateTower(towerId) {
-  getDb().prepare('DELETE FROM template_towers WHERE id = ?').run(towerId)
+export function deleteTemplateTower(name, towerId) {
+  getDb().prepare(`
+    DELETE FROM template_towers WHERE id = ?
+    AND template_id IN (SELECT id FROM templates WHERE name = ?)
+  `).run(towerId, name)
 }
 
 export function reorderTemplateTowers(templateId, orderedIds) {
@@ -38,7 +43,15 @@ export function reorderTemplateTowers(templateId, orderedIds) {
   tx()
 }
 
-export function writeTemplateTowerSlot(towerId, slotIndex, data) {
+// Auf template_id einschränken: sonst ließe sich ein Slot einer fremden
+// tower-ID (aus einem anderen Template) hier beschreiben.
+export function writeTemplateTowerSlot(name, towerId, slotIndex, data) {
+  const tower = getDb().prepare(`
+    SELECT tt.id FROM template_towers tt JOIN templates t ON t.id = tt.template_id
+    WHERE tt.id = ? AND t.name = ?
+  `).get(towerId, name)
+  if (!tower) throw new Error(`Turm nicht in diesem Template: ${towerId}`)
+
   const id = randomUUID()
   getDb().prepare(`
     INSERT INTO template_tower_slots (id, tower_id, slot_index, channel, device, color)
@@ -47,10 +60,12 @@ export function writeTemplateTowerSlot(towerId, slotIndex, data) {
   `).run(id, towerId, slotIndex, data.channel ?? null, data.device ?? null, data.color ?? null)
 }
 
-export function clearTemplateTowerSlot(towerId, slotIndex) {
-  getDb().prepare(
-    'UPDATE template_tower_slots SET channel=NULL, device=NULL, color=NULL WHERE tower_id = ? AND slot_index = ?'
-  ).run(towerId, slotIndex)
+export function clearTemplateTowerSlot(name, towerId, slotIndex) {
+  getDb().prepare(`
+    UPDATE template_tower_slots SET channel=NULL, device=NULL, color=NULL
+    WHERE tower_id = ? AND slot_index = ?
+    AND tower_id IN (SELECT tt.id FROM template_towers tt JOIN templates t ON t.id = tt.template_id WHERE t.name = ?)
+  `).run(towerId, slotIndex, name)
 }
 
 export function ensureTemplateTowerSlots(towerId, slotCount) {

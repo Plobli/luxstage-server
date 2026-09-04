@@ -26,6 +26,8 @@ async function load() {
     isRootHost: tenantResolve.isRootHost,
     openTenantDb: tenants.openTenantDb,
     tenantExists: tenants.tenantExists,
+    markTenantInUse: tenants.markTenantInUse,
+    releaseTenantInUse: tenants.releaseTenantInUse,
     isSuspended: registry.isSuspended,
     runWithDb: dbContext.runWithDb,
     operatorRoutes: operatorRoutes.operatorRoutes,

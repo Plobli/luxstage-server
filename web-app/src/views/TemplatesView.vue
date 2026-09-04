@@ -4,6 +4,7 @@
     <!-- Detail-Ansicht (wenn eine Vorlage ausgewählt) -->
     <TemplateDetailPanel
       v-if="editingName"
+      :key="editingName"
       :templateName="editingName"
       :oscHost="editingOscHostInitial"
       @close="editingName = null"

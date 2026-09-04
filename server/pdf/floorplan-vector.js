@@ -1,11 +1,11 @@
 import fs from 'node:fs'
 import { FONT_NORMAL, FONT_BOLD } from './constants.js'
 import { readImageSize } from './utils.js'
+import { PDF_PRINT_AREA_RATIO } from '../../shared/constants.js'
 
-// Editor-Stage-Größe (web-app/src/components/FloorplanEditor.vue: stageSize),
-// A4-Querformat-Druckbereich als Ziel-Seitenverhältnis (267mm x 160mm).
+// Editor-Stage-Größe (web-app/src/components/FloorplanEditor.vue: stageSize).
 const STAGE_W = 2000
-const STAGE_H = Math.round(2000 / (267 / 160))
+const STAGE_H = Math.round(2000 / PDF_PRINT_AREA_RATIO)
 
 // Fallback-Werte für die CSS-Variablen, die der Editor für tower-Elemente nutzt
 // (siehe web-app/src/utils/floorplanSnapshot.js SNAPSHOT_CSS_VARS — identisches

@@ -1,5 +1,5 @@
 import { ref, type Ref } from 'vue'
-import { BASE, getToken } from '../api/client'
+import { loadDisplaySettingsOnce, saveDisplaySettings } from '../api/settings'
 
 const STORAGE_KEY = 'photo_print_per_page'
 const VALID = [1, 2, 4, 6, 8, 9, 12]
@@ -13,10 +13,8 @@ const stored = storedStr ? parseInt(storedStr, 10) : NaN
 const photosPerPage = ref<number>(VALID.includes(stored) ? stored : DEFAULT)
 
 if (typeof window !== 'undefined') {
-  fetch(BASE() + '/api/settings/display', {
-    headers: { 'Authorization': 'Bearer ' + (getToken() ?? '') },
-  }).then(r => r.ok ? r.json() : null).then(data => {
-    const n = parseInt(data?.photos_per_page, 10)
+  loadDisplaySettingsOnce().then(data => {
+    const n = data?.photos_per_page
     if (VALID.includes(n)) {
       photosPerPage.value = n
       localStorage.setItem(STORAGE_KEY, String(n))
@@ -34,11 +32,7 @@ function setPhotosPerPage(n: number): void {
   if (!VALID.includes(n)) return
   photosPerPage.value = n
   localStorage.setItem(STORAGE_KEY, String(n))
-  fetch(BASE() + '/api/settings/display', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + (getToken() ?? '') },
-    body: JSON.stringify({ photos_per_page: n }),
-  }).catch(() => {})
+  saveDisplaySettings({ photos_per_page: n }).catch(() => {})
 }
 
 export function usePhotoSettings(): { photosPerPage: Ref<number>, setPhotosPerPage: (n: number) => void, VALID: number[] } {

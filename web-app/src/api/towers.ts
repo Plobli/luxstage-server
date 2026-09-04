@@ -38,7 +38,3 @@ export async function deleteTower(showId: string, towerId: string): Promise<void
 export async function assignTowerSlot(showId: string, towerId: string, slotIndex: number, channelId: string | null): Promise<void> {
   return api.patch(`/api/shows/${showId}/towers/${towerId}/slots/${slotIndex}`, { channelId })
 }
-
-export async function restoreTowersSnapshot(showId: string, towers: Tower[]): Promise<void> {
-  return api.put(`/api/shows/${showId}/towers/restore`, { towers })
-}

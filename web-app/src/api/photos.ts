@@ -54,21 +54,3 @@ export async function getPhotoUrl(showId: string, filename: string, { thumb = fa
   return thumb ? url + '&thumb=1' : url
 }
 
-// ── Channel Photos ──────────────────────────────────────────────────────
-
-export async function fetchChannelPhotos(showId: string, channelId: string): Promise<any[]> {
-  return api.get(`/api/shows/${showId}/channels/${channelId}/photos`)
-}
-
-export async function addChannelPhoto(showId: string, channelId: string, filename: string): Promise<any> {
-  return api.post(`/api/shows/${showId}/channels/${channelId}/photos`, { filename })
-}
-
-export async function removeChannelPhoto(showId: string, channelId: string, filename: string): Promise<any> {
-  return api.delete(`/api/shows/${showId}/channels/${channelId}/photos/${encodeURIComponent(filename)}`)
-}
-
-export async function reorderChannelPhotos(showId: string, channelId: string, filenames: string[]): Promise<any> {
-  return api.put(`/api/shows/${showId}/channels/${channelId}/photos/reorder`, { photos: filenames })
-}
-

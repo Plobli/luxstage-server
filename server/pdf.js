@@ -6,7 +6,7 @@
 import PDFDocument from 'pdfkit'
 import fs from 'node:fs'
 import { mm, PAGE_MARGIN, COL, GROUP_H, ROW_MIN_H, FONT_NORMAL, FONT_BOLD } from './pdf/constants.js'
-import { calcRowHeight, drawRow, drawHeaderRow } from './pdf/layout-primitives.js'
+import { calcRowHeight, drawRow, drawHeaderRow, createFooter } from './pdf/layout-primitives.js'
 import { parseSetupSection, renderSetupBlocks } from './pdf/tiptap-parse.js'
 import { rendererFor } from './pdf/section-renderers.js'
 import { drawTowerCards, renderGassenturmText } from './pdf/towers.js'
@@ -67,25 +67,7 @@ export async function generatePDF(data, stream, opts = {}) {
   const printableBottom = pageH - PAGE_MARGIN - FOOTER_H
 
   // Fußzeile auf jede Seite zeichnen
-  const printedAt = new Date().toLocaleDateString('de-DE', { day:'2-digit', month:'2-digit', year:'numeric' })
-  let pageNum = 0
-  function addFooter() {
-    pageNum++
-    const curPageH = doc.page.height
-    const curPageW = doc.page.width
-    const curUsableW = curPageW - PAGE_MARGIN * 2
-    const fy = curPageH - PAGE_MARGIN - mm(4)
-    // doc.y temporär weit oben setzen damit pdfkit kein continueOnNewPage auslöst
-    const savedY = doc.y
-    doc.y = PAGE_MARGIN
-    doc.font(FONT_NORMAL).fontSize(7).fillColor('#888888')
-      .text(`${fm.name || ''} — ${fmt(fm.datum)}`, PAGE_MARGIN, fy, { width: curUsableW / 2, lineBreak: false })
-    doc.text(`Seite ${pageNum}`, PAGE_MARGIN + curUsableW / 2, fy, {
-      width: curUsableW / 2, align: 'right', lineBreak: false
-    })
-    doc.fillColor('black')
-    doc.y = savedY
-  }
+  const addFooter = createFooter(doc, `${fm.name || ''} — ${fmt(fm.datum)}`)
   addFooter()
 
   // ── Titel ────────────────────────────────────────────────────────────────

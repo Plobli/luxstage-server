@@ -1,5 +1,5 @@
 import { deleteBar, readBars, removeBarFixture, reorderBars, restoreBars, updateBarFixtureNotes, writeBar, writeBarFixture } from '../db/bars.js'
-import { readShow } from '../db/shows.js'
+import { requireShow } from '../db/shows.js'
 import { readJsonBody, json } from '../helpers.js'
 import { broadcast } from '../sse.js'
 import { withUndoSnapshot } from '../db/operations.js'
@@ -20,8 +20,8 @@ export async function barRoutes(req, res, pathname) {
     if (method === 'PUT') {
       const user = req.user
       const body = await readJsonBody(req, res); if (body === null) return
-      const show = readShow(slug)
-      if (!show) return json(res, 404, { error: 'Show nicht gefunden' })
+      const show = requireShow(slug, res)
+      if (!show) return
 
       withUndoSnapshot(slug, show.id, user.username, () => {
         restoreBars(slug, body.bars ?? [])
@@ -37,8 +37,8 @@ export async function barRoutes(req, res, pathname) {
     if (method === 'POST') {
       const user = req.user
       const body = await readJsonBody(req, res); if (body === null) return
-      const show = readShow(slug)
-      if (!show) return json(res, 404, { error: 'Show nicht gefunden' })
+      const show = requireShow(slug, res)
+      if (!show) return
 
       let barId
       withUndoSnapshot(slug, show.id, user.username, () => {
@@ -54,8 +54,8 @@ export async function barRoutes(req, res, pathname) {
     if (method === 'PUT') {
       const user = req.user
       const body = await readJsonBody(req, res); if (body === null) return
-      const show = readShow(slug)
-      if (!show) return json(res, 404, { error: 'Show nicht gefunden' })
+      const show = requireShow(slug, res)
+      if (!show) return
 
       withUndoSnapshot(slug, show.id, user.username, () => {
         reorderBars(slug, body.order ?? [])
@@ -70,8 +70,8 @@ export async function barRoutes(req, res, pathname) {
     if (method === 'PUT') {
       const user = req.user
       const body = await readJsonBody(req, res); if (body === null) return
-      const show = readShow(slug)
-      if (!show) return json(res, 404, { error: 'Show nicht gefunden' })
+      const show = requireShow(slug, res)
+      if (!show) return
 
       withUndoSnapshot(slug, show.id, user.username, () => {
         writeBar(slug, { ...body, id: barId })
@@ -81,11 +81,11 @@ export async function barRoutes(req, res, pathname) {
     }
     if (method === 'DELETE') {
       const user = req.user
-      const show = readShow(slug)
-      if (!show) return json(res, 404, { error: 'Show nicht gefunden' })
+      const show = requireShow(slug, res)
+      if (!show) return
 
       withUndoSnapshot(slug, show.id, user.username, () => {
-        deleteBar(barId)
+        deleteBar(show.id, barId)
       })
       broadcast(slug, 'bars-updated', {})
       return json(res, 200, { ok: true })
@@ -99,12 +99,12 @@ export async function barRoutes(req, res, pathname) {
       const body = await readJsonBody(req, res); if (body === null) return
       const { channelId, position, notes, fixtureId, side, positionText } = body
       if (!channelId) return json(res, 400, { error: 'channelId erforderlich' })
-      const show = readShow(slug)
-      if (!show) return json(res, 404, { error: 'Show nicht gefunden' })
+      const show = requireShow(slug, res)
+      if (!show) return
 
       let id
       withUndoSnapshot(slug, show.id, user.username, () => {
-        id = writeBarFixture(barId, channelId, { position, notes, fixtureId, side, positionText })
+        id = writeBarFixture(show.id, barId, channelId, { position, notes, fixtureId, side, positionText })
       })
       broadcast(slug, 'bars-updated', {})
       return json(res, 200, { ok: true, id })
@@ -116,22 +116,22 @@ export async function barRoutes(req, res, pathname) {
     if (method === 'PATCH') {
       const user = req.user
       const body = await readJsonBody(req, res); if (body === null) return
-      const show = readShow(slug)
-      if (!show) return json(res, 404, { error: 'Show nicht gefunden' })
+      const show = requireShow(slug, res)
+      if (!show) return
 
       withUndoSnapshot(slug, show.id, user.username, () => {
-        updateBarFixtureNotes(fixtureId, body.notes ?? '')
+        updateBarFixtureNotes(show.id, fixtureId, body.notes ?? '')
       })
       broadcast(slug, 'bars-updated', {})
       return json(res, 200, { ok: true })
     }
     if (method === 'DELETE') {
       const user = req.user
-      const show = readShow(slug)
-      if (!show) return json(res, 404, { error: 'Show nicht gefunden' })
+      const show = requireShow(slug, res)
+      if (!show) return
 
       withUndoSnapshot(slug, show.id, user.username, () => {
-        removeBarFixture(fixtureId)
+        removeBarFixture(show.id, fixtureId)
       })
       broadcast(slug, 'bars-updated', {})
       return json(res, 200, { ok: true })

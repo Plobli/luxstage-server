@@ -1,6 +1,6 @@
 import fs from 'node:fs'
 import { clearChecks, getChecks, getColorUsage, readChannels, setCheck, writeChannels } from '../db/channels.js'
-import { readShow } from '../db/shows.js'
+import { requireShow } from '../db/shows.js'
 import * as photosLib from '../photos.js'
 import { readJsonBody, json, uploadErrorStatus } from '../helpers.js'
 import { broadcast } from '../sse.js'
@@ -33,9 +33,10 @@ export async function channelRoutes(req, res, pathname) {
     if (method === 'PUT') {
       const user = req.user
       const channels = await readJsonBody(req, res); if (channels === null) return
+      if (!Array.isArray(channels)) return json(res, 400, { error: 'channels muss ein Array sein' })
 
-      const show = readShow(slug)
-      if (!show) return json(res, 404, { error: 'Show nicht gefunden' })
+      const show = requireShow(slug, res)
+      if (!show) return
 
       withUndoSnapshot(slug, show.id, user.username, () => {
         writeChannels(slug, channels, user.username)

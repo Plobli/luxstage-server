@@ -50,7 +50,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { RouterLink } from 'vue-router'
-import { requestPasswordReset } from '../api/client'
+import { requestPasswordReset } from '../api/auth'
 import { useLocale } from '../composables/useLocale.js'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'

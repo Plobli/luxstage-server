@@ -187,6 +187,8 @@ const activeEditSectionsSet = new Set()
 const activeEditTick = ref(0)
 function activateEdit(id) { activeEditSectionsSet.add(id); activeEditTick.value++ }
 function deactivateEditIfEmpty(id) { if (!(props.sectionContents.get(id) ?? '').trim()) { activeEditSectionsSet.delete(id); activeEditTick.value++ } }
+// activeEditTick.value wird nur gelesen, um eine reaktive Abhängigkeit zu
+// erzeugen — activeEditSectionsSet selbst ist ein normales (nicht-reaktives) Set.
 function isActiveEdit(id) { activeEditTick.value; return activeEditSectionsSet.has(id) }
 
 // ── Migration: fields → kv-table ──────────────────────────────────────────

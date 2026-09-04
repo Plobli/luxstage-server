@@ -3,8 +3,16 @@ import { Readable } from 'node:stream'
 import { after, test } from 'node:test'
 import { cleanupDataPath, createResponse } from './helpers/test-env.js'
 
-const { createUser, createSelfRegisteredUser } = await import('../db/users.js')
+const { createUserWithHash, createSelfRegisteredUserWithHash } = await import('../db/users.js')
 const { authRoutes } = await import('../routes/auth.js')
+const { hashPassword } = await import('../auth.js')
+
+async function createUser(username, password) {
+  createUserWithHash(username, await hashPassword(password))
+}
+async function createSelfRegisteredUser(username, password, email) {
+  createSelfRegisteredUserWithHash(username, await hashPassword(password), email)
+}
 
 function jsonRequest(method, body, { ip = '127.0.0.1' } = {}) {
   const req = Readable.from([Buffer.from(JSON.stringify(body))])

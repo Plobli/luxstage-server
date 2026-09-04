@@ -3,6 +3,7 @@ import fs from 'node:fs'
 import { addChannelPhoto, deletePhotoChannels, deletePhotoDescription, readAllPhotoChannels, readChannelPhotos, readPhotoDescriptions, removeChannelPhoto, reorderChannelPhotos, setPhotoChannels, writePhotoDescription } from '../db/photos.js'
 import * as photosLib from '../photos.js'
 import { requireAuth } from '../auth.js'
+import { requireShow } from '../db/shows.js'
 import { readBodyBuffer, readJsonBody, json, notFound, uploadErrorStatus } from '../helpers.js'
 
 const SHOW_PHOTOS        = /^\/api\/shows\/([^/]+)\/photos$/
@@ -73,11 +74,12 @@ export async function photoRoutes(req, res, pathname, params) {
 
   if (m = CHAN_PHOTO_REORDER.exec(pathname)) {
     if (method === 'PUT') {
+      const show = requireShow(m[1], res); if (!show) return
       const channelId = m[2]
       const body = await readJsonBody(req, res); if (body === null) return
       const { photos: filenames } = body
       if (!Array.isArray(filenames)) return json(res, 400, { error: 'Photos muss ein Array sein' })
-      reorderChannelPhotos(channelId, filenames)
+      reorderChannelPhotos(show.id, channelId, filenames)
       return json(res, 200, { ok: true })
     }
   }
@@ -85,24 +87,27 @@ export async function photoRoutes(req, res, pathname, params) {
   if (m = CHAN_PHOTOS.exec(pathname)) {
     const channelId = m[2]
     if (method === 'GET') {
-      return json(res, 200, { photos: readChannelPhotos(channelId) })
+      const show = requireShow(m[1], res); if (!show) return
+      return json(res, 200, { photos: readChannelPhotos(show.id, channelId) })
     }
     if (method === 'POST') {
+      const show = requireShow(m[1], res); if (!show) return
       const body = await readJsonBody(req, res); if (body === null) return
       const { filename } = body
       if (!filename || filename !== path.basename(filename) || filename.includes('..')) {
         return json(res, 400, { error: 'Ungültiger Dateiname' })
       }
-      addChannelPhoto(channelId, filename)
+      addChannelPhoto(show.id, channelId, filename)
       return json(res, 201, { ok: true })
     }
   }
 
   if (m = CHAN_PHOTO_FILE.exec(pathname)) {
     if (method === 'DELETE') {
+      const show = requireShow(m[1], res); if (!show) return
       const channelId = m[2]
       const filename = path.basename(decodeURIComponent(m[3]))
-      removeChannelPhoto(channelId, filename)
+      removeChannelPhoto(show.id, channelId, filename)
       return json(res, 200, { ok: true })
     }
   }

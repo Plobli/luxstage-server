@@ -54,29 +54,39 @@ export function deletePhotoOrderEntry(slug, filename) {
   getDb().prepare('DELETE FROM photo_order WHERE show_id = ? AND filename = ?').run(show.id, filename)
 }
 
-export function readChannelPhotos(channelId) {
-  return getDb().prepare(
-    'SELECT filename FROM channel_photos WHERE channel_id = ? ORDER BY sort_order'
-  ).all(channelId).map(r => r.filename)
+// Alle vier Funktionen auf show_id einschränken: sonst ließe sich über eine
+// fremde channelId (aus einer anderen Show) deren Foto-Zuordnung lesen/ändern.
+export function readChannelPhotos(showId, channelId) {
+  return getDb().prepare(`
+    SELECT cp.filename FROM channel_photos cp
+    JOIN channels c ON c.id = cp.channel_id
+    WHERE cp.channel_id = ? AND c.show_id = ?
+    ORDER BY cp.sort_order
+  `).all(channelId, showId).map(r => r.filename)
 }
 
-export function addChannelPhoto(channelId, filename) {
+export function addChannelPhoto(showId, channelId, filename) {
   getDb().prepare(`
     INSERT OR IGNORE INTO channel_photos (id, channel_id, filename, sort_order)
-    VALUES (?, ?, ?, (SELECT COALESCE(MAX(sort_order), -1) + 1 FROM channel_photos WHERE channel_id = ?))
-  `).run(randomUUID(), channelId, filename, channelId)
+    SELECT ?, ?, ?, (SELECT COALESCE(MAX(sort_order), -1) + 1 FROM channel_photos WHERE channel_id = ?)
+    WHERE EXISTS (SELECT 1 FROM channels WHERE id = ? AND show_id = ?)
+  `).run(randomUUID(), channelId, filename, channelId, channelId, showId)
 }
 
-export function removeChannelPhoto(channelId, filename) {
-  getDb().prepare(
-    'DELETE FROM channel_photos WHERE channel_id = ? AND filename = ?'
-  ).run(channelId, filename)
+export function removeChannelPhoto(showId, channelId, filename) {
+  getDb().prepare(`
+    DELETE FROM channel_photos
+    WHERE channel_id = ? AND filename = ? AND channel_id IN (SELECT id FROM channels WHERE show_id = ?)
+  `).run(channelId, filename, showId)
 }
 
-export function reorderChannelPhotos(channelId, filenames) {
-  const updateOrder = getDb().prepare('UPDATE channel_photos SET sort_order = ? WHERE channel_id = ? AND filename = ?')
+export function reorderChannelPhotos(showId, channelId, filenames) {
+  const updateOrder = getDb().prepare(`
+    UPDATE channel_photos SET sort_order = ?
+    WHERE channel_id = ? AND filename = ? AND channel_id IN (SELECT id FROM channels WHERE show_id = ?)
+  `)
   const tx = getDb().transaction(() => {
-    for (let i = 0; i < filenames.length; i++) updateOrder.run(i, channelId, filenames[i])
+    for (let i = 0; i < filenames.length; i++) updateOrder.run(i, channelId, filenames[i], showId)
   })
   tx()
 }

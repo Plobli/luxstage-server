@@ -13,6 +13,10 @@ async function api(method, path, body) {
   return res.status === 204 ? null : res.json()
 }
 
+function escapeHtml(s) {
+  return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]))
+}
+
 function fmtDate(ms) { return new Date(ms).toLocaleDateString('de-DE', { day:'2-digit', month:'2-digit', year:'numeric' }) }
 function fmtExpiry(ms) {
   const diff = ms - Date.now()
@@ -51,17 +55,18 @@ async function loadTenants() {
   for (const t of tenants) {
     const tr = document.createElement('tr')
     const status = t.suspended ? '<span class="tag sus">gesperrt</span>' : '<span class="tag ok">aktiv</span>'
+    const id = escapeHtml(t.tenantId)
     tr.innerHTML = `
-      <td><strong>${t.tenantId}</strong></td>
-      <td class="mut">${t.email}</td>
+      <td><strong>${id}</strong></td>
+      <td class="mut">${escapeHtml(t.email)}</td>
       <td class="mut">${fmtDate(t.createdAt)}</td>
       <td>${t.shows ?? '–'}</td>
       <td>${t.users ?? '–'}</td>
       <td>${status}</td>
       <td><div class="row-actions">
-        <button class="ghost" data-act="backups" data-id="${t.tenantId}">Backups</button>
-        <button class="ghost" data-act="toggle" data-id="${t.tenantId}" data-sus="${t.suspended}">${t.suspended ? 'Entsperren' : 'Sperren'}</button>
-        <button class="danger" data-act="delete" data-id="${t.tenantId}">Löschen</button>
+        <button class="ghost" data-act="backups" data-id="${id}">Backups</button>
+        <button class="ghost" data-act="toggle" data-id="${id}" data-sus="${t.suspended}">${t.suspended ? 'Entsperren' : 'Sperren'}</button>
+        <button class="danger" data-act="delete" data-id="${id}">Löschen</button>
       </div></td>`
     tbody.appendChild(tr)
   }
@@ -75,14 +80,15 @@ async function loadPending() {
   for (const p of pending) {
     const tr = document.createElement('tr')
     const expired = p.expiresAt <= Date.now()
+    const id = escapeHtml(p.tenantId)
     tr.innerHTML = `
-      <td><strong>${p.tenantId}</strong></td>
-      <td class="mut">${p.email}</td>
+      <td><strong>${id}</strong></td>
+      <td class="mut">${escapeHtml(p.email)}</td>
       <td class="mut">${fmtDate(p.createdAt)}</td>
       <td class="${expired ? '' : 'mut'}">${fmtExpiry(p.expiresAt)}</td>
       <td><div class="row-actions">
-        <button class="ghost" data-pact="resend" data-id="${p.tenantId}">Erneut senden</button>
-        <button class="danger" data-pact="delete" data-id="${p.tenantId}">Löschen</button>
+        <button class="ghost" data-pact="resend" data-id="${id}">Erneut senden</button>
+        <button class="danger" data-pact="delete" data-id="${id}">Löschen</button>
       </div></td>`
     body.appendChild(tr)
   }
@@ -123,8 +129,8 @@ async function loadBackups() {
       <td class="mut">${new Date(s.createdAt).toLocaleString('de-DE')}</td>
       <td class="mut">${fmtSize(s.size)}</td>
       <td><div class="row-actions">
-        <button class="ghost" data-bk="restore" data-name="${s.name}">Wiederherstellen</button>
-        <button class="ghost" data-bk="download" data-name="${s.name}">Download</button>
+        <button class="ghost" data-bk="restore" data-name="${escapeHtml(s.name)}">Wiederherstellen</button>
+        <button class="ghost" data-bk="download" data-name="${escapeHtml(s.name)}">Download</button>
       </div></td>`
     body.appendChild(tr)
   }

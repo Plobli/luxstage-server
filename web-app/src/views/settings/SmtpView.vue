@@ -88,7 +88,7 @@ import Checkbox from '@/components/ui/checkbox/Checkbox.vue'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogBody } from '@/components/ui/dialog'
 import { useLocale } from '../../composables/useLocale.js'
-import { getSmtpConfig, saveSmtpConfig, testSmtpConfig } from '../../api/client.js'
+import { getSmtpConfig, saveSmtpConfig, testSmtpConfig } from '../../api/smtp.js'
 import { jwtDecode } from '../../api/jwtDecode.js'
 import { isValidEmail } from '@shared/constants.js'
 

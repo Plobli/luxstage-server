@@ -57,9 +57,22 @@ export function useShowHistory(showId: string, { loadChannels, loadSections }: {
   }
 
   async function restore(entry: HistoryEntry): Promise<void> {
-    await restoreHistory(showId, entry.id)
-    await Promise.all([loadChannels(), loadSections()])
-    historyOpen.value = false
+    // Nutzt bewusst nicht run(): dessen requestVersion-Mechanismus ist für
+    // das gegenseitige Verwerfen überholter loadEntries()/loadEntry()-Antworten
+    // gedacht — würde restore() denselben Zähler teilen, würde ein durch das
+    // Öffnen des Verlaufs ausgelöstes loadEntries() den Erfolg von restore()
+    // fälschlich als "überholt" markieren.
+    loading.value = true
+    error.value = ''
+    try {
+      await restoreHistory(showId, entry.id)
+      await Promise.all([loadChannels(), loadSections()])
+      historyOpen.value = false
+    } catch {
+      error.value = 'Wiederherstellen fehlgeschlagen.'
+    } finally {
+      loading.value = false
+    }
   }
 
   watch(historyOpen, open => {

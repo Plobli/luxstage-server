@@ -68,7 +68,7 @@ import { Label } from '@/components/ui/label'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { useLocale } from '../../composables/useLocale.js'
 import { useConfirm } from '../../composables/useConfirm.js'
-import { listUsers, createUser, deleteUser, approveUser } from '../../api/client.js'
+import { listUsers, createUser, deleteUser, approveUser } from '../../api/users.js'
 
 const { t } = useLocale()
 const { confirm } = useConfirm()

@@ -1,6 +1,6 @@
 import { ref, onMounted, onUnmounted, type Ref } from 'vue'
 
-export function useContainerWidth(el: Ref<HTMLElement | null>, breakpoint = 768): Ref<boolean> {
+export function useContainerIsMobile(el: Ref<HTMLElement | null>, breakpoint = 768): Ref<boolean> {
   const isMobile = ref(true)
 
   let ro: ResizeObserver | null = null

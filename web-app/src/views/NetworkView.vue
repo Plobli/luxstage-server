@@ -3,6 +3,10 @@
     <div class="sm:flex sm:items-center mb-8">
       <div class="sm:flex-auto">
         <h1 class="text-2xl font-semibold text-foreground">{{ t('nav.network') }}</h1>
+        <span v-if="networkError" class="text-xs text-destructive" role="alert">{{ networkError }}</span>
+        <span v-else-if="isLockedByOther" class="text-xs text-orange-500" role="status">
+          {{ t('lock.lockedBy', { user: lock?.user }) }}
+        </span>
       </div>
       <div class="flex gap-2">
         <Button variant="outline" size="sm" :disabled="!canUndo" :title="t('action.undo')" @click="undo">
@@ -298,14 +302,10 @@ import '@vue-flow/core/dist/style.css'
 import '@vue-flow/core/dist/theme-default.css'
 import '@vue-flow/controls/dist/style.css'
 import { useLocale } from '../composables/useLocale.js'
-import { useConfirm } from '../composables/useConfirm.js'
-import { useServerUndoRedo } from '../composables/useUndoRedo'
 import { api } from '../api/client.js'
-import {
-  listNetworkNodes, createNetworkNode, updateNetworkNode, deleteNetworkNode,
-  listNetworkConnections, createNetworkConnection, updateNetworkConnection, deleteNetworkConnection,
-  getNetworkLayoutSnapshot, saveNetworkLayoutSnapshot, undoNetwork, redoNetwork,
-} from '../api/network.ts'
+import { updateNetworkNode } from '../api/network.ts'
+import { useNetworkGraph } from '../composables/useNetworkGraph'
+import { isValidConnectionPair } from '@shared/constants.js'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -319,7 +319,6 @@ import DeviceNode from '@/components/network/DeviceNode.vue'
 import RoomNode from '@/components/network/RoomNode.vue'
 
 const { t } = useLocale()
-const { confirm } = useConfirm()
 
 async function exportPdf() {
   const url = await api.downloadUrl('/api/network/pdf')
@@ -330,27 +329,26 @@ const nodeTypes = ['dose', 'switch', 'geraet']
 const nodeIconMap = { dose: Cable, switch: NetworkIcon, geraet: MonitorSmartphone }
 const flowNodeTypes = markRaw({ switch: SwitchNode, device: DeviceNode, room: RoomNode })
 
-const loading = ref(true)
-const nodes = ref([])
-const connections = ref([])
 const isFullscreen = ref(false)
 function onFullscreenKeydown(e) {
   if (e.key === 'Escape' && isFullscreen.value) isFullscreen.value = false
 }
 
-async function reloadNetwork() {
-  ;[nodes.value, connections.value] = await Promise.all([listNetworkNodes(), listNetworkConnections()])
-  syncFlow()
-}
-
-// Undo/Redo läuft serverseitig auf einem einzigen globalen Netzwerk-Stack
-// (kein Show-Bezug) — dieselbe Mechanik wie bei Shows, nur andere Endpunkte.
-// Nach Undo/Redo lädt die Ansicht die Daten neu, da der Server sie nur ändert.
-const { undo, redo, canUndo, canRedo, onUndoRedoKeydown } = useServerUndoRedo({
-  undo: undoNetwork,
-  redo: redoNetwork,
-  onAfter: reloadNetwork,
-})
+// Zustand + CRUD kommen aus useNetworkGraph (analog useShowBars/useShowTowers) —
+// hier bleibt nur, was mit der VueFlow-Darstellung selbst zu tun hat
+// (syncFlow, dagre-Layout, Port-Grid/Raum-Ableitung), siehe Kommentar dort.
+const graph = useNetworkGraph(() => syncFlow())
+const {
+  loading, nodes, connections, networkError, hasSavedLayout,
+  lock, isLockedByOther,
+  nodesById, connectionLabel,
+  undo, redo, canUndo, canRedo, onUndoRedoKeydown,
+  createNode, deleteNodeSilently, removeNode,
+  saveConnection, deleteConnectionSilently, removeConnection, updateConnectionEndpoint,
+  setPortTarget, setPortTargetPort, connFieldForNode, portConnection,
+  pendingConnections, addPendingConnection: addConnection, commitPendingConnection, removePendingConnection,
+  saveLayout, restoreLayout,
+} = graph
 
 function onNetworkKeydown(e) {
   onFullscreenKeydown(e)
@@ -359,11 +357,6 @@ function onNetworkKeydown(e) {
 onMounted(() => window.addEventListener('keydown', onNetworkKeydown))
 onUnmounted(() => window.removeEventListener('keydown', onNetworkKeydown))
 
-const nodesById = computed(() => new Map(nodes.value.map(n => [n.id, n])))
-function connectionLabel(nodeId) {
-  const n = nodesById.value.get(nodeId)
-  return n ? (n.label || t('network.type.' + n.type)) : ''
-}
 const sortedConnections = computed(() => [...connections.value].sort((a, b) => {
   const fromCmp = connectionLabel(a.from_node_id).localeCompare(connectionLabel(b.from_node_id))
   if (fromCmp) return fromCmp
@@ -379,18 +372,6 @@ const switchNodes = computed(() => [...nodes.value]
   .filter(n => n.type === 'switch')
   .sort((a, b) => (b.is_main ? 1 : 0) - (a.is_main ? 1 : 0) || (a.label || '').localeCompare(b.label || '')))
 
-function connFieldForNode(conn, nodeId) {
-  if (conn.from_node_id === nodeId) return 'from'
-  if (conn.to_node_id === nodeId) return 'to'
-  return null
-}
-function portConnection(switchId, port) {
-  return connections.value.find(c => {
-    const field = connFieldForNode(c, switchId)
-    if (!field) return false
-    return String(field === 'from' ? c.from_port : c.to_port) === String(port)
-  })
-}
 function portTargetNodeId(conn, switchId) {
   return connFieldForNode(conn, switchId) === 'from' ? conn.to_node_id : conn.from_node_id
 }
@@ -415,80 +396,18 @@ function portTargetOptions(sw) {
     .filter(n => n.id !== sw.id)
     .sort((a, b) => connectionLabel(a.id).localeCompare(connectionLabel(b.id)))
 }
-// Ein Port per Dropdown auf "Frei" zu setzen, ist die reguläre Bedienung
-// (kein Löschen-Klick nötig) — daher ohne Bestätigungsdialog.
-async function deleteConnectionSilently(conn) {
-  await deleteNetworkConnection(conn.id)
-  connections.value = connections.value.filter(c => c.id !== conn.id)
-  syncFlow()
-}
-async function setPortTarget(sw, port, targetNodeId) {
-  const existing = portConnection(sw.id, port)
-  if (!targetNodeId) {
-    if (existing) await deleteConnectionSilently(existing)
-    return
-  }
-  const ok = await claimNodeSlot(targetNodeId, existing?.id ?? null)
-  if (!ok) return
-  if (existing) {
-    const field = connFieldForNode(existing, sw.id)
-    const patch = field === 'from' ? { to_node_id: targetNodeId, to_port: '' } : { from_node_id: targetNodeId, from_port: '' }
-    await saveConnection(existing, patch)
-  } else {
-    const conn = await createNetworkConnection({ from_node_id: sw.id, from_port: String(port), to_node_id: targetNodeId, to_port: '', cable_type: '' })
-    connections.value.push(conn)
-    syncFlow()
-  }
-}
-async function setPortTargetPort(conn, switchId, value) {
-  const field = connFieldForNode(conn, switchId)
-  await saveConnection(conn, field === 'from' ? { to_port: value } : { from_port: value })
-}
+
 // Verbindungen, an denen kein Switch beteiligt ist, tauchen in keinem
 // Port-Grid auf — dafür bleibt eine kleine, klassische Tabelle.
 const otherConnections = computed(() => sortedConnections.value.filter(c =>
   nodesById.value.get(c.from_node_id)?.type !== 'switch' && nodesById.value.get(c.to_node_id)?.type !== 'switch'
 ))
 
-// Physikalisch sinnlose Verbindungen: zwei Netzwerkdosen oder zwei Geräte
-// direkt miteinander verkabelt. Ein Switch darf mit allem verbunden werden
-// (auch mit einem zweiten Switch, Uplink).
-function isValidConnectionPair(typeA, typeB) {
-  if (!typeA || !typeB) return true
-  return !(typeA === typeB && (typeA === 'dose' || typeA === 'geraet'))
-}
+// isValidConnectionPair/maxConnectionsForType: siehe shared/constants.js —
+// dieselbe Regel muss client- und serverseitig (routes/network.js) gelten.
 function connectionPartnerOptions(otherSideNodeId) {
   const otherType = otherSideNodeId ? nodesById.value.get(otherSideNodeId)?.type : null
   return nodes.value.filter(n => n.id !== otherSideNodeId && isValidConnectionPair(otherType, n.type))
-}
-
-// Eine Netzwerkdose/ein Gerät hat nur ein Kabel, kann also nur eine
-// Verbindung haben — ein Switch ist die Ausnahme (viele Ports, viele
-// Verbindungen). Ist das Element schon anderweitig verbunden, wird
-// nachgefragt, ob die alte Verbindung ersetzt werden soll; bei Ablehnung
-// bricht der Aufrufer die ganze Aktion ab.
-// Dose = Durchschleifung (rein/raus), also bis zu zwei Kabel; Gerät hat nur
-// eines; Switch ist unbegrenzt (ein Port = eine Verbindung, separat geprüft).
-function maxConnectionsForType(type) {
-  if (type === 'dose') return 2
-  if (type === 'geraet') return 1
-  return Infinity
-}
-async function claimNodeSlot(nodeId, excludeConnId) {
-  const node = nodesById.value.get(nodeId)
-  if (!node || node.type === 'switch') return true
-  const max = maxConnectionsForType(node.type)
-  const existing = connections.value.filter(c => c.id !== excludeConnId && (c.from_node_id === nodeId || c.to_node_id === nodeId))
-  if (existing.length < max) return true
-  const oldest = [...existing].sort((a, b) => a.created_at - b.created_at)[0]
-  const ok = await confirm({
-    t, titleKey: 'network.reconnect.confirm_title',
-    messageKey: 'network.reconnect.confirm_message', messageParams: { label: connectionLabel(nodeId) },
-    confirmKey: 'network.reconnect.confirm_action', cancelKey: 'action.cancel',
-  })
-  if (!ok) return false
-  await deleteConnectionSilently(oldest)
-  return true
 }
 
 // Raum-Auswahl per Dropdown statt Freitext — vermeidet Tippfehler, die die
@@ -543,9 +462,23 @@ const filteredGroupedNodes = computed(() => {
 
 // Neu angelegtes Element bleibt hervorgehoben, bis der Nutzer eines seiner
 // Felder bearbeitet — sonst ist es in der Liste nicht von bestehenden
-// Elementen zu unterscheiden.
+// Elementen zu unterscheiden. Rein UI-Zustand, daher hier statt in
+// useNetworkGraph (das nur das erzeugte Element zurückgibt).
 const newNodeId = ref(null)
 const editingRoomId = ref(null)
+
+async function addNode(type) {
+  const node = await createNode(type)
+  if (node) {
+    newNodeId.value = node.id
+    expandedGroups.value = { ...expandedGroups.value, [node.room || '']: true }
+  }
+}
+async function saveNode(node, patch) {
+  if (newNodeId.value === node.id) newNodeId.value = null
+  await graph.updateNode(node, patch)
+}
+
 function onRoomSelect(node, room) {
   if (room === '__new__') { editingRoomId.value = node.id; return }
   saveNode(node, { room })
@@ -556,133 +489,8 @@ function confirmNewRoom(node, room) {
 }
 // Nur Switches haben nummerierte Ports — Dosen und Geräte werden ohne Portnummer verbunden.
 function hasPort(nodeId) { return nodesById.value.get(nodeId)?.type === 'switch' }
-// Ist die Portanzahl des Switch bekannt, wird der Port aus einer festen Liste gewählt statt frei eingegeben.
-function portOptions(nodeId) {
-  const node = nodesById.value.get(nodeId)
-  if (node?.type !== 'switch' || !node.port_count) return []
-  return Array.from({ length: node.port_count }, (_, i) => i + 1)
-}
 
-const hasSavedLayout = ref(false)
-
-onMounted(async () => {
-  try {
-    let snapshot
-    ;[nodes.value, connections.value, snapshot] = await Promise.all([
-      listNetworkNodes(), listNetworkConnections(), getNetworkLayoutSnapshot(),
-    ])
-    hasSavedLayout.value = !!snapshot
-  } finally {
-    loading.value = false
-  }
-  syncFlow()
-})
-
-// Speichert die aktuellen Positionen als Snapshot, den man später per Klick
-// wiederherstellen kann — unabhängig von der laufenden Auto-Speicherung
-// beim Verschieben einzelner Elemente.
-async function saveLayout() {
-  const data = {}
-  for (const n of nodes.value) {
-    if (n.position_x != null && n.position_y != null) data[n.id] = { x: n.position_x, y: n.position_y }
-  }
-  await saveNetworkLayoutSnapshot(data)
-  hasSavedLayout.value = true
-}
-
-async function restoreLayout() {
-  const snapshot = await getNetworkLayoutSnapshot()
-  if (!snapshot) return
-  for (const n of nodes.value) {
-    const pos = snapshot.data[n.id]
-    if (!pos) continue
-    n.position_x = pos.x
-    n.position_y = pos.y
-    updateNetworkNode(n.id, n)
-  }
-  syncFlow()
-}
-
-async function addNode(type) {
-  const node = await createNetworkNode({ type, label: '', room: '', port_count: null, is_main: 0 })
-  nodes.value.push(node)
-  newNodeId.value = node.id
-  expandedGroups.value = { ...expandedGroups.value, [node.room || '']: true }
-  syncFlow()
-}
-
-async function saveNode(node, patch) {
-  Object.assign(node, patch)
-  if (newNodeId.value === node.id) newNodeId.value = null
-  await updateNetworkNode(node.id, node)
-  syncFlow()
-}
-
-async function deleteNodeSilently(node) {
-  await deleteNetworkNode(node.id)
-  nodes.value = nodes.value.filter(n => n.id !== node.id)
-  connections.value = connections.value.filter(c => c.from_node_id !== node.id && c.to_node_id !== node.id)
-  syncFlow()
-}
-async function removeNode(node) {
-  const affected = connections.value.filter(c => c.from_node_id === node.id || c.to_node_id === node.id).length
-  const ok = affected
-    ? await confirm({ t, titleKey: 'action.delete', messageKey: 'network.delete_element.confirm', messageParams: { count: affected }, confirmKey: 'action.delete', cancelKey: 'action.cancel' })
-    : await confirm({ t, titleKey: 'action.delete', confirmKey: 'action.delete', cancelKey: 'action.cancel' })
-  if (!ok) return
-  await deleteNodeSilently(node)
-}
-
-// "Verbindung hinzufügen" landet in "Sonstige Verbindungen" als leerer
-// Entwurf — from_node_id/to_node_id sind in der DB NOT NULL mit
-// Fremdschlüssel, ein echter Datensatz kann also nicht ohne gewählte
-// Elemente existieren. Erst wenn beide gewählt sind, wird gespeichert.
-const pendingConnections = ref([])
-let pendingConnectionCounter = 0
-function addConnection() {
-  pendingConnections.value.push({ id: `pending-${++pendingConnectionCounter}`, from_node_id: '', to_node_id: '' })
-}
-async function commitPendingConnection(draft, patch) {
-  Object.assign(draft, patch)
-  if (!draft.from_node_id || !draft.to_node_id) return
-  if (!(await claimNodeSlot(draft.from_node_id, null))) return
-  if (!(await claimNodeSlot(draft.to_node_id, null))) return
-  const conn = await createNetworkConnection({ from_node_id: draft.from_node_id, from_port: '', to_node_id: draft.to_node_id, to_port: '', cable_type: '' })
-  connections.value.push(conn)
-  pendingConnections.value = pendingConnections.value.filter(d => d.id !== draft.id)
-  syncFlow()
-}
-function removePendingConnection(draft) {
-  pendingConnections.value = pendingConnections.value.filter(d => d.id !== draft.id)
-}
-
-async function saveConnection(conn, patch) {
-  Object.assign(conn, patch)
-  await updateNetworkConnection(conn.id, conn)
-  syncFlow()
-}
-
-// "Sonstige Verbindungen"-Tabelle: eine Seite einer bestehenden Verbindung
-// per Dropdown auf ein anderes Element umstellen — mit demselben
-// Belegt-Check wie beim Neuanlegen (das neue Element könnte schon woanders
-// verbunden sein).
-async function updateConnectionEndpoint(conn, side, newNodeId) {
-  const otherId = side === 'from' ? conn.to_node_id : conn.from_node_id
-  const newNode = nodesById.value.get(newNodeId)
-  const otherNode = nodesById.value.get(otherId)
-  if (!newNode || !otherNode) return
-  if (!isValidConnectionPair(newNode.type, otherNode.type)) return
-  if (!(await claimNodeSlot(newNodeId, conn.id))) return
-  await saveConnection(conn, side === 'from' ? { from_node_id: newNodeId } : { to_node_id: newNodeId })
-}
-
-async function removeConnection(conn) {
-  const ok = await confirm({ t, titleKey: 'action.delete', confirmKey: 'action.delete', cancelKey: 'action.cancel' })
-  if (!ok) return
-  await deleteNetworkConnection(conn.id)
-  connections.value = connections.value.filter(c => c.id !== conn.id)
-  syncFlow()
-}
+onMounted(() => { graph.loadInitial() })
 
 // Interaktiver Graph (Vue Flow): Elemente sind frei verschiebbare Knoten,
 // Kabel sind Kanten, die sich beim Verschieben automatisch mitziehen.
@@ -723,12 +531,22 @@ function layoutMissingPositions() {
   }
   dagre.layout(g)
 
+  const updated = []
   for (const n of unplaced) {
     const p = g.node(n.id)
     if (!p) continue
     n.position_x = Math.round(p.x)
     n.position_y = Math.round(p.y)
-    updateNetworkNode(n.id, n)
+    updated.push(n)
+  }
+  // Bleibt bewusst synchron (syncFlow() ruft dies aus vielen Stellen ohne
+  // await auf) — Fehler werden hier nur gemeldet, ein Rollback ergibt keinen
+  // Sinn: die Knoten hatten zuvor keine (also keine sinnvoll wiederherstellbare) Position.
+  if (updated.length) {
+    Promise.allSettled(updated.map(n => updateNetworkNode(n.id, n))).then(results => {
+      const failed = results.find(r => r.status === 'rejected')
+      if (failed) graph.reportNetworkError(failed.reason)
+    })
   }
 }
 
@@ -943,6 +761,9 @@ function packRow(blocks, startY) {
 }
 
 function autoArrange() {
+  graph.clearNetworkError()
+  const before = new Map(nodes.value.map(n => [n.id, { x: n.position_x, y: n.position_y }]))
+
   const blocks = connectedComponents().map(layoutComponent)
   const mainBlocks = blocks.filter(b => b.isMain)
   const otherBlocks = blocks.filter(b => !b.isMain)
@@ -950,17 +771,42 @@ function autoArrange() {
   const nextY = packRow(mainBlocks, 0)
   packRow(otherBlocks, nextY)
 
-  for (const n of nodes.value) updateNetworkNode(n.id, n)
   syncFlow()
+  // Stabile Kopie der Node-Referenzen zum Zeitpunkt des Dispatch — results[i]
+  // muss auf dieselbe Node zeigen, unabhängig davon, ob nodes.value bis zum
+  // Abschluss der Requests neu zugewiesen/umsortiert wird (vgl. restoreLayout()).
+  const dispatched = nodes.value
+  Promise.allSettled(dispatched.map(n => updateNetworkNode(n.id, n))).then(results => {
+    let hadFailure = false
+    results.forEach((r, i) => {
+      if (r.status === 'rejected') {
+        hadFailure = true
+        const n = dispatched[i]
+        const prev = n && before.get(n.id)
+        if (n && prev) { n.position_x = prev.x; n.position_y = prev.y }
+      }
+    })
+    if (hadFailure) {
+      syncFlow()
+      graph.reportNetworkError(results.find(r => r.status === 'rejected').reason)
+    }
+  })
 }
 
 function onNodeDragStop({ node }) {
   if (node.type === 'room') return
   const source = nodesById.value.get(node.id)
   if (!source) return
+  graph.clearNetworkError()
+  const before = { x: source.position_x, y: source.position_y }
   source.position_x = Math.round(node.position.x)
   source.position_y = Math.round(node.position.y)
-  updateNetworkNode(source.id, source)
+  updateNetworkNode(source.id, source).catch(e => {
+    source.position_x = before.x
+    source.position_y = before.y
+    syncFlow()
+    graph.reportNetworkError(e)
+  })
   syncFlow()
 }
 
@@ -973,17 +819,15 @@ async function onConnect({ source, sourceHandle, target, targetHandle }) {
   const targetNode = nodesById.value.get(target)
   if (!sourceNode || !targetNode) return
   if (!isValidConnectionPair(sourceNode.type, targetNode.type)) return
-  if (!(await claimNodeSlot(source, null))) return
-  if (!(await claimNodeSlot(target, null))) return
-  const conn = await createNetworkConnection({
+  if (!(await graph.claimNodeSlot(source, null))) return
+  if (!(await graph.claimNodeSlot(target, null))) return
+  await graph.createConnection({
     from_node_id: source,
     from_port: sourceNode.type === 'switch' ? (sourceHandle || '') : '',
     to_node_id: target,
     to_port: targetNode.type === 'switch' ? (targetHandle || '') : '',
     cable_type: '',
   })
-  connections.value.push(conn)
-  syncFlow()
 }
 
 // Bestehende Verbindung direkt in der Topologie umhängen: Kante am Endpunkt
@@ -998,8 +842,8 @@ async function onEdgeUpdate({ edge, connection }) {
   const targetNode = nodesById.value.get(target)
   if (!sourceNode || !targetNode) return
   if (!isValidConnectionPair(sourceNode.type, targetNode.type)) return
-  if (!(await claimNodeSlot(source, conn.id))) return
-  if (!(await claimNodeSlot(target, conn.id))) return
+  if (!(await graph.claimNodeSlot(source, conn.id))) return
+  if (!(await graph.claimNodeSlot(target, conn.id))) return
   await saveConnection(conn, {
     from_node_id: source,
     from_port: sourceNode.type === 'switch' ? (sourceHandle || '') : '',

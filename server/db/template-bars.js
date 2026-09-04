@@ -11,12 +11,13 @@ export function writeTemplateBar(name, data) {
   const tpl = getDb().prepare('SELECT * FROM templates WHERE name = ?').get(name)
   if (!tpl) throw new Error(`Template not found: ${name}`)
   const id = data.id || randomUUID()
-  const existing = getDb().prepare('SELECT id FROM template_bars WHERE id = ?').get(id)
+  // Auf template_id einschränken: sonst könnte eine fremde bar-ID (aus einem
+  // anderen Template) hier aktualisiert werden.
+  const existing = getDb().prepare('SELECT * FROM template_bars WHERE id = ? AND template_id = ?').get(id, tpl.id)
   if (existing) {
-    const currentBarType = getDb().prepare('SELECT bar_type FROM template_bars WHERE id = ?').get(id)?.bar_type ?? 'zugstange'
     getDb().prepare(
       'UPDATE template_bars SET name=?, zug_nr=?, length_cm=?, sort_order=?, bar_type=? WHERE id=?'
-    ).run(data.name ?? '', data.zug_nr ?? '', data.length_cm ?? 600, data.sort_order ?? 0, data.bar_type ?? currentBarType, id)
+    ).run(data.name ?? '', data.zug_nr ?? '', data.length_cm ?? 600, data.sort_order ?? existing.sort_order ?? 0, data.bar_type ?? existing.bar_type ?? 'zugstange', id)
   } else {
     const count = getDb().prepare('SELECT COUNT(*) as n FROM template_bars WHERE template_id = ?').get(tpl.id).n
     getDb().prepare(
@@ -26,8 +27,11 @@ export function writeTemplateBar(name, data) {
   return id
 }
 
-export function deleteTemplateBar(barId) {
-  getDb().prepare('DELETE FROM template_bars WHERE id = ?').run(barId)
+export function deleteTemplateBar(name, barId) {
+  getDb().prepare(`
+    DELETE FROM template_bars WHERE id = ?
+    AND template_id IN (SELECT id FROM templates WHERE name = ?)
+  `).run(barId, name)
 }
 
 export function reorderTemplateBars(templateId, orderedIds) {
@@ -42,9 +46,17 @@ export function readTemplateBarFixtures(barId) {
   return getDb().prepare('SELECT * FROM template_bar_fixtures WHERE bar_id = ? ORDER BY position').all(barId)
 }
 
-export function writeTemplateBarFixture(barId, data) {
+// Auf template_id einschränken: sonst ließe sich eine Fixture auf eine bar-ID
+// eines fremden Templates anlegen/verschieben.
+export function writeTemplateBarFixture(name, barId, data) {
+  const bar = getDb().prepare(`
+    SELECT tb.id FROM template_bars tb JOIN templates t ON t.id = tb.template_id
+    WHERE tb.id = ? AND t.name = ?
+  `).get(barId, name)
+  if (!bar) throw new Error(`Bar nicht in diesem Template: ${barId}`)
+
   const id = data.id || randomUUID()
-  const existing = getDb().prepare('SELECT id FROM template_bar_fixtures WHERE id = ?').get(id)
+  const existing = getDb().prepare('SELECT id FROM template_bar_fixtures WHERE id = ? AND bar_id = ?').get(id, barId)
   if (existing) {
     getDb().prepare(
       'UPDATE template_bar_fixtures SET position=?, channel=?, device=?, color=?, notes=?, side=?, position_text=? WHERE id=?'
@@ -57,6 +69,9 @@ export function writeTemplateBarFixture(barId, data) {
   return id
 }
 
-export function deleteTemplateBarFixture(fixtureId) {
-  getDb().prepare('DELETE FROM template_bar_fixtures WHERE id = ?').run(fixtureId)
+export function deleteTemplateBarFixture(name, fixtureId) {
+  getDb().prepare(`
+    DELETE FROM template_bar_fixtures WHERE id = ?
+    AND bar_id IN (SELECT tb.id FROM template_bars tb JOIN templates t ON t.id = tb.template_id WHERE t.name = ?)
+  `).run(fixtureId, name)
 }

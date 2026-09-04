@@ -128,7 +128,7 @@
             </div>
             <div class="grid grid-cols-[9rem_1fr] gap-x-3 px-4 py-2.5 text-sm">
               <span class="text-muted-foreground">{{ t('show.date') }}</span>
-              <span class="font-medium text-right">{{ formatDatum(form.datum) }}</span>
+              <span class="font-medium text-right">{{ formatDatum(form.datum, '—') }}</span>
             </div>
             <div class="grid grid-cols-[9rem_1fr] gap-x-3 px-4 py-2.5 text-sm">
               <span class="text-muted-foreground">{{ t('field.spielzeit') }}</span>
@@ -169,6 +169,7 @@ import { Loader2, FileX, LayoutTemplate, Layers, AlignJustify, Radio, LayoutList
 import { useLocale } from '../../composables/useLocale.js'
 import { useShowWizard } from '../../composables/useShowWizard.js'
 import { templateDisplayName } from '../../utils/templateName.js'
+import { formatDatum } from '../../utils/index.ts'
 
 import Checkbox from '@/components/ui/checkbox/Checkbox.vue'
 import { Button } from '@/components/ui/button'
@@ -255,12 +256,6 @@ const importSummary = computed(() => {
   if (selectedSectionIds.value.size) parts.push(t('show.wizard.templateImport.sections.count', { count: selectedSectionIds.value.size }))
   return parts.length ? parts.join(', ') : t('show.wizard.areas.none')
 })
-
-function formatDatum(d) {
-  if (!d) return '—'
-  const [y, m, day] = d.split('-')
-  return `${day}.${m}.${y}`
-}
 
 function onOpenChange(value) {
   if (!value) emit('update:open', false)

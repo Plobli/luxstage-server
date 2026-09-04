@@ -1,5 +1,5 @@
 import { readShowSectionDefs, readShowSections, writeShowSectionDefs, writeShowSections } from '../db/sections.js'
-import { readShow } from '../db/shows.js'
+import { requireShow } from '../db/shows.js'
 import { requireAuth } from '../auth.js'
 import { readJsonBody, json } from '../helpers.js'
 import { broadcast } from '../sse.js'
@@ -22,8 +22,8 @@ export async function sectionRoutes(req, res, pathname) {
       const user = req.user
       const sections = await readJsonBody(req, res); if (sections === null) return
 
-      const show = readShow(slug)
-      if (!show) return json(res, 404, { error: 'Show nicht gefunden' })
+      const show = requireShow(slug, res)
+      if (!show) return
 
       const map = new Map(sections.map(s => [s.id, s.content]))
       withUndoSnapshot(slug, show.id, user.username, () => {
@@ -43,8 +43,8 @@ export async function sectionRoutes(req, res, pathname) {
       const user = requireAuth(req, res); if (!user) return
       const body = await readJsonBody(req, res); if (body === null) return
 
-      const show = readShow(slug)
-      if (!show) return json(res, 404, { error: 'Show nicht gefunden' })
+      const show = requireShow(slug, res)
+      if (!show) return
 
       withUndoSnapshot(slug, show.id, user.username, () => {
         writeShowSectionDefs(slug, body.sections, user.username)

@@ -1,20 +1,12 @@
 import { ref, type Ref } from 'vue'
 import {
   fetchTemplateBars, createTemplateBar, updateTemplateBar, deleteTemplateBar, reorderTemplateBars,
-  type TemplateBar,
+  fetchTemplateBarFixtures, createTemplateBarFixture, updateTemplateBarFixture, deleteTemplateBarFixture,
+  type TemplateBar, type TemplateBarFixture as BarFixture,
 } from '../api/templateBars'
-import { api } from '../api/client'
 import { useDragReorder } from './useDragReorder'
 
-export interface BarFixture {
-  id: string;
-  bar_id: string;
-  position: number;
-  channel: string | null;
-  device: string | null;
-  color: string | null;
-  notes: string;
-}
+export type { BarFixture }
 
 export function useTemplateBars(templateName: Ref<string | null>) {
   const bars = ref<TemplateBar[]>([])
@@ -32,7 +24,7 @@ export function useTemplateBars(templateName: Ref<string | null>) {
   }
 
   async function loadFixtures(bar: TemplateBar): Promise<void> {
-    fixtures.value[bar.id] = await api.get<BarFixture[]>(`/api/templates/${encodeURIComponent(templateName.value!)}/bars/${bar.id}/fixtures`)
+    fixtures.value[bar.id] = await fetchTemplateBarFixtures(templateName.value!, bar.id)
   }
 
   // ── Dialog: Bar anlegen/bearbeiten ──────────────────────────────────────
@@ -103,10 +95,10 @@ export function useTemplateBars(templateName: Ref<string | null>) {
       notes: fixtureForm.value.notes || '',
     }
     if (editingFixture.value) {
-      await api.put(`/api/templates/${encodeURIComponent(templateName.value!)}/bars/${bar.id}/fixtures/${editingFixture.value.id}`, data)
+      await updateTemplateBarFixture(templateName.value!, bar.id, editingFixture.value.id, data)
       Object.assign(editingFixture.value, data)
     } else {
-      const { id } = await api.post<{ id: string }>(`/api/templates/${encodeURIComponent(templateName.value!)}/bars/${bar.id}/fixtures`, data)
+      const { id } = await createTemplateBarFixture(templateName.value!, bar.id, data)
       if (!fixtures.value[bar.id]) fixtures.value[bar.id] = []
       fixtures.value[bar.id].push({ id, bar_id: bar.id, ...data })
       fixtures.value[bar.id].sort((a, b) => a.position - b.position)
@@ -115,7 +107,7 @@ export function useTemplateBars(templateName: Ref<string | null>) {
   }
 
   async function removeFixture(bar: TemplateBar, fixtureId: string): Promise<void> {
-    await api.delete(`/api/templates/${encodeURIComponent(templateName.value!)}/bars/${bar.id}/fixtures/${fixtureId}`)
+    await deleteTemplateBarFixture(templateName.value!, bar.id, fixtureId)
     if (fixtures.value[bar.id]) {
       fixtures.value[bar.id] = fixtures.value[bar.id].filter(fx => fx.id !== fixtureId)
     }

@@ -1,20 +1,35 @@
-import { ref, computed, type Ref } from 'vue'
-import { acquireShowLock, releaseShowLock, touchShowLock, requestLockTakeover, type LockResult } from '../api/shows.js'
+import { ref, computed } from 'vue'
+import { acquireShowLock, releaseShowLock, touchShowLock, requestLockTakeover, subscribeShow, type LockResult, type ShowPresenceUser } from '../api/shows.js'
 import { ApiError } from '../api/client.js'
 import { currentUsername } from '../api/currentUser.js'
-import type { ShowLock } from './useShowLockEvents.js'
+
+export interface ShowLock {
+  user: string;
+  since: number;
+}
 
 const HEARTBEAT_INTERVAL_MS = 3 * 60 * 1000 // deutlich unter config.lockTimeout (10 Minuten)
 
 /**
  * Verwaltet den Show-weiten Schreib-Lock im Frontend: Akquise beim Öffnen,
- * periodischer Heartbeat solange die Show offen ist, Freigabe beim Verlassen.
- * `lock` (aus useShowLockEvents, per SSE aktuell gehalten) bestimmt, ob der
- * aktuelle User schreiben darf.
+ * periodischer Heartbeat solange die Show offen ist, Freigabe beim Verlassen —
+ * plus die SSE-Verbindung (Lock-Status/Übernahme-Anfragen/Präsenz), die diesen
+ * Zustand aktuell hält. Beides war früher auf zwei Composables aufgeteilt
+ * (useShowLock + useShowLockEvents), die sich gegenseitig brauchten: die
+ * SSE-Events mussten an showLock weitergeleitet werden, showLock brauchte den
+ * `lock`-Ref aus den SSE-Events. ShowDetailView.vue musste das per
+ * Forward-Reference auflösen (Callbacks, die auf eine erst später erzeugte
+ * showLock-Instanz zeigten). Zusammengeführt entfällt die Zirkularität: hier
+ * gibt es nur noch einen einzigen Konstruktionsschritt.
  */
-export function useShowLock(showId: string, lock: Ref<ShowLock | null>) {
+export function useShowLock(showId: string) {
+  const lock = ref<ShowLock | null>(null)
+  // Wer die Show gerade offen hat — der Server sendet die Liste bei jedem
+  // Verbinden und Trennen. Rein informativ, unabhängig von der Schreibsperre.
+  const presentUsers = ref<ShowPresenceUser[]>([])
   const takeoverRequestedBy = ref<string | null>(null)
   let heartbeatTimer: ReturnType<typeof setInterval> | null = null
+  let unsubscribeSSE: (() => void) | null = null
 
   const isHeldByMe = computed(() => lock.value?.user === currentUsername())
   const isLockedByOther = computed(() => !!lock.value && !isHeldByMe.value)
@@ -22,7 +37,15 @@ export function useShowLock(showId: string, lock: Ref<ShowLock | null>) {
   function startHeartbeat(): void {
     stopHeartbeat()
     heartbeatTimer = setInterval(() => {
-      if (isHeldByMe.value) touchShowLock(showId).catch(() => {})
+      if (isHeldByMe.value) {
+        touchShowLock(showId).catch(e => {
+          // Bei 423 sofort wie bei einem Save-Konflikt behandeln, statt auf
+          // die (evtl. gerade gestörte) SSE-Verbindung zu warten — sonst
+          // glaubt dieser Tab weiter, den Lock zu halten, während der Server
+          // längst ablehnt.
+          if (e instanceof ApiError && e.status === 423) syncLockFromConflict(e.body)
+        })
+      }
     }, HEARTBEAT_INTERVAL_MS)
   }
 
@@ -106,8 +129,26 @@ export function useShowLock(showId: string, lock: Ref<ShowLock | null>) {
     acquireOnOpen().catch(() => {})
   }
 
+  function initLockEvents(): void {
+    unsubscribeSSE = subscribeShow(showId, {
+      onLockStatus: onLockStatusChanged,
+      onTakeoverRequested: onTakeoverRequested,
+      // Der eigene Zugang zählt nicht als Mitleser — angezeigt werden nur andere.
+      onPresence: ({ users }) => {
+        const me = currentUsername()
+        presentUsers.value = (users ?? []).filter(u => u.username !== me)
+      },
+    })
+  }
+
+  function cleanupLockEvents(): void {
+    unsubscribeSSE?.()
+    presentUsers.value = []
+  }
+
   return {
     lock,
+    presentUsers,
     isHeldByMe,
     isLockedByOther,
     takeoverRequestedBy,
@@ -119,5 +160,7 @@ export function useShowLock(showId: string, lock: Ref<ShowLock | null>) {
     dismissTakeoverRequest,
     syncLockFromConflict,
     onLockStatusChanged,
+    initLockEvents,
+    cleanupLockEvents,
   }
 }

@@ -52,7 +52,7 @@
         :canUndo="canUndo"
         :canRedo="canRedo"
         :saving="channelsSaving || sectionsSaving || setupSaving"
-        :saveError="channelsSaveError"
+        :saveError="channelsSaveError || sectionsSaveError || floorplanSaveError"
         :lockedByOther="showLock.isLockedByOther.value"
         :presentUsers="presentUsers"
         :dupAddressWarning="dupWarning"
@@ -126,7 +126,6 @@
               :toggleChannelStatusFn="toggleChannelStatus"
               :onKeydownFn="onKeydown"
               :flushChannelsSave="flushChannelsSave"
-              :allShowPhotos="photos"
               :labels="{
                 channel: t('field.channel'),
                 dmx: t('field.dmx_address'),
@@ -170,7 +169,7 @@
           v-show="mobileTab === 'photos'"
           class="relative flex flex-col flex-1 min-h-0 overflow-hidden"
         >
-          <div class="flex-1 min-h-0 overflow-y-auto p-4">
+          <div class="flex-1 min-h-0 overflow-y-auto p-4" data-scroll-container>
             <PhotoGallery
               ref="photoGalleryRef"
               :photos="photos"
@@ -267,7 +266,7 @@
               v-show="aufbauTab === sub.key"
               class="flex-1 min-h-0 flex flex-col pb-14 md:pb-0"
             >
-              <div class="flex-1 min-h-0 overflow-y-auto">
+              <div class="flex-1 min-h-0 overflow-y-auto" data-scroll-container>
                 <SectionEditor
                   :showId="props.id"
                   :sectionDefs="sectionDefs"
@@ -296,6 +295,7 @@
                 :gassenturmEntries="gassenturmGenerated"
                 :hangereiEntries="hangerei"
                 class="shrink-0 max-h-[30vh] overflow-y-auto border-t border-border"
+                data-scroll-container
               />
             </div>
           </template>
@@ -305,10 +305,6 @@
               :towers="towers"
               :channels="channels"
               :preselectedChannelId="aufbauTab === 'gassenturm' ? activeChannelForAssign?.id : null"
-              :addTowerFn="addTower"
-              :saveTowerFn="saveTower"
-              :deleteTowerFn="removeTower"
-              :assignSlotFn="assignSlot"
               :saveToTemplateFn="meta.template ? saveTowerToTemplate : null"
               :templateName="meta.template"
               :fetchTemplateNamesFn="meta.template ? fetchTowerTemplateNames : null"
@@ -322,13 +318,6 @@
               :bars="bars"
               :channels="channels"
               :preselectedChannelId="aufbauTab === 'zugstangen' ? activeChannelForAssign?.id : null"
-              :addBarFn="addBar"
-              :saveBarFn="saveBar"
-              :deleteBarFn="removeBar"
-              :assignFixtureFn="assignFixture"
-              :updateFixtureNotesFn="updateFixtureNotes"
-              :unassignFixtureFn="unassignFixture"
-              :reorderBarsFn="reorderBars"
               :saveToTemplateFn="meta.template ? saveBarToTemplate : null"
               :templateName="meta.template"
               :fetchTemplateNamesFn="meta.template ? fetchBarTemplateNames : null"
@@ -432,8 +421,8 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, nextTick, onMounted, onBeforeUnmount, defineAsyncComponent } from 'vue'
-import { Loader2, Radio, Layers, Images, Map as MapIcon, Construction, Plus, X } from 'lucide-vue-next'
+import { ref, computed, watch, nextTick, onMounted, onBeforeUnmount, defineAsyncComponent, provide } from 'vue'
+import { Loader2, Radio, Images, Map as MapIcon, Construction, Plus, X } from 'lucide-vue-next'
 import { useDebounceFn } from '@vueuse/core'
 import { useLocale } from '../composables/useLocale.js'
 import { useConfirm } from '../composables/useConfirm.js'
@@ -441,13 +430,11 @@ import { useKeyboardNav } from '../composables/useKeyboardNav.js'
 
 import { useShowPhotos } from '../composables/useShowPhotos.js'
 import { useShowSections } from '../composables/useShowSections.js'
-import { useShowLockEvents } from '../composables/useShowLockEvents.js'
 import { useShowLock } from '../composables/useShowLock.js'
 import { useShowChannels } from '../composables/useShowChannels.js'
 import { usePhotoGallery } from '../composables/usePhotoGallery'
 import { useShowFloorplan } from '../composables/useShowFloorplan.js'
 import { useShowTowers } from '../composables/useShowTowers.js'
-import { restoreTowersSnapshot } from '../api/towers.js'
 import { useShowBars } from '../composables/useShowBars.js'
 import { useShowHistory } from '../composables/useShowHistory'
 import { useMeasureUnit } from '../composables/useMeasureUnit'
@@ -494,6 +481,17 @@ const setupMarkdown = ref('')
 const setupSaving = ref(false)
 
 // ── Composables ────────────────────────────────────────────────────────────
+// showLock zuerst: useShowFloorplan/useShowSections/useShowChannels (unten)
+// brauchen onLockConflict beim Erzeugen. useShowLock bündelt seit Kurzem auch
+// die SSE-Lock-Events selbst (vorher zwei Composables, die sich zirkulär
+// brauchten — siehe Kommentar in useShowLock.ts) — dadurch kann showLock hier
+// ohne Forward-Reference ganz am Anfang stehen.
+const showLock = useShowLock(props.id)
+const { lock, presentUsers, initLockEvents, cleanupLockEvents } = showLock
+function onLockConflict(body) {
+  showLock.syncLockFromConflict(body)
+}
+
 const photoGalleryRef = ref(null)
 const { photos, loadPhotos } = useShowPhotos(props.id)
 const {
@@ -502,7 +500,7 @@ const {
   saveCaption: savePhotoCaption, saveChannelsForPhoto: savePhotoChannelsForPhoto,
   photoUrl, uploadFiles: uploadPhotoFiles, removePhoto: removeShowPhoto,
 } = usePhotoGallery(props.id, photos)
-const { floorplan, loadFloorplan, onFloorplanChange, onFloorplanImageUpload, onFloorplanImageDelete } = useShowFloorplan(props.id)
+const { floorplan, floorplanSaveError, loadFloorplan, onFloorplanChange, onFloorplanImageUpload, onFloorplanImageDelete } = useShowFloorplan(props.id, onLockConflict)
 
 // api.url() ist async (kurzlebiges Token muss ggf. nachgeladen werden) —
 // floorplanImageUrl hält den zuletzt aufgelösten String für :image-url.
@@ -511,17 +509,9 @@ watch(() => floorplan.value.image_url, async (path) => {
   floorplanImageUrl.value = path ? await api.url(path) : null
 }, { immediate: true })
 
-// showLock wird erst weiter unten instanziiert (braucht lock aus
-// useShowLockEvents). Dieser Wrapper wird erst bei einem tatsächlichen 423
-// aufgerufen, also lange nachdem showLock existiert — die Forward-Reference
-// ist unkritisch.
-function onLockConflict(body) {
-  showLock.syncLockFromConflict(body)
-}
-
 const {
-  sectionDefs, sectionContents, sectionsSaving,
-  persistSectionsDebounced, persistSections, persistSectionDefs,
+  sectionDefs, sectionContents, sectionsSaving, sectionsSaveError,
+  persistSectionsDebounced, persistSectionDefs, flushSectionsSave,
   loadSections,
 } = useShowSections(props.id, meta, onLockConflict)
 
@@ -537,14 +527,17 @@ const aufbauSubTabs = computed(() => {
 })
 
 let pendingSetupMd = null
-const persistSetupDebounced = useDebounceFn(async () => {
+let setupDirty = false
+async function doPersistSetup() {
   setupSaving.value = true
   try {
     await updateMeta(props.id, { ...meta.value, setupMarkdown: pendingSetupMd })
+    setupDirty = false
   } finally {
     setupSaving.value = false
   }
-}, 50)
+}
+const persistSetupDebounced = useDebounceFn(doPersistSetup, 50)
 
 const towers = ref([])
 
@@ -572,8 +565,15 @@ const {
   onAfterUndoRedo: () => afterUndoRedoImpl?.(),
 })
 
-const { loadTowers, addTower, saveTower, removeTower, assignSlot } = useShowTowers(props.id, channels, towers, onLockConflict)
-const { bars, loadBars, addBar, saveBar, removeBar, assignFixture, updateFixtureNotes, unassignFixture, reorderBars } = useShowBars(props.id, channels, onLockConflict)
+const { loadTowers, addTower, saveTower, removeTower, assignSlot } = useShowTowers(props.id, channels, towers, onLockConflict, loadChannels)
+const { bars, loadBars, addBar, saveBar, removeBar, assignFixture, updateFixtureNotes, unassignFixture, reorderBars } = useShowBars(props.id, channels, onLockConflict, loadChannels)
+
+// GassenturmView/ZugstangenView holen sich CRUD per inject() statt über
+// je 4-7 einzelne Function-Props — teilt dieselbe useShowTowers/useShowBars-
+// Instanz (dieselben towers/bars-Refs wie z.B. die generierten Übersichten
+// unten), statt sie im Kind ein zweites Mal zu erzeugen.
+provide('showTowers', { addTower, saveTower, removeTower, assignSlot })
+provide('showBars', { addBar, saveBar, removeBar, assignFixture, updateFixtureNotes, unassignFixture, reorderBars })
 
 afterUndoRedoImpl = async () => {
   await Promise.all([loadChannels(), loadSections(), loadTowers(), loadBars(), loadFloorplan()])
@@ -623,13 +623,6 @@ const gassenturmGenerated = computed(() => generateGassenturmEntries(towers.valu
 // generierte Text (Beleuchtungsgestelle/Obermaschinerie) weiter dort erscheinen.
 const aufbauSectionId = computed(() => sectionDefs.value.find(s => s.icon === 'setup')?.id ?? null)
 
-const { lock, presentUsers, initLockEvents, cleanupLockEvents } = useShowLockEvents(props.id, {
-  onTakeoverRequested: (data) => showLock.onTakeoverRequested(data),
-  onLockStatus: (data) => showLock.onLockStatusChanged(data),
-})
-
-const showLock = useShowLock(props.id, lock)
-
 watch(showLock.takeoverRequestedBy, async (requestedBy) => {
   if (!requestedBy) return
   const release = await confirm({
@@ -653,7 +646,11 @@ function onLockOverlayWheel(e) {
   overlay.style.pointerEvents = 'none'
   const below = document.elementFromPoint(e.clientX, e.clientY)
   overlay.style.pointerEvents = ''
-  const scrollable = below?.closest('[class*="overflow-y-auto"], [class*="overflow-auto"]')
+  // [data-scroll-container]: explizit markierte Container in dieser Datei.
+  // Der Klassen-Fallback bleibt bestehen für Scroll-Container, die tief in
+  // Kind-Komponenten liegen (z.B. ChannelTable.vue's eigene Liste) und hier
+  // nicht einzeln markiert werden.
+  const scrollable = below?.closest('[data-scroll-container], [class*="overflow-y-auto"], [class*="overflow-auto"]')
   if (scrollable) scrollable.scrollBy({ top: e.deltaY, left: e.deltaX })
 }
 
@@ -693,6 +690,7 @@ function onHealthFilter(type) {
 // ── Editor ─────────────────────────────────────────────────────────────────
 function onSetupChange(md) {
   pendingSetupMd = md
+  setupDirty = true
   setupSaving.value = true
   persistSetupDebounced()
 }
@@ -899,8 +897,10 @@ onBeforeUnmount(() => {
   cleanupLockEvents()
   showLock.releaseOnClose()
   clearInterval(snapshotInterval)
-  persistSetupDebounced?.flush?.()
-  persistChannels?.flush?.()
-  persistSectionsDebounced?.flush?.()
+  // useDebounceFn() (vueuse) returns a plain function with no .flush()/.cancel() —
+  // call the underlying immediate save so a pending debounced edit isn't lost on unmount.
+  if (setupDirty) doPersistSetup()
+  flushChannelsSave()
+  flushSectionsSave()
 })
 </script>

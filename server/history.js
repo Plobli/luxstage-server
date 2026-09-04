@@ -44,6 +44,8 @@ function initHashes() {
   }
 }
 
+// Periodischer Sweep-Pfad (siehe takeSnapshots()) — vergleicht gegen den in
+// snapshotHashes gecachten Hash. Für den On-Demand-Pfad siehe takeSnapshotNow().
 function snapshotOneShow(show) {
   let newHash = null
   const tx = getDb().transaction(() => {
@@ -120,8 +122,10 @@ export async function startHistoryJob() {
   }
 }
 
-/** Erzeugt sofort einen Snapshot für eine Show — unabhängig vom Hash-Vergleich.
- *  Wird beim Öffnen einer Show aufgerufen, um einen Ausgangspunkt zu sichern.
+/** On-Demand-Pfad (Aufruf z.B. beim Öffnen einer Show, um einen Ausgangspunkt
+ *  zu sichern) — für den periodischen Sweep-Pfad siehe snapshotOneShow().
+ *  Erzeugt sofort einen Snapshot, vergleicht aber gegen den letzten
+ *  History-Eintrag statt gegen snapshotHashes.
  *  `includeArchived` nur für Fälle, in denen der aktuelle Stand gleich
  *  überschrieben wird (Restore) — archivierte Shows sollen sonst keine
  *  Snapshots sammeln. */

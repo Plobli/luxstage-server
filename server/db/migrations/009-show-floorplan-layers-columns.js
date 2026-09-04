@@ -1,3 +1,5 @@
+import { hasColumn, addColumnIfMissing } from './helpers.js'
+
 // show_floorplan_layers: image_path + canvas_data nachträglich hinzugefügt.
 // canvas_data erfordert einen Table-Rebuild (SQLite ADD COLUMN reicht für
 // einfache Fälle, hier historisch als Rebuild gelöst — beibehalten, um exakt
@@ -5,16 +7,12 @@
 export const id = '009-show-floorplan-layers-columns'
 
 export function alreadyApplied(db) {
-  const cols = db.pragma('table_info(show_floorplan_layers)').map(c => c.name)
-  return cols.includes('image_path') && cols.includes('canvas_data')
+  return hasColumn(db, 'show_floorplan_layers', 'image_path') && hasColumn(db, 'show_floorplan_layers', 'canvas_data')
 }
 
 export function up(db) {
-  const cols = db.pragma('table_info(show_floorplan_layers)').map(c => c.name)
-  if (!cols.includes('image_path')) {
-    db.exec('ALTER TABLE show_floorplan_layers ADD COLUMN image_path TEXT')
-  }
-  if (!cols.includes('canvas_data')) {
+  addColumnIfMissing(db, 'show_floorplan_layers', 'image_path', 'TEXT')
+  if (!hasColumn(db, 'show_floorplan_layers', 'canvas_data')) {
     db.exec(`
       CREATE TABLE show_floorplan_layers_new (
         id         TEXT PRIMARY KEY,

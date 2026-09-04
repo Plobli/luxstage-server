@@ -1,6 +1,79 @@
 import { api } from './client'
 import { invalidate } from './cache'
 
+export interface ShowPresenceUser {
+  username: string;
+  /** Geräte desselben Nutzers, z.B. ['web', 'ios']. */
+  devices: string[];
+  lastActivityAt: string;
+}
+
+/**
+ * SSE-Verbindung pro Show: Lock-Status/Übernahme-Anfragen (Single-Editor-Sperre)
+ * und Präsenz (wer die Show gerade offen hat). Gibt eine Unsubscribe-Funktion zurück.
+ * Nutzt pro Verbindungsversuch ein frisches kurzlebiges Einmal-Token (statt
+ * des langlebigen JWT), damit kein Dauer-Token in Server-/Proxy-Logs landet.
+ * EventSource kann bei einem Einmal-Token nicht selbst reconnecten (das Token
+ * ist nach dem ersten Connect verbraucht) — der Reconnect wird daher hier
+ * manuell mit neuem Token durchgeführt.
+ *
+ * Der Server sendet neun Event-Typen (Katalog in server/sse.js); hier werden bewusst nur
+ * drei abgehört. Die sechs datenverändernden Events (channels-/sections-/towers-/bars-/
+ * floorplan-/checks-updated) bleiben ungenutzt — sie sind für native Clients reserviert bzw.
+ * Grundlage für ein späteres optimistischeres Update-Modell, kein totes Gepäck. Siehe
+ * audits/architecture-analysis-2026-09-03.md, F-02.
+ */
+export function subscribeShow(showId: string, { onLockStatus, onTakeoverRequested, onPresence }: {
+  onLockStatus?: (data: any) => void,
+  onTakeoverRequested?: (data: any) => void,
+  onPresence?: (data: { users: ShowPresenceUser[] }) => void,
+} = {}): () => void {
+  let es: EventSource | null = null
+  let closed = false
+  let retryTimer: ReturnType<typeof setTimeout> | null = null
+  let attempt = 0
+
+  // Exponentiell mit Obergrenze + Jitter statt fixem Delay — verhindert, dass
+  // bei einem längeren Serverausfall (z.B. während des Selbst-Update-Neustarts)
+  // jeder offene Tab jeder Show alle 3s unvermindert weiter reconnectet und den
+  // gerade erst wieder hochgefahrenen Server zusätzlich belastet.
+  function nextDelay(): number {
+    const base = Math.min(3000 * 2 ** attempt, 30_000)
+    return base / 2 + Math.random() * (base / 2)
+  }
+
+  async function connect(): Promise<void> {
+    if (closed) return
+    let url: string
+    try {
+      url = await api.downloadUrl(`/api/shows/${showId}/events?device=web`)
+    } catch {
+      if (!closed) { retryTimer = setTimeout(connect, nextDelay()); attempt++ }
+      return
+    }
+    if (closed) return
+
+    es = new EventSource(url)
+    if (onLockStatus) es.addEventListener('lock-status-updated', (e: any) => onLockStatus(JSON.parse(e.data)))
+    if (onTakeoverRequested) es.addEventListener('lock-takeover-requested', (e: any) => onTakeoverRequested(JSON.parse(e.data)))
+    if (onPresence) es.addEventListener('presence-updated', (e: any) => onPresence(JSON.parse(e.data)))
+    es.onopen = () => { attempt = 0 }
+    es.onerror = () => {
+      es?.close()
+      es = null
+      if (!closed) { retryTimer = setTimeout(connect, nextDelay()); attempt++ }
+    }
+  }
+
+  connect()
+
+  return () => {
+    closed = true
+    if (retryTimer) clearTimeout(retryTimer)
+    es?.close()
+  }
+}
+
 /**
  * Wickelt einen Aufruf, der die Show-Liste verändert, und verwirft danach den
  * Cache-Eintrag. Hier statt bei jedem Aufrufer: die Invalidierung gehört zur

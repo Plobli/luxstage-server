@@ -14,6 +14,7 @@ import { isValidTenantId, createTenant, deleteTenant, tenantExists } from '../te
 import { isReservedSubdomain, tenantBaseUrl } from '../tenant-resolve.js'
 import { getRegistry, tenantIdTaken, emailTaken, addPending, getPending, confirmPending, hasPendingForTenant } from '../registry.js'
 import { runWithDb } from '../db-context.js'
+import { createConfirmedUser } from '../db/users.js'
 import { sendConfirmEmail } from '../email.js'
 import { PASSWORD_MIN_LENGTH, isValidEmail } from '../../shared/constants.js'
 import { logger } from '../logger.js'
@@ -79,9 +80,7 @@ export async function registerRoutes(req, res, pathname) {
       const tdb = createTenant(row.tenant_id)
       tenantCreated = true
       runWithDb(tdb, () => {
-        tdb.prepare(
-          'INSERT INTO users (username, password, email, requires_password_change) VALUES (?, ?, ?, 0)'
-        ).run(row.email, row.password_hash, row.email)
+        createConfirmedUser(row.email, row.password_hash, row.email)
       })
       if (!confirmPending(token, row.tenant_id, row.email)) {
         throw new Error('Bestätigung wurde parallel verarbeitet')

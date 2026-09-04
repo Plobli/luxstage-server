@@ -1,5 +1,5 @@
 // web-app/src/composables/useUndoRedo.ts
-import { ref, type ComputedRef, computed } from 'vue'
+import { ref, type ComputedRef, type Ref, computed } from 'vue'
 import { undoShow, redoShow } from '../api/shows.js'
 import { ApiError } from '../api/client.js'
 
@@ -25,12 +25,14 @@ export function useUndoRedo(
   showId: string,
   onLockConflict?: (body: { lockedBy?: string, since?: number }) => void,
   onAfter?: () => void | Promise<void>,
+  onAfterError?: (e: unknown) => void,
 ): UseUndoRedoReturn {
   return useServerUndoRedo({
     undo: () => undoShow(showId),
     redo: () => redoShow(showId),
     onLockConflict,
     onAfter,
+    onAfterError,
   })
 }
 
@@ -39,12 +41,17 @@ export function useUndoRedo(
  * canUndo/canRedo-Führung und dasselbe Fehler-Mapping für jeden serverseitigen
  * Undo/Redo-Stack. Genutzt von Shows und der Netzwerk-Ansicht.
  */
-export function useServerUndoRedo({ undo: undoCall, redo: redoCall, onLockConflict, onAfter }: {
+export function useServerUndoRedo({ undo: undoCall, redo: redoCall, onLockConflict, onAfter, onAfterError }: {
   undo: () => Promise<unknown>;
   redo: () => Promise<unknown>;
   onLockConflict?: (body: { lockedBy?: string, since?: number }) => void;
   /** Wird nach jedem erfolgreichen Undo/Redo aufgerufen — zum Nachladen der Daten. */
   onAfter?: () => void | Promise<void>;
+  /** Fehler aus onAfter() — getrennt von einem fehlgeschlagenen Undo/Redo selbst
+   *  (siehe run()): der Undo/Redo-Call war bereits erfolgreich, nur das
+   *  Nachladen ist gescheitert. Ohne diese Trennung zeigte die UI "Speichern
+   *  fehlgeschlagen", obwohl der Undo/die Redo serverseitig durchging. */
+  onAfterError?: (e: unknown) => void;
 }): UseUndoRedoReturn {
   // Der Server kennt die Stack-Tiefe nicht als eigenen Endpunkt. canUndo startet
   // optimistisch offen, canRedo optimistisch geschlossen (Redo-Stack ist nach dem
@@ -53,18 +60,25 @@ export function useServerUndoRedo({ undo: undoCall, redo: redoCall, onLockConfli
   const canUndo = ref(true)
   const canRedo = ref(false)
 
-  async function run(call: () => Promise<unknown>, exhausted: typeof canUndo): Promise<boolean> {
+  async function run(call: () => Promise<unknown>, exhausted: Ref<boolean>): Promise<boolean> {
     try {
       await call()
-      canUndo.value = true
-      canRedo.value = true
-      await onAfter?.()
-      return true
     } catch (e) {
       if (e instanceof ApiError && e.status === 400) { exhausted.value = false; return false }
       if (e instanceof ApiError && e.status === 423) { onLockConflict?.(e.body); return false }
       throw e
     }
+    canUndo.value = true
+    canRedo.value = true
+    // Getrennt vom obigen try/catch: der Undo/Redo-Call selbst ist bereits
+    // durch — ein Fehler beim Nachladen darf nicht als fehlgeschlagenes
+    // Undo/Redo interpretiert werden (siehe onAfterError-Doku oben).
+    try {
+      await onAfter?.()
+    } catch (e) {
+      onAfterError?.(e)
+    }
+    return true
   }
 
   const undo = () => run(undoCall, canUndo)

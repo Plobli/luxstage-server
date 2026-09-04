@@ -1,5 +1,5 @@
 import { ref, computed } from 'vue'
-import { BASE, getToken } from '../api/client'
+import { loadDisplaySettingsOnce, saveDisplaySettings } from '../api/settings'
 
 export type MeasureUnit = 'm' | 'cm' | 'mm'
 
@@ -8,11 +8,9 @@ const unit = ref<MeasureUnit>((localStorage.getItem(STORAGE_KEY) as MeasureUnit)
 
 // Beim Start vom Server laden
 if (typeof window !== 'undefined') {
-  fetch(BASE() + '/api/settings/display', {
-    headers: { 'Authorization': 'Bearer ' + (getToken() ?? '') },
-  }).then(r => r.ok ? r.json() : null).then(data => {
+  loadDisplaySettingsOnce().then(data => {
     if (data?.measure_unit && ['m', 'cm', 'mm'].includes(data.measure_unit)) {
-      unit.value = data.measure_unit as MeasureUnit
+      unit.value = data.measure_unit
       localStorage.setItem(STORAGE_KEY, data.measure_unit)
     }
   }).catch(() => {})
@@ -27,11 +25,7 @@ if (typeof window !== 'undefined') {
 function setUnit(u: MeasureUnit) {
   unit.value = u
   localStorage.setItem(STORAGE_KEY, u)
-  fetch(BASE() + '/api/settings/display', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + (getToken() ?? '') },
-    body: JSON.stringify({ measure_unit: u }),
-  }).catch(() => {})
+  saveDisplaySettings({ measure_unit: u }).catch(() => {})
 }
 
 /** cm → Anzeige-Wert (gerundet) */
@@ -51,11 +45,6 @@ function parseToCm(val: number): number {
 function formatLength(cm: number | null | undefined): string {
   if (cm == null) return '—'
   return `${cmToDisplay(cm)} ${unit.value}`
-}
-
-function formatHeight(cm: number | null | undefined): string {
-  if (cm == null) return ''
-  return `${cmToDisplay(cm)}`
 }
 
 /** Schrittweite für number-Input */
@@ -79,16 +68,6 @@ const lengthMax = computed(() => {
   return 3000
 })
 
-/** Höhe max in der aktuellen Einheit */
-const heightMax = computed(() => {
-  if (unit.value === 'm') return 30
-  if (unit.value === 'mm') return 30000
-  return 3000
-})
-
-/** Standard-Eingabewert für neue Zugstange (1100 cm) in aktueller Einheit */
-const defaultLength = computed(() => cmToDisplay(1100))
-
 /** Langform der Einheit für Labels */
 const unitLabel = computed(() => {
   if (unit.value === 'm') return 'in Metern'
@@ -102,13 +81,10 @@ export function useMeasureUnit() {
     unitLabel,
     setUnit,
     formatLength,
-    formatHeight,
     cmToDisplay,
     parseToCm,
     inputStep,
     lengthMin,
     lengthMax,
-    heightMax,
-    defaultLength,
   }
 }

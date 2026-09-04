@@ -1,6 +1,6 @@
 import { getDb } from '../db-context.js'
 import { randomUUID } from 'node:crypto'
-import { sectionTypeHasRows } from '../../shared/constants.js'
+import { applySections } from './template-apply.js'
 
 function now() { return Date.now() }
 
@@ -19,6 +19,20 @@ export function listArchivedShows() {
 
 export function readShow(slug) {
   return getDb().prepare('SELECT * FROM shows WHERE slug = ?').get(slug) ?? null
+}
+
+// Show per Slug laden oder selbst mit 404 antworten — vermeidet die in jedem
+// Route-Handler wiederholte "const show = readShow(slug); if (!show) return
+// json(res, 404, ...)"-Prüfung (analog zu requireAuth in auth.js: schreibt die
+// Antwort direkt, damit Aufrufer nur noch `if (!show) return` brauchen).
+export function requireShow(slug, res) {
+  const show = readShow(slug)
+  if (!show) {
+    res.writeHead(404, { 'Content-Type': 'application/json' })
+    res.end(JSON.stringify({ error: 'Show nicht gefunden' }))
+    return null
+  }
+  return show
 }
 
 export function writeShow(slug, fields) {
@@ -50,43 +64,18 @@ export function createShow(slug, fields) {
       ts,
     })
 
+    // Sections-Kopie nutzt dieselbe applySections() wie applyTemplateToShow()/
+    // applyTemplateToAllShows() (siehe db/template-apply.js) statt einer
+    // eigenen dritten Kopie der "Template-Bereiche übernehmen"-Logik. Bars/
+    // Towers werden hier bewusst NICHT kopiert — Aufrufer (useShowWizard.js)
+    // rufen dafür explizit applyTemplateToShow() mit der vom Nutzer getroffenen
+    // Auswahl auf, nachdem die Show existiert.
     if (fields.template && fields.importSections !== false) {
       const tpl = getDb().prepare('SELECT * FROM templates WHERE name = ?').get(fields.template)
-      if (tpl) _copyTemplateToShow(tpl.id, id)
+      if (tpl) applySections(tpl, { id }, null)
     }
   })
   tx()
-}
-
-function _copyTemplateToShow(templateId, showId, opts = { withChannels: false }) {
-  const tDefs = getDb().prepare('SELECT * FROM template_section_defs WHERE template_id = ? ORDER BY sort_order').all(templateId)
-  if (!tDefs.length) return
-  const defIds = tDefs.map(d => d.id)
-  const ph = defIds.map(() => '?').join(',')
-  const tRowsAll   = getDb().prepare(`SELECT * FROM template_section_kv_rows WHERE section_id IN (${ph}) ORDER BY sort_order`).all(defIds)
-  const tFieldsAll = getDb().prepare(`SELECT * FROM template_section_fields WHERE section_id IN (${ph}) ORDER BY sort_order`).all(defIds)
-  const tRowsBySection   = Map.groupBy(tRowsAll, r => r.section_id)
-  const tFieldsBySection = Map.groupBy(tFieldsAll, f => f.section_id)
-
-  const insertDef     = getDb().prepare('INSERT INTO section_defs (id, show_id, title, type, icon, sort_order) VALUES (?, ?, ?, ?, ?, ?)')
-  const insertKvRow   = getDb().prepare('INSERT INTO section_kv_rows (id, section_id, label, value, sort_order) VALUES (?, ?, ?, ?, ?)')
-  const insertField   = getDb().prepare('INSERT INTO section_fields (id, section_id, key, label, unit, sort_order) VALUES (?, ?, ?, ?, ?, ?)')
-  const insertContent = getDb().prepare('INSERT INTO section_contents (section_id, show_id, content) VALUES (?, ?, ?)')
-
-  for (const tDef of tDefs) {
-    const newDefId = randomUUID()
-    insertDef.run(newDefId, showId, tDef.title, tDef.type, tDef.icon ?? '', tDef.sort_order)
-    if (sectionTypeHasRows(tDef.type)) {
-      for (const tRow of (tRowsBySection.get(tDef.id) ?? [])) {
-        insertKvRow.run(randomUUID(), newDefId, tRow.label, tRow.value, tRow.sort_order)
-      }
-    } else {
-      for (const tField of (tFieldsBySection.get(tDef.id) ?? [])) {
-        insertField.run(randomUUID(), newDefId, tField.key, tField.label, tField.unit, tField.sort_order)
-      }
-      insertContent.run(newDefId, showId, tDef.type === 'fields' ? '{}' : '')
-    }
-  }
 }
 
 export function archiveShow(slug) {

@@ -128,7 +128,12 @@ export function useShowChannels({
   // dem alten Stand stehen, bis zufällig woanders neu geladen wird (führte dazu,
   // dass wiederholtes Klicken unbemerkt beliebig weit zurückspulte).
   const { undo, redo, canUndo, canRedo, markSaved, onUndoRedoKeydown } =
-    useUndoRedo(showId, onLockConflict, onAfterUndoRedo)
+    useUndoRedo(showId, onLockConflict, onAfterUndoRedo, (e) => {
+      // Undo/Redo selbst war erfolgreich — nur das Nachladen ist gescheitert.
+      // Eigene Meldung statt error.save_failed, das wäre hier irreführend.
+      channelsSaveError.value = t('error.reload_failed')
+      console.error('[useShowChannels] Nachladen nach Undo/Redo fehlgeschlagen:', e)
+    })
 
   const dupAddressChannelNrs = computed(() => {
     const seen = new Map<string, string>()

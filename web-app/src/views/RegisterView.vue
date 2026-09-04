@@ -74,7 +74,7 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
-import { register } from '../api/client'
+import { register } from '../api/auth'
 import { PASSWORD_MIN_LENGTH } from '@shared/constants.js'
 import { useLocale } from '../composables/useLocale.js'
 import { Button } from '@/components/ui/button'

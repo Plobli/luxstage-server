@@ -24,6 +24,10 @@
         </span>
       </div>
     </Transition>
+    <!-- Hintergrundbild-Ladefehler -->
+    <div v-if="backgroundLoadError" class="absolute top-2 left-2 z-30 flex items-center gap-2 px-3 py-1.5 rounded-md bg-destructive text-white text-xs font-medium shadow-md">
+      {{ t('error.generic') }}
+    </div>
     <!-- Top Ribbon Toolbar -->
     <div class="bg-muted/30 border-b border-border flex items-stretch py-1.5 px-1 gap-1 z-10 shrink-0 overflow-x-auto">
       <!-- Gruppe: Navigation -->
@@ -254,7 +258,7 @@
                     :x2="getArrowPoints(el.channel, el.rotation).x2" :y2="getArrowPoints(el.channel, el.rotation).y2"
                     stroke="#dc3740" stroke-width="3" marker-end="url(#arrowhead)" />
               <!-- Pill -->
-              <rect :x="-pillW(el.channel)/2" y="-18" :width="pillW(el.channel)" :height="36" rx="18" fill="#dc3740" stroke="#dc3740" stroke-width="2" />
+              <rect :x="-pillW(el.channel)/2" :y="-CHANNEL_PILL_RADIUS" :width="pillW(el.channel)" :height="CHANNEL_PILL_RADIUS * 2" :rx="CHANNEL_PILL_RADIUS" fill="#dc3740" stroke="#dc3740" stroke-width="2" />
               <!-- Text -->
               <text x="0" y="0" fill="#fff" font-size="18" font-weight="bold" text-anchor="middle" dominant-baseline="central">{{ el.channel }}</text>
               <!-- Rotation handle at arrow tip (nur wenn Pfeil vorhanden) -->
@@ -378,7 +382,7 @@
         :style="{ left: ghostPos.x + 'px', top: ghostPos.y + 'px', transform: 'translate(-50%, -50%)' }"
       >
         <svg width="80" height="40" viewBox="-40 -20 80 40" style="overflow: visible;">
-          <rect x="-31" y="-18" width="62" height="36" rx="18" fill="#dc3740" opacity="0.85" />
+          <rect x="-31" :y="-CHANNEL_PILL_RADIUS" width="62" :height="CHANNEL_PILL_RADIUS * 2" :rx="CHANNEL_PILL_RADIUS" fill="#dc3740" opacity="0.85" />
           <text x="0" y="0" fill="#fff" font-size="18" font-weight="bold" text-anchor="middle" dominant-baseline="central">{{ pendingChannelForPlacement.channel }}</text>
         </svg>
       </div>
@@ -549,17 +553,6 @@
     </div><!-- /Center Canvas -->
     </div><!-- /flex row wrapper -->
 
-    <!-- Reassign Dialog -->
-    <Dialog :open="!!reassignTargetId" @update:open="val => { if (!val) reassignTargetId = null }">
-      <DialogContent class="sm:max-w-2xl flex flex-col max-h-[80vh]">
-        <DialogHeader><DialogTitle>{{ t('floorplan.reassign.title') }}</DialogTitle></DialogHeader>
-        <DialogBody class="flex-1 overflow-y-auto">
-          <ChannelPickerGrid :channels="props.channels" :model-value="[]" v-model:search="channelSearch" :search-placeholder="t('action.search')" @pick="reassignChannel" @enter="reassignChannel" />
-        </DialogBody>
-        <DialogFooter><Button variant="outline" @click="reassignTargetId = null">{{ t('action.cancel') }}</Button></DialogFooter>
-      </DialogContent>
-    </Dialog>
-
     <!-- Tower Picker Dialog -->
     <Dialog :open="showTowerPicker" @update:open="val => { if (!val) showTowerPicker = false }">
       <DialogContent class="sm:max-w-lg flex flex-col max-h-[80vh]">
@@ -660,6 +653,7 @@ import { useEditorClipboard } from '@/composables/floorplan/useEditorClipboard'
 import { useRulerCalibration } from '@/composables/floorplan/useRulerCalibration'
 import { useInlineTextEdit } from '@/composables/floorplan/useInlineTextEdit'
 import { useElementDragResize } from '@/composables/floorplan/useElementDragResize'
+import { PDF_PRINT_AREA_RATIO } from '@shared/constants.js'
 import {
   Copy, MousePointer2, Hand, Minus, Square, Circle, Type, CircleDot,
   Upload, ImageOff, Download, Trash2, Layers, AlignJustify, Ruler,
@@ -669,7 +663,6 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogBody } from '@/components/ui/dialog'
 import ChannelPickerGrid from './show/ChannelPickerGrid.vue'
-import { Label } from '@/components/ui/label'
 import SidebarBtn from '@/components/ui/SidebarBtn.vue'
 
 const props = defineProps({
@@ -698,23 +691,19 @@ const {
   clearPending: clearPendingPlacement,
 } = useElementPicker(() => props.towers, () => props.bars)
 const ghostBarWidth = computed(() => barWidthPx(pendingBarForPlacement.value?.length_cm || 600))
-function channelNrForId(channelId) {
-  return props.channels.find(c => c.id === channelId)?.channel ?? null
-}
 function towerChannels(tower) {
   return (tower.slots ?? [])
     .filter(slot => slot.channel_id)
     .sort((a, b) => a.slot_index - b.slot_index)
-    .map(slot => channelNrForId(slot.channel_id))
+    .map(slot => channelNrById(slot.channel_id, null))
     .filter(Boolean)
 }
 function barChannels(bar) {
   return (bar.fixtures ?? [])
     .filter(fx => fx.channel_id)
-    .map(fx => channelNrForId(fx.channel_id))
+    .map(fx => channelNrById(fx.channel_id, null))
     .filter(Boolean)
 }
-const reassignTargetId = ref(null)
 const svgRef = ref(null)
 const containerEl = ref(null)
 const imageUploadInput = ref(null)
@@ -723,6 +712,13 @@ const pendingDirectionId = ref(null)
 
 const bgImage = ref(null)
 const bgImageSrc = ref('')
+const backgroundLoadError = ref(false)
+// Objekt-URL des aktuell angezeigten Hintergrundbilds — nicht reaktiv, dient nur der
+// Buchführung, damit loadBackground() sie vor dem nächsten Laden/beim Unmount freigeben kann.
+let activeBlobUrl = null
+function revokeActiveBlobUrl() {
+  if (activeBlobUrl) { URL.revokeObjectURL(activeBlobUrl); activeBlobUrl = null }
+}
 
 const {
   containerSize, stageSize, stageScale, containerOffsetX, containerOffsetY,
@@ -731,8 +727,12 @@ const {
   snap, fitToContainer, resetView: resetViewport, startPan, updatePan, endPan,
 } = useCanvasViewport(containerEl)
 
-// Druckbereich im PDF-Export (A4 quer, minus Seitenränder/Titel/Fußzeile, siehe server/pdf.js)
-const PDF_PRINT_AREA_RATIO = 267 / 160
+// PDF_PRINT_AREA_RATIO: siehe shared/constants.js — Druckbereich im PDF-Export
+// (A4 quer, minus Seitenränder/Titel/Fußzeile, siehe server/pdf.js), muss mit
+// server/pdf/floorplan-vector.js übereinstimmen.
+// Radius der Kanal-Pille (Node + Ghost-Cursor-Vorschau) — auch für getArrowPoints()
+// maßgeblich, wo entlang des Pillenrands der Richtungspfeil ansetzt.
+const CHANNEL_PILL_RADIUS = 18
 const a4Guide = computed(() => {
   const { width: sw, height: sh } = stageSize.value
   let w = sw, h = sw / PDF_PRINT_AREA_RATIO
@@ -778,7 +778,6 @@ const elementsWithNotes = computed(() => {
 })
 
 const hoveredId = ref(null)
-const propertiesOpen = ref(false)
 const tooltip = ref({ visible: false, x: 0, y: 0, title: '', sub: '', channels: [] })
 
 function showTooltip(el, e) {
@@ -833,8 +832,8 @@ function fixtureXOffset(positionCm, lengthCm, widthPx) {
   const len = lengthCm || 600
   return ((positionCm + len / 2) / len) * widthPx
 }
-function channelNrById(channelId) {
-  return props.channels.find(c => c.id === channelId)?.channel ?? '?'
+function channelNrById(channelId, fallback = '?') {
+  return props.channels.find(c => c.id === channelId)?.channel ?? fallback
 }
 function pillW(_channel) { return 62 }
 function noteTextWidth(text) { return Math.max(40, (text?.length ?? 0) * 6.2 + 20) }
@@ -843,7 +842,7 @@ function typeLabel(type) { return getElementLabel(type) }
 function getArrowPoints(channel, rot) {
   const rad = (rot || 0) * Math.PI / 180
   const w = pillW(channel)
-  const r = 18
+  const r = CHANNEL_PILL_RADIUS
   const flatW = w / 2 - r
 
   const dx = Math.cos(rad)
@@ -875,13 +874,23 @@ function getArrowPoints(channel, rot) {
   return { x1: bx, y1: by, x2: bx + dx * len, y2: by + dy * len }
 }
 
+// Zählt jeden loadBackground()-Aufruf durch — bei schnell wechselndem imageUrl
+// (Upload, Undo/Redo) kann eine ältere fetch/Image-Decode-Kette erst nach
+// einer neueren auflösen; ohne diesen Abgleich würde die ältere Antwort das
+// schon korrekt angezeigte neuere Bild überschreiben und dessen Blob-URL
+// unter ihm wegrevoken.
+let backgroundLoadToken = 0
+
 async function loadBackground(url) {
-  if (!url) { bgImage.value = null; bgImageSrc.value = ''; return }
+  const token = ++backgroundLoadToken
+  backgroundLoadError.value = false
+  if (!url) { revokeActiveBlobUrl(); bgImage.value = null; bgImageSrc.value = ''; return }
 
   const isSvg = url.split('?')[0].toLowerCase().endsWith('.svg')
     || url.startsWith('data:image/svg')
 
   if (isSvg) {
+    revokeActiveBlobUrl()
     // Stage ist immer fest auf den PDF-Druckbereich (A4 quer) fixiert (siehe unten).
     const REF_W = 2000
     stageSize.value = { width: REF_W, height: Math.round(REF_W / PDF_PRINT_AREA_RATIO) }
@@ -891,19 +900,37 @@ async function loadBackground(url) {
     return
   }
 
-  const blob = await fetch(url, { cache: 'reload', headers: { Authorization: 'Bearer ' + (getToken() || '') } }).then(r => r.blob())
-  const blobUrl = URL.createObjectURL(blob)
+  let blobUrl
+  try {
+    const blob = await fetch(url, { cache: 'reload', headers: { Authorization: 'Bearer ' + (getToken() || '') } }).then(r => r.blob())
+    blobUrl = URL.createObjectURL(blob)
+  } catch (err) {
+    if (token !== backgroundLoadToken) return // überholt durch einen neueren Aufruf
+    console.error('Hintergrundbild konnte nicht geladen werden:', err)
+    backgroundLoadError.value = true
+    return
+  }
+
   const img = new Image()
   img.onload = () => {
+    if (token !== backgroundLoadToken) { URL.revokeObjectURL(blobUrl); return } // überholt — verwerfen, nicht anzeigen
     // Stage ist immer fest auf den PDF-Druckbereich (A4 quer) fixiert, unabhängig
     // vom Bildseitenverhältnis; das Bild wird unverzerrt eingepasst (siehe
     // bg-image preserveAspectRatio). So bleibt die Darstellung nach jedem Laden
     // (Upload wie Seiten-Reload) konsistent.
     const REF_W = 2000
     stageSize.value = { width: REF_W, height: Math.round(REF_W / PDF_PRINT_AREA_RATIO) }
+    revokeActiveBlobUrl()
+    activeBlobUrl = blobUrl
     bgImage.value = img
     bgImageSrc.value = blobUrl
     nextTick(() => fitToContainer())
+  }
+  img.onerror = () => {
+    URL.revokeObjectURL(blobUrl)
+    if (token !== backgroundLoadToken) return // überholt durch einen neueren Aufruf
+    console.error('Hintergrundbild konnte nicht dekodiert werden')
+    backgroundLoadError.value = true
   }
   img.src = blobUrl
 }
@@ -945,7 +972,6 @@ function onNodeMouseDown(id, e) {
     selectedIds.value = s
   } else if (!selectedIds.value.has(id)) {
     selectedIds.value = new Set([id])
-    propertiesOpen.value = false
   }
 
   drawStart.value = getPointerPos(e)
@@ -963,8 +989,6 @@ function onNodeDblClick(id) {
   const el = elements.value.find(x => x.id === id)
   if (el?.type === 'text') {
     beginTextEdit(el, svgRef.value, containerEl.value)
-  } else {
-    propertiesOpen.value = true
   }
 }
 
@@ -996,7 +1020,8 @@ function onContainerMouseDown(e) {
 
 // Tool-spezifisches Preview-Rendering während des Ziehens (nach dem Guard-Chain-Teil in
 // onContainerMouseMove, der Panning/Ghost/Resize/Drag behandelt und immer früh zurückkehrt).
-// Lookup statt if/else-Kette, analog zum Muster in handlePendingToolMouseUp.
+// Lookup statt if/else-Kette, da die Zweige rein und zustandslos sind (anders als z.B.
+// handlePendingToolMouseUp, das echten Kontrollfluss/Rückgabewerte pro Zweig braucht).
 const DRAW_PREVIEW_HANDLERS = {
   select: (pos, start) => {
     lassoRect.value = { x: Math.min(pos.x, start.x), y: Math.min(pos.y, start.y), w: Math.abs(pos.x - start.x), h: Math.abs(pos.y - start.y) }
@@ -1092,9 +1117,8 @@ function handlePendingToolMouseUp(e) {
     return true
   }
   if (isElementDragging.value) {
-    const shouldOpenProperties = finishDrag()
+    finishDrag()
     drawStart.value = null
-    if (shouldOpenProperties) propertiesOpen.value = true
     return true
   }
   return false
@@ -1221,12 +1245,6 @@ function onImageFileSelected(e) {
   e.target.value = ''
 }
 function jumpToChannel() { if (selectedElement.value?.type === 'channel') emit('jump-to-channel', selectedElement.value.channel) }
-function openReassignPicker() { if (selectedElement.value?.type === 'channel') { reassignTargetId.value = selectedElement.value.id; channelSearch.value = '' } }
-function reassignChannel(ch) {
-  const el = elements.value.find(e => e.id === reassignTargetId.value)
-  if (el) { el.channel = ch.channel; emitChange() }
-  reassignTargetId.value = null
-}
 function toggleNoArrow(el) { el.noArrow = !el.noArrow; emitChange() }
 function toggleFontStyle(el) { el.fontStyle = el.fontStyle === 'bold' ? 'normal' : 'bold'; emitChange() }
 function toggleFill(el) { el.fill = (el.fill && el.fill !== 'transparent') ? 'transparent' : '#ffffff'; emitChange() }
@@ -1307,6 +1325,7 @@ onMounted(() => {
 onUnmounted(() => {
   window.removeEventListener('keydown', handleKeyDown)
   window.removeEventListener('keyup', handleKeyUp)
+  revokeActiveBlobUrl()
 })
 
 watch(() => props.initialCanvasData, (newVal) => {
@@ -1340,8 +1359,6 @@ watch(() => props.bars, (newBars) => {
 
 <style scoped>
 @reference "../style.css";
-.fade-panel-enter-active, .fade-panel-leave-active { transition: opacity 0.12s ease, transform 0.12s ease; }
-.fade-panel-enter-from, .fade-panel-leave-to { opacity: 0; transform: scale(0.95); }
 .placement-banner-enter-active, .placement-banner-leave-active { transition: opacity 0.15s ease, transform 0.15s ease; }
 .placement-banner-enter-from, .placement-banner-leave-to { opacity: 0; transform: translateY(-100%); }
 .props-panel-enter-active, .props-panel-leave-active { transition: opacity 0.15s ease, transform 0.15s ease; }

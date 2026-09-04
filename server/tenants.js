@@ -7,6 +7,9 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { config } from './config.js'
 import { initSchema } from './db-init.js'
+import { logger } from './logger.js'
+
+const log = logger('tenants')
 
 const TENANTS_DIR = path.join(config.dataPath, 'tenants')
 
@@ -16,6 +19,22 @@ const TENANTS_DIR = path.join(config.dataPath, 'tenants')
 // hielte jeder je aktive Mandant dauerhaft ein Datei-Handle samt WAL offen.
 export const MAX_OPEN_TENANT_DBS = 50
 const connections = new Map() // tenantId → Database
+
+// Zählt laufende Requests je Mandant (router.js markiert Beginn/Ende). Ohne
+// das würde evictOldest() eine Verbindung schließen können, die eine noch
+// laufende Anfrage (z.B. langsamer Foto-Upload) gerade in AsyncLocalStorage
+// hält — die Anfrage bräche dann mit "database connection is not open" ab.
+const inUseCounts = new Map() // tenantId → Anzahl laufender Requests
+
+export function markTenantInUse(tenantId) {
+  inUseCounts.set(tenantId, (inUseCounts.get(tenantId) || 0) + 1)
+}
+
+export function releaseTenantInUse(tenantId) {
+  const n = (inUseCounts.get(tenantId) || 0) - 1
+  if (n <= 0) inUseCounts.delete(tenantId)
+  else inUseCounts.set(tenantId, n)
+}
 
 // Anzahl aktuell offener Mandanten-Verbindungen (Diagnose/Tests).
 export function openConnectionCount() {
@@ -29,7 +48,18 @@ function touch(tenantId, db) {
 
 function evictOldest() {
   while (connections.size >= MAX_OPEN_TENANT_DBS) {
-    const [oldest, db] = connections.entries().next().value
+    let oldest = null
+    for (const id of connections.keys()) {
+      if (!inUseCounts.get(id)) { oldest = id; break }
+    }
+    if (oldest === null) {
+      // Jede offene Verbindung wird gerade von einem laufenden Request
+      // gehalten — lieber vorübergehend über die Obergrenze wachsen, als eine
+      // aktive Anfrage mit einer geschlossenen Verbindung abstürzen zu lassen.
+      log.warn('Alle offenen Mandanten-Verbindungen in Benutzung, Obergrenze überschritten', { offen: connections.size })
+      return
+    }
+    const db = connections.get(oldest)
     if (db?.open) db.close()
     connections.delete(oldest)
   }
@@ -64,7 +94,15 @@ export function openTenantDb(tenantId) {
   if (!tenantExists(tenantId)) throw new Error(`Mandant existiert nicht: ${tenantId}`)
   evictOldest()
   const db = new Database(tenantDbPath(tenantId))
-  initSchema(db) // idempotent — hält bestehende DBs auf aktuellem Schema
+  try {
+    initSchema(db) // idempotent — hält bestehende DBs auf aktuellem Schema
+  } catch (err) {
+    // Ohne dieses close() bliebe bei fehlgeschlagenem initSchema() ein offenes,
+    // nirgends getracktes Datei-Handle zurück — nicht im connections-Cache
+    // (also nicht über closeTenantDb() erreichbar), aber auch nicht geschlossen.
+    db.close()
+    throw err
+  }
   connections.set(tenantId, db)
   return db
 }
@@ -77,7 +115,14 @@ export function createTenant(tenantId) {
   fs.mkdirSync(tenantDir(tenantId), { recursive: true })
   evictOldest()
   const db = new Database(tenantDbPath(tenantId))
-  initSchema(db)
+  try {
+    initSchema(db)
+  } catch (err) {
+    // Siehe openTenantDb: ohne dieses close() bliebe bei fehlgeschlagenem
+    // initSchema() ein offenes, nirgends getracktes Datei-Handle zurück.
+    db.close()
+    throw err
+  }
   connections.set(tenantId, db)
   return db
 }

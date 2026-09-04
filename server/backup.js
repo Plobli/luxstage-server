@@ -8,7 +8,7 @@ import unzipper from 'unzipper'
 import path from 'node:path'
 import Database from 'better-sqlite3'
 import { config } from './config.js'
-import { dbContainer } from './db-init.js'
+import { dbContainer, initSchema } from './db-init.js'
 
 let restoreInProgress = false
 const MAX_BACKUP_BYTES = 500 * 1024 * 1024
@@ -249,12 +249,22 @@ async function activateRestore({ workDir, dbRestorePath, stagedPhotosPath, dbPat
     photosMoved = true
     await fs.rename(stagedPhotosPath, photosPath)
   } catch (err) {
-    await fs.rm(dbPath, { force: true }).catch(() => {})
-    if (dbMoved) await fs.rename(previousDbPath, dbPath).catch(() => {})
+    // Nur löschen/zurückschreiben, wenn der erste rename() tatsächlich lief —
+    // sonst steht in dbPath noch die unangetastete Live-DB, und ein
+    // unbedingtes rm() hier würde sie ohne Backup vernichten.
+    if (dbMoved) {
+      await fs.rm(dbPath, { force: true }).catch(() => {})
+      await fs.rename(previousDbPath, dbPath).catch(() => {})
+    }
     if (photosMoved) {
       await fs.rm(photosPath, { recursive: true, force: true }).catch(() => {})
       await fs.rename(previousPhotosPath, photosPath).catch(() => {})
     }
+    // dbContainer.db.close() lief bereits oben — ohne dieses Wiederöffnen bliebe
+    // die Verbindung über den Rollback hinaus geschlossen und jeder weitere
+    // getDb()-Aufruf im Prozess würde fehlschlagen.
+    dbContainer.db = new Database(dbPath)
+    initSchema(dbContainer.db)
     throw err
   }
 }

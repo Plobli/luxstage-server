@@ -93,20 +93,40 @@ export function drawRow(doc, y, usableW, cols, { isHeader = false, minRowH = ROW
 
 export const drawHeaderRow = (doc, y, usableW, cols) => drawRow(doc, y, usableW, cols, { isHeader: true })
 
-export function renderFieldsSection(doc, fields, raw, margin, usableW) {
+// Liest Seitenmaße bei jedem Aufruf neu (statt einmal beim Erzeugen) — nötig,
+// weil einzelne Seiten (z.B. der Grundriss-Export) eine andere Ausrichtung/
+// Größe als der Rest des Dokuments haben können.
+export function createFooter(doc, label) {
+  let pageNum = 0
+  return function addFooter() {
+    pageNum++
+    const curUsableW = doc.page.width - PAGE_MARGIN * 2
+    const fy = doc.page.height - PAGE_MARGIN - mm(4)
+    // doc.y temporär weit oben setzen, damit pdfkit kein continueOnNewPage auslöst
+    const savedY = doc.y
+    doc.y = PAGE_MARGIN
+    doc.font(FONT_NORMAL).fontSize(7).fillColor('#888888')
+      .text(label, PAGE_MARGIN, fy, { width: curUsableW / 2, lineBreak: false })
+    doc.text(`Seite ${pageNum}`, PAGE_MARGIN + curUsableW / 2, fy, {
+      width: curUsableW / 2, align: 'right', lineBreak: false,
+    })
+    doc.fillColor('black')
+    doc.y = savedY
+  }
+}
+
+// Gemeinsamer Renderer für Label/Wert-Zeilen (KV-Tabelle und Fields-Sektion
+// unterscheiden sich nur darin, woher label/value kommen — siehe unten).
+function renderLabelValueRows(doc, rows, margin, usableW) {
   const colLabelW = mm(45)
   const colValueW = usableW - colLabelW
   const rowH = mm(5.5)
   let y = doc.y
-  for (const field of fields) {
-    const escapedKey = field.key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-    const re = new RegExp(`^${escapedKey}:\\s*(.*)$`, 'm')
-    const match = raw.match(re)
-    const value = match ? match[1].trim() : ''
+  for (const { label, value } of rows) {
     if (!value) continue
     doc.rect(margin, y, usableW, rowH).stroke('#cccccc')
     doc.font(FONT_BOLD).fontSize(8)
-      .text(field.label + (field.unit ? ` (${field.unit})` : ''), margin + mm(1.5), y + mm(1.2), {
+      .text(label ?? '', margin + mm(1.5), y + mm(1.2), {
         width: colLabelW - mm(3), height: rowH - mm(1), lineBreak: false, ellipsis: true,
       })
     doc.font(FONT_NORMAL).fontSize(8)
@@ -119,25 +139,19 @@ export function renderFieldsSection(doc, fields, raw, margin, usableW) {
   doc.moveDown(0.3)
 }
 
+export function renderFieldsSection(doc, fields, raw, margin, usableW) {
+  const rows = fields.map(field => {
+    const escapedKey = field.key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    const re = new RegExp(`^${escapedKey}:\\s*(.*)$`, 'm')
+    const match = raw.match(re)
+    return {
+      label: field.label + (field.unit ? ` (${field.unit})` : ''),
+      value: match ? match[1].trim() : '',
+    }
+  })
+  renderLabelValueRows(doc, rows, margin, usableW)
+}
+
 export function renderKvTableSection(doc, rows, margin, usableW) {
-  const colLabelW = mm(45)
-  const colValueW = usableW - colLabelW
-  const rowH = mm(5.5)
-  let y = doc.y
-  for (const row of rows) {
-    const value = row.value?.trim() ?? ''
-    if (!value) continue
-    doc.rect(margin, y, usableW, rowH).stroke('#cccccc')
-    doc.font(FONT_BOLD).fontSize(8)
-      .text(row.label ?? '', margin + mm(1.5), y + mm(1.2), {
-        width: colLabelW - mm(3), height: rowH - mm(1), lineBreak: false, ellipsis: true,
-      })
-    doc.font(FONT_NORMAL).fontSize(8)
-      .text(value, margin + colLabelW + mm(1.5), y + mm(1.2), {
-        width: colValueW - mm(3), height: rowH - mm(1), lineBreak: false, ellipsis: true,
-      })
-    y += rowH
-  }
-  doc.y = y
-  doc.moveDown(0.3)
+  renderLabelValueRows(doc, rows.map(row => ({ label: row.label, value: row.value?.trim() ?? '' })), margin, usableW)
 }

@@ -29,28 +29,28 @@ export async function smtpRoutes(req, res, pathname) {
 
   // Im SaaS-Modus ist SMTP zentral (Betreiber) — Mandanten können es nicht konfigurieren.
   if (config.baseDomain && (pathname === '/api/smtp')) {
-    const admin = requireAuth(req, res); if (!admin) return
+    const user = requireAuth(req, res); if (!user) return
     if (method === 'GET') return json(res, 200, { managed: true })
     if (method === 'POST') return json(res, 403, { error: 'SMTP wird zentral verwaltet' })
   }
 
   if (method === 'GET' && pathname === '/api/smtp') {
-    const admin = requireAuth(req, res); if (!admin) return
+    const user = requireAuth(req, res); if (!user) return
     const cfg = getSmtpConfig()
     return json(res, 200, { ...cfg, pass: cfg.pass ? '••••••••' : '' })
   }
 
   if (method === 'POST' && pathname === '/api/smtp') {
-    const admin = requireAuth(req, res); if (!admin) return
+    const user = requireAuth(req, res); if (!user) return
     const body = await readJsonBody(req, res); if (body === null) return
-    const { host, port, secure, user, pass, from } = body
+    const { host, port, secure, user: smtpUser, pass, from } = body
     if (pass === null) setSecretSetting('smtp.pass', '')
-    if (host !== undefined) saveSmtpConfig({ host, port: port || '587', secure: !!secure, user: user || '', pass: pass || '', from: from || '' })
+    if (host !== undefined) saveSmtpConfig({ host, port: port || '587', secure: !!secure, user: smtpUser || '', pass: pass || '', from: from || '' })
     return json(res, 200, { ok: true })
   }
 
   if (method === 'POST' && pathname === '/api/smtp/test') {
-    const admin = requireAuth(req, res); if (!admin) return
+    const user = requireAuth(req, res); if (!user) return
     const body = await readJsonBody(req, res); if (body === null) return
     const { to } = body
     if (!to) return json(res, 400, { error: 'Empfänger fehlt' })

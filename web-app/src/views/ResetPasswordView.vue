@@ -53,7 +53,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
-import { confirmPasswordReset } from '../api/client'
+import { confirmPasswordReset } from '../api/auth'
 import { PASSWORD_MIN_LENGTH } from '@shared/constants.js'
 import { useLocale } from '../composables/useLocale.js'
 import { Button } from '@/components/ui/button'

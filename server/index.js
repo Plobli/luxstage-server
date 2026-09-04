@@ -57,7 +57,10 @@ process.on('uncaughtException', (err) => {
 })
 
 // Erst nach dem Lock öffnen — zwei Prozesse dürfen die Datei nie gleichzeitig anfassen.
-initDb()
+// Im SaaS-Betrieb gibt es keine globale DB (jeder Mandant hat seine eigene, siehe
+// tenants.js) — sie hier trotzdem zu öffnen, würde nur eine ungenutzte, aber als
+// Fallback erreichbare Datei anlegen (siehe getDb() in db-context.js).
+if (!saasEnabled) initDb()
 
 const corsOrigins = (process.env.CORS_ORIGINS || process.env.CORS_ORIGIN || '')
   .split(',').map(s => s.trim()).filter(Boolean)

@@ -26,6 +26,10 @@ import { networkRoutes } from './routes/network.js'
 // Handler bzw. 404 übernimmt. Jede andere Rückgabe (auch `undefined`) heißt
 // "zuständig"; dann MUSS die Response geschrieben sein. dispatchRoute() in
 // router.js antwortet sonst mit 500 statt den Request hängen zu lassen.
+//
+// req.user ist in jedem über handleApi() erreichten Handler gefahrlos direkt
+// lesbar (Auth lief bereits davor) — requireAuth()-Aufrufe innerhalb einzelner
+// Handler sind defensive Verteidigung in der Tiefe, nicht tragend.
 
 // Öffentliche API-Endpunkte ohne Auth (im jeweiligen DB-Kontext ausgeführt).
 // Methode und Pfad gehören zusammen, damit etwa ein POST auf den Health-Pfad

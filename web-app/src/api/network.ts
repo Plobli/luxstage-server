@@ -42,3 +42,8 @@ export const saveNetworkLayoutSnapshot = (data: Record<string, { x: number, y: n
 
 export const undoNetwork = (): Promise<{ ok: true }> => api.post('/api/network/undo', {})
 export const redoNetwork = (): Promise<{ ok: true }> => api.post('/api/network/redo', {})
+
+export interface NetworkLockResult { ok: boolean, lockedBy?: string, since?: number }
+export const acquireNetworkLock = (): Promise<NetworkLockResult> => api.post('/api/network/lock', {})
+export const releaseNetworkLock = (): Promise<{ ok: true }> => api.delete('/api/network/lock')
+export const touchNetworkLock = (): Promise<{ ok: true }> => api.put('/api/network/lock', {})

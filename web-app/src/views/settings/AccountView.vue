@@ -60,7 +60,7 @@
 import { ref, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useLocale } from '../../composables/useLocale.js'
-import { logout, changePassword } from '../../api/client.js'
+import { logout, changePassword } from '../../api/auth.js'
 import { PASSWORD_MIN_LENGTH } from '@shared/constants.js'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'

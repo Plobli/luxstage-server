@@ -231,6 +231,11 @@ function selectNc() {
 }
 
 function moveDown() { activeIdx.value = Math.min(activeIdx.value + 1, filtered.value.length - 1) }
-function moveUp() { activeIdx.value = Math.max(activeIdx.value - 1, 0) }
-function selectActive() { if (filtered.value[activeIdx.value]) select(filtered.value[activeIdx.value]) }
+// -1 steht für die "NC"-Option, die (wenn showNcOption) oberhalb der Liste
+// gerendert wird — ohne sie wäre sie per Pfeiltaste nie erreichbar.
+function moveUp() { activeIdx.value = Math.max(activeIdx.value - 1, showNcOption.value ? -1 : 0) }
+function selectActive() {
+  if (activeIdx.value === -1 && showNcOption.value) { selectNc(); return }
+  if (filtered.value[activeIdx.value]) select(filtered.value[activeIdx.value])
+}
 </script>

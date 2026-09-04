@@ -77,6 +77,7 @@ import { ref, onMounted } from 'vue'
 import { Undo, Trash2 } from 'lucide-vue-next'
 import { fetchArchivedShows, restoreShow, deleteShowPermanent } from '../api/shows.js'
 import { useLocale } from '../composables/useLocale.js'
+import { formatDatum } from '../utils/index.ts'
 
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogBody } from '@/components/ui/dialog'
@@ -86,12 +87,6 @@ const { t } = useLocale()
 const shows = ref([])
 const loading = ref(true)
 const deleteTarget = ref(null)
-
-function formatDatum(d) {
-  if (!d) return ''
-  const [y, m, day] = d.split('-')
-  return `${day}.${m}.${y}`
-}
 
 onMounted(async () => {
   try {

@@ -337,7 +337,7 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, inject } from 'vue'
 import { useLocale } from '@/composables/useLocale.js'
 import { useMeasureUnit } from '@/composables/useMeasureUnit'
 import { useConfirm } from '@/composables/useConfirm.js'
@@ -360,13 +360,6 @@ const props = defineProps({
   bars: { type: Array, required: true },
   channels: { type: Array, required: true },
   preselectedChannelId: { type: String, default: null },
-  addBarFn: { type: Function, required: true },
-  saveBarFn: { type: Function, required: true },
-  deleteBarFn: { type: Function, required: true },
-  assignFixtureFn: { type: Function, required: true },
-  updateFixtureNotesFn: { type: Function, required: true },
-  unassignFixtureFn: { type: Function, required: true },
-  reorderBarsFn: { type: Function, default: null },
   saveToTemplateFn: { type: Function, default: null },
   templateName: { type: String, default: null },
   fetchTemplateNamesFn: { type: Function, default: null },
@@ -374,6 +367,12 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['assigned', 'navigate-to-channel', 'reordered'])
+
+// CRUD kommt aus ShowDetailView.vue per provide/inject statt als einzelne
+// Function-Props — das teilt eine Instanz von useShowBars() (dieselben
+// bars/loading-Refs wie z.B. die generierte Obermaschinerie-Übersicht in
+// ShowDetailView.vue) statt sie hier ein zweites Mal zu erzeugen.
+const { addBar, saveBar, removeBar, assignFixture, updateFixtureNotes, unassignFixture, reorderBars } = inject('showBars')
 
 // Typ (Zugstange / Traverse / Punktzug)
 const BAR_TYPES = ['zugstange', 'traverse', 'punktzug']
@@ -408,7 +407,7 @@ function onBarDrop(targetId) {
   if (from === -1 || to === -1 || from === to) { draggedId.value = null; dragOverId.value = null; return }
   const [moved] = arr.splice(from, 1)
   arr.splice(to, 0, moved)
-  if (props.reorderBarsFn) props.reorderBarsFn(arr.map(b => b.id))
+  reorderBars(arr.map(b => b.id))
   emit('reordered', arr)
   draggedId.value = null; dragOverId.value = null
 }
@@ -452,11 +451,11 @@ function openEditBarDialog(bar) {
 async function saveBarForm() {
   if (!barForm.value.name) return
   if (editingBar.value) {
-    await props.saveBarFn(editingBar.value.id, { ...barForm.value, height_cm: editingBar.value.height_cm ?? null, notes: editingBar.value.notes ?? '' })
+    await saveBar(editingBar.value.id, { ...barForm.value, height_cm: editingBar.value.height_cm ?? null, notes: editingBar.value.notes ?? '' })
     editingBar.value.hide_scale = barForm.value.hide_scale
     editingBar.value.bar_type = barForm.value.bar_type
   } else {
-    await props.addBarFn({ ...barForm.value })
+    await addBar({ ...barForm.value })
   }
   barDialogOpen.value = false
 }
@@ -475,13 +474,13 @@ function confirmRemoveFixture(fx, bar) {
 
 function doRemoveFixture() {
   if (!removePending.value) return
-  props.unassignFixtureFn(removePending.value.barId, removePending.value.fixtureId)
+  unassignFixture(removePending.value.barId, removePending.value.fixtureId)
   removeConfirmOpen.value = false
   removePending.value = null
 }
 
 async function saveInlineField(bar, field, value) {
-  await props.saveBarFn(bar.id, { name: bar.name, zug_nr: bar.zug_nr, length_cm: bar.length_cm, height_cm: bar.height_cm, notes: bar.notes, hide_scale: bar.hide_scale ?? false, bar_type: bar.bar_type || 'zugstange', [field]: value })
+  await saveBar(bar.id, { name: bar.name, zug_nr: bar.zug_nr, length_cm: bar.length_cm, height_cm: bar.height_cm, notes: bar.notes, hide_scale: bar.hide_scale ?? false, bar_type: bar.bar_type || 'zugstange', [field]: value })
   bar[field] = value
 }
 
@@ -489,7 +488,7 @@ async function saveInlineField(bar, field, value) {
 
 async function confirmDeleteBar(bar) {
   const ok = await confirm({ t, titleKey: 'zugstange.delete.confirm', titleParams: { name: bar.name }, confirmKey: 'action.delete', cancelKey: 'action.cancel' })
-  if (ok) props.deleteBarFn(bar.id)
+  if (ok) removeBar(bar.id)
 }
 
 // Fixture Edit Dialog
@@ -507,7 +506,7 @@ function openFixtureEditDialog(fx, bar) {
 
 async function saveFixtureEdit() {
   if (!fixtureEditFx.value || !fixtureEditBar.value) return
-  await props.updateFixtureNotesFn(fixtureEditBar.value.id, fixtureEditFx.value.id, fixtureEditNotes.value)
+  await updateFixtureNotes(fixtureEditBar.value.id, fixtureEditFx.value.id, fixtureEditNotes.value)
   fixtureEditFx.value.notes = fixtureEditNotes.value
   fixtureEditOpen.value = false
 }
@@ -543,7 +542,7 @@ async function confirmAddFixture() {
   for (let i = 0; i < qty; i++) {
     const pos = Math.round((startPos + i * spacing) / 10) * 10
     const half = (pickerBar.value.length_cm ?? 600) / 2
-    await props.assignFixtureFn(pickerBar.value.id, pickerChannel.value.id, Math.max(-half, Math.min(half, pos)), undefined, pickerSide.value)
+    await assignFixture(pickerBar.value.id, pickerChannel.value.id, Math.max(-half, Math.min(half, pos)), undefined, pickerSide.value)
   }
   fixturePickerOpen.value = false
   pickerChannel.value = null
@@ -553,11 +552,11 @@ async function confirmAddFixture() {
 async function savePunktzugPositionText(bar, value) {
   const fx = bar.fixtures[0]
   if (!fx) return
-  await props.assignFixtureFn(bar.id, fx.channel_id, 0, fx.id, fx.side || 'out', value)
+  await assignFixture(bar.id, fx.channel_id, 0, fx.id, fx.side || 'out', value)
   fx.position_text = value
 }
 
 async function onFixtureDragEnd(bar, fx) {
-  await props.assignFixtureFn(bar.id, fx.channel_id, fx.position, fx.id, fx.side || 'out', fx.position_text)
+  await assignFixture(bar.id, fx.channel_id, fx.position, fx.id, fx.side || 'out', fx.position_text)
 }
 </script>

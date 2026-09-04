@@ -16,6 +16,33 @@ export function getSettingsByPrefix(prefix) {
   return getDb().prepare('SELECT key, value FROM settings WHERE key LIKE ?').all(`${prefix}%`)
 }
 
+// Anzeige-Einstellungen: eigene Accessoren (statt roher getSetting()-Aufrufe
+// mit verstreuter Validierung), damit routes/display.js, routes/pdf.js und
+// routes/templates.js sie alle aus der db-Schicht beziehen statt eine
+// Route-Datei als Service für eine andere zu benutzen.
+const VALID_MEASURE_UNITS = ['m', 'cm', 'mm']
+const VALID_PHOTOS_PER_PAGE = [1, 2, 4, 6, 8, 9, 12]
+const DEFAULT_PHOTOS_PER_PAGE = 4
+
+export function getDisplayUnit() {
+  return getSetting('display.measure_unit') ?? 'm'
+}
+
+export function isValidDisplayUnit(unit) {
+  return VALID_MEASURE_UNITS.includes(unit)
+}
+
+// Serverseitig gespeichert, damit die Einstellung nicht am Browser klebt und
+// der PDF-Export sie ebenfalls lesen kann.
+export function getPhotosPerPage() {
+  const n = parseInt(getSetting('display.photos_per_page') ?? '', 10)
+  return VALID_PHOTOS_PER_PAGE.includes(n) ? n : DEFAULT_PHOTOS_PER_PAGE
+}
+
+export function isValidPhotosPerPage(n) {
+  return VALID_PHOTOS_PER_PAGE.includes(n)
+}
+
 // Eigener Zweck-Schlüssel, damit derselbe JWT_SECRET nicht doppelt genutzt wird.
 const SECRET_KEY = Buffer.from(hkdfSync('sha256', config.jwtSecret, 'luxstage-settings', 'aes-256-gcm', 32))
 

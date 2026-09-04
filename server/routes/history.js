@@ -13,7 +13,6 @@ export async function historyRoutes(req, res, pathname) {
 
   if (m = HISTORY_SNAP.exec(pathname)) {
     if (method === 'POST') {
-      const user = req.user
       takeSnapshotNow(m[1])
       return json(res, 200, { ok: true })
     }

@@ -1,6 +1,6 @@
 import { randomBytes } from 'node:crypto'
-import { login, signToken, requireAuth, issueDownloadToken, issueInlineToken } from '../auth.js'
-import { changePassword, clearResetTokens, createResetToken, findUserByEmail, getDbPassword, takeResetToken } from '../db/users.js'
+import { login, signToken, requireAuth, issueDownloadToken, issueInlineToken, hashPassword } from '../auth.js'
+import { setPasswordHash, clearResetTokens, createResetToken, findUserByEmail, getDbPassword, takeResetToken } from '../db/users.js'
 import { readJsonBody, json, clientIp } from '../helpers.js'
 import { sendPasswordResetLink, isSmtpConfigured } from '../email.js'
 import { getTenantId } from '../db-context.js'
@@ -100,7 +100,7 @@ export async function authRoutes(req, res, pathname) {
     const pwOk = !!storedPassword?.startsWith('$2')
       && await (await import('bcrypt')).compare(currentPassword, storedPassword)
     if (!pwOk) return json(res, 403, { error: 'Aktuelles Passwort falsch' })
-    await changePassword(user.username, newPassword, 0)
+    setPasswordHash(user.username, await hashPassword(newPassword), 0)
     return json(res, 200, { ok: true })
   }
 
@@ -136,7 +136,7 @@ export async function authRoutes(req, res, pathname) {
     if (newPassword.length < PASSWORD_MIN_LENGTH) return json(res, 400, { error: `Passwort zu kurz (min. ${PASSWORD_MIN_LENGTH} Zeichen)` })
     const username = takeResetToken(token)
     if (!username) return json(res, 400, { error: 'Link ungültig oder abgelaufen' })
-    await changePassword(username, newPassword, 0)
+    setPasswordHash(username, await hashPassword(newPassword), 0)
     log.warn('Passwort zurückgesetzt', { user: username })
     return json(res, 200, { ok: true })
   }

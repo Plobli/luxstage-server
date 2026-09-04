@@ -81,10 +81,8 @@ export function useElementDragResize(
     emitChange()
   }
 
-  /** Räumt Drag-Zustand auf und meldet, ob das Properties-Panel geöffnet werden soll
-   *  (Einzelauswahl ohne tatsächliche Bewegung — dann war es ein Klick, kein Drag). */
-  function finishDrag(): boolean {
-    const wasDragged = elementWasDragged.value
+  /** Räumt Drag-Zustand auf. */
+  function finishDrag(): void {
     isElementDragging.value = false
     elementWasDragged.value = false
     elements.value.forEach(el => {
@@ -93,7 +91,6 @@ export function useElementDragResize(
       else { el.x = snap(el.x ?? 0); el.y = snap(el.y ?? 0) }
     })
     emitChange()
-    return !wasDragged && selectedIds.value.size === 1
   }
 
   function updateRotation(id: string, deg: number) {

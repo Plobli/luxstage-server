@@ -253,7 +253,8 @@ import {
   AlertTriangle,
 } from 'lucide-vue-next'
 import { useLocale } from './composables/useLocale.js'
-import { logout, api, isOnline } from './api/client.js'
+import { api, isOnline } from './api/client.js'
+import { logout } from './api/auth.js'
 import { useTokenRefresh } from './composables/useTokenRefresh.js'
 import { updateAvailable } from './composables/useUpdateCheck.js'
 import ConfirmDialog from './components/ConfirmDialog.vue'

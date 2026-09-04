@@ -1,12 +1,13 @@
 import { requireAuth } from '../auth.js'
-import { readJsonBody, json, notFound } from '../helpers.js'
+import { readJsonBody, json } from '../helpers.js'
 import { subscribe, broadcast, sendToUser, getPresence } from '../sse.js'
+import { handleUndoRedo } from './undo-redo.js'
 import { getLastOperation, deleteOperation, pushRedo, popRedo, recordSnapshot } from '../db/operations.js'
 import { readFullShowState, writeFullShowState, computeStateHash } from '../db/full-state.js'
 import { acquireLock, releaseLock, transferLock, touchLock, getLock, listLocks } from '../db/locks.js'
 import { applyTemplateToShow, saveShowItemsToTemplate } from '../db/template-apply.js'
 import { readChannels, writeChannels, getChecks } from '../db/channels.js'
-import { listShows, listArchivedShows, readShow, writeShow, createShow, archiveShow, restoreShow, deleteShow } from '../db/shows.js'
+import { listShows, listArchivedShows, requireShow, writeShow, createShow, archiveShow, restoreShow, deleteShow } from '../db/shows.js'
 
 const SHOW_LIST          = /^\/api\/shows$/
 const SHOW_ARCHIVED      = /^\/api\/shows\/archived$/
@@ -22,6 +23,16 @@ const SHOW_FROM_TEMPLATE = /^\/api\/shows\/([^/]+)\/from-template$/
 const SHOW_TO_TEMPLATE   = /^\/api\/shows\/([^/]+)\/to-template$/
 const SHOW_UNDO          = /^\/api\/shows\/([^/]+)\/undo$/
 const SHOW_REDO          = /^\/api\/shows\/([^/]+)\/redo$/
+
+// Nach Undo/Redo sind alle Bereiche potenziell betroffen (der Snapshot deckt
+// den gesamten Show-Zustand ab) — jeder Client aktualisiert also alle vier.
+function broadcastShowState(slug, updatedBy) {
+  broadcast(slug, 'channels-updated', { updatedBy })
+  broadcast(slug, 'sections-updated', { updatedBy })
+  broadcast(slug, 'towers-updated', {})
+  broadcast(slug, 'bars-updated', {})
+  broadcast(slug, 'floorplan-updated', {})
+}
 
 export async function showRoutes(req, res, pathname, params) {
   const { method } = req
@@ -81,7 +92,7 @@ export async function showRoutes(req, res, pathname, params) {
       const selectedIds = Array.isArray(body.selectedIds) ? body.selectedIds : null
       try {
         applyTemplateToShow(body.templateName, slug, scope, withChannels, selectedIds)
-        if (scope !== 'sections') broadcast(slug, scope === 'bars' ? 'bars' : 'towers', {})
+        if (scope !== 'sections') broadcast(slug, scope === 'bars' ? 'bars-updated' : 'towers-updated', {})
         return json(res, 200, { ok: true })
       } catch (e) {
         return json(res, 404, { error: e.message })
@@ -99,8 +110,8 @@ export async function showRoutes(req, res, pathname, params) {
       const selectedIds = Array.isArray(body.selectedIds) ? body.selectedIds : []
       const fields = body.fields && typeof body.fields === 'object' ? body.fields : {}
       const overrideName = typeof body.overrideName === 'string' ? body.overrideName.trim() : null
-      const show = readShow(slug)
-      if (!show) return notFound(res)
+      const show = requireShow(slug, res)
+      if (!show) return
       const templateName = body.templateName ?? show.template
       if (!templateName) return json(res, 400, { error: 'Kein Template zugeordnet' })
       try {
@@ -134,28 +145,18 @@ export async function showRoutes(req, res, pathname, params) {
     if (method === 'POST') {
       // Lock bereits zentral in router.js geprüft (undo ist ein normaler Write).
       const user = req.user
-      const show = readShow(slug)
-      if (!show) return notFound(res)
+      const show = requireShow(slug, res)
+      if (!show) return
 
-      const op = getLastOperation(show.id)
-      if (!op) return json(res, 400, { error: 'Nichts zum Rückgängigmachen' })
-
-      const targetState = JSON.parse(op.snapshot)
-      if (computeStateHash(targetState) !== op.hash) {
-        return json(res, 409, { error: 'Snapshot-Hash stimmt nicht überein — Undo abgebrochen' })
-      }
-
-      const currentState = readFullShowState(slug)
-      writeFullShowState(slug, targetState, user.username)
-      deleteOperation(op.id)
-      pushRedo(show.id, currentState)
-
-      broadcast(slug, 'channels-updated', { updatedBy: user.username })
-      broadcast(slug, 'sections-updated', { updatedBy: user.username })
-      broadcast(slug, 'towers-updated', {})
-      broadcast(slug, 'bars-updated', {})
-      broadcast(slug, 'floorplan-updated', {})
-      return json(res, 200, { ok: true })
+      return handleUndoRedo(res, 'undo', {
+        getEntry: () => getLastOperation(show.id),
+        computeHash: computeStateHash,
+        readState: () => readFullShowState(slug),
+        writeState: (state) => writeFullShowState(slug, state, user.username),
+        consumeEntry: (op) => deleteOperation(op.id),
+        pushOpposite: (currentState) => pushRedo(show.id, currentState),
+        broadcast: () => broadcastShowState(slug, user.username),
+      })
     }
   }
 
@@ -164,27 +165,18 @@ export async function showRoutes(req, res, pathname, params) {
     if (method === 'POST') {
       // Lock bereits zentral in router.js geprüft (redo ist ein normaler Write).
       const user = req.user
-      const show = readShow(slug)
-      if (!show) return notFound(res)
+      const show = requireShow(slug, res)
+      if (!show) return
 
-      const entry = popRedo(show.id)
-      if (!entry) return json(res, 400, { error: 'Nichts zum Wiederholen' })
-
-      const targetState = JSON.parse(entry.snapshot)
-      if (computeStateHash(targetState) !== entry.hash) {
-        return json(res, 409, { error: 'Snapshot-Hash stimmt nicht überein — Redo abgebrochen' })
-      }
-
-      const currentState = readFullShowState(slug)
-      writeFullShowState(slug, targetState, user.username)
-      recordSnapshot(show.id, user.username, currentState)
-
-      broadcast(slug, 'channels-updated', { updatedBy: user.username })
-      broadcast(slug, 'sections-updated', { updatedBy: user.username })
-      broadcast(slug, 'towers-updated', {})
-      broadcast(slug, 'bars-updated', {})
-      broadcast(slug, 'floorplan-updated', {})
-      return json(res, 200, { ok: true })
+      return handleUndoRedo(res, 'redo', {
+        getEntry: () => popRedo(show.id),
+        computeHash: computeStateHash,
+        readState: () => readFullShowState(slug),
+        writeState: (state) => writeFullShowState(slug, state, user.username),
+        consumeEntry: () => {}, // popRedo() hat den Eintrag beim Holen bereits entfernt
+        pushOpposite: (currentState) => recordSnapshot(show.id, user.username, currentState),
+        broadcast: () => broadcastShowState(slug, user.username),
+      })
     }
   }
 
@@ -245,8 +237,8 @@ export async function showRoutes(req, res, pathname, params) {
   if (m = SHOW_ID.exec(pathname)) {
     const slug = m[1]
     if (method === 'GET') {
-      const show = readShow(slug)
-      if (!show) return notFound(res)
+      const show = requireShow(slug, res)
+      if (!show) return
       const channels = readChannels(slug).map(({ show_id: _, sort_order: __, ...ch }) => ch)
       const lock = getLock(slug)
       return json(res, 200, {

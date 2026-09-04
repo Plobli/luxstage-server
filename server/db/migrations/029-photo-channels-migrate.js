@@ -1,6 +1,7 @@
 // channel_photos: Index auf filename für Rückwärtsabfrage (Foto -> Kanäle),
 // plus Migration der alten Freitext-Kreisnummer aus photo_descriptions.channel_number
 import { randomUUID } from 'node:crypto'
+import { hasColumn } from './helpers.js'
 
 export const id = '029-photo-channels-migrate'
 
@@ -11,8 +12,7 @@ export function alreadyApplied(db) {
 export function up(db) {
   db.exec('CREATE INDEX idx_channel_photos_filename ON channel_photos(filename)')
 
-  const hasChannelNumber = db.pragma('table_info(photo_descriptions)').some(c => c.name === 'channel_number')
-  if (!hasChannelNumber) return
+  if (!hasColumn(db, 'photo_descriptions', 'channel_number')) return
 
   const rows = db.prepare(`
     SELECT pd.show_id, pd.filename, pd.channel_number

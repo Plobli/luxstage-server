@@ -85,7 +85,11 @@ export function signToken(username) {
 }
 
 export async function login(username, password) {
-  const row = getDb().prepare('SELECT * FROM users WHERE username = ?').get(username)
+  // COLLATE NOCASE: selbstregistrierte User werden mit kleingeschriebenem
+  // username gespeichert (siehe createSelfRegisteredUserWithHash), Admin-eingeladene
+  // ggf. nicht — Login muss beide Fälle unabhängig von der eingegebenen
+  // Groß-/Kleinschreibung finden.
+  const row = getDb().prepare('SELECT * FROM users WHERE username = ? COLLATE NOCASE').get(username)
   if (!row) return null
   const ok = await verifyPassword(password, row.password)
   if (!ok) return null

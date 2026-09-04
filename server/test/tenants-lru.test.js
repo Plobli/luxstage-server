@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { after, test } from 'node:test'
 import { cleanupDataPath } from './helpers/test-env.js'
 
-const { createTenant, openTenantDb, MAX_OPEN_TENANT_DBS, openConnectionCount } = await import('../tenants.js')
+const { createTenant, openTenantDb, MAX_OPEN_TENANT_DBS, openConnectionCount, markTenantInUse, releaseTenantInUse } = await import('../tenants.js')
 
 const ids = Array.from({ length: MAX_OPEN_TENANT_DBS + 5 }, (_, i) => `lru-test-${i}`)
 
@@ -27,6 +27,20 @@ test('ein erneuter Zugriff schützt vor sofortiger Verdrängung', () => {
   // Genug neue Mandanten, um alles ausser dem zuletzt Genutzten zu verdrängen.
   for (let i = 0; i < MAX_OPEN_TENANT_DBS - 1; i++) createTenant(`lru-fresh-${i}`)
   assert.ok(openTenantDb(survivor).open)
+})
+
+test('eine als in Benutzung markierte Verbindung wird nicht verdrängt, auch über die Obergrenze hinaus', () => {
+  const inUse = createTenant('lru-inuse-holder')
+  markTenantInUse('lru-inuse-holder')
+  try {
+    // Genug neue Mandanten anlegen, um jede andere offene Verbindung zu verdrängen —
+    // die markierte darf trotzdem nicht geschlossen werden, selbst wenn das die
+    // Obergrenze überschreitet.
+    for (let i = 0; i < MAX_OPEN_TENANT_DBS + 5; i++) createTenant(`lru-inuse-fresh-${i}`)
+    assert.ok(inUse.open, 'in Benutzung markierte Verbindung wurde trotzdem geschlossen')
+  } finally {
+    releaseTenantInUse('lru-inuse-holder')
+  }
 })
 
 after(cleanupDataPath)

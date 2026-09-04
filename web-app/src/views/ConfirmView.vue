@@ -39,7 +39,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
-import { confirmRegistration } from '../api/client'
+import { confirmRegistration } from '../api/auth'
 import { useLocale } from '../composables/useLocale.js'
 import { Card } from '@/components/ui/card'
 import { Alert, AlertDescription } from '@/components/ui/alert'

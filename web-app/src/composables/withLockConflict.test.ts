@@ -1,5 +1,5 @@
 import { describe, test, expect, vi } from 'vitest'
-import { withLockConflict } from './useLockAwareCall'
+import { withLockConflict } from './withLockConflict'
 import { ApiError } from '../api/client'
 
 describe('withLockConflict', () => {

@@ -1,6 +1,6 @@
 import { randomBytes } from 'node:crypto'
-import { approveUser, createSelfRegisteredUser, createUser, deleteUser, findUserByEmail, getGridDeckConfig, getUserPreferences, listUsers, setGridDeckConfig, setUserPreferences } from '../db/users.js'
-import { requireAuth } from '../auth.js'
+import { approveUser, createSelfRegisteredUserWithHash, createUserWithHash, deleteUser, findUserByEmail, getGridDeckConfig, getUserPreferences, listUsers, setGridDeckConfig, setUserPreferences } from '../db/users.js'
+import { requireAuth, hashPassword } from '../auth.js'
 import { readJsonBody, json } from '../helpers.js'
 import { sendWelcomeEmail, sendApprovalRequestEmail, sendPendingRegistrationEmail } from '../email.js'
 import { PASSWORD_MIN_LENGTH, isValidEmail } from '../../shared/constants.js'
@@ -48,9 +48,9 @@ export async function userRoutes(req, res, pathname) {
     const user = requireAuth(req, res); if (!user) return
     const body = await readJsonBody(req, res); if (body === null) return
     const { username } = body
-    if (!username || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(username)) return json(res, 400, { error: 'Ungültige E-Mail-Adresse' })
+    if (!username || !isValidEmail(username)) return json(res, 400, { error: 'Ungültige E-Mail-Adresse' })
     const password = randomBytes(12).toString('hex')
-    await createUser(username, password, username)
+    createUserWithHash(username, await hashPassword(password), username)
     sendWelcomeEmail(username, username, password).catch(err => log.error('Willkommens-Mail fehlgeschlagen', { user: username, fehler: err.message }))
     log.warn('Nutzer angelegt', { user: username, von: user.username })
     return json(res, 201, { ok: true })
@@ -71,7 +71,7 @@ export async function userRoutes(req, res, pathname) {
     // bestehende Zugangsdaten zu überschreiben (kein Account-Takeover über
     // diesen öffentlichen Endpoint, auch nicht bei Race mit dem Check oben).
     try {
-      await createSelfRegisteredUser(email, password, email)
+      createSelfRegisteredUserWithHash(email, await hashPassword(password), email)
     } catch (err) {
       if (err.code === 'SQLITE_CONSTRAINT_UNIQUE') return json(res, 409, { error: 'E-Mail-Adresse bereits registriert' })
       throw err
@@ -90,7 +90,7 @@ export async function userRoutes(req, res, pathname) {
   let m
   if (method === 'POST' && (m = APPROVE_USER.exec(pathname))) {
     const user = requireAuth(req, res); if (!user) return
-    const username = m[1]
+    const username = decodeURIComponent(m[1])
     approveUser(username)
     log.warn('Nutzer freigeschaltet', { user: username, von: user.username })
     return json(res, 200, { ok: true })
@@ -98,7 +98,7 @@ export async function userRoutes(req, res, pathname) {
 
   if (method === 'DELETE' && (m = USER_ID.exec(pathname))) {
     const user = requireAuth(req, res); if (!user) return
-    const username = m[1]
+    const username = decodeURIComponent(m[1])
     if (username === user.username) return json(res, 400, { error: 'Eigenen Account kann man nicht löschen' })
     deleteUser(username)
     log.warn('Nutzer gelöscht', { user: username, von: user.username })

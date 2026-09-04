@@ -1,3 +1,5 @@
+import { hasColumn, addColumnIfMissing } from './helpers.js'
+
 // last_edited_by/at, use_bars/towers, eos_excluded_channels, Versionszähler:
 // nachträglich hinzugefügt, fehlen in älteren DBs. untertitel: entfernt.
 //
@@ -11,19 +13,17 @@ export const id = '003-shows-columns'
 const ADDED = ['last_edited_by', 'last_edited_at', 'use_bars', 'use_towers', 'eos_excluded_channels', 'channels_version', 'section_contents_version', 'section_defs_version']
 
 export function alreadyApplied(db) {
-  const cols = db.pragma('table_info(shows)').map(c => c.name)
-  return ADDED.every(c => cols.includes(c)) && !cols.includes('untertitel')
+  return ADDED.every(c => hasColumn(db, 'shows', c)) && !hasColumn(db, 'shows', 'untertitel')
 }
 
 export function up(db) {
-  const cols = db.pragma('table_info(shows)').map(c => c.name)
-  if (!cols.includes('last_edited_by')) db.exec('ALTER TABLE shows ADD COLUMN last_edited_by TEXT')
-  if (!cols.includes('last_edited_at')) db.exec('ALTER TABLE shows ADD COLUMN last_edited_at INTEGER')
-  if (!cols.includes('use_bars')) db.exec('ALTER TABLE shows ADD COLUMN use_bars INTEGER NOT NULL DEFAULT 1')
-  if (!cols.includes('use_towers')) db.exec('ALTER TABLE shows ADD COLUMN use_towers INTEGER NOT NULL DEFAULT 1')
-  if (!cols.includes('eos_excluded_channels')) db.exec('ALTER TABLE shows ADD COLUMN eos_excluded_channels TEXT')
-  if (!cols.includes('channels_version')) db.exec('ALTER TABLE shows ADD COLUMN channels_version INTEGER NOT NULL DEFAULT 0')
-  if (!cols.includes('section_contents_version')) db.exec('ALTER TABLE shows ADD COLUMN section_contents_version INTEGER NOT NULL DEFAULT 0')
-  if (!cols.includes('section_defs_version')) db.exec('ALTER TABLE shows ADD COLUMN section_defs_version INTEGER NOT NULL DEFAULT 0')
-  if (cols.includes('untertitel')) db.exec('ALTER TABLE shows DROP COLUMN untertitel')
+  addColumnIfMissing(db, 'shows', 'last_edited_by', 'TEXT')
+  addColumnIfMissing(db, 'shows', 'last_edited_at', 'INTEGER')
+  addColumnIfMissing(db, 'shows', 'use_bars', 'INTEGER NOT NULL DEFAULT 1')
+  addColumnIfMissing(db, 'shows', 'use_towers', 'INTEGER NOT NULL DEFAULT 1')
+  addColumnIfMissing(db, 'shows', 'eos_excluded_channels', 'TEXT')
+  addColumnIfMissing(db, 'shows', 'channels_version', 'INTEGER NOT NULL DEFAULT 0')
+  addColumnIfMissing(db, 'shows', 'section_contents_version', 'INTEGER NOT NULL DEFAULT 0')
+  addColumnIfMissing(db, 'shows', 'section_defs_version', 'INTEGER NOT NULL DEFAULT 0')
+  if (hasColumn(db, 'shows', 'untertitel')) db.exec('ALTER TABLE shows DROP COLUMN untertitel')
 }

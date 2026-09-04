@@ -1,6 +1,5 @@
 import { createHash } from 'node:crypto'
 import { getDb } from '../db-context.js'
-import { hashPassword } from '../auth.js'
 
 const hashToken = t => createHash('sha256').update(t).digest('hex')
 
@@ -9,15 +8,17 @@ export function getDbPassword(username) {
   return row?.password ?? null
 }
 
-export async function changePassword(username, newPassword, requiresChange = 0) {
-  const hash = await hashPassword(newPassword)
+// Nimmt bewusst einen bereits gehashten Wert entgegen statt selbst zu hashen —
+// die Persistenzschicht soll nicht von auth.js (Hashing-Algorithmus/-Kosten)
+// abhängen. Aufrufer hashen mit hashPassword() aus auth.js und übergeben den Hash.
+export function setPasswordHash(username, passwordHash, requiresChange = 0) {
   getDb().prepare(`
     INSERT INTO users (username, password, requires_password_change)
     VALUES (?, ?, ?)
     ON CONFLICT(username) DO UPDATE SET
       password = excluded.password,
       requires_password_change = excluded.requires_password_change
-  `).run(username, hash, requiresChange ? 1 : 0)
+  `).run(username, passwordHash, requiresChange ? 1 : 0)
 }
 
 export function listUsers() {
@@ -60,19 +61,30 @@ export function clearResetTokens(username) {
   getDb().prepare('DELETE FROM password_resets WHERE username = ?').run(username)
 }
 
-export async function createUser(username, password, email = '') {
-  const hash = await hashPassword(password)
+// Admin-Einladung: neuer Nutzer muss das Passwort beim ersten Login ändern.
+export function createUserWithHash(username, passwordHash, email = '') {
   getDb().prepare('INSERT INTO users (username, password, email, requires_password_change) VALUES (?, ?, ?, 1) ON CONFLICT(username) DO UPDATE SET password = excluded.password, email = excluded.email, requires_password_change = 1')
-    .run(username, hash, email)
+    .run(username, passwordHash, email)
 }
 
 // Reiner INSERT ohne ON CONFLICT-Klausel: der öffentliche Self-Register-Endpoint
 // darf niemals bestehende Zugangsdaten überschreiben (kein UPSERT-Pfad).
 // SQLite wirft bei Username-Konflikt — der Aufrufer fängt das als 409 ab.
-export async function createSelfRegisteredUser(username, password, email) {
-  const hash = await hashPassword(password)
+// username wird klein geschrieben gespeichert: findUserByEmail() vergleicht per
+// COLLATE NOCASE, aber username selbst hat keine case-insensitive UNIQUE-Regel —
+// ohne Normalisierung könnten "Foo@Bar.com" und "foo@bar.com" zwei Accounts anlegen.
+export function createSelfRegisteredUserWithHash(username, passwordHash, email) {
   getDb().prepare('INSERT INTO users (username, password, email, requires_password_change, pending) VALUES (?, ?, ?, 1, 1)')
-    .run(username, hash, email)
+    .run(username.toLowerCase(), passwordHash, email)
+}
+
+// Erster Nutzer eines frisch angelegten SaaS-Mandanten (E-Mail-Bestätigungs-
+// Flow, siehe routes/register.js): Passwort wurde beim Registrieren selbst
+// gewählt (kein erzwungener Wechsel) und braucht keine Freischaltung.
+export function createConfirmedUser(username, passwordHash, email) {
+  getDb().prepare(
+    'INSERT INTO users (username, password, email, requires_password_change) VALUES (?, ?, ?, 0)'
+  ).run(username, passwordHash, email)
 }
 
 export function deleteUser(username) {

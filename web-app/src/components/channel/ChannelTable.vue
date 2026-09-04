@@ -16,7 +16,7 @@
     </div>
 
     <div ref="sortableEl" class="bg-card">
-      <template v-for="item of virtualItems" :key="item.id">
+      <template v-for="item of progressivelyRenderedItems" :key="item.id">
         <template v-if="item.type === 'header'">
           <!-- Header row (group position) -->
           <div
@@ -274,7 +274,7 @@
 
 <script setup>
 import { ref, computed, watch, nextTick, onMounted, onBeforeUnmount } from 'vue'
-import { useContainerWidth } from '@/composables/useContainerWidth'
+import { useContainerIsMobile } from '@/composables/useContainerIsMobile'
 import { Check, X } from 'lucide-vue-next'
 import HelpIcon from '@/components/ui/HelpIcon.vue'
 import Sortable from 'sortablejs'
@@ -298,7 +298,7 @@ const props = defineProps({
 
 const rootEl = ref(null)
 const sortableEl = ref(null)
-const isMobile = useContainerWidth(rootEl)
+const isMobile = useContainerIsMobile(rootEl)
 
 const emit = defineEmits([
   'change',
@@ -383,8 +383,9 @@ watch(() => props.groupedChannels, (groups) => {
   if (renderedCount.value < total) scheduleRemainingBatches(total)
 }, { deep: false })
 
-// ── Flat list for virtual scrolling ───────────────────────────────────────
-const virtualItems = computed(() => {
+// ── Flat list, revealed progressively in batches (see "Chunked rendering" above) ──
+// Not scroll-based virtualization: once a row is rendered it stays in the DOM.
+const progressivelyRenderedItems = computed(() => {
   const items = []
   if (props.groupedChannels.length === 0) {
     if (addingPosition.value === '') {

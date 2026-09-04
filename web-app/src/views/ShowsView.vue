@@ -172,6 +172,7 @@ import { fetchTemplates, fetchTemplateChannels } from '../api/templates.js'
 import { cached } from '../api/cache.js'
 import { saveChannels } from '../api/channels.js'
 import { templateDisplayName } from '../utils/templateName.js'
+import { formatDatum, currentSpielzeit, generateShowId as generateId } from '../utils/index.ts'
 
 import { useConfirm } from '../composables/useConfirm.js'
 import Checkbox from '@/components/ui/checkbox/Checkbox.vue'
@@ -213,27 +214,7 @@ const drawerOpen = ref(false)
 const wizardOpen = ref(false)
 const createError = ref('')
 
-function currentSpielzeit() {
-  const now = new Date()
-  const startYear = now.getMonth() >= 6 ? now.getFullYear() : now.getFullYear() - 1
-  return `${String(startYear).slice(-2)}/${String(startYear + 1).slice(-2)}`
-}
-
 const form = ref({ name: '', datum: new Date().toISOString().slice(0, 10), template: '__none__', spielzeit: currentSpielzeit(), use_bars: true, use_towers: true })
-
-function formatDatum(d) {
-  if (!d) return ''
-  const [y, m, day] = d.split('-')
-  return `${day}.${m}.${y}`
-}
-
-function generateId(name, datum) {
-  const slug = name.toLowerCase()
-    .replace(/ä/g, 'ae').replace(/ö/g, 'oe').replace(/ü/g, 'ue').replace(/ß/g, 'ss')
-    .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
-  const year = datum ? datum.slice(0, 4) : new Date().getFullYear()
-  return slug ? `${slug}-${year}` : ''
-}
 
 const groupedShows = computed(() => {
   const groups = []

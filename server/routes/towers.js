@@ -1,4 +1,4 @@
-import { readShow } from '../db/shows.js'
+import { requireShow } from '../db/shows.js'
 import { clearTowerSlot, deleteTower, ensureTowerSlots, readTowers, restoreTowers, writeTower, writeTowerSlot } from '../db/towers.js'
 import { readJsonBody, json } from '../helpers.js'
 import { broadcast } from '../sse.js'
@@ -18,8 +18,8 @@ export async function towerRoutes(req, res, pathname) {
     if (method === 'PUT') {
       const user = req.user
       const body = await readJsonBody(req, res); if (body === null) return
-      const show = readShow(slug)
-      if (!show) return json(res, 404, { error: 'Show nicht gefunden' })
+      const show = requireShow(slug, res)
+      if (!show) return
 
       withUndoSnapshot(slug, show.id, user.username, () => {
         restoreTowers(slug, body.towers ?? [])
@@ -39,8 +39,8 @@ export async function towerRoutes(req, res, pathname) {
     if (method === 'POST') {
       const user = req.user
       const body = await readJsonBody(req, res); if (body === null) return
-      const show = readShow(slug)
-      if (!show) return json(res, 404, { error: 'Show nicht gefunden' })
+      const show = requireShow(slug, res)
+      if (!show) return
 
       let towerId
       withUndoSnapshot(slug, show.id, user.username, () => {
@@ -58,8 +58,8 @@ export async function towerRoutes(req, res, pathname) {
     if (method === 'PUT') {
       const user = req.user
       const body = await readJsonBody(req, res); if (body === null) return
-      const show = readShow(slug)
-      if (!show) return json(res, 404, { error: 'Show nicht gefunden' })
+      const show = requireShow(slug, res)
+      if (!show) return
 
       withUndoSnapshot(slug, show.id, user.username, () => {
         writeTower(slug, { ...body, id: towerId })
@@ -70,11 +70,11 @@ export async function towerRoutes(req, res, pathname) {
     }
     if (method === 'DELETE') {
       const user = req.user
-      const show = readShow(slug)
-      if (!show) return json(res, 404, { error: 'Show nicht gefunden' })
+      const show = requireShow(slug, res)
+      if (!show) return
 
       withUndoSnapshot(slug, show.id, user.username, () => {
-        deleteTower(towerId)
+        deleteTower(show.id, towerId)
       })
       broadcast(slug, 'towers-updated', {})
       return json(res, 200, { ok: true })
@@ -89,14 +89,14 @@ export async function towerRoutes(req, res, pathname) {
       const user = req.user
       const body = await readJsonBody(req, res); if (body === null) return
       const { channelId } = body
-      const show = readShow(slug)
-      if (!show) return json(res, 404, { error: 'Show nicht gefunden' })
+      const show = requireShow(slug, res)
+      if (!show) return
 
       withUndoSnapshot(slug, show.id, user.username, () => {
         if (channelId) {
-          writeTowerSlot(towerId, slotIndex, channelId)
+          writeTowerSlot(show.id, towerId, slotIndex, channelId)
         } else {
-          clearTowerSlot(towerId, slotIndex)
+          clearTowerSlot(show.id, towerId, slotIndex)
         }
       })
       broadcast(slug, 'towers-updated', {})

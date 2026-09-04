@@ -5,12 +5,7 @@ import { fetchTemplateSections } from '../api/sections.js'
 import { fetchTemplateBars } from '../api/templateBars.js'
 import { fetchTemplateTowers } from '../api/templateTowers.js'
 import { saveChannels } from '../api/channels.js'
-
-function currentSpielzeit() {
-  const now = new Date()
-  const startYear = now.getMonth() >= 6 ? now.getFullYear() : now.getFullYear() - 1
-  return `${String(startYear).slice(-2)}/${String(startYear + 1).slice(-2)}`
-}
+import { currentSpielzeit, generateShowId as generateId } from '../utils/index.ts'
 
 function emptyForm() {
   return {
@@ -22,14 +17,6 @@ function emptyForm() {
     use_towers: true,
     importChannels: true,
   }
-}
-
-function generateId(name, datum) {
-  const slug = name.toLowerCase()
-    .replace(/ä/g, 'ae').replace(/ö/g, 'oe').replace(/ü/g, 'ue').replace(/ß/g, 'ss')
-    .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
-  const year = datum ? datum.slice(0, 4) : new Date().getFullYear()
-  return slug ? `${slug}-${year}` : ''
 }
 
 /**

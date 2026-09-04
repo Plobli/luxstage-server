@@ -225,6 +225,7 @@ import ChannelTextarea from './ChannelTextarea.vue'
 import QuantitySelect from './QuantitySelect.vue'
 import { useIsMobile } from '@/composables/useBreakpoint.js'
 import { normalizeDmxAddress } from '@/utils/dmxAddress'
+import { parseMountRef } from '@/utils/mountRef'
 
 const props = defineProps({
   ch: { type: Object, required: true },
@@ -291,17 +292,14 @@ function onKeydownCol2(e) { props.onKeydownFn?.(e, props.rowIndex, 2, 5, null) }
 function onKeydownCol3(e) { props.onKeydownFn?.(e, props.rowIndex, 3, 5, props.onAddRow) }
 
 const mountRefLabel = computed(() => {
-  const raw = props.ch?.mount_ref
-  if (!raw) return null
-  try {
-    const ref = typeof raw === 'string' ? JSON.parse(raw) : raw
-    if (ref?.type === 'tower') {
-      const parts = [ref.towerName, ref.slotIndex != null ? `Slot ${ref.slotIndex}` : null].filter(Boolean)
-      return parts.join(' · ') || 'Beleuchtungsgestell'
-    }
-    if (ref?.type === 'bar') return ref.barName ?? 'Zugstange'
-    if (ref?.type === 'stage_object') return ref.objectName ?? 'Kulisse'
-  } catch { return null }
+  const ref = parseMountRef(props.ch?.mount_ref)
+  if (!ref) return null
+  if (ref.type === 'tower') {
+    const parts = [ref.towerName, ref.slotIndex != null ? `Slot ${ref.slotIndex}` : null].filter(Boolean)
+    return parts.join(' · ') || 'Beleuchtungsgestell'
+  }
+  if (ref.type === 'bar') return ref.barName ?? 'Zugstange'
+  if (ref.type === 'stage_object') return ref.objectName ?? 'Kulisse'
   return null
 })
 

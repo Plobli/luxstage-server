@@ -22,14 +22,15 @@ export function writeBar(slug, data) {
   const show = readShow(slug)
   if (!show) throw new Error(`Show not found: ${slug}`)
   const id = data.id || randomUUID()
-  const existing = getDb().prepare('SELECT id, length_cm FROM bars WHERE id = ?').get(id)
+  // Auf show_id einschränken: sonst könnte eine fremde bar-ID (aus einer
+  // anderen Show) hier aktualisiert werden — der Show-Lock in router.js
+  // schützt nur die Show aus der URL, nicht beliebige IDs im Body.
+  const existing = getDb().prepare('SELECT * FROM bars WHERE id = ? AND show_id = ?').get(id, show.id)
   if (existing) {
-    const currentSortOrder = getDb().prepare('SELECT sort_order FROM bars WHERE id = ?').get(id)?.sort_order ?? 0
-    const currentBarType = getDb().prepare('SELECT bar_type FROM bars WHERE id = ?').get(id)?.bar_type ?? 'zugstange'
     const newLength = data.length_cm ?? 600
     getDb().prepare(`
       UPDATE bars SET name=?, zug_nr=?, length_cm=?, height_cm=?, notes=?, sort_order=?, hide_scale=?, bar_type=? WHERE id=?
-    `).run(data.name ?? '', data.zug_nr ?? '', newLength, data.height_cm ?? null, data.notes ?? '', data.sort_order ?? currentSortOrder, data.hide_scale ? 1 : 0, data.bar_type ?? currentBarType, id)
+    `).run(data.name ?? '', data.zug_nr ?? '', newLength, data.height_cm ?? null, data.notes ?? '', data.sort_order ?? existing.sort_order ?? 0, data.hide_scale ? 1 : 0, data.bar_type ?? existing.bar_type ?? 'zugstange', id)
     const oldLength = existing.length_cm
     if (oldLength && newLength && oldLength !== newLength) {
       const scale = newLength / oldLength
@@ -48,8 +49,8 @@ export function writeBar(slug, data) {
   return id
 }
 
-export function deleteBar(barId) {
-  getDb().prepare('DELETE FROM bars WHERE id = ?').run(barId)
+export function deleteBar(showId, barId) {
+  getDb().prepare('DELETE FROM bars WHERE id = ? AND show_id = ?').run(barId, showId)
 }
 
 export function reorderBars(slug, orderedIds) {
@@ -62,9 +63,14 @@ export function reorderBars(slug, orderedIds) {
   tx()
 }
 
-export function writeBarFixture(barId, channelId, { position = 0, notes = '', fixtureId = null, side = 'out', positionText = '' } = {}) {
+export function writeBarFixture(showId, barId, channelId, { position = 0, notes = '', fixtureId = null, side = 'out', positionText = '' } = {}) {
+  // Auf show_id einschränken: sonst ließe sich eine Fixture auf eine bar-ID
+  // einer fremden Show anlegen/verschieben.
+  const bar = getDb().prepare('SELECT * FROM bars WHERE id = ? AND show_id = ?').get(barId, showId)
+  if (!bar) throw new Error(`Bar nicht in dieser Show: ${barId}`)
+
   const id = fixtureId || randomUUID()
-  const existing = fixtureId ? getDb().prepare('SELECT id FROM bar_fixtures WHERE id = ?').get(id) : null
+  const existing = fixtureId ? getDb().prepare('SELECT bf.id FROM bar_fixtures bf WHERE bf.id = ? AND bf.bar_id = ?').get(id, barId) : null
   if (existing) {
     getDb().prepare(
       'UPDATE bar_fixtures SET position = ?, notes = ?, side = ?, position_text = ? WHERE id = ?'
@@ -76,36 +82,41 @@ export function writeBarFixture(barId, channelId, { position = 0, notes = '', fi
     `).run(id, barId, channelId, position ?? 0, notes ?? '', side ?? 'out', positionText ?? '')
   }
 
-  const bar = getDb().prepare('SELECT * FROM bars WHERE id = ?').get(barId)
-  if (bar) {
-    const mountRef = JSON.stringify({ type: 'bar', barId, barName: bar.name, zugNr: bar.zug_nr, barType: bar.bar_type, position: position ?? 0 })
-    getDb().prepare('UPDATE channels SET mount_ref = ? WHERE id = ?').run(mountRef, channelId)
-  }
+  const mountRef = JSON.stringify({ type: 'bar', barId, barName: bar.name, zugNr: bar.zug_nr, barType: bar.bar_type, position: position ?? 0 })
+  getDb().prepare('UPDATE channels SET mount_ref = ? WHERE id = ?').run(mountRef, channelId)
   return id
 }
 
-export function updateBarFixtureNotes(fixtureId, notes) {
-  getDb().prepare(
-    'UPDATE bar_fixtures SET notes = ? WHERE id = ?'
-  ).run(notes ?? '', fixtureId)
+export function updateBarFixtureNotes(showId, fixtureId, notes) {
+  getDb().prepare(`
+    UPDATE bar_fixtures SET notes = ? WHERE id = ? AND bar_id IN (SELECT id FROM bars WHERE show_id = ?)
+  `).run(notes ?? '', fixtureId, showId)
 }
 
-export function removeBarFixture(fixtureId) {
-  const fx = getDb().prepare('SELECT channel_id FROM bar_fixtures WHERE id = ?').get(fixtureId)
+export function removeBarFixture(showId, fixtureId) {
+  const fx = getDb().prepare(`
+    SELECT bf.channel_id FROM bar_fixtures bf JOIN bars b ON b.id = bf.bar_id
+    WHERE bf.id = ? AND b.show_id = ?
+  `).get(fixtureId, showId)
+  if (!fx) return
   getDb().prepare('DELETE FROM bar_fixtures WHERE id = ?').run(fixtureId)
-  if (fx?.channel_id) {
+  if (fx.channel_id) {
     getDb().prepare('UPDATE channels SET mount_ref = NULL WHERE id = ?').run(fx.channel_id)
   }
 }
 
 /** Ersetzt alle Bars + Fixtures einer Show durch den übergebenen Zustand —
- *  analog restoreTowers(), für Undo/Redo. channels.mount_ref wird bewusst
- *  nicht mitgeführt (bleibt beim zuletzt bekannten Stand, wie bei den
- *  einzelnen Fixture-Routen auch nur bei aktiver Zuordnung/Entfernung gepflegt). */
+ *  analog restoreTowers(), für Undo/Redo. channels.mount_ref wird dabei für
+ *  den 'bar'-Typ neu aufgebaut (server ist alleiniger Schreiber, siehe
+ *  writeBarFixture) statt wie zuvor auf dem letzten bekannten Stand zu bleiben. */
 export function restoreBars(slug, bars) {
   const show = readShow(slug)
   if (!show) throw new Error(`Show not found: ${slug}`)
   const restoreAll = getDb().transaction(() => {
+    getDb().prepare(`
+      UPDATE channels SET mount_ref = NULL
+      WHERE show_id = ? AND mount_ref IS NOT NULL AND json_extract(mount_ref, '$.type') = 'bar'
+    `).run(show.id)
     getDb().prepare('DELETE FROM bars WHERE show_id = ?').run(show.id)
     for (const bar of bars) {
       getDb().prepare(`
@@ -117,6 +128,10 @@ export function restoreBars(slug, bars) {
           INSERT INTO bar_fixtures (id, bar_id, channel_id, position, notes, side, position_text)
           VALUES (?, ?, ?, ?, ?, ?, ?)
         `).run(fixture.id ?? randomUUID(), bar.id, fixture.channel_id, fixture.position ?? 0, fixture.notes ?? '', fixture.side ?? 'out', fixture.position_text ?? '')
+        if (fixture.channel_id) {
+          const mountRef = JSON.stringify({ type: 'bar', barId: bar.id, barName: bar.name ?? '', zugNr: bar.zug_nr ?? '', barType: bar.bar_type ?? 'zugstange', position: fixture.position ?? 0 })
+          getDb().prepare('UPDATE channels SET mount_ref = ? WHERE id = ?').run(mountRef, fixture.channel_id)
+        }
       }
     }
   })

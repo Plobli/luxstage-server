@@ -20,6 +20,12 @@ export function runWithDb(db, fn, tenantId = null) {
 }
 
 // Die DB des aktuellen Request-Kontexts — oder die globale DB als Fallback.
+// Die eigentliche Absicherung gegen "Request ohne aufgelösten Mandanten landet
+// versehentlich auf der falschen DB" sitzt bei router.js: im SaaS-Betrieb
+// erreicht ein Request ohne aufgelösten Mandanten handleApi() gar nicht erst
+// (Ausnahme: die wenigen Endpunkte, die nachweislich keinen DB-Kontext
+// brauchen). Dieser Fallback bleibt bewusst bestehen — Tests und Tools rufen
+// DB-Module regelmäßig außerhalb eines Request-Kontexts auf.
 export function getDb() {
   const store = storage.getStore()
   return store?.db ?? dbContainer.db

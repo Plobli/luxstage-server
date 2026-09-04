@@ -46,3 +46,8 @@ export async function uploadTemplate({ name, text }: { name: string, text: strin
   return api.put(`/api/templates/${encodeURIComponent(cleanName)}`, channels)
 }
 
+export interface TemplateLockResult { ok: boolean, lockedBy?: string, since?: number }
+export const acquireTemplateLock = (name: string): Promise<TemplateLockResult> => api.post(`/api/templates/${encodeURIComponent(name)}/lock`, {})
+export const releaseTemplateLock = (name: string): Promise<{ ok: true }> => api.delete(`/api/templates/${encodeURIComponent(name)}/lock`)
+export const touchTemplateLock = (name: string): Promise<{ ok: true }> => api.put(`/api/templates/${encodeURIComponent(name)}/lock`, {})
+

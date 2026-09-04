@@ -1,10 +1,13 @@
 import { ref, type Ref } from 'vue'
 import { fetchBars, createBar, updateBar, deleteBar as apiDeleteBar, addBarFixture, patchBarFixtureNotes, removeBarFixture, reorderBars as apiReorderBars, type Bar, type FixtureSide } from '../api/bars'
 import type { Channel } from '../api/channels'
-import { parseMountRef } from '../utils/mountRef'
-import { withLockConflict } from './useLockAwareCall'
+import { withLockConflict } from './withLockConflict'
 
-export function useShowBars(showId: string, channels?: Ref<Channel[]>, onLockConflict?: (body: { lockedBy?: string, since?: number }) => void) {
+// channels.mount_ref (Rückverweis Kanal -> Bar/Fixture) wird ausschließlich
+// serverseitig gepflegt (siehe server/db/bars.js writeBarFixture/removeBarFixture/
+// restoreBars) — reloadChannels() holt nach jeder Fixture-Änderung den
+// aktuellen Stand, statt ihn hier im Client redundant nachzubilden.
+export function useShowBars(showId: string, channels?: Ref<Channel[]>, onLockConflict?: (body: { lockedBy?: string, since?: number }) => void, reloadChannels?: () => Promise<void>) {
   const bars = ref<Bar[]>([])
   const loading = ref(false)
 
@@ -12,23 +15,8 @@ export function useShowBars(showId: string, channels?: Ref<Channel[]>, onLockCon
     loading.value = true
     try {
       bars.value = await fetchBars(showId)
-      syncMountRefNames()
     } finally {
       loading.value = false
-    }
-  }
-
-  function syncMountRefNames() {
-    if (!channels?.value) return
-    const barMap = new Map(bars.value.map(b => [b.id, b]))
-    for (const ch of channels.value) {
-      const ref = parseMountRef(ch.mount_ref)
-      if (ref?.type === 'bar') {
-        const bar = barMap.get(ref.barId)
-        if (bar && bar.name !== ref.barName) {
-          ch.mount_ref = JSON.stringify({ ...ref, barName: bar.name })
-        }
-      }
     }
   }
 
@@ -73,31 +61,16 @@ export function useShowBars(showId: string, channels?: Ref<Channel[]>, onLockCon
       bar.fixtures.sort((a, b) => a.position - b.position)
     }
 
-    if (channels?.value) {
-      const ch = channels.value.find(c => c.id === channelId)
-      if (ch) {
-        ch.mount_ref = JSON.stringify({
-          type: 'bar',
-          barId,
-          barName: bar.name,
-          zugNr: bar.zug_nr,
-          barType: bar.bar_type,
-          position,
-        })
-      }
-    }
+    // channels.mount_ref hat sich serverseitig geändert (siehe writeBarFixture)
+    // — neu laden statt lokal nachzubilden.
+    await reloadChannels?.()
   })
 
   const unassignFixture = withLockConflict(onLockConflict, async (barId: string, fixtureId: string) => {
     const bar = bars.value.find(b => b.id === barId)
-    const fx = bar?.fixtures.find(f => f.id === fixtureId)
     await removeBarFixture(showId, barId, fixtureId)
     if (bar) bar.fixtures = bar.fixtures.filter(f => f.id !== fixtureId)
-
-    if (channels?.value && fx?.channel_id) {
-      const ch = channels.value.find(c => c.id === fx.channel_id)
-      if (ch) ch.mount_ref = null
-    }
+    await reloadChannels?.()
   })
 
   const reorderBars = withLockConflict(onLockConflict, async (orderedIds: string[]) => {

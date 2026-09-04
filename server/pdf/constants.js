@@ -9,7 +9,6 @@ export const COL = {
   notes:    0, // Rest (gesamte verbleibende Breite), wird in generatePDF gesetzt
 }
 export const ROW_MIN_H = mm(6)
-export const HEADER_H  = mm(7)
 export const GROUP_H   = mm(6)
 export const FONT_NORMAL = 'Helvetica'
 export const FONT_BOLD   = 'Helvetica-Bold'

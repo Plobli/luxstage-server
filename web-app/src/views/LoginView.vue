@@ -71,7 +71,8 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { useRouter, RouterLink } from 'vue-router'
-import { login, api, isOnline, isPendingApprovalError } from '../api/client.js'
+import { api, isOnline } from '../api/client.js'
+import { login, isPendingApprovalError } from '../api/auth.js'
 import { useLocale } from '../composables/useLocale.js'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'

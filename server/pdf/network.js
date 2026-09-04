@@ -1,7 +1,7 @@
 // pdf/network.js — Netzwerk-Verkabelung PDF-Export
 import PDFDocument from 'pdfkit'
 import { mm, PAGE_MARGIN, FONT_NORMAL, FONT_BOLD, ROW_MIN_H } from './constants.js'
-import { drawRow, drawHeaderRow } from './layout-primitives.js'
+import { drawRow, drawHeaderRow, createFooter } from './layout-primitives.js'
 
 const TYPE_LABELS = { dose: 'Dose', switch: 'Switch', geraet: 'Gerät' }
 function nodeLabel(n) { return n?.label || TYPE_LABELS[n?.type] || '' }
@@ -28,18 +28,7 @@ export function generateNetworkPDF(nodes, connections, res) {
   const printableBottom = pageH - PAGE_MARGIN - FOOTER_H
 
   const printedAt = new Date().toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })
-  let pageNum = 0
-  function addFooter() {
-    pageNum++
-    const fy = pageH - PAGE_MARGIN - mm(4)
-    const savedY = doc.y
-    doc.y = PAGE_MARGIN
-    doc.font(FONT_NORMAL).fontSize(7).fillColor('#888888')
-      .text(`Netzwerk — ${printedAt}`, PAGE_MARGIN, fy, { width: usableW / 2, lineBreak: false })
-    doc.text(`Seite ${pageNum}`, PAGE_MARGIN + usableW / 2, fy, { width: usableW / 2, align: 'right', lineBreak: false })
-    doc.fillColor('black')
-    doc.y = savedY
-  }
+  const addFooter = createFooter(doc, `Netzwerk — ${printedAt}`)
   addFooter()
 
   doc.font(FONT_BOLD).fontSize(16).fillColor('black').text('Netzwerk — Verkabelung', PAGE_MARGIN, PAGE_MARGIN)

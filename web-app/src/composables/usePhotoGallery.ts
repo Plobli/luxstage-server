@@ -61,6 +61,12 @@ export function usePhotoGallery(showId: string, photos: Ref<string[]>) {
       pendingUrls.add(key)
       getPhotoUrl(showId, filename, { thumb })
         .then(url => { resolvedUrls.value[key] = url })
+        .catch(e => {
+          console.error('Fehler beim Auflösen der Foto-URL:', e)
+          // Als versucht markieren, sonst würde jeder Re-Render (photoUrl() wird
+          // aus dem Template aufgerufen) den fehlgeschlagenen Request wiederholen.
+          resolvedUrls.value[key] = ''
+        })
         .finally(() => pendingUrls.delete(key))
     }
     return resolvedUrls.value[key] ?? ''

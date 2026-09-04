@@ -1,13 +1,13 @@
+import { hasColumn, addColumnIfMissing } from './helpers.js'
+
 // mount_ref in channels: JSON-Feld { type, towerId, slotIndex } oder null
 export const id = '011-channels-mount-ref-quantity'
 
 export function alreadyApplied(db) {
-  const cols = db.pragma('table_info(channels)').map(c => c.name)
-  return cols.includes('mount_ref') && cols.includes('quantity')
+  return hasColumn(db, 'channels', 'mount_ref') && hasColumn(db, 'channels', 'quantity')
 }
 
 export function up(db) {
-  const cols = db.pragma('table_info(channels)').map(c => c.name)
-  if (!cols.includes('mount_ref')) db.exec('ALTER TABLE channels ADD COLUMN mount_ref TEXT')
-  if (!cols.includes('quantity')) db.exec('ALTER TABLE channels ADD COLUMN quantity INTEGER NOT NULL DEFAULT 1')
+  addColumnIfMissing(db, 'channels', 'mount_ref', 'TEXT')
+  addColumnIfMissing(db, 'channels', 'quantity', 'INTEGER NOT NULL DEFAULT 1')
 }

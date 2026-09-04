@@ -1,9 +1,11 @@
 import { createNetworkConnection, createNetworkNode, deleteNetworkConnection, deleteNetworkNode, getNetworkLayoutSnapshot, getNetworkNode, listNetworkConnections, listNetworkNodes, saveNetworkLayoutSnapshot, updateNetworkConnection, updateNetworkNode } from '../db/network.js'
-import { requireAuth } from '../auth.js'
 import { readJsonBody, json } from '../helpers.js'
 import { generateNetworkPDF } from '../pdf/network.js'
 import { withNetworkUndoSnapshot, getLastNetworkOperation, deleteNetworkOperation, pushNetworkRedo, popNetworkRedo, recordNetworkSnapshot } from '../db/network-operations.js'
+import { handleUndoRedo } from './undo-redo.js'
 import { readFullNetworkState, writeFullNetworkState, computeNetworkStateHash } from '../db/network-state.js'
+import { acquireResourceLock, releaseResourceLock, touchResourceLock, getResourceLock } from '../db/resource-locks.js'
+import { isValidConnectionPair, maxConnectionsForType } from '../../shared/constants.js'
 
 const NETWORK_NODES         = /^\/api\/network\/nodes$/
 const NETWORK_NODE          = /^\/api\/network\/nodes\/([^/]+)$/
@@ -13,26 +15,15 @@ const NETWORK_LAYOUT_SNAPSHOT = /^\/api\/network\/layout-snapshot$/
 const NETWORK_PDF           = /^\/api\/network\/pdf$/
 const NETWORK_UNDO          = /^\/api\/network\/undo$/
 const NETWORK_REDO          = /^\/api\/network\/redo$/
+const NETWORK_LOCK          = /^\/api\/network\/lock$/
 
-// Physikalisch sinnlos: zwei Netzwerkdosen oder zwei Geräte direkt
-// miteinander verkabelt (ein Switch darf mit allem verbunden werden, auch
-// mit einem zweiten Switch). Serverseitige Absicherung — das Frontend
-// filtert das bereits in der Auswahl, aber die API muss unabhängig davon
-// gültig bleiben.
-function isValidConnectionPair(typeA, typeB) {
-  if (!typeA || !typeB) return true
-  return !(typeA === typeB && (typeA === 'dose' || typeA === 'geraet'))
-}
+// Netzwerk-Lock: gebäudeweite Ressource ohne eigene shows-Zeile, daher über
+// den generischen db/resource-locks.js-Mechanismus statt db/locks.js.
+// Kein Takeover-Request/SSE-Broadcast wie bei Shows — das Netzwerk hat
+// (noch) keine eigene SSE-Subscription; der 423 aus router.js allein
+// verhindert aber bereits das stille gegenseitige Überschreiben.
+const NETWORK_LOCK_KEY = 'network'
 
-// Dose = Durchschleifung (rein/raus), also bis zu zwei Kabel; Gerät hat nur
-// eines; Switch ist unbegrenzt (ein Port = eine Verbindung, separat geprüft).
-// Das Frontend löst einen Konflikt per Rückfrage (älteste Verbindung löschen,
-// dann neu anlegen); die API lehnt ein bereits ausgeschöpftes Limit ab.
-function maxConnectionsForType(type) {
-  if (type === 'dose') return 2
-  if (type === 'geraet') return 1
-  return Infinity
-}
 function isNodeSlotFree(nodeType, nodeId, excludeConnId) {
   if (nodeType === 'switch') return true
   const max = maxConnectionsForType(nodeType)
@@ -46,11 +37,11 @@ export async function networkRoutes(req, res, pathname) {
 
   if (m = NETWORK_NODES.exec(pathname)) {
     if (method === 'GET') {
-      const user = requireAuth(req, res); if (!user) return
+      const user = req.user
       return json(res, 200, listNetworkNodes())
     }
     if (method === 'POST') {
-      const user = requireAuth(req, res); if (!user) return
+      const user = req.user
       const body = await readJsonBody(req, res); if (body === null) return
       let created
       withNetworkUndoSnapshot(user.username, () => { created = createNetworkNode(body) })
@@ -61,14 +52,14 @@ export async function networkRoutes(req, res, pathname) {
   if (m = NETWORK_NODE.exec(pathname)) {
     const id = m[1]
     if (method === 'PUT') {
-      const user = requireAuth(req, res); if (!user) return
+      const user = req.user
       const body = await readJsonBody(req, res); if (body === null) return
       let updated
       withNetworkUndoSnapshot(user.username, () => { updated = updateNetworkNode(id, body) })
       return json(res, 200, updated)
     }
     if (method === 'DELETE') {
-      const user = requireAuth(req, res); if (!user) return
+      const user = req.user
       withNetworkUndoSnapshot(user.username, () => { deleteNetworkNode(id) })
       return json(res, 200, { ok: true })
     }
@@ -76,11 +67,11 @@ export async function networkRoutes(req, res, pathname) {
 
   if (m = NETWORK_CONNECTIONS.exec(pathname)) {
     if (method === 'GET') {
-      const user = requireAuth(req, res); if (!user) return
+      const user = req.user
       return json(res, 200, listNetworkConnections())
     }
     if (method === 'POST') {
-      const user = requireAuth(req, res); if (!user) return
+      const user = req.user
       const body = await readJsonBody(req, res); if (body === null) return
       const fromType = getNetworkNode(body.from_node_id)?.type
       const toType = getNetworkNode(body.to_node_id)?.type
@@ -99,7 +90,7 @@ export async function networkRoutes(req, res, pathname) {
   if (m = NETWORK_CONNECTION.exec(pathname)) {
     const id = m[1]
     if (method === 'PUT') {
-      const user = requireAuth(req, res); if (!user) return
+      const user = req.user
       const body = await readJsonBody(req, res); if (body === null) return
       const fromType = getNetworkNode(body.from_node_id)?.type
       const toType = getNetworkNode(body.to_node_id)?.type
@@ -114,7 +105,7 @@ export async function networkRoutes(req, res, pathname) {
       return json(res, 200, updated)
     }
     if (method === 'DELETE') {
-      const user = requireAuth(req, res); if (!user) return
+      const user = req.user
       withNetworkUndoSnapshot(user.username, () => { deleteNetworkConnection(id) })
       return json(res, 200, { ok: true })
     }
@@ -122,7 +113,7 @@ export async function networkRoutes(req, res, pathname) {
 
   if (NETWORK_PDF.test(pathname)) {
     if (method === 'GET') {
-      const user = requireAuth(req, res); if (!user) return
+      const user = req.user
       generateNetworkPDF(listNetworkNodes(), listNetworkConnections(), res)
       return
     }
@@ -130,44 +121,57 @@ export async function networkRoutes(req, res, pathname) {
 
   if (NETWORK_UNDO.test(pathname)) {
     if (method === 'POST') {
-      const user = requireAuth(req, res); if (!user) return
-      const op = getLastNetworkOperation()
-      if (!op) return json(res, 400, { error: 'Nichts zum Rückgängigmachen' })
-      const targetState = JSON.parse(op.snapshot)
-      if (computeNetworkStateHash(targetState) !== op.hash) {
-        return json(res, 409, { error: 'Snapshot-Hash stimmt nicht überein — Undo abgebrochen' })
-      }
-      const currentState = readFullNetworkState()
-      writeFullNetworkState(targetState)
-      deleteNetworkOperation(op.id)
-      pushNetworkRedo(currentState)
-      return json(res, 200, { ok: true })
+      return handleUndoRedo(res, 'undo', {
+        getEntry: getLastNetworkOperation,
+        computeHash: computeNetworkStateHash,
+        readState: readFullNetworkState,
+        writeState: writeFullNetworkState,
+        consumeEntry: (op) => deleteNetworkOperation(op.id),
+        pushOpposite: pushNetworkRedo,
+      })
     }
   }
 
   if (NETWORK_REDO.test(pathname)) {
     if (method === 'POST') {
-      const user = requireAuth(req, res); if (!user) return
-      const entry = popNetworkRedo()
-      if (!entry) return json(res, 400, { error: 'Nichts zum Wiederholen' })
-      const targetState = JSON.parse(entry.snapshot)
-      if (computeNetworkStateHash(targetState) !== entry.hash) {
-        return json(res, 409, { error: 'Snapshot-Hash stimmt nicht überein — Redo abgebrochen' })
-      }
-      const currentState = readFullNetworkState()
-      writeFullNetworkState(targetState)
-      recordNetworkSnapshot(user.username, currentState)
+      const user = req.user
+      return handleUndoRedo(res, 'redo', {
+        getEntry: popNetworkRedo,
+        computeHash: computeNetworkStateHash,
+        readState: readFullNetworkState,
+        writeState: writeFullNetworkState,
+        consumeEntry: () => {}, // popNetworkRedo() hat den Eintrag beim Holen bereits entfernt
+        pushOpposite: (currentState) => recordNetworkSnapshot(user.username, currentState),
+      })
+    }
+  }
+
+  if (NETWORK_LOCK.test(pathname)) {
+    const user = req.user
+    if (method === 'GET') {
+      return json(res, 200, { lock: getResourceLock(NETWORK_LOCK_KEY) })
+    }
+    if (method === 'POST') {
+      const result = acquireResourceLock(NETWORK_LOCK_KEY, user.username)
+      return json(res, result.ok ? 200 : 423, result)
+    }
+    if (method === 'PUT') {
+      touchResourceLock(NETWORK_LOCK_KEY, user.username)
+      return json(res, 200, { ok: true })
+    }
+    if (method === 'DELETE') {
+      releaseResourceLock(NETWORK_LOCK_KEY, user.username)
       return json(res, 200, { ok: true })
     }
   }
 
   if (m = NETWORK_LAYOUT_SNAPSHOT.exec(pathname)) {
     if (method === 'GET') {
-      const user = requireAuth(req, res); if (!user) return
+      const user = req.user
       return json(res, 200, getNetworkLayoutSnapshot())
     }
     if (method === 'PUT') {
-      const user = requireAuth(req, res); if (!user) return
+      const user = req.user
       const body = await readJsonBody(req, res); if (body === null) return
       return json(res, 200, saveNetworkLayoutSnapshot(body))
     }

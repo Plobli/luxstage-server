@@ -62,6 +62,7 @@
         </div>
         <div class="px-4 py-3 border-t border-border shrink-0 space-y-2">
           <p class="text-xs text-muted-foreground/70">{{ labels.scope }}</p>
+          <p v-if="error" class="text-xs text-destructive">{{ error }}</p>
           <Button
             class="w-full"
             @click="confirmOpen = true"

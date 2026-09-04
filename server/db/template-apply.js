@@ -4,10 +4,16 @@ import { setTimeout as sleep } from 'node:timers/promises'
 import { ensureTemplateTowerSlots } from './template-towers.js'
 import { sectionTypeHasRows } from '../../shared/constants.js'
 
-function applySections(tpl, show, idSet) {
+// Kopiert Template-Bereiche/-Bars/-Towers in eine Show — fügt nur fehlende
+// Einträge hinzu (nach Titel/Name), überschreibt nichts Bestehendes. Von drei
+// Stellen genutzt: applyTemplateToShow() (einzelne Show, ggf. mit Auswahl),
+// applyTemplateToAllShows() (alle Shows dieses Templates) und
+// db/shows.js::createShow() (Sections beim Anlegen einer Show aus Template).
+// Gibt die Anzahl neu eingefügter Einträge zurück (für Statistik-Zwecke).
+export function applySections(tpl, show, idSet) {
   const tDefs = getDb().prepare('SELECT * FROM template_section_defs WHERE template_id = ? ORDER BY sort_order').all(tpl.id)
   const selectedDefs = idSet ? tDefs.filter(d => idSet.has(d.id)) : tDefs
-  if (!selectedDefs.length) return
+  if (!selectedDefs.length) return 0
   const defIds = selectedDefs.map(d => d.id)
   const ph = defIds.map(() => '?').join(',')
   const tRowsAll   = getDb().prepare(`SELECT * FROM template_section_kv_rows WHERE section_id IN (${ph}) ORDER BY sort_order`).all(defIds)
@@ -24,6 +30,7 @@ function applySections(tpl, show, idSet) {
   const insertField   = getDb().prepare('INSERT INTO section_fields (id, section_id, key, label, unit, sort_order) VALUES (?, ?, ?, ?, ?, ?)')
   const insertContent = getDb().prepare('INSERT INTO section_contents (section_id, show_id, content) VALUES (?, ?, ?)')
 
+  let added = 0
   for (const tDef of selectedDefs) {
     if (existingTitles.has(tDef.title)) continue
     const newDefId = randomUUID()
@@ -38,14 +45,17 @@ function applySections(tpl, show, idSet) {
       }
       insertContent.run(newDefId, show.id, tDef.type === 'fields' ? '{}' : '')
     }
+    added++
   }
+  return added
 }
 
-function applyBars(tpl, show, idSet, withChannels) {
+export function applyBars(tpl, show, idSet, withChannels) {
   const tBars = getDb().prepare('SELECT * FROM template_bars WHERE template_id = ? ORDER BY sort_order').all(tpl.id)
   const existingBars = getDb().prepare('SELECT * FROM bars WHERE show_id = ?').all(show.id)
   const existingByName = new Map(existingBars.map(b => [b.name, b]))
   let sortBase = existingBars.length
+  let added = 0
 
   for (const tb of tBars) {
     if (idSet && !idSet.has(tb.id)) continue
@@ -55,9 +65,14 @@ function applyBars(tpl, show, idSet, withChannels) {
         'INSERT INTO bars (id, show_id, name, zug_nr, length_cm, sort_order, bar_type, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
       ).run(newBarId, show.id, tb.name, tb.zug_nr, tb.length_cm, sortBase++, tb.bar_type ?? 'zugstange', Date.now())
       existingByName.set(tb.name, { id: newBarId })
+      added++
     }
     if (withChannels) {
       const bar = existingByName.get(tb.name)
+      // Fixtures des Ziel-Bars vor dem Einfügen leeren: sonst verdoppeln sich
+      // Fixtures bei jeder erneuten Anwendung auf einen bereits vorhandenen Bar
+      // (analog zur Bereinigung in applyBarsToTemplate).
+      getDb().prepare('DELETE FROM bar_fixtures WHERE bar_id = ?').run(bar.id)
       const fixtures = getDb().prepare('SELECT * FROM template_bar_fixtures WHERE bar_id = ?').all(tb.id)
       for (const fx of fixtures) {
         getDb().prepare(`
@@ -69,13 +84,15 @@ function applyBars(tpl, show, idSet, withChannels) {
       }
     }
   }
+  return added
 }
 
-function applyTowers(tpl, show, idSet, withChannels) {
+export function applyTowers(tpl, show, idSet, withChannels) {
   const tTowers = getDb().prepare('SELECT * FROM template_towers WHERE template_id = ? ORDER BY sort_order').all(tpl.id)
   const existingTowers = getDb().prepare('SELECT * FROM towers WHERE show_id = ?').all(show.id)
   const existingByName = new Map(existingTowers.map(t => [t.name, t]))
   let sortBase = existingTowers.length
+  let added = 0
 
   for (const tt of tTowers) {
     if (idSet && !idSet.has(tt.id)) continue
@@ -90,6 +107,7 @@ function applyTowers(tpl, show, idSet, withChannels) {
         ).run(randomUUID(), newTowerId, i)
       }
       existingByName.set(tt.name, { id: newTowerId })
+      added++
     }
     if (withChannels) {
       const tower = existingByName.get(tt.name)
@@ -105,6 +123,7 @@ function applyTowers(tpl, show, idSet, withChannels) {
       }
     }
   }
+  return added
 }
 
 // Wendet Template-Bars, Template-Towers oder Template-Bereiche (Sections) auf
@@ -238,47 +257,16 @@ export function saveShowItemsToTemplate(templateName, showSlug, scope, barOrTowe
 
 // Wendet Template-Bars, Template-Towers oder Sections-Struktur auf alle Shows mit diesem Template an.
 // scope: 'bars' | 'towers' | 'sections' — bestehende Einträge werden nicht überschrieben.
+// Nutzt dieselben applySections/applyBars/applyTowers wie applyTemplateToShow()
+// (statt derselben "fehlende Einträge nach Name/Titel ergänzen"-Logik ein
+// drittes Mal zu implementieren) — pro Show ohne Auswahl (idSet=null) und
+// ohne Kanal-Übernahme (withChannels=false), wie es dieser Bulk-Pfad schon
+// immer gemacht hat.
 export async function applyTemplateToAllShows(templateName, scope) {
   const tpl = getDb().prepare('SELECT * FROM templates WHERE name = ?').get(templateName)
   if (!tpl) throw new Error('Bühnen-Template nicht gefunden')
 
   const shows = getDb().prepare('SELECT * FROM shows WHERE template = ? AND archived = 0').all(templateName)
-
-  const tBars    = scope === 'bars'    ? getDb().prepare('SELECT * FROM template_bars WHERE template_id = ? ORDER BY sort_order').all(tpl.id) : []
-  const tTowers  = scope === 'towers'  ? getDb().prepare('SELECT * FROM template_towers WHERE template_id = ? ORDER BY sort_order').all(tpl.id) : []
-  const tDefs    = scope === 'sections' ? getDb().prepare('SELECT * FROM template_section_defs WHERE template_id = ? ORDER BY sort_order').all(tpl.id) : []
-
-  let defIds = tDefs.map(d => d.id)
-  let tRowsBySection = new Map()
-  let tFieldsBySection = new Map()
-  if (defIds.length) {
-    const ph = defIds.map(() => '?').join(',')
-    const tRowsAll   = getDb().prepare(`SELECT * FROM template_section_kv_rows WHERE section_id IN (${ph}) ORDER BY sort_order`).all(defIds)
-    const tFieldsAll = getDb().prepare(`SELECT * FROM template_section_fields WHERE section_id IN (${ph}) ORDER BY sort_order`).all(defIds)
-    tRowsBySection   = Map.groupBy(tRowsAll, r => r.section_id)
-    tFieldsBySection = Map.groupBy(tFieldsAll, f => f.section_id)
-  }
-
-  // Slot-Infos für Template-Towers vorab laden
-  const tTowerSlotsByTower = new Map()
-  if (tTowers.length) {
-    const tSlots = getDb().prepare(
-      `SELECT * FROM template_tower_slots WHERE tower_id IN (${tTowers.map(() => '?').join(',')})`
-    ).all(tTowers.map(t => t.id))
-    for (const s of tSlots) {
-      if (!tTowerSlotsByTower.has(s.tower_id)) tTowerSlotsByTower.set(s.tower_id, [])
-      tTowerSlotsByTower.get(s.tower_id).push(s)
-    }
-  }
-
-  const insertBar     = getDb().prepare('INSERT INTO bars (id, show_id, name, zug_nr, length_cm, sort_order, bar_type, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
-  const insertTower   = getDb().prepare('INSERT INTO towers (id, show_id, name, side, stage_area, slot_count, sort_order, notes, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)')
-  const insertSlot    = getDb().prepare('INSERT OR IGNORE INTO tower_slots (id, tower_id, slot_index, channel_id) VALUES (?, ?, ?, NULL)')
-  const insertDef     = getDb().prepare('INSERT INTO section_defs (id, show_id, title, type, icon, sort_order) VALUES (?, ?, ?, ?, ?, ?)')
-  const insertKvRow   = getDb().prepare('INSERT INTO section_kv_rows (id, section_id, label, value, sort_order) VALUES (?, ?, ?, ?, ?)')
-  const insertField   = getDb().prepare('INSERT INTO section_fields (id, section_id, key, label, unit, sort_order) VALUES (?, ?, ?, ?, ?, ?)')
-  const insertContent = getDb().prepare('INSERT INTO section_contents (section_id, show_id, content) VALUES (?, ?, ?)')
-
   const stats = { shows: shows.length, barsAdded: 0, towersAdded: 0, sectionsAdded: 0, failedShows: [] }
 
   // Eine Transaktion pro Show statt einer einzigen über alle Shows hinweg
@@ -294,59 +282,9 @@ export async function applyTemplateToAllShows(templateName, scope) {
   // diese eine (wie beim history.js-Vorbild: Fehlerisolierung pro Einheit).
   for (const show of shows) {
     const applyToOneShow = getDb().transaction(() => {
-      // Bars: fehlende nach Name hinzufügen
-      const existingBars = getDb().prepare('SELECT name FROM bars WHERE show_id = ?').all(show.id)
-      const existingBarNames = new Set(existingBars.map(b => b.name))
-      const existingBarCount = existingBars.length
-
-      for (const tb of tBars) {
-        if (!existingBarNames.has(tb.name)) {
-          const sortOrder = existingBarCount + stats.barsAdded
-          insertBar.run(randomUUID(), show.id, tb.name, tb.zug_nr, tb.length_cm, sortOrder, tb.bar_type ?? 'zugstange', Date.now())
-          stats.barsAdded++
-        }
-      }
-
-      // Towers: fehlende nach Name hinzufügen
-      const existingTowers = getDb().prepare('SELECT name FROM towers WHERE show_id = ?').all(show.id)
-      const existingTowerNames = new Set(existingTowers.map(t => t.name))
-      const existingTowerCount = existingTowers.length
-
-      for (const tt of tTowers) {
-        if (!existingTowerNames.has(tt.name)) {
-          const newTowerId = randomUUID()
-          insertTower.run(newTowerId, show.id, tt.name, tt.side, tt.stage_area, tt.slot_count, existingTowerCount + stats.towersAdded, '', Date.now())
-          for (let i = 1; i <= tt.slot_count; i++) {
-            insertSlot.run(randomUUID(), newTowerId, i)
-          }
-          stats.towersAdded++
-        }
-      }
-
-      // Sections: fehlende nach Titel hinzufügen
-      const existingDefs = getDb().prepare('SELECT title FROM section_defs WHERE show_id = ?').all(show.id)
-      const existingTitles = new Set(existingDefs.map(d => d.title))
-      const existingDefCount = existingDefs.length
-
-      let secIdx = 0
-      for (const tDef of tDefs) {
-        if (!existingTitles.has(tDef.title)) {
-          const newDefId = randomUUID()
-          insertDef.run(newDefId, show.id, tDef.title, tDef.type, tDef.icon ?? '', existingDefCount + secIdx)
-          if (sectionTypeHasRows(tDef.type)) {
-            for (const tRow of (tRowsBySection.get(tDef.id) ?? [])) {
-              insertKvRow.run(randomUUID(), newDefId, tRow.label, tRow.value, tRow.sort_order)
-            }
-          } else {
-            for (const tField of (tFieldsBySection.get(tDef.id) ?? [])) {
-              insertField.run(randomUUID(), newDefId, tField.key, tField.label, tField.unit, tField.sort_order)
-            }
-            insertContent.run(newDefId, show.id, tDef.type === 'fields' ? '{}' : '')
-          }
-          secIdx++
-          stats.sectionsAdded++
-        }
-      }
+      if (scope === 'bars')     stats.barsAdded     += applyBars(tpl, show, null, false)
+      if (scope === 'towers')   stats.towersAdded   += applyTowers(tpl, show, null, false)
+      if (scope === 'sections') stats.sectionsAdded += applySections(tpl, show, null)
     })
     try {
       applyToOneShow()

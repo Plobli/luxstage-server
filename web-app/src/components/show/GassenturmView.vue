@@ -344,7 +344,7 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, onBeforeUnmount } from 'vue'
+import { ref, computed, watch, onBeforeUnmount, inject } from 'vue'
 import { useLocale } from '@/composables/useLocale.js'
 import { useConfirm } from '@/composables/useConfirm.js'
 import { useSaveToTemplateDialog } from '@/composables/useSaveToTemplateDialog'
@@ -364,12 +364,7 @@ import ChannelPickerGrid from './ChannelPickerGrid.vue'
 const props = defineProps({
   towers: { type: Array, required: true },
   channels: { type: Array, required: true },
-  activeChannelIds: { type: Array, default: () => [] },
   preselectedChannelId: { type: String, default: null },
-  addTowerFn: { type: Function, required: true },
-  saveTowerFn: { type: Function, required: true },
-  deleteTowerFn: { type: Function, required: true },
-  assignSlotFn: { type: Function, required: true },
   saveToTemplateFn: { type: Function, default: null },
   templateName: { type: String, default: null },
   fetchTemplateNamesFn: { type: Function, default: null },
@@ -377,6 +372,12 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['assigned'])
+
+// CRUD kommt aus ShowDetailView.vue per provide/inject statt als einzelne
+// Function-Props — das teilt eine Instanz von useShowTowers() (dieselben
+// towers/loading-Refs wie z.B. die generierte Beleuchtungsgestelle-Übersicht
+// in ShowDetailView.vue) statt sie hier ein zweites Mal zu erzeugen.
+const { addTower, saveTower, removeTower, assignSlot } = inject('showTowers')
 
 
 const channelById = computed(() => {
@@ -415,13 +416,13 @@ const editingNoteId = ref(null)
 
 // Als Vorlage speichern
 const {
-  saveDialogOpen, savingId: savingTowerId, saveDialogItem: saveDialogTower,
+  saveDialogOpen, savingId: savingTowerId,
   saveFields, saveName, saveNameConflict, saveConfirmOverwrite,
   openSaveDialog, confirmSaveDialog,
 } = useSaveToTemplateDialog(props.saveToTemplateFn, props.fetchTemplateNamesFn, { channel: true, device: true, color: true })
 
 async function saveNotes(tower, value) {
-  await props.saveTowerFn(tower.id, { notes: value })
+  await saveTower(tower.id, { notes: value })
 }
 
 // Tower Dialog
@@ -454,28 +455,28 @@ async function saveTowerForm() {
       slotReduceConfirm.value = { oldCount, newCount, removedWithChannel }
       return
     }
-    await props.saveTowerFn(editingTower.value.id, { ...towerForm.value })
+    await saveTower(editingTower.value.id, { ...towerForm.value })
   } else {
-    await props.addTowerFn({ ...towerForm.value })
+    await addTower({ ...towerForm.value })
   }
   towerDialogOpen.value = false
 }
 
 async function confirmSlotReduce() {
   slotReduceConfirm.value = null
-  await props.saveTowerFn(editingTower.value.id, { ...towerForm.value })
+  await saveTower(editingTower.value.id, { ...towerForm.value })
   towerDialogOpen.value = false
 }
 
 async function confirmDeleteTower(tower) {
   const ok = await confirm({ t, titleKey: 'gassenturm.delete.confirm', titleParams: { name: tower.name }, confirmKey: 'action.delete', cancelKey: 'action.cancel' })
   if (ok) {
-    props.deleteTowerFn(tower.id)
+    removeTower(tower.id)
   }
 }
 
 async function addSlot(tower) {
-  await props.saveTowerFn(tower.id, { slot_count: tower.slot_count + 1 })
+  await saveTower(tower.id, { slot_count: tower.slot_count + 1 })
 }
 
 // Slot Picker
@@ -512,7 +513,7 @@ async function doAssign(ch) {
   if (!pickerTower.value) return
   const slotIndex = pickerSlot.value?.slot_index ?? 0
   const tower = pickerTower.value
-  props.assignSlotFn(tower.id, slotIndex, ch.id)
+  assignSlot(tower.id, slotIndex, ch.id)
   emit('assigned')
   slotPickerOpen.value = false
 }
@@ -536,15 +537,27 @@ function initSortable(el, tower) {
   const instance = Sortable.create(el, {
     animation: 150,
     handle: '.drag-handle',
-    onEnd({ oldIndex, newIndex }) {
+    async onEnd({ oldIndex, newIndex }) {
       if (oldIndex === newIndex) return
       const slots = slotsFor(tower)
       const fromSlot = slots[oldIndex]
       const toSlot = slots[newIndex]
       if (!fromSlot || !toSlot) return
       slotRenderKey.value++
-      props.assignSlotFn(tower.id, fromSlot.slot_index, toSlot.channel_id ?? null)
-      props.assignSlotFn(tower.id, toSlot.slot_index, fromSlot.channel_id ?? null)
+      try {
+        await Promise.all([
+          assignSlot(tower.id, fromSlot.slot_index, toSlot.channel_id ?? null),
+          assignSlot(tower.id, toSlot.slot_index, fromSlot.channel_id ?? null),
+        ])
+      } catch (e) {
+        // Sortable hat die DOM-Reihenfolge schon manuell geändert — bei einem
+        // fehlgeschlagenen Swap per Remount (neuer :key) auf den tatsächlichen
+        // Datenstand zurücksetzen, statt eine falsche Reihenfolge stehen zu lassen.
+        // Nur hier (nicht in finally) — bei Erfolg deckt sich Sortables DOM-Stand
+        // schon mit den Daten, ein zweiter Remount wäre nur ein sichtbares Flackern.
+        console.error('[GassenturmView] Slot-Tausch fehlgeschlagen:', e)
+        slotRenderKey.value++
+      }
     },
   })
   sortableInstances.set(tower.id, instance)
@@ -555,7 +568,7 @@ onBeforeUnmount(() => {
 })
 
 function clearSlot(towerId, slotIndex) {
-  props.assignSlotFn(towerId, slotIndex, null)
+  assignSlot(towerId, slotIndex, null)
 }
 </script>
 

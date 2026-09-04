@@ -23,26 +23,25 @@ function channelPrefix(locale: string): string {
   return locale === 'en' ? 'Ch.' : 'V.'
 }
 
-export function generateBarLine(
+/** Baut den Zeileninhalt eines Zugbalkens OHNE Namens-Präfix — Basis für generateBarLine
+ * und generateHangereiEntries, damit letzteres den Präfix nicht wieder abtrennen muss. */
+function buildBarLineBody(
   bar: Bar,
   channelById: Map<string, Channel>,
   unit: MeasureUnit,
   cmToDisplay: (n: number) => number,
   locale = 'de'
 ): string {
-  const prefix = channelPrefix(locale)
   const hasFixtures = bar.fixtures?.length > 0
   const hasNotes = !!bar.notes
 
   if (!hasFixtures && !hasNotes) return ''
-
-  if (!hasFixtures) {
-    return `${bar.name}: ${bar.notes}`
-  }
+  if (!hasFixtures) return bar.notes ?? ''
 
   const isPunktzug = bar.bar_type === 'punktzug'
   const isTraverse = bar.bar_type === 'traverse'
   const sideLabel = (side?: string) => side === 'in' ? (locale === 'en' ? 'Inside' : 'Innen') : (locale === 'en' ? 'Outside' : 'Außen')
+  const prefix = channelPrefix(locale)
 
   const sorted = [...bar.fixtures].sort((a, b) => a.position - b.position)
   const parts = sorted.map(fx => {
@@ -57,8 +56,19 @@ export function generateBarLine(
     ].filter(Boolean)
     return tokens.join(' ')
   })
-  const line = `${bar.name}: ${parts.join(' • ')}`
-  return bar.notes ? `${line} • ${bar.notes}` : line
+  const body = parts.join(' • ')
+  return bar.notes ? `${body} • ${bar.notes}` : body
+}
+
+export function generateBarLine(
+  bar: Bar,
+  channelById: Map<string, Channel>,
+  unit: MeasureUnit,
+  cmToDisplay: (n: number) => number,
+  locale = 'de'
+): string {
+  const body = buildBarLineBody(bar, channelById, unit, cmToDisplay, locale)
+  return body ? `${bar.name}: ${body}` : ''
 }
 
 export interface HangereiEntry {
@@ -76,10 +86,8 @@ export function generateHangereiEntries(
   return [...bars]
     .sort((a, b) => a.sort_order - b.sort_order)
     .flatMap(bar => {
-      const line = generateBarLine(bar, channelById, unit, cmToDisplay, locale)
-      if (!line) return []
-      const sep = bar.name + ': '
-      const text = line.startsWith(sep) ? line.slice(sep.length) : line
+      const text = buildBarLineBody(bar, channelById, unit, cmToDisplay, locale)
+      if (!text) return []
       return [{ name: bar.name, text }]
     })
 }
@@ -114,28 +122,4 @@ export function generateGassenturmEntries(
       })
       return [{ name: header, text: parts.join(', ') }]
     })
-}
-
-export function generateGassenturm(
-  towers: Tower[],
-  channelById: Map<string, Channel>,
-  locale = 'de'
-): string {
-  return generateGassenturmEntries(towers, channelById, locale)
-    .map(e => `${e.name}: ${e.text}`)
-    .join('\n')
-}
-
-export function generateHangerei(
-  bars: Bar[],
-  channelById: Map<string, Channel>,
-  unit: MeasureUnit,
-  cmToDisplay: (n: number) => number,
-  locale = 'de'
-): string {
-  return [...bars]
-    .sort((a, b) => a.sort_order - b.sort_order)
-    .map(bar => generateBarLine(bar, channelById, unit, cmToDisplay, locale))
-    .filter(Boolean)
-    .join('\n')
 }
