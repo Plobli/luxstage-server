@@ -59,6 +59,16 @@ export function notFound(res) {
   res.end(JSON.stringify({ error: 'Nicht gefunden' }))
 }
 
+// Kondensiert die in server/routes/*.js wiederkehrende Prüfung
+// `method === X && REGEX.test(pathname)` auf einen Aufruf (siehe
+// audits/software-design-analysis-2026-09-05.md, Finding #7.3). Bewusst kein
+// Lookup-Table/Router-Aufbau: die Handler-Blöcke in den Routendateien enthalten
+// substanzielle Logik mit frühen Returns, keine reinen Funktionsreferenzen —
+// eine Tabelle würde diese Blöcke nur umständlicher machen, nicht vereinfachen.
+export function isRoute(method, pathname, expectedMethod, regex) {
+  return method === expectedMethod && regex.test(pathname)
+}
+
 export function parseUrl(url) {
   const u = new URL(url, 'http://localhost')
   return { pathname: u.pathname, search: u.search, params: Object.fromEntries(u.searchParams) }

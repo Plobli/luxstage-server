@@ -1,6 +1,6 @@
 import { getDb } from '../db-context.js'
 import { randomUUID } from 'node:crypto'
-import { applySections } from './template-apply.js'
+import { applySections } from './template-apply-to-show.js'
 
 function now() { return Date.now() }
 
@@ -65,7 +65,7 @@ export function createShow(slug, fields) {
     })
 
     // Sections-Kopie nutzt dieselbe applySections() wie applyTemplateToShow()/
-    // applyTemplateToAllShows() (siehe db/template-apply.js) statt einer
+    // applyTemplateToAllShows() (siehe db/template-apply-to-show.js) statt einer
     // eigenen dritten Kopie der "Template-Bereiche übernehmen"-Logik. Bars/
     // Towers werden hier bewusst NICHT kopiert — Aufrufer (useShowWizard.js)
     // rufen dafür explizit applyTemplateToShow() mit der vom Nutzer getroffenen

@@ -126,7 +126,8 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 | `./server/db/template-sections.js` | DB-Zugriff für Template-Sections und deren Definitionen. |
 | `./server/db/template-bars.js` | DB-Zugriff für Template-Bars und deren Fixtures. |
 | `./server/db/template-towers.js` | DB-Zugriff für Template-Towers und deren Slots. |
-| `./server/db/template-apply.js` | Anwendung von Templates auf Shows (einzeln und auf alle Shows eines Templates) sowie Rück-Speichern von Show-Items als Template-Einträge. |
+| `./server/db/template-apply-to-show.js` | Anwendung von Templates auf Shows (einzeln und auf alle Shows eines Templates). |
+| `./server/db/template-save-from-show.js` | Rück-Speichern von Show-Items (Bars/Towers) als Template-Einträge. |
 | `./server/db/locks.js` | DB-Zugriff für Show-weiten Schreib-Lock: acquire/release/touch/get/transfer (direkte Übergabe an anderen User) sowie listLocks() für die Show-Übersicht. |
 | `./server/db/undo-stack.js` | Gemeinsame Mechanik der Undo/Redo-Stacks (`makeUndoStack`): Snapshot aufzeichnen, Redo-Stack, Begrenzung auf 50 Einträge, transaktionale Klammer. Zwei Varianten leiten sich daraus ab — je Show (`show_id`) und global fürs Netzwerk. |
 | `./server/db/operations.js` | Undo/Redo für Shows: Konfiguration von `makeUndoStack` mit Show-Scope und Full-Snapshot-Zustand; Funktion `withUndoSnapshot()` für transaktionale Snapshots. |

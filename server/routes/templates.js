@@ -2,14 +2,14 @@ import { randomUUID } from 'node:crypto'
 import fs from 'node:fs'
 import * as floorplan from '../floorplan.js'
 import * as photosLib from '../photos.js'
-import { readJsonBody, json, notFound, uploadErrorStatus } from '../helpers.js'
+import { readJsonBody, json, notFound, uploadErrorStatus, isRoute } from '../helpers.js'
 import { generatePDF, pdfFilename } from '../pdf.js'
 import { getDisplayUnit, getPhotosPerPage } from '../db/settings.js'
 import {
   listTemplates, getTemplateByName, updateTemplateOscHost, renameTemplate,
   readTemplate, writeTemplate, deleteTemplate,
 } from '../db/templates.js'
-import { applyTemplateToAllShows } from '../db/template-apply.js'
+import { applyTemplateToAllShows } from '../db/template-apply-to-show.js'
 import {
   readTemplateBars, writeTemplateBar, deleteTemplateBar, reorderTemplateBars,
   readTemplateBarFixtures, writeTemplateBarFixture, deleteTemplateBarFixture,
@@ -51,11 +51,11 @@ export async function templateRoutes(req, res, pathname) {
   const { method } = req
   let m
 
-  if (method === 'GET' && TPL_LIST.test(pathname)) {
+  if (isRoute(method, pathname, 'GET', TPL_LIST)) {
     return json(res, 200, listTemplates())
   }
 
-  if (method === 'PUT' && TPL_LIST.test(pathname)) {
+  if (isRoute(method, pathname, 'PUT', TPL_LIST)) {
     const user = req.user
     const body = await readJsonBody(req, res); if (body === null) return
     const { name, oscHost } = body

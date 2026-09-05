@@ -2,7 +2,7 @@ import fs from 'node:fs'
 import { clearChecks, getChecks, getColorUsage, readChannels, setCheck, writeChannels } from '../db/channels.js'
 import { requireShow } from '../db/shows.js'
 import * as photosLib from '../photos.js'
-import { readJsonBody, json, uploadErrorStatus } from '../helpers.js'
+import { readJsonBody, json, uploadErrorStatus, isRoute } from '../helpers.js'
 import { broadcast } from '../sse.js'
 import { withUndoSnapshot } from '../db/operations.js'
 import { requireAuth } from '../auth.js'
@@ -14,7 +14,7 @@ const SHOW_CIRCUIT_SCAN = /^\/api\/shows\/([^/]+)\/circuit-scan$/
 const COLOR_USAGE       = /^\/api\/channels\/color-usage$/
 
 export async function channelStatsRoutes(req, res, pathname) {
-  if (req.method === 'GET' && COLOR_USAGE.test(pathname)) {
+  if (isRoute(req.method, pathname, 'GET', COLOR_USAGE)) {
     return json(res, 200, getColorUsage())
   }
   return null

@@ -1,11 +1,12 @@
 import { requireAuth } from '../auth.js'
-import { readJsonBody, json } from '../helpers.js'
+import { readJsonBody, json, isRoute } from '../helpers.js'
 import { subscribe, broadcast, sendToUser, getPresence } from '../sse.js'
 import { handleUndoRedo } from './undo-redo.js'
 import { getLastOperation, deleteOperation, pushRedo, popRedo, recordSnapshot } from '../db/operations.js'
 import { readFullShowState, writeFullShowState, computeStateHash } from '../db/full-state.js'
 import { acquireLock, releaseLock, transferLock, touchLock, getLock, listLocks } from '../db/locks.js'
-import { applyTemplateToShow, saveShowItemsToTemplate } from '../db/template-apply.js'
+import { applyTemplateToShow } from '../db/template-apply-to-show.js'
+import { saveShowItemsToTemplate } from '../db/template-save-from-show.js'
 import { readChannels, writeChannels, getChecks } from '../db/channels.js'
 import { listShows, listArchivedShows, requireShow, writeShow, createShow, archiveShow, restoreShow, deleteShow } from '../db/shows.js'
 
@@ -38,18 +39,18 @@ export async function showRoutes(req, res, pathname, params) {
   const { method } = req
   let m
 
-  if (method === 'GET' && SHOW_LIST.test(pathname)) {
+  if (isRoute(method, pathname, 'GET', SHOW_LIST)) {
     const shows = listShows()
     const locks = listLocks()
     return json(res, 200, shows.map(({ id: _id, ...s }) => ({ id: s.slug, ...s, lock: locks.get(_id) ?? null })))
   }
 
-  if (method === 'GET' && SHOW_ARCHIVED.test(pathname)) {
+  if (isRoute(method, pathname, 'GET', SHOW_ARCHIVED)) {
     const shows = listArchivedShows()
     return json(res, 200, shows.map(({ id: _id, ...s }) => ({ id: s.slug, ...s })))
   }
 
-  if (method === 'POST' && SHOW_LIST.test(pathname)) {
+  if (isRoute(method, pathname, 'POST', SHOW_LIST)) {
     const body = await readJsonBody(req, res); if (body === null) return
     const { id, name, datum, template, spielzeit, channels, use_bars, use_towers, importSections } = body
     if (!id || !/^[a-z0-9_-]+$/i.test(id)) return json(res, 400, { error: 'Ungültige ID' })

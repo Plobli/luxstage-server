@@ -5,7 +5,7 @@ import { cleanupDataPath } from './helpers/test-env.js'
 const { writeTemplate } = await import('../db/templates.js')
 const { writeTemplateBar } = await import('../db/template-bars.js')
 const { createShow, readShow } = await import('../db/shows.js')
-const { applyTemplateToAllShows } = await import('../db/template-apply.js')
+const { applyTemplateToAllShows } = await import('../db/template-apply-to-show.js')
 
 test('applyTemplateToAllShows übernimmt neue Template-Bars in alle Shows mit diesem Template', async () => {
   writeTemplate('tpl-apply-all', [])
