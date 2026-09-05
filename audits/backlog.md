@@ -9,6 +9,8 @@ Format pro Eintrag: Titel, Quelle (welcher Audit/Review), Importance (1-10,
 subjektiv — dient nur der Priorisierung untereinander, kein absoluter Wert),
 Status, Beschreibung, Remediation.
 
+Nach der Abarbeitung eines jeden offenen Punktes einen commit machen.
+
 ---
 
 ## Offen
@@ -183,29 +185,6 @@ Status, Beschreibung, Remediation.
 - **Remediation**: nach `shared/color.js` verschieben (`hexToRgb`/
   `relativeLuminance`).
 
-### Auth-Pfad hat keine Testabdeckung
-- **Quelle**: testing-implementation-audit-2026-09-03 (Finding 1.2, 10/10)
-- **Importance**: 7/10 (sicherheitsrelevant, verifiziert: keine
-  `server/test/auth*.test.js` vorhanden, Stand 2026-09-05)
-- **Status**: offen
-- `server/auth.js`/`server/routes/auth.js` — Login, JWT-Verifikation,
-  Rate-Limiting, Passwort-Reset-Token-Lifecycle — ohne jeden Test.
-- **Remediation**: `server/test/auth.test.js` mit Login-Erfolg/-Fehlschlag,
-  Rate-Limit-Trip beim 11. Versuch, Token-Einlösung.
-
-### System-Backup/Restore (`server/backup.js`) hat keine Tests
-- **Quelle**: testing-implementation-audit-2026-09-03 (Finding 1.3, 8/10)
-- **Importance**: 6/10 (sicherheitsrelevant wegen Secret-Scrubbing vor Export)
-- **Status**: offen — verifiziert: kein `server/test/backup.test.js` vorhanden
-- Der beinahe identische mandantenspezifische Mechanismus
-  (`tenant-backup.js`) ist bereits gut getestet (inkl. simuliertem
-  Fehler/Rollback) — das Muster existiert also, wurde aber nicht auf den
-  Haupt-Backup-Pfad übertragen. Ein ungetesteter Scrubbing-Schritt ist ein
-  stilles Regressionsrisiko für eine zuvor reale Credential-Leak-Lücke.
-- **Remediation**: `tenant-backup.test.js`-Muster spiegeln — prüfen, dass
-  `smtp.pass`/`password_resets` im exportierten Archiv fehlen und
-  gleichzeitige Restore-Versuche abgelehnt werden.
-
 ### Frontend-Concurrency-Composables ungetestet (`useLockAwareCall`, `useShowLock`, `useTokenRefresh`)
 - **Quelle**: testing-implementation-audit-2026-09-03 (Finding 4.3, 7/10)
 - **Importance**: 5/10
@@ -242,6 +221,24 @@ Status, Beschreibung, Remediation.
 ---
 
 ## Erledigt
+
+### Auth-Pfad hat keine Testabdeckung
+- **Quelle**: testing-implementation-audit-2026-09-03 (Finding 1.2, 10/10)
+- **Erledigt**: bereits vor diesem Audit-Zyklus, Commit `161d7d2` — verifiziert
+  2026-09-05: `server/test/auth.test.js` deckt Login-Erfolg/-Fehlschlag,
+  Enumeration-Schutz, pending-Konto, Rate-Limit (11. Versuch, pro IP getrennt),
+  forgot-password und reset-password/confirm ab.
+- Wurde vom Recherche-Review fälschlich als offen gemeldet; gegen aktuellen
+  Code verifiziert und korrigiert.
+
+### System-Backup/Restore (`server/backup.js`) hat keine Tests
+- **Quelle**: testing-implementation-audit-2026-09-03 (Finding 1.3, 8/10)
+- **Erledigt**: bereits vor diesem Audit-Zyklus, Commit `161d7d2` — verifiziert
+  2026-09-05: `server/test/backup.test.js` prüft, dass `smtp.pass` und
+  `password_resets` im exportierten Archiv fehlen, sowie 409 bei
+  gleichzeitigem Restore-Versuch.
+- Wurde vom Recherche-Review fälschlich als offen gemeldet; gegen aktuellen
+  Code verifiziert und korrigiert.
 
 ### Drei Frontend-God-Components auflösen (FloorplanEditor/ShowDetailView/NetworkView)
 - **Quelle**: 2026-09-05-software-design-analysis.md (Ursprungs-Audit),
