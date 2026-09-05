@@ -38,24 +38,24 @@ Nach der Abarbeitung eines jeden offenen Punktes einen commit machen.
 ### Drei-Datei-Kosten für eine neue gesperrte Route
 - **Quelle**: 2026-09-05-software-design-analysis.md, §5
 - **Importance**: 2/10 (Wartungsaufwand, kein Bug)
-- **Status**: offen
+- **Status**: offen — geprüft 2026-09-05, bewusst nicht umgesetzt
 - Eine neue Ressource mit Schreib-Lock erfordert Änderungen in `router.js`
   (`SHOW_WRITE_PATH`/`NETWORK_WRITE_PATH`/`TEMPLATE_WRITE_PATH`),
   `route-table.js` UND der jeweiligen `routes/*.js` — drei Stellen für eine
   Konzept-Ergänzung.
+- **Grund für Zurückstellung**: `router.js`s Lock-Gate ist der zentrale
+  Schreibschutz-Mechanismus (verhindert stilles gegenseitiges Überschreiben
+  zwischen Nutzern) mit mehreren sorgfältig kommentierten Exempt-Regeln
+  (`LOCK_CHECK_EXEMPT`, `NETWORK_LOCK_EXEMPT`, `TEMPLATE_LOCK_EXEMPT`). Eine
+  Vereinheitlichung wäre ein grundlegender Umbau dieses sicherheitsrelevanten
+  Gates, kein mechanisches Aufräumen — der Quell-Audit selbst spezifiziert
+  keine konkrete Remediation. Risiko einer Lock-Umgehung durch einen Fehler
+  hier wiegt schwerer als der Wartungsnutzen (2/10). Bewusst nicht in dieser
+  Session angegangen.
 - **Remediation**: nicht spezifiziert im Quell-Audit; würde eine
   Vereinheitlichung der Lock-Pfad-Erkennung erfordern (z.B. Lock-Flag direkt
-  in der Route-Table-Zeile statt in separaten Konstanten in `router.js`).
-
-### `provide`/`inject` in ShowDetailView.vue ist implizite Kopplung
-- **Quelle**: 2026-09-05-software-design-analysis.md, §2
-- **Importance**: 2/10 (Lesbarkeit, keine Korrektheitsfrage)
-- **Status**: offen
-- `ShowDetailView.vue` stellt `showTowers`/`showBars` per `provide()` für
-  `GassenturmView`/`ZugstangenView` bereit — dokumentiert, aber ein Leser von
-  `GassenturmView.vue` allein sieht nicht, woher `showTowers` kommt.
-- **Remediation**: keine zwingend nötig; falls gewünscht, Kommentar-Verweis
-  in `GassenturmView.vue` auf die `provide()`-Stelle ergänzen.
+  in der Route-Table-Zeile statt in separaten Konstanten in `router.js`) —
+  falls angegangen, mit vollständiger Testabdeckung aller Exempt-Pfade zuerst.
 
 ### Synchrones `better-sqlite3` blockiert den Event-Loop
 - **Quelle**: 2026-09-05-software-design-analysis.md (Ursprungs-Audit vom
@@ -94,6 +94,16 @@ Nach der Abarbeitung eines jeden offenen Punktes einen commit machen.
 ---
 
 ## Erledigt
+
+### `provide`/`inject` in ShowDetailView.vue ist implizite Kopplung
+- **Quelle**: 2026-09-05-software-design-analysis.md, §2
+- **Erledigt**: 2026-09-05
+- `ShowDetailView.vue` stellt `showTowers`/`showBars` per `provide()` für
+  `GassenturmView`/`ZugstangenView` bereit — dokumentiert, aber ein Leser von
+  `GassenturmView.vue` allein sah nicht, woher `showTowers` kommt.
+- **Remediation**: Kommentar in `GassenturmView.vue`/`ZugstangenView.vue` um
+  den expliziten Verweis `ShowDetailView.vue (provide('showTowers'/'showBars', ...))`
+  ergänzt.
 
 ### Kein Adapter/Seam für externe SDKs (Anthropic, nodemailer)
 - **Quelle**: design-patterns-audit-2026-09-01/03 (P-14), solid-principles-audit

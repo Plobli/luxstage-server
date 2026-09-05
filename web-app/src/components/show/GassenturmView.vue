@@ -373,10 +373,11 @@ const props = defineProps({
 
 const emit = defineEmits(['assigned'])
 
-// CRUD kommt aus ShowDetailView.vue per provide/inject statt als einzelne
-// Function-Props — das teilt eine Instanz von useShowTowers() (dieselben
-// towers/loading-Refs wie z.B. die generierte Beleuchtungsgestelle-Übersicht
-// in ShowDetailView.vue) statt sie hier ein zweites Mal zu erzeugen.
+// CRUD kommt aus ShowDetailView.vue (provide('showTowers', ...)) per
+// provide/inject statt als einzelne Function-Props — das teilt eine Instanz
+// von useShowTowers() (dieselben towers/loading-Refs wie z.B. die generierte
+// Beleuchtungsgestelle-Übersicht in ShowDetailView.vue) statt sie hier ein
+// zweites Mal zu erzeugen.
 const { addTower, saveTower, removeTower, assignSlot } = inject('showTowers')
 
 

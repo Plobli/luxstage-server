@@ -368,10 +368,11 @@ const props = defineProps({
 
 const emit = defineEmits(['assigned', 'navigate-to-channel', 'reordered'])
 
-// CRUD kommt aus ShowDetailView.vue per provide/inject statt als einzelne
-// Function-Props — das teilt eine Instanz von useShowBars() (dieselben
-// bars/loading-Refs wie z.B. die generierte Obermaschinerie-Übersicht in
-// ShowDetailView.vue) statt sie hier ein zweites Mal zu erzeugen.
+// CRUD kommt aus ShowDetailView.vue (provide('showBars', ...)) per
+// provide/inject statt als einzelne Function-Props — das teilt eine Instanz
+// von useShowBars() (dieselben bars/loading-Refs wie z.B. die generierte
+// Obermaschinerie-Übersicht in ShowDetailView.vue) statt sie hier ein
+// zweites Mal zu erzeugen.
 const { addBar, saveBar, removeBar, assignFixture, updateFixtureNotes, unassignFixture, reorderBars } = inject('showBars')
 
 // Typ (Zugstange / Traverse / Punktzug)
