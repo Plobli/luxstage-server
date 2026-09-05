@@ -74,8 +74,8 @@
           hideEosInactive: t('channel.hide_eos_inactive'),
           lockedBy: lock?.user ? t('lock.lockedBy', { user: lock.user }) : '',
         }"
-        @undo="undo().catch(() => { channelsSaveError = t('error.save_failed') })"
-        @redo="redo().catch(() => { channelsSaveError = t('error.save_failed') })"
+        @undo="runUndo()"
+        @redo="runRedo()"
         @filterDup="dupFilter = $event"
         @healthFilter="onHealthFilter($event)"
         @requestTakeover="showLock.requestTakeover()"
@@ -553,7 +553,7 @@ const {
   scheduleChannelsSave, persistChannels, deleteChannel, clearChannel, flushChannelsSave,
   onCsvImportSelected, onCircuitScanFileSelected, circuitScanUploading, circuitScanStatus, circuitScanPreview, resolveCircuitScanPreview, onEosFileSelected, resolveEosMergePreview,
   channelStatus, toggleChannelStatus,
-  undo, redo, canUndo, canRedo, onUndoRedoKeydown,
+  undo, redo, canUndo, canRedo,
   loadChannels,
 } = useShowChannels({
   showId: props.id,
@@ -564,6 +564,50 @@ const {
   onLockConflict,
   onAfterUndoRedo: () => afterUndoRedoImpl?.(),
 })
+
+// Kanal-/Setup-/Section-Änderungen werden debounced gespeichert (siehe
+// scheduleChannelsSave/persistSectionsDebounced/persistSetupDebounced). Ein
+// Undo/Redo direkt nach so einer Änderung, aber noch vor Ablauf der Debounce-
+// Pause, lief sonst gegen den alten Serverstand — und wenn die verzögerte
+// Speicherung danach nachträglich feuerte, leerte sie über withUndoSnapshot
+// den Redo-Stack, den das Undo gerade erst gefüllt hatte (Redo schlug dann
+// mit 400 fehl, obwohl gerade erst ein Undo funktioniert hatte). Vor jedem
+// Undo/Redo müssen also alle ausstehenden Speicherungen zuerst durch.
+async function flushAllPendingSaves() {
+  if (setupDirty) await doPersistSetup()
+  await Promise.all([flushChannelsSave(), flushSectionsSave()])
+}
+
+async function runUndo() {
+  try {
+    await flushAllPendingSaves()
+    await undo()
+  } catch {
+    channelsSaveError.value = t('error.save_failed')
+  }
+}
+
+async function runRedo() {
+  try {
+    await flushAllPendingSaves()
+    await redo()
+  } catch {
+    channelsSaveError.value = t('error.save_failed')
+  }
+}
+
+function onUndoRedoKeydownFlushed(e) {
+  const isMac = navigator.userAgentData?.platform === 'macOS' || /Mac/.test(navigator.userAgent)
+  const mod = isMac ? e.metaKey : e.ctrlKey
+  if (!mod) return
+  if (!e.shiftKey && e.key === 'z') {
+    e.preventDefault()
+    runUndo()
+  } else if ((e.shiftKey && (e.key === 'z' || e.key === 'Z')) || (!isMac && e.key === 'y')) {
+    e.preventDefault()
+    runRedo()
+  }
+}
 
 const { loadTowers, addTower, saveTower, removeTower, assignSlot } = useShowTowers(props.id, channels, towers, onLockConflict, loadChannels)
 const { bars, loadBars, addBar, saveBar, removeBar, assignFixture, updateFixtureNotes, unassignFixture, reorderBars } = useShowBars(props.id, channels, onLockConflict, loadChannels)
@@ -889,11 +933,11 @@ onMounted(async () => {
   import('../components/FloorplanEditor.vue').catch(() => {})
 
   await nextTick()
-  window.addEventListener('keydown', onUndoRedoKeydown)
+  window.addEventListener('keydown', onUndoRedoKeydownFlushed)
 })
 
 onBeforeUnmount(() => {
-  window.removeEventListener('keydown', onUndoRedoKeydown)
+  window.removeEventListener('keydown', onUndoRedoKeydownFlushed)
   cleanupLockEvents()
   showLock.releaseOnClose()
   clearInterval(snapshotInterval)

@@ -60,16 +60,21 @@ export function useServerUndoRedo({ undo: undoCall, redo: redoCall, onLockConfli
   const canUndo = ref(true)
   const canRedo = ref(false)
 
-  async function run(call: () => Promise<unknown>, exhausted: Ref<boolean>): Promise<boolean> {
+  // `own` ist die Richtung des gerade aufgerufenen Endpunkts, `opposite` die
+  // Gegenrichtung. Ein Erfolg öffnet immer die Gegenrichtung (ein Undo legt
+  // etwas auf den Redo-Stack, ein Redo etwas auf den Undo-Stack) — die eigene
+  // Richtung bleibt dagegen unbekannt (der Stack könnte jetzt leer sein) und
+  // wird daher NICHT hier auf true gesetzt, sondern optimistisch offen
+  // gelassen und erst bei einem tatsächlichen 400 wieder geschlossen.
+  async function run(call: () => Promise<unknown>, own: Ref<boolean>, opposite: Ref<boolean>): Promise<boolean> {
     try {
       await call()
     } catch (e) {
-      if (e instanceof ApiError && e.status === 400) { exhausted.value = false; return false }
+      if (e instanceof ApiError && e.status === 400) { own.value = false; return false }
       if (e instanceof ApiError && e.status === 423) { onLockConflict?.(e.body); return false }
       throw e
     }
-    canUndo.value = true
-    canRedo.value = true
+    opposite.value = true
     // Getrennt vom obigen try/catch: der Undo/Redo-Call selbst ist bereits
     // durch — ein Fehler beim Nachladen darf nicht als fehlgeschlagenes
     // Undo/Redo interpretiert werden (siehe onAfterError-Doku oben).
@@ -81,8 +86,8 @@ export function useServerUndoRedo({ undo: undoCall, redo: redoCall, onLockConfli
     return true
   }
 
-  const undo = () => run(undoCall, canUndo)
-  const redo = () => run(redoCall, canRedo)
+  const undo = () => run(undoCall, canUndo, canRedo)
+  const redo = () => run(redoCall, canRedo, canUndo)
 
   function markSaved(): void {
     canUndo.value = true

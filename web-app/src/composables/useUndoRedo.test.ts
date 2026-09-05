@@ -54,6 +54,22 @@ describe('useServerUndoRedo', () => {
     expect(onAfter).toHaveBeenCalledTimes(1)
   })
 
+  test('ein erfolgreiches Redo setzt canRedo nicht fälschlich wieder auf true (Bug: Redo klemmte nach einem Klick)', async () => {
+    let redoStackEmpty = false
+    const redo = async () => {
+      if (redoStackEmpty) throw new ApiError('HTTP 400', 400, {})
+      redoStackEmpty = true // Server-Stack hat nach diesem Redo genau einen Eintrag verbraucht
+    }
+    const s = useServerUndoRedo({ undo: ok, redo })
+    await s.undo()
+    expect(s.canRedo.value).toBe(true)
+    expect(await s.redo()).toBe(true)
+    // Der Redo-Stack ist jetzt server-seitig leer — ein zweites Redo muss das
+    // auch tatsächlich per 400 melden, statt dass canRedo optimistisch offen bleibt.
+    expect(await s.redo()).toBe(false)
+    expect(s.canRedo.value).toBe(false)
+  })
+
   test('markSaved öffnet Undo und schließt Redo', async () => {
     const s = useServerUndoRedo({ undo: ok, redo: ok })
     await s.undo()

@@ -52,6 +52,10 @@ DEV-SERVER.md
 # Laufzeit-Daten
 data/
 
+# Audits
+audits/
+audits_old/
+
 # In-App-Updater: temporäre Backup-/Testdateien (siehe server/routes/update.js)
 tmp-release.zip
 .update-backup/

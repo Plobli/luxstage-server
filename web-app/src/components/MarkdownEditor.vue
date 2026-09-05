@@ -130,7 +130,7 @@ watch(() => props.modelValue, (val) => {
   if (!editor.value || editor.value.isFocused) return
   const current = JSON.stringify(editor.value.getJSON())
   if (val === current) return
-  editor.value.commands.setContent(parseContent(val), false)
+  editor.value.commands.setContent(parseContent(val), { emitUpdate: false })
 }, { flush: 'post' })
 
 onBeforeUnmount(() => editor.value?.destroy())
