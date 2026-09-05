@@ -1,6 +1,7 @@
 import fs from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
+import { contrastColor } from '../../shared/color.js'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const filtersData = JSON.parse(fs.readFileSync(join(__dirname, '../../shared/filters.json'), 'utf8'))
@@ -28,10 +29,7 @@ export function leeHex(input) {
   return null
 }
 
-export function contrastColor(hex) {
-  const r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16)
-  return (0.299*r + 0.587*g + 0.114*b)/255 > 0.5 ? '#000000' : '#ffffff'
-}
+export { contrastColor }
 
 // LEE-Farbfilter-Kurznotation für den Text-Renderpfad (Hängerei/Gassenturm-Listen).
 export function fmtLeeColorLabel(color) {

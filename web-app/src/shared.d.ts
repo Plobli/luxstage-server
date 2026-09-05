@@ -10,3 +10,7 @@ declare module '@shared/constants.js' {
   export function maxConnectionsForType(type: string): number
   export const PDF_PRINT_AREA_RATIO: number
 }
+
+declare module '@shared/color.js' {
+  export function contrastColor(hex: string): string
+}

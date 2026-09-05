@@ -94,21 +94,24 @@ Nach der Abarbeitung eines jeden offenen Punktes einen commit machen.
 - **Remediation**: optionaler `client = defaultClient()`-Parameter als
   Injection-Punkt, kein DI-Container nötig.
 
-### Zwei Implementierungen der Hex→RGB/Luminanz-Farbkonvertierung (Server vs. Frontend)
-- **Quelle**: readability-naming-audit-2026-09-03 (Finding 10)
-- **Importance**: 2/10
-- **Status**: offen — vor Umsetzung erst prüfen, ob `pdf/filter-colors.js` und
-  `utils/filterColors.ts` tatsächlich 1:1 identisch sind (Audit konnte das
-  nicht abschließend verifizieren)
-- Gleicher Algorithmus einmal serverseitig, einmal clientseitig — trotz
-  `shared/`, das genau das verhindern soll. Kein jscpd-Treffer, da
-  sprachübergreifend (.js vs. .ts) mit abweichender Formatierung.
-- **Remediation**: nach `shared/color.js` verschieben (`hexToRgb`/
-  `relativeLuminance`).
-
 ---
 
 ## Erledigt
+
+### Zwei Implementierungen der Hex→RGB/Luminanz-Farbkonvertierung (Server vs. Frontend)
+- **Quelle**: readability-naming-audit-2026-09-03 (Finding 10)
+- **Erledigt**: 2026-09-05
+- Geprüft: die beiden `contrastColor()`-Implementierungen waren NICHT
+  identisch — Server nutzte Rec.601-Luminanz (0.299/0.587/0.114), Frontend
+  Rec.709 (0.2126/0.7152/0.0722). Das war kein reiner Stil-Unterschied,
+  sondern konnte bei Grenzfarben zu unterschiedlicher Textfarbe (schwarz/
+  weiß) für dieselbe Filterfarbe zwischen PDF und UI führen.
+- **Remediation**: `shared/color.js` mit `contrastColor(hex)` (Rec.709,
+  Frontend-Formel übernommen) angelegt. `server/pdf/filter-colors.js`
+  re-exportiert von dort (Re-Export nötig, da `towers.js` es weiterhin von
+  dort importiert). `web-app/src/utils/filterColors.ts` importiert
+  `@shared/color.js`, eigene lokale Implementierung entfernt, Typdeklaration
+  in `shared.d.ts` ergänzt. Test in `server/test/shared-color.test.js`.
 
 ### Positionale Parameter mit Vertauschungsrisiko (Bar-Fixtures, PDF-Rendering) — teilweise
 - **Quelle**: readability-naming-audit-2026-09-03 (Findings 1-3)

@@ -1,4 +1,5 @@
 import filters from '../../../shared/filters.json'
+import { contrastColor } from '@shared/color.js'
 
 interface FilterEntry {
   code: string;
@@ -58,14 +59,6 @@ export function filterBadgeStyle(input: string | null | undefined): { background
   const hex = filterColorHex(input)
   if (!hex) return null
   return { backgroundColor: hex, color: contrastColor(hex) }
-}
-
-function contrastColor(hex: string): string {
-  const r = parseInt(hex.slice(1, 3), 16)
-  const g = parseInt(hex.slice(3, 5), 16)
-  const b = parseInt(hex.slice(5, 7), 16)
-  const l = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255
-  return l > 0.5 ? '#000000' : '#ffffff'
 }
 
 /**
