@@ -83,17 +83,6 @@ Nach der Abarbeitung eines jeden offenen Punktes einen commit machen.
   kein Bug; "no framework, minimal dependencies"-Philosophie ist im Projekt
   durchgängig sichtbar)
 
-### Mutation-Boilerplate in Routes ~16x wiederholt (readShow + 404 + withUndoSnapshot + broadcast)
-- **Quelle**: code-duplication-audit-2026-09-03 (F1)
-- **Importance**: 3/10
-- **Status**: offen
-- `routes/bars.js`, `routes/towers.js`, `routes/sections.js`, `routes/channels.js`
-  wiederholen dieselbe Kombination aus Show-Lookup, 404-Guard, Undo-Snapshot-
-  Wrapping und Broadcast. Nicht durch `max-lines`/jscpd erkennbar, da jede
-  Instanz kurz und in unterschiedlichen Funktionen eingebettet ist.
-- **Remediation**: `withShowMutation(req, res, slug, eventName, mutate)`-Helper
-  in `server/helpers.js`.
-
 ### Kein Adapter/Seam für externe SDKs (Anthropic, nodemailer)
 - **Quelle**: design-patterns-audit-2026-09-01/03 (P-14), solid-principles-audit
   (S-07) — im 09-03-Re-Audit explizit als "unverändert offen" bestätigt
@@ -135,6 +124,26 @@ Nach der Abarbeitung eines jeden offenen Punktes einen commit machen.
 ---
 
 ## Erledigt
+
+### Mutation-Boilerplate in Routes ~16x wiederholt (readShow + 404 + withUndoSnapshot + broadcast)
+- **Quelle**: code-duplication-audit-2026-09-03 (F1)
+- **Erledigt**: 2026-09-05
+- `routes/bars.js`, `routes/towers.js`, `routes/sections.js`, `routes/channels.js`
+  wiederholten dieselbe Kombination aus Show-Lookup, 404-Guard, Undo-Snapshot-
+  Wrapping und Broadcast.
+- **Remediation**: `withShowMutation(req, res, slug, eventName, mutate, opts)`
+  in `server/helpers.js` — `opts.status`/`opts.responseBody`/
+  `opts.broadcastPayload` decken die abweichenden Response-Bodies
+  (`{ ok: true }` vs. `{ id }` vs. `{ ok: true, id }`) und Broadcast-Payloads
+  (`{ updatedBy }` bei sections/channels) ab, ohne die Aufrufer zu verbiegen.
+  `db/undo-stack.js`s `withSnapshot()` reicht jetzt den Rückgabewert von
+  `mutate()` durch (vorher verworfen) — einziger Verhaltensunterschied, von
+  keinem bestehenden Aufrufer genutzt. `routes/sections.js`s zweiter Zweig
+  (`SHOW_SECTION_DEFS`, nutzt `requireAuth` statt `req.user` direkt) bewusst
+  nicht umgestellt, um dessen abweichenden Auth-Pfad nicht anzufassen. Neuer
+  Test `server/test/bars-towers-routes.test.js` (6 Fälle) plus bestehende
+  `undo-redo-integrity.test.js` (deckt den umgebauten `channels.js`-Zweig ab)
+  grün.
 
 ### `server/routes/templates.js` ist ein Breadth-God-Modul
 - **Quelle**: 2026-09-05-software-design-analysis.md, Finding 4a

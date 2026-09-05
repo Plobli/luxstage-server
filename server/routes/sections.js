@@ -1,7 +1,7 @@
 import { readShowSectionDefs, readShowSections, writeShowSectionDefs, writeShowSections } from '../db/sections.js'
 import { requireShow } from '../db/shows.js'
 import { requireAuth } from '../auth.js'
-import { readJsonBody, json } from '../helpers.js'
+import { readJsonBody, json, withShowMutation } from '../helpers.js'
 import { broadcast } from '../sse.js'
 import { withUndoSnapshot } from '../db/operations.js'
 
@@ -19,18 +19,14 @@ export async function sectionRoutes(req, res, pathname) {
       return json(res, 200, [...map.entries()].map(([id, content]) => ({ id, content })))
     }
     if (method === 'PUT') {
-      const user = req.user
       const sections = await readJsonBody(req, res); if (sections === null) return
 
-      const show = requireShow(slug, res)
-      if (!show) return
-
       const map = new Map(sections.map(s => [s.id, s.content]))
-      withUndoSnapshot(slug, show.id, user.username, () => {
-        writeShowSections(slug, map, user.username)
+      return withShowMutation(req, res, slug, 'sections-updated', () => {
+        writeShowSections(slug, map, req.user.username)
+      }, {
+        broadcastPayload: user => ({ updatedBy: user.username }),
       })
-      broadcast(slug, 'sections-updated', { updatedBy: user.username })
-      return json(res, 200, { ok: true })
     }
   }
 

@@ -85,13 +85,15 @@ export function makeUndoStack({ opTable, redoTable, scopeColumn, readState, hash
   // nie eine Historie ohne zugehörige Datenänderung hinterlässt (und umgekehrt).
   // stateKey: was readState() braucht (Show-Slug bzw. nichts beim Netzwerk).
   function withSnapshot(scopeId, stateKey, username, mutate) {
+    let result
     const tx = getDb().transaction(() => {
       const stateBefore = readState(stateKey)
-      mutate()
+      result = mutate()
       record(scopeId, username, stateBefore)
       clearRedo(scopeId)
     })
     tx()
+    return result
   }
 
   return { record, getLast, deleteEntry, pushRedo, popRedo, clearRedo, withSnapshot }

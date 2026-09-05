@@ -1,10 +1,8 @@
 import fs from 'node:fs'
 import { clearChecks, getChecks, getColorUsage, readChannels, setCheck, writeChannels } from '../db/channels.js'
-import { requireShow } from '../db/shows.js'
 import * as photosLib from '../photos.js'
-import { readJsonBody, json, uploadErrorStatus, isRoute } from '../helpers.js'
+import { readJsonBody, json, uploadErrorStatus, isRoute, withShowMutation } from '../helpers.js'
 import { broadcast } from '../sse.js'
-import { withUndoSnapshot } from '../db/operations.js'
 import { requireAuth } from '../auth.js'
 import { analyzeCircuitScan } from '../circuit-scan.js'
 
@@ -31,18 +29,14 @@ export async function channelRoutes(req, res, pathname) {
       return json(res, 200, channels)
     }
     if (method === 'PUT') {
-      const user = req.user
       const channels = await readJsonBody(req, res); if (channels === null) return
       if (!Array.isArray(channels)) return json(res, 400, { error: 'channels muss ein Array sein' })
 
-      const show = requireShow(slug, res)
-      if (!show) return
-
-      withUndoSnapshot(slug, show.id, user.username, () => {
-        writeChannels(slug, channels, user.username)
+      return withShowMutation(req, res, slug, 'channels-updated', () => {
+        writeChannels(slug, channels, req.user.username)
+      }, {
+        broadcastPayload: user => ({ updatedBy: user.username }),
       })
-      broadcast(slug, 'channels-updated', { updatedBy: user.username })
-      return json(res, 200, { ok: true })
     }
   }
 

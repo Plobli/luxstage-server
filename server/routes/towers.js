@@ -1,8 +1,5 @@
-import { requireShow } from '../db/shows.js'
 import { clearTowerSlot, deleteTower, ensureTowerSlots, readTowers, restoreTowers, writeTower, writeTowerSlot } from '../db/towers.js'
-import { readJsonBody, json } from '../helpers.js'
-import { broadcast } from '../sse.js'
-import { withUndoSnapshot } from '../db/operations.js'
+import { readJsonBody, json, withShowMutation } from '../helpers.js'
 
 const SHOW_TOWERS         = /^\/api\/shows\/([^/]+)\/towers$/
 const SHOW_TOWERS_RESTORE = /^\/api\/shows\/([^/]+)\/towers\/restore$/
@@ -16,16 +13,10 @@ export async function towerRoutes(req, res, pathname) {
   if (m = SHOW_TOWERS_RESTORE.exec(pathname)) {
     const slug = m[1]
     if (method === 'PUT') {
-      const user = req.user
       const body = await readJsonBody(req, res); if (body === null) return
-      const show = requireShow(slug, res)
-      if (!show) return
-
-      withUndoSnapshot(slug, show.id, user.username, () => {
+      return withShowMutation(req, res, slug, 'towers-updated', () => {
         restoreTowers(slug, body.towers ?? [])
       })
-      broadcast(slug, 'towers-updated', {})
-      return json(res, 200, { ok: true })
     }
   }
 
@@ -37,18 +28,15 @@ export async function towerRoutes(req, res, pathname) {
       return json(res, 200, readTowers(slug))
     }
     if (method === 'POST') {
-      const user = req.user
       const body = await readJsonBody(req, res); if (body === null) return
-      const show = requireShow(slug, res)
-      if (!show) return
-
-      let towerId
-      withUndoSnapshot(slug, show.id, user.username, () => {
-        towerId = writeTower(slug, body)
+      return withShowMutation(req, res, slug, 'towers-updated', () => {
+        const towerId = writeTower(slug, body)
         ensureTowerSlots(towerId, body.slot_count ?? 4)
+        return towerId
+      }, {
+        status: 201,
+        responseBody: towerId => ({ id: towerId }),
       })
-      broadcast(slug, 'towers-updated', {})
-      return json(res, 201, { id: towerId })
     }
   }
 
@@ -56,28 +44,16 @@ export async function towerRoutes(req, res, pathname) {
     const slug = m[1]
     const towerId = m[2]
     if (method === 'PUT') {
-      const user = req.user
       const body = await readJsonBody(req, res); if (body === null) return
-      const show = requireShow(slug, res)
-      if (!show) return
-
-      withUndoSnapshot(slug, show.id, user.username, () => {
+      return withShowMutation(req, res, slug, 'towers-updated', () => {
         writeTower(slug, { ...body, id: towerId })
         if (body.slot_count != null) ensureTowerSlots(towerId, body.slot_count)
       })
-      broadcast(slug, 'towers-updated', {})
-      return json(res, 200, { ok: true })
     }
     if (method === 'DELETE') {
-      const user = req.user
-      const show = requireShow(slug, res)
-      if (!show) return
-
-      withUndoSnapshot(slug, show.id, user.username, () => {
+      return withShowMutation(req, res, slug, 'towers-updated', (show) => {
         deleteTower(show.id, towerId)
       })
-      broadcast(slug, 'towers-updated', {})
-      return json(res, 200, { ok: true })
     }
   }
 
@@ -86,21 +62,15 @@ export async function towerRoutes(req, res, pathname) {
     const towerId = m[2]
     const slotIndex = parseInt(m[3])
     if (method === 'PATCH') {
-      const user = req.user
       const body = await readJsonBody(req, res); if (body === null) return
       const { channelId } = body
-      const show = requireShow(slug, res)
-      if (!show) return
-
-      withUndoSnapshot(slug, show.id, user.username, () => {
+      return withShowMutation(req, res, slug, 'towers-updated', (show) => {
         if (channelId) {
           writeTowerSlot(show.id, towerId, slotIndex, channelId)
         } else {
           clearTowerSlot(show.id, towerId, slotIndex)
         }
       })
-      broadcast(slug, 'towers-updated', {})
-      return json(res, 200, { ok: true })
     }
   }
 
