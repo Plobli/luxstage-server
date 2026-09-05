@@ -94,21 +94,6 @@ Nach der Abarbeitung eines jeden offenen Punktes einen commit machen.
 - **Remediation**: optionaler `client = defaultClient()`-Parameter als
   Injection-Punkt, kein DI-Container nötig.
 
-### Positionale Parameter mit Vertauschungsrisiko (Bar-Fixtures, PDF-Rendering)
-- **Quelle**: readability-naming-audit-2026-09-03 (Findings 1-3)
-- **Importance**: 3/10
-- **Status**: offen
-- `writeBarFixture(barId, channelId, position, notes, fixtureId, side, positionText)`
-  — `notes`/`positionText` sind beides Freitext-Strings mit gleichem Default;
-  eine vertauschte Reihenfolge kompiliert, produziert aber einen
-  Daten-Korruptions-Bug ohne Typ-/Test-Schutz. Vier PDF-Render-Funktionen
-  (`renderHangereiBars`, `drawBarRows`, `drawTowerCards`,
-  `renderGassenturmText`) teilen 7-8 positionale Parameter in gleicher
-  Reihenfolge; `drawRow(doc, y, usableW, cols, isHeader, minRowH)` hat einen
-  bare-boolean-Parameter (Boolean-Trap) an 6 Call-Sites.
-- **Remediation**: auf Options-Objekte umstellen; für `drawRow` einen
-  benannten `drawHeaderRow`-Wrapper ergänzen.
-
 ### Zwei Implementierungen der Hex→RGB/Luminanz-Farbkonvertierung (Server vs. Frontend)
 - **Quelle**: readability-naming-audit-2026-09-03 (Finding 10)
 - **Importance**: 2/10
@@ -124,6 +109,24 @@ Nach der Abarbeitung eines jeden offenen Punktes einen commit machen.
 ---
 
 ## Erledigt
+
+### Positionale Parameter mit Vertauschungsrisiko (Bar-Fixtures, PDF-Rendering) — teilweise
+- **Quelle**: readability-naming-audit-2026-09-03 (Findings 1-3)
+- **Status**: 2026-09-05 geprüft — Hauptrisiko bereits behoben, Rest verworfen.
+- `writeBarFixture` nutzt bereits ein Options-Objekt für `position`/`notes`/
+  `fixtureId`/`side`/`positionText` (das eigentliche Vertauschungsrisiko:
+  `notes`/`positionText` sind beide gleich typisierte Freitext-Strings).
+  `drawRow(doc, y, usableW, cols, { isHeader, minRowH })` ist ebenfalls
+  bereits Options-Objekt, inkl. dem vorgeschlagenen `drawHeaderRow`-Wrapper
+  (`server/pdf/layout-primitives.js:94`) — kein Boolean-Trap mehr vorhanden.
+- **Verworfen**: die vier verbleibenden PDF-Render-Funktionen
+  (`renderHangereiBars`, `drawBarRows`, `drawTowerCards`,
+  `renderGassenturmText`) haben weiterhin 7-8 positionale Parameter, aber
+  jede hat nur eine einzige Call-Site (`server/pdf.js`) und keine
+  Testabdeckung — reales Vertauschungsrisiko ist ohne wiederholte
+  Copy-Paste-Aufrufe gering, eine Umstellung hätte interne Helper wie
+  `drawPunktzugRow` mitbetroffen (wachsender Umfang) ohne Tests als
+  Sicherheitsnetz. Aufwand/Nutzen ungünstig, bewusst nicht umgesetzt.
 
 ### Mutation-Boilerplate in Routes ~16x wiederholt (readShow + 404 + withUndoSnapshot + broadcast)
 - **Quelle**: code-duplication-audit-2026-09-03 (F1)
