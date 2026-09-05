@@ -120,20 +120,6 @@ Nach der Abarbeitung eines jeden offenen Punktes einen commit machen.
 - **Remediation**: `withShowMutation(req, res, slug, eventName, mutate)`-Helper
   in `server/helpers.js`.
 
-### `withLockConflict`-Wrapper existiert, wird aber nicht überall verwendet
-- **Quelle**: code-duplication-audit-2026-09-03 (F5); Wrapper selbst seit
-  Commit `3fb36e3`
-- **Importance**: 3/10
-- **Status**: offen (teilweise erledigt)
-- `web-app/src/composables/withLockConflict.ts` existiert samt Test und wird
-  bereits in `useShowBars.ts`/`useShowTowers.ts` verwendet. `useShowChannels.ts`,
-  `useShowSections.ts` und `useShowLock.ts` haben aber weiterhin die rohe
-  `if (e instanceof ApiError && e.status === 423)`-Duplizierung (verifiziert
-  per Grep, Stand 2026-09-05).
-- **Remediation**: die drei verbleibenden Composables auf `withLockConflict`
-  umstellen, wo strukturell passend (in `useShowLock.ts` ggf. nicht 1:1
-  übertragbar, da dort der Lock-State selbst verwaltet wird — prüfen).
-
 ### Kein Adapter/Seam für externe SDKs (Anthropic, nodemailer)
 - **Quelle**: design-patterns-audit-2026-09-01/03 (P-14), solid-principles-audit
   (S-07) — im 09-03-Re-Audit explizit als "unverändert offen" bestätigt
@@ -290,6 +276,21 @@ Nach der Abarbeitung eines jeden offenen Punktes einen commit machen.
   fälschlich als offen gemeldet; gegen aktuellen Code verifiziert.
 
 ---
+
+### `withLockConflict`-Wrapper existiert, wird aber nicht überall verwendet
+- **Quelle**: code-duplication-audit-2026-09-03 (F5); Wrapper selbst seit
+  Commit `3fb36e3`
+- **Verworfen**: 2026-09-05 — geprüft und als bewusste Design-Entscheidung
+  bestätigt, keine Umsetzung nötig.
+- `useShowChannels.ts` (`doPersistChannels`, `persistEosChannels`) und
+  `useShowSections.ts` (`doPersistSections`, `persistSectionDefs`) laufen
+  fire-and-forget ohne `.catch()` am Aufrufort und behandeln einen
+  Nicht-423-Fehler daher lokal (Error-State setzen + loggen) statt ihn
+  weiterzuwerfen. `withLockConflict` wirft bei Nicht-423 aber weiter — eine
+  Umstellung würde dort unhandled promise rejections erzeugen. `useShowLock.ts`
+  verwaltet den Lock-Conflict als regulären Rückgabewert, ebenfalls
+  inkompatibel. Kommentar in `withLockConflict.ts` präzisiert, damit dies
+  nicht erneut als offener Punkt aufgegriffen wird.
 
 ## Verworfen
 
