@@ -26,15 +26,21 @@ export function mimeFromBuffer(buf) {
   return 'image/jpeg'
 }
 
-// knownChannels: [{ channel, address, device, position }] — aus der aktuellen
-// Show, dient Claude als Kontext/Anker beim Lesen der vorgedruckten Spalten.
-export async function analyzeCircuitScan(imageBuffer, knownChannels) {
-  const client = new Anthropic({
+// Injection-Punkt fürs Testen (Mock-Client statt echtem API-Call) und um einen
+// SDK-Breaking-Change nicht erst zur Laufzeit zu bemerken — kein DI-Container,
+// nur ein optionaler Parameter mit Default.
+export function defaultAnthropicClient() {
+  return new Anthropic({
     maxRetries: 2, // SDK-eigener Backoff bei 429/5xx — einziger externer Dienst im Repo ohne Fallback bei transientem Fehler
     ...(process.env.ANTHROPIC_WORKSPACE_ID
       ? { defaultHeaders: { 'anthropic-workspace-id': process.env.ANTHROPIC_WORKSPACE_ID } }
       : {}),
   })
+}
+
+// knownChannels: [{ channel, address, device, position }] — aus der aktuellen
+// Show, dient Claude als Kontext/Anker beim Lesen der vorgedruckten Spalten.
+export async function analyzeCircuitScan(imageBuffer, knownChannels, client = defaultAnthropicClient()) {
   const mediaType = mimeFromBuffer(imageBuffer)
   const imageData = imageBuffer.toString('base64')
 

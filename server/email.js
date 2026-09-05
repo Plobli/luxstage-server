@@ -35,9 +35,12 @@ export function isSmtpConfigured() {
   return !!getSmtpCfg()?.host
 }
 
-function createTransport(cfg) {
+// Injection-Punkt fürs Testen (Mock-Transport statt echtem SMTP-Verbindungsaufbau)
+// und um einen SDK-Breaking-Change nicht erst zur Laufzeit zu bemerken — kein
+// DI-Container, nur ein optionaler Parameter mit Default.
+export function createTransport(cfg, createFn = nodemailer.createTransport) {
   if (!cfg?.host) return null
-  return nodemailer.createTransport({
+  return createFn({
     host: cfg.host,
     port: cfg.port,
     secure: cfg.secure,

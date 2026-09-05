@@ -83,20 +83,22 @@ Nach der Abarbeitung eines jeden offenen Punktes einen commit machen.
   kein Bug; "no framework, minimal dependencies"-Philosophie ist im Projekt
   durchgängig sichtbar)
 
-### Kein Adapter/Seam für externe SDKs (Anthropic, nodemailer)
-- **Quelle**: design-patterns-audit-2026-09-01/03 (P-14), solid-principles-audit
-  (S-07) — im 09-03-Re-Audit explizit als "unverändert offen" bestätigt
-- **Importance**: 3/10
-- **Status**: offen
-- `new Anthropic(...)` und `nodemailer.createTransport()` werden inline in den
-  Funktionen instanziiert, die sie nutzen — kein Injection-Punkt, dadurch
-  schwer isoliert testbar und ein SDK-Breaking-Change fällt erst zur Laufzeit auf.
-- **Remediation**: optionaler `client = defaultClient()`-Parameter als
-  Injection-Punkt, kein DI-Container nötig.
-
 ---
 
 ## Erledigt
+
+### Kein Adapter/Seam für externe SDKs (Anthropic, nodemailer)
+- **Quelle**: design-patterns-audit-2026-09-01/03 (P-14), solid-principles-audit
+  (S-07)
+- **Erledigt**: 2026-09-05
+- `new Anthropic(...)` und `nodemailer.createTransport()` wurden inline in den
+  Funktionen instanziiert, die sie nutzen — kein Injection-Punkt.
+- **Remediation**: `analyzeCircuitScan(imageBuffer, knownChannels, client = defaultAnthropicClient())`
+  in `server/circuit-scan.js` und `createTransport(cfg, createFn = nodemailer.createTransport)`
+  in `server/email.js` (jetzt exportiert). Beide Defaults verhalten sich exakt
+  wie vorher, wenn kein Client/keine Factory übergeben wird. Tests in
+  `server/test/circuit-scan.test.js` und `server/test/email-transport.test.js`
+  nutzen die Injection, um ohne echten API-Call/SMTP-Verbindungsaufbau zu testen.
 
 ### Zwei Implementierungen der Hex→RGB/Luminanz-Farbkonvertierung (Server vs. Frontend)
 - **Quelle**: readability-naming-audit-2026-09-03 (Finding 10)
