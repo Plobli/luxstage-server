@@ -1,0 +1,15 @@
+{
+  "path": ["server", "web-app/src", "shared"],
+  "ignore": [
+    "**/node_modules/**",
+    "**/dist/**",
+    "**/data/**",
+    "**/*.test.*",
+    "web-app/src/components/ui/**"
+  ],
+  "minLines": 10,
+  "minTokens": 50,
+  "threshold": 3,
+  "reporters": ["console"],
+  "absolute": true
+}
