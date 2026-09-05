@@ -234,97 +234,35 @@
           v-show="mobileTab === 'gassenturm'"
           class="flex flex-col flex-1 min-h-0 overflow-hidden"
         >
-          <!-- Sub-Tab-Leiste (Mobile/Tablet) -->
-          <div class="md:hidden shrink-0 flex overflow-x-auto border-b border-border bg-surface-raised">
-            <div
-              v-for="sub in aufbauSubTabs"
-              :key="sub.key"
-              :class="[
-                'shrink-0 flex items-center gap-1 pl-4 pr-1.5 py-2.5 text-sm font-medium whitespace-nowrap transition-colors',
-                aufbauTab === sub.key
-                  ? 'border-b-2 border-accent text-accent'
-                  : 'text-muted-foreground hover:text-foreground'
-              ]"
-            >
-              <button @click="aufbauTab = sub.key">{{ sub.label }}</button>
-              <Button
-                v-if="sub.sectionId && sub.sectionId !== aufbauSectionId"
-                variant="ghost"
-                size="icon"
-                class="size-5 rounded-sm text-muted-foreground/50 shrink-0"
-                @click="deleteSection(sub.sectionId)"
-              >
-                <X class="size-3.5" />
-              </Button>
-            </div>
-          </div>
-
-          <!-- Section-Subtabs -->
-          <template v-for="sub in aufbauSubTabs" :key="sub.key">
-            <div
-              v-if="sub.sectionId"
-              v-show="aufbauTab === sub.key"
-              class="flex-1 min-h-0 flex flex-col pb-14 md:pb-0"
-            >
-              <div class="flex-1 min-h-0 overflow-y-auto" data-scroll-container>
-                <SectionEditor
-                  :showId="props.id"
-                  :sectionDefs="sectionDefs"
-                  :sectionContents="sectionContents"
-                  :setupMarkdown="setupMarkdown"
-                  :singleSectionId="sub.sectionId"
-                  :saveSectionDefsFn="persistSectionDefs"
-                  :labels="{
-                    titlePlaceholder: t('sections.title.placeholder'),
-                    fieldLabel: t('sections.field.label'),
-                    fieldValue: t('sections.field.value'),
-                    fieldAdd: t('sections.field.add'),
-                    addMarkdown: t('sections.add.markdown'),
-                    addFields: t('sections.add.fields'),
-                    addHelp: t('section.add.help'),
-                  }"
-                  @update:sectionDefs="sectionDefs = $event"
-                  @update:sectionContents="sectionContents = $event"
-                  @update:setupMarkdown="onSetupChange($event)"
-                  @sectionChange="persistSectionsDebounced"
-                />
-              </div>
-              <!-- Generierte Texte aus Bühne + Obermaschinerie — nur in der Aufbau-Section -->
-              <GeneratedTextAccordion
-                v-if="sub.sectionId === aufbauSectionId"
-                :gassenturmEntries="gassenturmGenerated"
-                :hangereiEntries="hangerei"
-                class="shrink-0 max-h-[30vh] overflow-y-auto border-t border-border"
-                data-scroll-container
-              />
-            </div>
-          </template>
-
-          <div v-if="meta.use_towers !== false && aufbauTab === 'gassenturm'" class="flex-1 min-h-0 overflow-hidden">
-            <GassenturmView
-              :towers="towers"
-              :channels="channels"
-              :preselectedChannelId="aufbauTab === 'gassenturm' ? activeChannelForAssign?.id : null"
-              :saveToTemplateFn="meta.template ? saveTowerToTemplate : null"
-              :templateName="meta.template"
-              :fetchTemplateNamesFn="meta.template ? fetchTowerTemplateNames : null"
-              :fromTemplateFn="meta.template ? () => openFromTemplateDialog('towers') : null"
-              @assigned="activeChannelForAssign = null"
-            />
-          </div>
-
-          <div v-if="meta.use_bars !== false && aufbauTab === 'zugstangen'" class="flex-1 min-h-0 overflow-hidden">
-            <ZugstangenView
-              :bars="bars"
-              :channels="channels"
-              :preselectedChannelId="aufbauTab === 'zugstangen' ? activeChannelForAssign?.id : null"
-              :saveToTemplateFn="meta.template ? saveBarToTemplate : null"
-              :templateName="meta.template"
-              :fetchTemplateNamesFn="meta.template ? fetchBarTemplateNames : null"
-              :fromTemplateFn="meta.template ? () => openFromTemplateDialog('bars') : null"
-              @assigned="activeChannelForAssign = null"
-            />
-          </div>
+          <ShowAufbauTab
+            :showId="props.id"
+            :aufbauSubTabs="aufbauSubTabs"
+            :aufbauTab="aufbauTab"
+            :aufbauSectionId="aufbauSectionId"
+            :sectionDefs="sectionDefs"
+            :sectionContents="sectionContents"
+            :setupMarkdown="setupMarkdown"
+            :persistSectionDefs="persistSectionDefs"
+            :gassenturmGenerated="gassenturmGenerated"
+            :hangerei="hangerei"
+            :meta="meta"
+            :towers="towers"
+            :bars="bars"
+            :channels="channels"
+            :activeChannelForAssign="activeChannelForAssign"
+            :saveTowerToTemplate="saveTowerToTemplate"
+            :fetchTowerTemplateNames="fetchTowerTemplateNames"
+            :saveBarToTemplate="saveBarToTemplate"
+            :fetchBarTemplateNames="fetchBarTemplateNames"
+            :openFromTemplateDialog="openFromTemplateDialog"
+            @update:aufbauTab="aufbauTab = $event"
+            @deleteSection="dialogs.deleteSection($event)"
+            @update:sectionDefs="sectionDefs = $event"
+            @update:sectionContents="sectionContents = $event"
+            @setupChange="onSetupChange($event)"
+            @sectionChange="persistSectionsDebounced"
+            @update:activeChannelForAssign="activeChannelForAssign = $event"
+          />
         </div>
 
       </div>
@@ -375,24 +313,24 @@
     />
 
     <ShowDetailDialogs
-      v-model:newSectionDialog="newSectionDialog"
-      v-model:newSectionName="newSectionName"
-      v-model:newSectionType="newSectionType"
-      :eosMergePreview="eosMergePreview"
-      v-model:fromTemplateDialogOpen="fromTemplateDialogOpen"
-      :fromTemplateScope="fromTemplateScope"
-      :fromTemplateItemsLoading="fromTemplateItemsLoading"
-      :fromTemplateItems="fromTemplateItems"
-      :fromTemplateSelectedIds="fromTemplateSelectedIds"
-      v-model:fromTemplateWithChannels="fromTemplateWithChannels"
-      :fromTemplateLoading="fromTemplateLoading"
+      v-model:newSectionDialog="dialogs.newSectionDialog.value"
+      v-model:newSectionName="dialogs.newSectionName.value"
+      v-model:newSectionType="dialogs.newSectionType.value"
+      :eosMergePreview="dialogs.eosMergePreview"
+      v-model:fromTemplateDialogOpen="dialogs.fromTemplateDialogOpen.value"
+      :fromTemplateScope="dialogs.fromTemplateScope.value"
+      :fromTemplateItemsLoading="dialogs.fromTemplateItemsLoading.value"
+      :fromTemplateItems="dialogs.fromTemplateItems.value"
+      :fromTemplateSelectedIds="dialogs.fromTemplateSelectedIds.value"
+      v-model:fromTemplateWithChannels="dialogs.fromTemplateWithChannels.value"
+      :fromTemplateLoading="dialogs.fromTemplateLoading.value"
       :formatLength="formatLength"
-      @confirmNewSection="confirmNewSection"
-      @resolveEosMergePreview="(...args) => resolveEosMergePreview(...args)"
-      @fromTemplateSelectAll="fromTemplateSelectAll"
-      @fromTemplateSelectNone="fromTemplateSelectNone"
-      @fromTemplateToggleId="fromTemplateToggleId"
-      @confirmFromTemplate="confirmFromTemplate"
+      @confirmNewSection="dialogs.confirmNewSection"
+      @resolveEosMergePreview="(...args) => dialogs.resolveEosMergePreview(...args)"
+      @fromTemplateSelectAll="dialogs.fromTemplateSelectAll"
+      @fromTemplateSelectNone="dialogs.fromTemplateSelectNone"
+      @fromTemplateToggleId="dialogs.fromTemplateToggleId"
+      @confirmFromTemplate="dialogs.confirmFromTemplate"
     />
 
     <!-- Statusanzeige Kreisliste-Scan -->
@@ -422,7 +360,7 @@
 
 <script setup>
 import { ref, computed, watch, nextTick, onMounted, onBeforeUnmount, defineAsyncComponent, provide } from 'vue'
-import { Loader2, Radio, Images, Map as MapIcon, Construction, Plus, X } from 'lucide-vue-next'
+import { Loader2, Radio, Images, Map as MapIcon, Construction, Plus } from 'lucide-vue-next'
 import { useDebounceFn } from '@vueuse/core'
 import { useLocale } from '../composables/useLocale.js'
 import { useConfirm } from '../composables/useConfirm.js'
@@ -440,11 +378,13 @@ import { useShowHistory } from '../composables/useShowHistory'
 import { useMeasureUnit } from '../composables/useMeasureUnit'
 import { useShowTabs } from '../composables/useShowTabs.js'
 import { useTemplateInsertion } from '../composables/useTemplateInsertion.js'
+import { useShowDialogs } from '../composables/useShowDialogs.js'
 
 import ShowHeader from '../components/show/ShowHeader.vue'
 import CircuitScanPreviewDialog from '../components/show/CircuitScanPreviewDialog.vue'
 const ShowActionBar = defineAsyncComponent(() => import('../components/show/ShowActionBar.vue'))
 import { useShowSidebarNav } from '../composables/useShowSidebarNav.js'
+import ShowAufbauTab from '../components/show/ShowAufbauTab.vue'
 import { Button } from '@/components/ui/button'
 import { fetchShow, updateMeta, createSnapshot } from '../api/shows.js'
 import { uuid } from '../utils/uuid.js'
@@ -454,14 +394,9 @@ const PhotoGallery = defineAsyncComponent(() => import('../components/show/Photo
 const HistorySlideOver = defineAsyncComponent(() => import('../components/show/HistorySlideOver.vue'))
 const ShowDetailDialogs = defineAsyncComponent(() => import('../components/show/ShowDetailDialogs.vue'))
 import { isOnline, api } from '../api/client.js'
-import { sectionTypeHasRows } from '@shared/constants.js'
 
 const ChannelTable = defineAsyncComponent(() => import('../components/channel/ChannelTable.vue'))
-const SectionEditor = defineAsyncComponent(() => import('../components/show/SectionEditor.vue'))
 const FloorplanEditor = defineAsyncComponent(() => import('../components/FloorplanEditor.vue'))
-const GassenturmView = defineAsyncComponent(() => import('../components/show/GassenturmView.vue'))
-const ZugstangenView = defineAsyncComponent(() => import('../components/show/ZugstangenView.vue'))
-const GeneratedTextAccordion = defineAsyncComponent(() => import('../components/show/GeneratedTextAccordion.vue'))
 
 const props = defineProps({ id: { type: String, required: true } })
 const { t, locale, ready: localeReady } = useLocale()
@@ -667,19 +602,20 @@ const gassenturmGenerated = computed(() => generateGassenturmEntries(towers.valu
 // generierte Text (Beleuchtungsgestelle/Obermaschinerie) weiter dort erscheinen.
 const aufbauSectionId = computed(() => sectionDefs.value.find(s => s.icon === 'setup')?.id ?? null)
 
-watch(showLock.takeoverRequestedBy, async (requestedBy) => {
-  if (!requestedBy) return
-  const release = await confirm({
-    t,
-    titleKey: 'lock.takeoverDialog.title',
-    messageKey: 'lock.takeoverDialog.message',
-    messageParams: { user: requestedBy },
-    confirmKey: 'lock.takeoverDialog.release',
-    cancelKey: 'lock.takeoverDialog.ignore',
-  })
-  if (release) await showLock.releaseForOther()
-  else showLock.dismissTakeoverRequest()
+const dialogs = useShowDialogs({
+  sectionDefs, aufbauTab, aufbauSubTabs, aufbauSectionId,
+  persistSectionDefs, confirm, t,
+  templateInsertion: {
+    fromTemplateDialogOpen, fromTemplateScope, fromTemplateItemsLoading, fromTemplateItems,
+    fromTemplateSelectedIds, fromTemplateWithChannels, fromTemplateLoading,
+    fromTemplateSelectAll, fromTemplateSelectNone, fromTemplateToggleId,
+    confirmFromTemplate,
+  },
+  eosMergePreview,
+  resolveEosMergePreview,
 })
+
+showLock.initTakeoverConfirm(confirm, t)
 
 // Overlay steht über dem Content und fängt Klicks/Eingaben ab (siehe Sperr-
 // Wrapper oben) — Mausrad/Trackpad-Events werden hier manuell an den
@@ -804,8 +740,8 @@ function onSidebarNavigate({ tab, subTab }) {
 const { aufbauNavVisible } = useShowSidebarNav({
   t, meta, mobileTab, aufbauTab, sectionDefs,
   onSidebarNavigate,
-  addSectionFromSubtab: () => addSectionFromSubtab(),
-  deleteSection: (sectionId) => deleteSection(sectionId),
+  addSectionFromSubtab: () => dialogs.addSectionFromSubtab(),
+  deleteSection: (sectionId) => dialogs.deleteSection(sectionId),
 })
 
 const bottomNavItems = computed(() => [
@@ -845,41 +781,6 @@ function onPlaceInFloorplan(ch) {
     pendingFloorplanChannel.value = channels.value.find(c => c.channel === ch.channel) ?? ch
     mobileTab.value = 'floorplan'
   })
-}
-
-const newSectionDialog = ref(false)
-const newSectionName = ref('')
-const newSectionType = ref('markdown')
-
-function addSectionFromSubtab() {
-  newSectionName.value = ''
-  newSectionType.value = 'markdown'
-  newSectionDialog.value = true
-}
-
-async function confirmNewSection() {
-  const title = newSectionName.value.trim()
-  if (!title) return
-  newSectionDialog.value = false
-  const id = uuid()
-  const newDefs = [...sectionDefs.value, { id, title, type: newSectionType.value, order: sectionDefs.value.length, rows: sectionTypeHasRows(newSectionType.value) ? [] : undefined }]
-  sectionDefs.value = newDefs
-  await persistSectionDefs()
-  aufbauTab.value = `section:${id}`
-}
-
-async function deleteSection(sectionId) {
-  if (sectionId === aufbauSectionId.value) return
-  const ok = await confirm({ t, titleKey: 'action.delete', confirmKey: 'action.delete', cancelKey: 'action.cancel' })
-  if (!ok) return
-  const newDefs = sectionDefs.value
-    .filter(s => s.id !== sectionId)
-    .map((s, i) => ({ ...s, order: i }))
-  sectionDefs.value = newDefs
-  await persistSectionDefs()
-  if (aufbauTab.value === `section:${sectionId}`) {
-    aufbauTab.value = aufbauSubTabs.value[0]?.key ?? aufbauTab.value
-  }
 }
 
 // ── Laden ──────────────────────────────────────────────────────────────────

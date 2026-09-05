@@ -638,21 +638,23 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useLocale } from '@/composables/useLocale.js'
 import { useMeasureUnit } from '@/composables/useMeasureUnit'
 const { t } = useLocale()
 const { formatLength } = useMeasureUnit()
-import { getToken } from '@/api/client'
 import { uuid } from '../utils/uuid.js'
 import { exportFloorplanPNG } from '../utils/floorplanSnapshot.js'
-import { ELEMENT_TYPES, getElementLabel, getElementBounds, getElementCenter, getNoteAnchor, elementHasEndpoints } from '../utils/floorplanElementTypes'
+import { ELEMENT_TYPES, getElementCenter, elementHasEndpoints } from '../utils/floorplanElementTypes'
 import { useCanvasViewport } from '@/composables/floorplan/useCanvasViewport'
 import { useElementPicker } from '@/composables/floorplan/useElementPicker'
 import { useEditorClipboard } from '@/composables/floorplan/useEditorClipboard'
 import { useRulerCalibration } from '@/composables/floorplan/useRulerCalibration'
 import { useInlineTextEdit } from '@/composables/floorplan/useInlineTextEdit'
 import { useElementDragResize } from '@/composables/floorplan/useElementDragResize'
+import { useFloorplanElementRendering, CHANNEL_PILL_RADIUS } from '@/composables/floorplan/useFloorplanElementRendering'
+import { useBackgroundImage } from '@/composables/floorplan/useBackgroundImage'
+import { useFloorplanTooltip } from '@/composables/floorplan/useFloorplanTooltip'
 import { PDF_PRINT_AREA_RATIO } from '@shared/constants.js'
 import {
   Copy, MousePointer2, Hand, Minus, Square, Circle, Type, CircleDot,
@@ -691,34 +693,11 @@ const {
   clearPending: clearPendingPlacement,
 } = useElementPicker(() => props.towers, () => props.bars)
 const ghostBarWidth = computed(() => barWidthPx(pendingBarForPlacement.value?.length_cm || 600))
-function towerChannels(tower) {
-  return (tower.slots ?? [])
-    .filter(slot => slot.channel_id)
-    .sort((a, b) => a.slot_index - b.slot_index)
-    .map(slot => channelNrById(slot.channel_id, null))
-    .filter(Boolean)
-}
-function barChannels(bar) {
-  return (bar.fixtures ?? [])
-    .filter(fx => fx.channel_id)
-    .map(fx => channelNrById(fx.channel_id, null))
-    .filter(Boolean)
-}
 const svgRef = ref(null)
 const containerEl = ref(null)
 const imageUploadInput = ref(null)
 const lassoRect = ref(null)
 const pendingDirectionId = ref(null)
-
-const bgImage = ref(null)
-const bgImageSrc = ref('')
-const backgroundLoadError = ref(false)
-// Objekt-URL des aktuell angezeigten Hintergrundbilds — nicht reaktiv, dient nur der
-// Buchführung, damit loadBackground() sie vor dem nächsten Laden/beim Unmount freigeben kann.
-let activeBlobUrl = null
-function revokeActiveBlobUrl() {
-  if (activeBlobUrl) { URL.revokeObjectURL(activeBlobUrl); activeBlobUrl = null }
-}
 
 const {
   containerSize, stageSize, stageScale, containerOffsetX, containerOffsetY,
@@ -727,12 +706,12 @@ const {
   snap, fitToContainer, resetView: resetViewport, startPan, updatePan, endPan,
 } = useCanvasViewport(containerEl)
 
+const { bgImage, bgImageSrc, backgroundLoadError, revokeActiveBlobUrl } =
+  useBackgroundImage(() => props.imageUrl, stageSize, fitToContainer)
+
 // PDF_PRINT_AREA_RATIO: siehe shared/constants.js — Druckbereich im PDF-Export
 // (A4 quer, minus Seitenränder/Titel/Fußzeile, siehe server/pdf.js), muss mit
 // server/pdf/floorplan-vector.js übereinstimmen.
-// Radius der Kanal-Pille (Node + Ghost-Cursor-Vorschau) — auch für getArrowPoints()
-// maßgeblich, wo entlang des Pillenrands der Richtungspfeil ansetzt.
-const CHANNEL_PILL_RADIUS = 18
 const a4Guide = computed(() => {
   const { width: sw, height: sh } = stageSize.value
   let w = sw, h = sw / PDF_PRINT_AREA_RATIO
@@ -767,175 +746,26 @@ const channelInfo = computed(() => {
   return props.channels.find(ch => ch.channel === selectedElement.value.channel)
 })
 
-const NOTE_LABEL_GAP = 22
-const elementsWithNotes = computed(() => {
-  return elements.value.filter(el => el.type !== 'text' && el.notes && el.notes.trim()).map(el => {
-    // _anchorX/Y: point on the element border where the line starts
-    // _noteX/Y: center of the pill label
-    const { x: ax, y: ay } = getNoteAnchor(el)
-    return { ...el, _anchorX: ax, _anchorY: ay, _noteX: ax, _noteY: ay + NOTE_LABEL_GAP }
-  })
-})
+const {
+  towerForEl, filledSlotsLabel, barForEl, fixturesLabel, fixtureXOffset,
+  channelNrById, pillW, noteTextWidth, typeLabel,
+  towerChannels, barChannels,
+  getArrowPoints, getBounds, getTransform,
+  elementsWithNotes,
+} = useFloorplanElementRendering(elements, () => props.channels, () => props.towers, () => props.bars)
 
-const hoveredId = ref(null)
-const tooltip = ref({ visible: false, x: 0, y: 0, title: '', sub: '', channels: [] })
-
-function showTooltip(el, e) {
-  if (isElementDragging.value || isResizing.value) return
-  const rect = containerEl.value?.getBoundingClientRect()
-  if (!rect) return
-  const x = e.clientX - rect.left
-  const y = e.clientY - rect.top
-  let title = '', sub = '', channels = []
-  if (el.type === 'tower') {
-    const t = towerForEl(el)
-    title = t?.name || el.towerName || 'Turm'
-    sub = t ? `${filledSlotsLabel(el)}${t.side ? ' · ' + t.side : ''}` : ''
-    channels = (t?.slots ?? []).filter(s => s.channel_id).map(s => props.channels.find(c => c.id === s.channel_id)?.channel ?? '?')
-  } else if (el.type === 'bar') {
-    const b = barForEl(el)
-    title = b?.name || el.barName || 'Stange'
-    sub = b ? `${fixturesLabel(el)}${b.zug_nr ? ' · Zug ' + b.zug_nr : ''}${b.length_cm ? ' · ' + formatLength(b.length_cm) : ''}` : ''
-    channels = (b?.fixtures ?? []).map(f => channelNrById(f.channel_id))
-  } else if (el.type === 'channel') {
-    title = `Kanal ${el.channel}`
-    const info = props.channels.find(ch => ch.channel === el.channel)
-    sub = [info?.device, info?.position].filter(Boolean).join(' · ')
-  }
-  if (!title) return
-  tooltip.value = { visible: true, x, y, title, sub, channels }
-}
-function hideTooltip() {
-  tooltip.value = { ...tooltip.value, visible: false }
-}
+const { hoveredId, tooltip, showTooltip, hideTooltip } = useFloorplanTooltip(
+  containerEl, isElementDragging, isResizing,
+  { towerForEl, barForEl, filledSlotsLabel, fixturesLabel, channelNrById },
+  () => props.channels,
+  formatLength,
+)
 
 const {
   rulerPoints, scalePixelsPerMeter, showRulerDialog, rulerDistanceInput,
   scaleBarWidth, scaleBarLabel,
   addRulerPoint, commitCalibration, cancelCalibration,
 } = useRulerCalibration()
-
-function towerForEl(el) { return props.towers.find(t => t.id === el.towerId) ?? null }
-function filledSlotsLabel(el) {
-  const t = towerForEl(el)
-  if (!t) return ''
-  const filled = (t.slots ?? []).filter(s => s.channel_id).length
-  return `${filled}/${t.slot_count} Slots`
-}
-function barForEl(el) { return props.bars.find(b => b.id === el.barId) ?? null }
-function fixturesLabel(el) {
-  const b = barForEl(el)
-  if (!b) return ''
-  return `${(b.fixtures ?? []).length} Scheinwerfer`
-}
-function fixtureXOffset(positionCm, lengthCm, widthPx) {
-  const len = lengthCm || 600
-  return ((positionCm + len / 2) / len) * widthPx
-}
-function channelNrById(channelId, fallback = '?') {
-  return props.channels.find(c => c.id === channelId)?.channel ?? fallback
-}
-function pillW(_channel) { return 62 }
-function noteTextWidth(text) { return Math.max(40, (text?.length ?? 0) * 6.2 + 20) }
-function typeLabel(type) { return getElementLabel(type) }
-
-function getArrowPoints(channel, rot) {
-  const rad = (rot || 0) * Math.PI / 180
-  const w = pillW(channel)
-  const r = CHANNEL_PILL_RADIUS
-  const flatW = w / 2 - r
-
-  const dx = Math.cos(rad)
-  const dy = Math.sin(rad)
-
-  let bx = 0, by = 0
-  if (Math.abs(dy) > 0.001) {
-    const yEdge = dy > 0 ? r : -r
-    const xIntersect = yEdge * dx / dy
-    if (xIntersect >= -flatW && xIntersect <= flatW) {
-      bx = xIntersect
-      by = yEdge
-    }
-  }
-
-  if (bx === 0 && by === 0) {
-    const cx = dx > 0 ? flatW : -flatW
-    const B = -2 * dx * cx
-    const C = cx * cx - r * r
-    const disc = B * B - 4 * C
-    if (disc >= 0) {
-      const t = (-B + Math.sqrt(disc)) / 2
-      bx = t * dx
-      by = t * dy
-    }
-  }
-
-  const len = 40
-  return { x1: bx, y1: by, x2: bx + dx * len, y2: by + dy * len }
-}
-
-// Zählt jeden loadBackground()-Aufruf durch — bei schnell wechselndem imageUrl
-// (Upload, Undo/Redo) kann eine ältere fetch/Image-Decode-Kette erst nach
-// einer neueren auflösen; ohne diesen Abgleich würde die ältere Antwort das
-// schon korrekt angezeigte neuere Bild überschreiben und dessen Blob-URL
-// unter ihm wegrevoken.
-let backgroundLoadToken = 0
-
-async function loadBackground(url) {
-  const token = ++backgroundLoadToken
-  backgroundLoadError.value = false
-  if (!url) { revokeActiveBlobUrl(); bgImage.value = null; bgImageSrc.value = ''; return }
-
-  const isSvg = url.split('?')[0].toLowerCase().endsWith('.svg')
-    || url.startsWith('data:image/svg')
-
-  if (isSvg) {
-    revokeActiveBlobUrl()
-    // Stage ist immer fest auf den PDF-Druckbereich (A4 quer) fixiert (siehe unten).
-    const REF_W = 2000
-    stageSize.value = { width: REF_W, height: Math.round(REF_W / PDF_PRINT_AREA_RATIO) }
-    bgImage.value = null
-    bgImageSrc.value = url
-    nextTick(() => fitToContainer())
-    return
-  }
-
-  let blobUrl
-  try {
-    const blob = await fetch(url, { cache: 'reload', headers: { Authorization: 'Bearer ' + (getToken() || '') } }).then(r => r.blob())
-    blobUrl = URL.createObjectURL(blob)
-  } catch (err) {
-    if (token !== backgroundLoadToken) return // überholt durch einen neueren Aufruf
-    console.error('Hintergrundbild konnte nicht geladen werden:', err)
-    backgroundLoadError.value = true
-    return
-  }
-
-  const img = new Image()
-  img.onload = () => {
-    if (token !== backgroundLoadToken) { URL.revokeObjectURL(blobUrl); return } // überholt — verwerfen, nicht anzeigen
-    // Stage ist immer fest auf den PDF-Druckbereich (A4 quer) fixiert, unabhängig
-    // vom Bildseitenverhältnis; das Bild wird unverzerrt eingepasst (siehe
-    // bg-image preserveAspectRatio). So bleibt die Darstellung nach jedem Laden
-    // (Upload wie Seiten-Reload) konsistent.
-    const REF_W = 2000
-    stageSize.value = { width: REF_W, height: Math.round(REF_W / PDF_PRINT_AREA_RATIO) }
-    revokeActiveBlobUrl()
-    activeBlobUrl = blobUrl
-    bgImage.value = img
-    bgImageSrc.value = blobUrl
-    nextTick(() => fitToContainer())
-  }
-  img.onerror = () => {
-    URL.revokeObjectURL(blobUrl)
-    if (token !== backgroundLoadToken) return // überholt durch einen neueren Aufruf
-    console.error('Hintergrundbild konnte nicht dekodiert werden')
-    backgroundLoadError.value = true
-  }
-  img.src = blobUrl
-}
-
-watch(() => props.imageUrl, loadBackground, { immediate: true })
 
 function getPointerPos(e) {
   if (!svgRef.value) return { x: 0, y: 0 }
@@ -944,22 +774,6 @@ function getPointerPos(e) {
     x: (e.clientX - rect.left) / stageScale.value,
     y: (e.clientY - rect.top) / stageScale.value
   }
-}
-
-function getBounds(el) { return getElementBounds(el) }
-
-function getTransform(el) {
-  const rot = el.rotation || 0
-  // channel positioniert sich immer über translate() statt x/y-Attribute —
-  // strukturell keine Rotation, unabhängig von rot bleibt es dabei.
-  if (el.type === 'channel') return `translate(${el.x}, ${el.y})`
-  if (!rot) return ''
-  // Nur Typen mit eigenem Rotationszentrum (line/rect/ellipse/text) rotieren
-  // um ihre Mitte; alles andere (aktuell nur tower/bar, die in der UI ohnehin
-  // keinen Rotationsgriff haben) fällt auf (0,0) zurück, wie im Original.
-  const getCenter = ELEMENT_TYPES[el.type]?.getCenter
-  const { x: cx, y: cy } = getCenter ? getCenter(el) : { x: 0, y: 0 }
-  return `rotate(${rot} ${cx} ${cy})`
 }
 
 function onNodeMouseDown(id, e) {

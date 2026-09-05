@@ -1,4 +1,4 @@
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { acquireShowLock, releaseShowLock, touchShowLock, requestLockTakeover, subscribeShow, type LockResult, type ShowPresenceUser } from '../api/shows.js'
 import { ApiError } from '../api/client.js'
 import { currentUsername } from '../api/currentUser.js'
@@ -129,6 +129,32 @@ export function useShowLock(showId: string) {
     acquireOnOpen().catch(() => {})
   }
 
+  /**
+   * Richtet den Übernahme-Dialog ein: sobald ein anderer User die Show anfragt
+   * (takeoverRequestedBy), wird über die übergebene confirm()-Funktion gefragt,
+   * ob der Lock freigegeben werden soll. confirm/t sind UI-Composables der
+   * aufrufenden View und werden bewusst injiziert statt hier importiert, damit
+   * useShowLock frei von UI-Dialog-Abhängigkeiten bleibt.
+   */
+  function initTakeoverConfirm(
+    confirmFn: (opts: Record<string, unknown>) => Promise<boolean>,
+    t: (key: string, params?: Record<string, unknown>) => string,
+  ): void {
+    watch(takeoverRequestedBy, async (requestedBy) => {
+      if (!requestedBy) return
+      const release = await confirmFn({
+        t,
+        titleKey: 'lock.takeoverDialog.title',
+        messageKey: 'lock.takeoverDialog.message',
+        messageParams: { user: requestedBy },
+        confirmKey: 'lock.takeoverDialog.release',
+        cancelKey: 'lock.takeoverDialog.ignore',
+      })
+      if (release) await releaseForOther()
+      else dismissTakeoverRequest()
+    })
+  }
+
   function initLockEvents(): void {
     unsubscribeSSE = subscribeShow(showId, {
       onLockStatus: onLockStatusChanged,
@@ -161,6 +187,7 @@ export function useShowLock(showId: string) {
     syncLockFromConflict,
     onLockStatusChanged,
     initLockEvents,
+    initTakeoverConfirm,
     cleanupLockEvents,
   }
 }
