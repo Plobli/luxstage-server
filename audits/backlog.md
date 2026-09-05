@@ -83,19 +83,6 @@ Nach der Abarbeitung eines jeden offenen Punktes einen commit machen.
   kein Bug; "no framework, minimal dependencies"-Philosophie ist im Projekt
   durchgängig sichtbar)
 
-### Show/Template-Datenzugriff dupliziert sich parallel (Towers/Bars/Sections vs. Template-Pendants)
-- **Quelle**: architecture-analysis-2026-09-01/03, code-duplication-audit-2026-09-03 (F2/F3/F9/F10)
-- **Importance**: 4/10
-- **Status**: offen
-- `db/towers.js`↔`db/template-towers.js`, `db/bars.js`↔`db/template-bars.js`,
-  `db/sections.js`↔`db/template-sections.js` implementieren nahezu identische
-  CRUD-/Upsert-/Slot-Logik gegen parallele Tabellen. Kein jscpd-Treffer, da
-  Tabellennamen/Spalten abweichen — trotzdem ein "falsche Abstraktion"-Problem:
-  ein Bugfix in einem Spaltensatz muss manuell gespiegelt werden.
-- **Remediation**: parametrisierten Kern extrahieren (Tabellen-/Spaltennamen
-  als Config), SQL lokal belassen — kein voller Merge, da Bars/Towers
-  unterschiedliche Spalten haben (F3 warnt explizit davor).
-
 ### Mutation-Boilerplate in Routes ~16x wiederholt (readShow + 404 + withUndoSnapshot + broadcast)
 - **Quelle**: code-duplication-audit-2026-09-03 (F1)
 - **Importance**: 3/10
@@ -291,6 +278,21 @@ Nach der Abarbeitung eines jeden offenen Punktes einen commit machen.
   verwaltet den Lock-Conflict als regulären Rückgabewert, ebenfalls
   inkompatibel. Kommentar in `withLockConflict.ts` präzisiert, damit dies
   nicht erneut als offener Punkt aufgegriffen wird.
+
+### Show/Template-Datenzugriff dupliziert sich parallel (Towers/Bars/Sections vs. Template-Pendants)
+- **Quelle**: architecture-analysis-2026-09-01/03, code-duplication-audit-2026-09-03 (F2/F3/F9/F10)
+- **Verworfen**: 2026-09-05 — gegen aktuellen Code geprüft (`db/towers.js` vs.
+  `db/template-towers.js`), bewusst nicht umgesetzt.
+- Die CRUD-/Upsert-/Slot-Logik ist strukturell ähnlich, aber die Spalten sind
+  echt unterschiedlich, nicht nur benannt anders: Show-Tower-Slots pflegen
+  zusätzlich `mount_ref` auf der `channels`-Tabelle (Rückverweis Kanal→Turm),
+  Template-Tower-Slots haben stattdessen direkte `channel`/`device`/`color`-
+  Felder ohne Kanal-Bezug (Templates haben keine echten Kanäle). Eine
+  gemeinsame parametrisierte Abstraktion würde zwei semantisch verschiedene
+  Dinge künstlich unter ein Dach zwingen — genau die "falsche Abstraktion",
+  vor der der Quell-Audit selbst warnt (F3). Der Read-Pfad ist bereits geteilt
+  (`db/tower-read-core.js`, von beiden Seiten genutzt) — das ist der Teil, der
+  tatsächlich identisch ist. Write/Delete bewusst getrennt gelassen.
 
 ## Verworfen
 
