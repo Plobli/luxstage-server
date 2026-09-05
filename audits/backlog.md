@@ -15,19 +15,6 @@ Nach der Abarbeitung eines jeden offenen Punktes einen commit machen.
 
 ## Offen
 
-### `server/routes/templates.js` ist ein Breadth-God-Modul
-- **Quelle**: 2026-09-05-software-design-analysis.md, Finding 4a
-- **Importance**: 5/10
-- **Status**: offen
-- 386 Zeilen, dispatcht HTTP-Routing für 5 Sub-Ressourcen (Templates, Bars,
-  Towers, Sections, Floorplan) in einer Datei — jede Sub-Logik ist dünn
-  (delegiert sofort an `db/*`), aber die Datei mischt zu viele Sub-Ressourcen.
-- **Remediation**: Mechanische Extraktion nach `routes/template-bars.js`,
-  `routes/template-towers.js`, `routes/template-sections.js`,
-  `routes/template-floorplan.js` — analog zum bestehenden Muster
-  `routes/towers.js`/`routes/bars.js`. Jeweils als eigener Eintrag in
-  `API_ROUTE_HANDLERS` (`route-table.js`) registrieren.
-
 ### `useShowChannels.ts` kombiniert 5 Konzerne in einem Composable
 - **Quelle**: 2026-09-05-software-design-analysis.md, Finding 4c
 - **Importance**: 3/10
@@ -161,6 +148,24 @@ Nach der Abarbeitung eines jeden offenen Punktes einen commit machen.
 ---
 
 ## Erledigt
+
+### `server/routes/templates.js` ist ein Breadth-God-Modul
+- **Quelle**: 2026-09-05-software-design-analysis.md, Finding 4a
+- **Erledigt**: 2026-09-05
+- 386 Zeilen dispatchten HTTP-Routing für 5 Sub-Ressourcen (Templates, Bars,
+  Towers, Sections, Floorplan) in einer Datei.
+- **Remediation**: Extrahiert nach `routes/template-bars.js`,
+  `routes/template-towers.js`, `routes/template-sections.js`,
+  `routes/template-floorplan.js`. `templates.js` (jetzt ~185 Zeilen) enthält
+  nur noch Kern-CRUD (Liste, Rename/Delete, Channels, Lock, Apply, PDF) und
+  dispatcht per Pfad-Vorfilter (Regex-Test) an die vier Sub-Handler — anders
+  als im ursprünglichen Remediation-Vorschlag nicht über eigene
+  `API_ROUTE_HANDLERS`-Einträge in `route-table.js` (dort ist `/api/templates`
+  bereits ein einzelner Präfix-Eintrag; eine Aufteilung dort hätte den
+  Präfix-Match verkompliziert), sondern analog zum bestehenden
+  `SHOW_ROUTE_HANDLERS`-Innendispatch. Test in
+  `server/test/template-routes.test.js` (13 Fälle, inkl. Regression gegen
+  Namenskollision wie ein Template namens "bars-2024").
 
 ### SMTP-Transport ohne vollständige Timeout-Konfiguration
 - **Quelle**: resilience-fault-tolerance-audit-2026-09-03 (1.1)

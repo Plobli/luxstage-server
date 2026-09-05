@@ -1,8 +1,5 @@
 import { randomUUID } from 'node:crypto'
-import fs from 'node:fs'
-import * as floorplan from '../floorplan.js'
-import * as photosLib from '../photos.js'
-import { readJsonBody, json, notFound, uploadErrorStatus, isRoute } from '../helpers.js'
+import { readJsonBody, json, notFound, isRoute } from '../helpers.js'
 import { generatePDF, pdfFilename } from '../pdf.js'
 import { getDisplayUnit, getPhotosPerPage } from '../db/settings.js'
 import {
@@ -10,46 +7,40 @@ import {
   readTemplate, writeTemplate, deleteTemplate,
 } from '../db/templates.js'
 import { applyTemplateToAllShows } from '../db/template-apply-to-show.js'
-import {
-  readTemplateBars, writeTemplateBar, deleteTemplateBar, reorderTemplateBars,
-  readTemplateBarFixtures, writeTemplateBarFixture, deleteTemplateBarFixture,
-} from '../db/template-bars.js'
-import {
-  readTemplateTowers, writeTemplateTower, deleteTemplateTower, reorderTemplateTowers,
-  writeTemplateTowerSlot, clearTemplateTowerSlot, ensureTemplateTowerSlots,
-} from '../db/template-towers.js'
-import { getTemplateFloorplan, upsertTemplateFloorplan, upsertTemplateFloorplanData } from '../db/floorplan.js'
 import { readTemplateSections, writeTemplateSections, deleteTemplateSections } from '../db/template-sections.js'
 import { acquireResourceLock, releaseResourceLock, touchResourceLock, getResourceLock } from '../db/resource-locks.js'
+import { templateBarRoutes } from './template-bars.js'
+import { templateTowerRoutes } from './template-towers.js'
+import { templateSectionRoutes } from './template-sections.js'
+import { templateFloorplanRoutes } from './template-floorplan.js'
 
-const TPL_LIST             = /^\/api\/templates$/
-const TPL_CHANNELS         = /^\/api\/templates\/([^/]+)\/channels$/
-const TPL_SECTIONS         = /^\/api\/templates\/([^/]+)\/sections$/
-const TPL_BARS             = /^\/api\/templates\/([^/]+)\/bars$/
-const TPL_BARS_REORDER     = /^\/api\/templates\/([^/]+)\/bars\/reorder$/
-const TPL_BAR              = /^\/api\/templates\/([^/]+)\/bars\/([^/]+)$/
-const TPL_BAR_FIXTURES     = /^\/api\/templates\/([^/]+)\/bars\/([^/]+)\/fixtures$/
-const TPL_BAR_FIXTURE      = /^\/api\/templates\/([^/]+)\/bars\/([^/]+)\/fixtures\/([^/]+)$/
-const TPL_TOWERS           = /^\/api\/templates\/([^/]+)\/towers$/
-const TPL_TOWERS_REORDER   = /^\/api\/templates\/([^/]+)\/towers\/reorder$/
-const TPL_TOWER            = /^\/api\/templates\/([^/]+)\/towers\/([^/]+)$/
-const TPL_TOWER_SLOT       = /^\/api\/templates\/([^/]+)\/towers\/([^/]+)\/slots\/([^/]+)$/
-const TPL_LOCK             = /^\/api\/templates\/([^/]+)\/lock$/
-const TPL_FP               = /^\/api\/templates\/([^/]+)\/floorplan$/
-const TPL_FP_IMAGE         = /^\/api\/templates\/([^/]+)\/floorplan\/image$/
-const TPL_APPLY            = /^\/api\/templates\/([^/]+)\/apply-to-shows$/
-const TPL_PDF              = /^\/api\/templates\/([^/]+)\/pdf$/
-const TPL_ID               = /^\/api\/templates\/(.+)$/
-
-function mimeFromExt(filename) {
-  const ext = (filename || '').split('.').pop().toLowerCase()
-  return { jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', webp: 'image/webp', gif: 'image/gif' }[ext]
-    || 'application/octet-stream'
-}
+const TPL_LIST     = /^\/api\/templates$/
+const TPL_CHANNELS = /^\/api\/templates\/([^/]+)\/channels$/
+const TPL_LOCK     = /^\/api\/templates\/([^/]+)\/lock$/
+const TPL_APPLY    = /^\/api\/templates\/([^/]+)\/apply-to-shows$/
+const TPL_PDF      = /^\/api\/templates\/([^/]+)\/pdf$/
+const TPL_ID       = /^\/api\/templates\/(.+)$/
 
 export async function templateRoutes(req, res, pathname) {
   const { method } = req
   let m
+
+  if (/\/bars(\/|$)/.test(pathname)) {
+    const result = await templateBarRoutes(req, res, pathname)
+    if (result !== null) return result
+  }
+  if (/\/towers(\/|$)/.test(pathname)) {
+    const result = await templateTowerRoutes(req, res, pathname)
+    if (result !== null) return result
+  }
+  if (/\/sections$/.test(pathname)) {
+    const result = await templateSectionRoutes(req, res, pathname)
+    if (result !== null) return result
+  }
+  if (/\/floorplan(\/|$)/.test(pathname)) {
+    const result = await templateFloorplanRoutes(req, res, pathname)
+    if (result !== null) return result
+  }
 
   if (isRoute(method, pathname, 'GET', TPL_LIST)) {
     return json(res, 200, listTemplates())
@@ -66,140 +57,6 @@ export async function templateRoutes(req, res, pathname) {
     if (host.length > 253) return json(res, 400, { error: 'OSC-Host zu lang' })
     updateTemplateOscHost(name, host)
     return json(res, 200, { ok: true })
-  }
-
-  if (m = TPL_BARS_REORDER.exec(pathname)) {
-    const templateName = decodeURIComponent(m[1])
-    const tpl = getTemplateByName(templateName)
-    if (!tpl) return notFound(res)
-    if (method === 'PUT') {
-      const body = await readJsonBody(req, res); if (body === null) return
-      if (body.order !== undefined && !Array.isArray(body.order)) return json(res, 400, { error: 'order muss ein Array sein' })
-      reorderTemplateBars(tpl.id, body.order ?? [])
-      return json(res, 200, { ok: true })
-    }
-  }
-
-  if (m = TPL_BAR.exec(pathname)) {
-    const templateName = decodeURIComponent(m[1])
-    const barId = m[2]
-    if (method === 'PUT') {
-      const user = req.user
-      const body = await readJsonBody(req, res); if (body === null) return
-      writeTemplateBar(templateName, { ...body, id: barId })
-      return json(res, 200, { ok: true })
-    }
-    if (method === 'DELETE') {
-      const user = req.user
-      deleteTemplateBar(templateName, barId)
-      return json(res, 200, { ok: true })
-    }
-  }
-
-  if (m = TPL_BARS.exec(pathname)) {
-    const templateName = decodeURIComponent(m[1])
-    if (method === 'GET') {
-      return json(res, 200, readTemplateBars(templateName))
-    }
-    if (method === 'POST') {
-      const user = req.user
-      const body = await readJsonBody(req, res); if (body === null) return
-      const barId = writeTemplateBar(templateName, body)
-      return json(res, 201, { id: barId })
-    }
-  }
-
-  // ── Tower-Slot ─────────────────────────────────────────────────────────────
-  if (m = TPL_TOWER_SLOT.exec(pathname)) {
-    const templateName = decodeURIComponent(m[1])
-    const towerId = m[2]
-    const slotIndex = parseInt(m[3], 10)
-    if (method === 'PATCH') {
-      const user = req.user
-      const body = await readJsonBody(req, res); if (body === null) return
-      if (body.channel === null && body.device === null && body.color === null) {
-        clearTemplateTowerSlot(templateName, towerId, slotIndex)
-      } else {
-        writeTemplateTowerSlot(templateName, towerId, slotIndex, body)
-      }
-      return json(res, 200, { ok: true })
-    }
-  }
-
-  // ── Tower ──────────────────────────────────────────────────────────────────
-  if (m = TPL_TOWERS_REORDER.exec(pathname)) {
-    const templateName = decodeURIComponent(m[1])
-    const tpl = getTemplateByName(templateName)
-    if (!tpl) return notFound(res)
-    if (method === 'PUT') {
-      const body = await readJsonBody(req, res); if (body === null) return
-      if (body.order !== undefined && !Array.isArray(body.order)) return json(res, 400, { error: 'order muss ein Array sein' })
-      reorderTemplateTowers(tpl.id, body.order ?? [])
-      return json(res, 200, { ok: true })
-    }
-  }
-
-  if (m = TPL_TOWER.exec(pathname)) {
-    const templateName = decodeURIComponent(m[1])
-    const towerId = m[2]
-    if (method === 'PUT') {
-      const user = req.user
-      const body = await readJsonBody(req, res); if (body === null) return
-      writeTemplateTower(templateName, { ...body, id: towerId })
-      ensureTemplateTowerSlots(towerId, body.slot_count ?? 4)
-      return json(res, 200, { ok: true })
-    }
-    if (method === 'DELETE') {
-      const user = req.user
-      deleteTemplateTower(templateName, towerId)
-      return json(res, 200, { ok: true })
-    }
-  }
-
-  if (m = TPL_TOWERS.exec(pathname)) {
-    const templateName = decodeURIComponent(m[1])
-    if (method === 'GET') {
-      return json(res, 200, readTemplateTowers(templateName))
-    }
-    if (method === 'POST') {
-      const user = req.user
-      const body = await readJsonBody(req, res); if (body === null) return
-      const towerId = writeTemplateTower(templateName, body)
-      ensureTemplateTowerSlots(towerId, body.slot_count ?? 4)
-      return json(res, 201, { id: towerId })
-    }
-  }
-
-  // ── Bar-Fixtures ───────────────────────────────────────────────────────────
-  if (m = TPL_BAR_FIXTURE.exec(pathname)) {
-    const templateName = decodeURIComponent(m[1])
-    const barId = m[2]
-    const fixtureId = m[3]
-    if (method === 'PUT') {
-      const user = req.user
-      const body = await readJsonBody(req, res); if (body === null) return
-      writeTemplateBarFixture(templateName, barId, { ...body, id: fixtureId })
-      return json(res, 200, { ok: true })
-    }
-    if (method === 'DELETE') {
-      const user = req.user
-      deleteTemplateBarFixture(templateName, fixtureId)
-      return json(res, 200, { ok: true })
-    }
-  }
-
-  if (m = TPL_BAR_FIXTURES.exec(pathname)) {
-    const templateName = decodeURIComponent(m[1])
-    const barId = m[2]
-    if (method === 'GET') {
-      return json(res, 200, readTemplateBarFixtures(barId))
-    }
-    if (method === 'POST') {
-      const user = req.user
-      const body = await readJsonBody(req, res); if (body === null) return
-      const fixtureId = writeTemplateBarFixture(templateName, barId, body)
-      return json(res, 201, { id: fixtureId })
-    }
   }
 
   // Template-Lock: gleicher Mechanismus wie beim Netzwerk (db/resource-locks.js
@@ -242,85 +99,11 @@ export async function templateRoutes(req, res, pathname) {
     }
   }
 
-  if (m = TPL_FP_IMAGE.exec(pathname)) {
-    const templateName = decodeURIComponent(m[1])
-    const tpl = getTemplateByName(templateName)
-    if (!tpl) return notFound(res)
-
-    if (method === 'POST') {
-      const ct = req.headers['content-type'] || ''
-      if (!ct.startsWith('multipart/form-data')) return json(res, 400, { error: 'Ungültiger Upload' })
-      let upload
-      try {
-        upload = await photosLib.parseMultipart(req)
-        const file = upload.files[0]
-        if (!file) return json(res, 400, { error: 'Kein Bild gefunden' })
-        const mimeType = mimeFromExt(file.filename)
-        const buffer = await fs.promises.readFile(file.path)
-        const imgPath = await floorplan.saveFloorplanImage(tpl.id, file.filename, buffer, mimeType)
-        upsertTemplateFloorplan(tpl.id, imgPath)
-        return json(res, 200, { image_url: floorplan.floorplanUrl(imgPath) })
-      } catch (e) {
-        return json(res, uploadErrorStatus(e.message), { error: e.message || 'Bild-Upload fehlgeschlagen' })
-      } finally {
-        await upload?.cleanup()
-      }
-    }
-
-    if (method === 'DELETE') {
-      const fp = getTemplateFloorplan(tpl.id)
-      if (fp?.image_path) await floorplan.deleteFloorplanImage(fp.image_path)
-      upsertTemplateFloorplan(tpl.id, null)
-      return json(res, 200, { ok: true })
-    }
-  }
-
-  if (m = TPL_FP.exec(pathname)) {
-    const templateName = decodeURIComponent(m[1])
-    const tpl = getTemplateByName(templateName)
-    if (!tpl) return notFound(res)
-
-    if (method === 'GET') {
-      const fp = getTemplateFloorplan(tpl.id)
-      return json(res, 200, {
-        image_url: fp?.image_path ? floorplan.floorplanUrl(fp.image_path) : null,
-        canvas_data: fp?.canvas_data ?? null
-      })
-    }
-
-    if (method === 'PUT') {
-      const body = await readJsonBody(req, res)
-      if (body === null) return
-      // Gleicher Vertrag wie PUT /api/shows/:id/floorplan (routes/floorplan.js):
-      // canvas_data muss ein bereits serialisierter String sein, statt hier
-      // beliebige Payloads zu akzeptieren und stumm zu stringifyen (das konnte
-      // z.B. für null den String "null" persistieren).
-      const { canvas_data } = body
-      if (typeof canvas_data !== 'string') return json(res, 400, { error: 'canvas_data fehlt' })
-      upsertTemplateFloorplanData(tpl.id, canvas_data)
-      return json(res, 200, { ok: true })
-    }
-  }
-
   if (m = TPL_CHANNELS.exec(pathname)) {
     const templateName = decodeURIComponent(m[1])
     if (method === 'GET') {
       const channels = readTemplate(templateName).map(({ template_id: _, sort_order: __, ...ch }) => ch)
       return json(res, 200, channels)
-    }
-  }
-
-  if (m = TPL_SECTIONS.exec(pathname)) {
-    const templateName = decodeURIComponent(m[1])
-    if (method === 'GET') {
-      return json(res, 200, readTemplateSections(templateName))
-    }
-    if (method === 'PUT') {
-      const user = req.user
-      const body = await readJsonBody(req, res); if (body === null) return
-      if (!Array.isArray(body.sections)) return json(res, 400, { error: 'sections muss ein Array sein' })
-      writeTemplateSections(templateName, body.sections)
-      return json(res, 200, { ok: true })
     }
   }
 
