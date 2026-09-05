@@ -185,18 +185,6 @@ Nach der Abarbeitung eines jeden offenen Punktes einen commit machen.
 - **Remediation**: nach `shared/color.js` verschieben (`hexToRgb`/
   `relativeLuminance`).
 
-### Bulk-Template-Anwendung ohne Per-Item-Fehlerisolation
-- **Quelle**: error-handling-resilience-audit-2026-09-03-round2 (Finding 3)
-- **Importance**: 3/10 — vor Umsetzung gegen aktuellen Code in
-  `template-apply-to-show.js` (nach Split, Commit `15cfd20`) verifizieren
-- **Status**: offen, nicht verifiziert
-- `applyTemplateToAllShows` soll laut Audit kein Try/Catch pro Iteration
-  haben — ein einzelner `SQLITE_BUSY` auf Show N bricht N+1..Ende ohne
-  Teilerfolgs-Meldung ab. Da die Datei seit dem Audit gesplittet wurde
-  (siehe Erledigt-Sektion), vor Umsetzung erneut gegen aktuellen Code prüfen.
-- **Remediation**: pro Show-Transaktion try/catch, `failedShows` sammeln,
-  Teilstatistik statt Exception zurückgeben.
-
 ### SSE-Client-Map für Shows wird nie bereinigt
 - **Quelle**: resilience-fault-tolerance-audit-2026-09-03 (4.4)
 - **Importance**: 2/10
@@ -210,6 +198,15 @@ Nach der Abarbeitung eines jeden offenen Punktes einen commit machen.
 ---
 
 ## Erledigt
+
+### Bulk-Template-Anwendung ohne Per-Item-Fehlerisolation
+- **Quelle**: error-handling-resilience-audit-2026-09-03-round2 (Finding 3)
+- **Erledigt**: bereits vor diesem Audit-Zyklus, Commit `15cfd20` — verifiziert
+  2026-09-05: `applyTemplateToAllShows` hat try/catch pro Show-Transaktion,
+  sammelt `failedShows` und gibt eine Teilstatistik statt einer Exception
+  zurück.
+- Wurde vom Recherche-Review fälschlich als offen gemeldet; gegen aktuellen
+  Code verifiziert und korrigiert.
 
 ### Frontend-Concurrency-Composables ungetestet (`useResourceLock`, `useShowLock`, `useTokenRefresh`)
 - **Quelle**: testing-implementation-audit-2026-09-03 (Finding 4.3, 7/10) —
