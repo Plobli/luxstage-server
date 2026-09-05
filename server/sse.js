@@ -54,6 +54,7 @@ export function subscribe(showId, res, username, device, getChecksFn) {
 
   res.on('close', () => {
     map.delete(res)
+    if (map.size === 0) clients.delete(key)
     broadcastPresence(showId)
   })
 }
@@ -103,6 +104,11 @@ function broadcastPresence(showId) {
   const map = clients.get(scopedKey(showId))
   if (!map) return
   broadcast(showId, 'presence-updated', { users: aggregatePresence(map) })
+}
+
+/** Nur für Tests: Anzahl der Shows mit einer offenen Client-Map (Leak-Detektion). */
+export function _clientMapSize() {
+  return clients.size
 }
 
 export function getPresence(showId) {

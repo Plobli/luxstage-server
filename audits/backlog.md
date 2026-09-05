@@ -185,19 +185,19 @@ Nach der Abarbeitung eines jeden offenen Punktes einen commit machen.
 - **Remediation**: nach `shared/color.js` verschieben (`hexToRgb`/
   `relativeLuminance`).
 
-### SSE-Client-Map für Shows wird nie bereinigt
-- **Quelle**: resilience-fault-tolerance-audit-2026-09-03 (4.4)
-- **Importance**: 2/10
-- **Status**: offen, nicht verifiziert (vor Umsetzung `server/sse.js` prüfen)
-- `initShow()` legt einen Map-Eintrag pro Show an, der auch nach Trennung
-  aller Subscriber nie entfernt wird (`res.on('close', ...)` leert nur die
-  innere Map, nicht den äußeren Key) — struktureller Leak über viele Shows
-  hinweg, unabhängig vom bereits erfassten LRU-Eviction-Punkt.
-- **Remediation**: `if (map.size === 0) clients.delete(key)` im Close-Handler.
-
 ---
 
 ## Erledigt
+
+### SSE-Client-Map für Shows wird nie bereinigt
+- **Quelle**: resilience-fault-tolerance-audit-2026-09-03 (4.4)
+- **Erledigt**: 2026-09-05
+- `res.on('close', ...)` löschte nur den inneren Map-Eintrag, nicht den
+  äußeren `showId`-Key in `clients` — struktureller Leak über viele Shows
+  hinweg, unabhängig vom LRU-Eviction-Punkt beim Tenant-Connection-Pool.
+- **Remediation**: `if (map.size === 0) clients.delete(key)` im Close-Handler
+  ergänzt (`server/sse.js`). Test in `server/test/sse.test.js` (neuer,
+  testonly `_clientMapSize()`-Export zur Leak-Detektion).
 
 ### Bulk-Template-Anwendung ohne Per-Item-Fehlerisolation
 - **Quelle**: error-handling-resilience-audit-2026-09-03-round2 (Finding 3)
