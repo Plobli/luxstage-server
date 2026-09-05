@@ -185,17 +185,6 @@ Nach der Abarbeitung eines jeden offenen Punktes einen commit machen.
 - **Remediation**: nach `shared/color.js` verschieben (`hexToRgb`/
   `relativeLuminance`).
 
-### Frontend-Concurrency-Composables ungetestet (`useLockAwareCall`, `useShowLock`, `useTokenRefresh`)
-- **Quelle**: testing-implementation-audit-2026-09-03 (Finding 4.3, 7/10)
-- **Importance**: 5/10
-- **Status**: offen — verifiziert: kein `useLockAwareCall.test.ts` vorhanden
-- Diese Composables verwalten den heikelsten State im Frontend
-  (Lock-Takeover-Race, Token-Refresh mit Unmount-Guards); das etablierte
-  Mocking-Muster aus `useUndoRedo.test.ts`/`useShowHistory.test.ts`
-  (`vi.mock('../api/...')`) ist direkt übertragbar.
-- **Remediation**: mit `useLockAwareCall.test.ts` beginnen (pure Funktion,
-  trivial), danach `useShowLock`/`useTokenRefresh` mit `vi.mock`.
-
 ### Bulk-Template-Anwendung ohne Per-Item-Fehlerisolation
 - **Quelle**: error-handling-resilience-audit-2026-09-03-round2 (Finding 3)
 - **Importance**: 3/10 — vor Umsetzung gegen aktuellen Code in
@@ -221,6 +210,20 @@ Nach der Abarbeitung eines jeden offenen Punktes einen commit machen.
 ---
 
 ## Erledigt
+
+### Frontend-Concurrency-Composables ungetestet (`useResourceLock`, `useShowLock`, `useTokenRefresh`)
+- **Quelle**: testing-implementation-audit-2026-09-03 (Finding 4.3, 7/10) —
+  ursprünglich als `useLockAwareCall` benannt, dieses Composable existiert
+  nicht mehr; das heutige Äquivalent ist `useResourceLock.ts`.
+- **Erledigt**: 2026-09-05
+- Neue Tests: `useResourceLock.test.ts` (12 Fälle: Akquise/Konflikt/Heartbeat/
+  Freigabe), `useShowLock.test.ts` (18 Fälle: zusätzlich Takeover-Flow, SSE-
+  Präsenzfilterung), `useTokenRefresh.test.ts` (9 Fälle: Refresh-Schwelle,
+  401/Netzwerkfehler, Unmount-Guard). `useTokenRefresh` brauchte echten
+  Component-Mount (Vue `onMounted`/`getCurrentInstance`) + `localStorage` —
+  dafür `happy-dom` als neue devDependency hinzugefügt, nur per
+  `// @vitest-environment happy-dom` in dieser einen Testdatei aktiv.
+- **Remediation**: erledigt.
 
 ### Auth-Pfad hat keine Testabdeckung
 - **Quelle**: testing-implementation-audit-2026-09-03 (Finding 1.2, 10/10)
