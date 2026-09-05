@@ -74,3 +74,14 @@ Diese Fragen laufen über den Backlog:
   Ziffer 1: "Most findings below are residual/second-order" — der Bericht
   bestätigt selbst, dass es sich um Restbefunde nach vorheriger Arbeit handelt,
   nicht um neue Probleme).
+
+## Herkunft des initialen Backlogs
+
+Der Backlog wurde am 2026-09-05 einmalig rückwirkend aus allen bis dahin
+gesammelten Alt-Audits (`audits_old/`, 22 Dateien aus mehreren Runden
+2026-09-01 bis 2026-09-05) befüllt: jedes dort genannte, noch nicht durch
+`npm run audit` abgedeckte Finding wurde extrahiert, gegen den aktuellen Code
+verifiziert (bereits erledigte Punkte landeten mit Commit-Referenz direkt in
+"Erledigt", nicht in "Offen") und dedupliziert. `audits_old/` bleibt als
+Rohmaterial/Historie liegen, ist aber ab jetzt nicht mehr die Quelle der
+Wahrheit — das ist ab sofort ausschließlich `audits/backlog.md`.

@@ -94,6 +94,151 @@ Status, Beschreibung, Remediation.
   kein Bug; "no framework, minimal dependencies"-Philosophie ist im Projekt
   durchgängig sichtbar)
 
+### Show/Template-Datenzugriff dupliziert sich parallel (Towers/Bars/Sections vs. Template-Pendants)
+- **Quelle**: architecture-analysis-2026-09-01/03, code-duplication-audit-2026-09-03 (F2/F3/F9/F10)
+- **Importance**: 4/10
+- **Status**: offen
+- `db/towers.js`↔`db/template-towers.js`, `db/bars.js`↔`db/template-bars.js`,
+  `db/sections.js`↔`db/template-sections.js` implementieren nahezu identische
+  CRUD-/Upsert-/Slot-Logik gegen parallele Tabellen. Kein jscpd-Treffer, da
+  Tabellennamen/Spalten abweichen — trotzdem ein "falsche Abstraktion"-Problem:
+  ein Bugfix in einem Spaltensatz muss manuell gespiegelt werden.
+- **Remediation**: parametrisierten Kern extrahieren (Tabellen-/Spaltennamen
+  als Config), SQL lokal belassen — kein voller Merge, da Bars/Towers
+  unterschiedliche Spalten haben (F3 warnt explizit davor).
+
+### Mutation-Boilerplate in Routes ~16x wiederholt (readShow + 404 + withUndoSnapshot + broadcast)
+- **Quelle**: code-duplication-audit-2026-09-03 (F1)
+- **Importance**: 3/10
+- **Status**: offen
+- `routes/bars.js`, `routes/towers.js`, `routes/sections.js`, `routes/channels.js`
+  wiederholen dieselbe Kombination aus Show-Lookup, 404-Guard, Undo-Snapshot-
+  Wrapping und Broadcast. Nicht durch `max-lines`/jscpd erkennbar, da jede
+  Instanz kurz und in unterschiedlichen Funktionen eingebettet ist.
+- **Remediation**: `withShowMutation(req, res, slug, eventName, mutate)`-Helper
+  in `server/helpers.js`.
+
+### `withLockConflict`-Wrapper existiert, wird aber nicht überall verwendet
+- **Quelle**: code-duplication-audit-2026-09-03 (F5); Wrapper selbst seit
+  Commit `3fb36e3`
+- **Importance**: 3/10
+- **Status**: offen (teilweise erledigt)
+- `web-app/src/composables/withLockConflict.ts` existiert samt Test und wird
+  bereits in `useShowBars.ts`/`useShowTowers.ts` verwendet. `useShowChannels.ts`,
+  `useShowSections.ts` und `useShowLock.ts` haben aber weiterhin die rohe
+  `if (e instanceof ApiError && e.status === 423)`-Duplizierung (verifiziert
+  per Grep, Stand 2026-09-05).
+- **Remediation**: die drei verbleibenden Composables auf `withLockConflict`
+  umstellen, wo strukturell passend (in `useShowLock.ts` ggf. nicht 1:1
+  übertragbar, da dort der Lock-State selbst verwaltet wird — prüfen).
+
+### Kein Adapter/Seam für externe SDKs (Anthropic, nodemailer)
+- **Quelle**: design-patterns-audit-2026-09-01/03 (P-14), solid-principles-audit
+  (S-07) — im 09-03-Re-Audit explizit als "unverändert offen" bestätigt
+- **Importance**: 3/10
+- **Status**: offen
+- `new Anthropic(...)` und `nodemailer.createTransport()` werden inline in den
+  Funktionen instanziiert, die sie nutzen — kein Injection-Punkt, dadurch
+  schwer isoliert testbar und ein SDK-Breaking-Change fällt erst zur Laufzeit auf.
+- **Remediation**: optionaler `client = defaultClient()`-Parameter als
+  Injection-Punkt, kein DI-Container nötig.
+
+### SMTP-Transport ohne vollständige Timeout-Konfiguration
+- **Quelle**: resilience-fault-tolerance-audit-2026-09-03 (1.1)
+- **Importance**: 3/10
+- **Status**: offen (teilweise erledigt — `server.headersTimeout`/
+  `requestTimeout` bereits in Commit `161d7d2` gesetzt; SMTP selbst laut Grep
+  nur mit einem Teil der Timeout-Optionen konfiguriert, nicht verifiziert
+  welche genau)
+- Nodemailer-Transport braucht `connectionTimeout`/`greetingTimeout`/
+  `socketTimeout`, damit ein hängender SMTP-Host (Test-Mail, Passwort-Reset)
+  den Request nicht unbegrenzt blockiert.
+- **Remediation**: fehlende der drei Timeout-Optionen in `server/email.js`
+  ergänzen (welche fehlen: vor Umsetzung kurz gegenprüfen).
+
+### Positionale Parameter mit Vertauschungsrisiko (Bar-Fixtures, PDF-Rendering)
+- **Quelle**: readability-naming-audit-2026-09-03 (Findings 1-3)
+- **Importance**: 3/10
+- **Status**: offen
+- `writeBarFixture(barId, channelId, position, notes, fixtureId, side, positionText)`
+  — `notes`/`positionText` sind beides Freitext-Strings mit gleichem Default;
+  eine vertauschte Reihenfolge kompiliert, produziert aber einen
+  Daten-Korruptions-Bug ohne Typ-/Test-Schutz. Vier PDF-Render-Funktionen
+  (`renderHangereiBars`, `drawBarRows`, `drawTowerCards`,
+  `renderGassenturmText`) teilen 7-8 positionale Parameter in gleicher
+  Reihenfolge; `drawRow(doc, y, usableW, cols, isHeader, minRowH)` hat einen
+  bare-boolean-Parameter (Boolean-Trap) an 6 Call-Sites.
+- **Remediation**: auf Options-Objekte umstellen; für `drawRow` einen
+  benannten `drawHeaderRow`-Wrapper ergänzen.
+
+### Zwei Implementierungen der Hex→RGB/Luminanz-Farbkonvertierung (Server vs. Frontend)
+- **Quelle**: readability-naming-audit-2026-09-03 (Finding 10)
+- **Importance**: 2/10
+- **Status**: offen — vor Umsetzung erst prüfen, ob `pdf/filter-colors.js` und
+  `utils/filterColors.ts` tatsächlich 1:1 identisch sind (Audit konnte das
+  nicht abschließend verifizieren)
+- Gleicher Algorithmus einmal serverseitig, einmal clientseitig — trotz
+  `shared/`, das genau das verhindern soll. Kein jscpd-Treffer, da
+  sprachübergreifend (.js vs. .ts) mit abweichender Formatierung.
+- **Remediation**: nach `shared/color.js` verschieben (`hexToRgb`/
+  `relativeLuminance`).
+
+### Auth-Pfad hat keine Testabdeckung
+- **Quelle**: testing-implementation-audit-2026-09-03 (Finding 1.2, 10/10)
+- **Importance**: 7/10 (sicherheitsrelevant, verifiziert: keine
+  `server/test/auth*.test.js` vorhanden, Stand 2026-09-05)
+- **Status**: offen
+- `server/auth.js`/`server/routes/auth.js` — Login, JWT-Verifikation,
+  Rate-Limiting, Passwort-Reset-Token-Lifecycle — ohne jeden Test.
+- **Remediation**: `server/test/auth.test.js` mit Login-Erfolg/-Fehlschlag,
+  Rate-Limit-Trip beim 11. Versuch, Token-Einlösung.
+
+### System-Backup/Restore (`server/backup.js`) hat keine Tests
+- **Quelle**: testing-implementation-audit-2026-09-03 (Finding 1.3, 8/10)
+- **Importance**: 6/10 (sicherheitsrelevant wegen Secret-Scrubbing vor Export)
+- **Status**: offen — verifiziert: kein `server/test/backup.test.js` vorhanden
+- Der beinahe identische mandantenspezifische Mechanismus
+  (`tenant-backup.js`) ist bereits gut getestet (inkl. simuliertem
+  Fehler/Rollback) — das Muster existiert also, wurde aber nicht auf den
+  Haupt-Backup-Pfad übertragen. Ein ungetesteter Scrubbing-Schritt ist ein
+  stilles Regressionsrisiko für eine zuvor reale Credential-Leak-Lücke.
+- **Remediation**: `tenant-backup.test.js`-Muster spiegeln — prüfen, dass
+  `smtp.pass`/`password_resets` im exportierten Archiv fehlen und
+  gleichzeitige Restore-Versuche abgelehnt werden.
+
+### Frontend-Concurrency-Composables ungetestet (`useLockAwareCall`, `useShowLock`, `useTokenRefresh`)
+- **Quelle**: testing-implementation-audit-2026-09-03 (Finding 4.3, 7/10)
+- **Importance**: 5/10
+- **Status**: offen — verifiziert: kein `useLockAwareCall.test.ts` vorhanden
+- Diese Composables verwalten den heikelsten State im Frontend
+  (Lock-Takeover-Race, Token-Refresh mit Unmount-Guards); das etablierte
+  Mocking-Muster aus `useUndoRedo.test.ts`/`useShowHistory.test.ts`
+  (`vi.mock('../api/...')`) ist direkt übertragbar.
+- **Remediation**: mit `useLockAwareCall.test.ts` beginnen (pure Funktion,
+  trivial), danach `useShowLock`/`useTokenRefresh` mit `vi.mock`.
+
+### Bulk-Template-Anwendung ohne Per-Item-Fehlerisolation
+- **Quelle**: error-handling-resilience-audit-2026-09-03-round2 (Finding 3)
+- **Importance**: 3/10 — vor Umsetzung gegen aktuellen Code in
+  `template-apply-to-show.js` (nach Split, Commit `15cfd20`) verifizieren
+- **Status**: offen, nicht verifiziert
+- `applyTemplateToAllShows` soll laut Audit kein Try/Catch pro Iteration
+  haben — ein einzelner `SQLITE_BUSY` auf Show N bricht N+1..Ende ohne
+  Teilerfolgs-Meldung ab. Da die Datei seit dem Audit gesplittet wurde
+  (siehe Erledigt-Sektion), vor Umsetzung erneut gegen aktuellen Code prüfen.
+- **Remediation**: pro Show-Transaktion try/catch, `failedShows` sammeln,
+  Teilstatistik statt Exception zurückgeben.
+
+### SSE-Client-Map für Shows wird nie bereinigt
+- **Quelle**: resilience-fault-tolerance-audit-2026-09-03 (4.4)
+- **Importance**: 2/10
+- **Status**: offen, nicht verifiziert (vor Umsetzung `server/sse.js` prüfen)
+- `initShow()` legt einen Map-Eintrag pro Show an, der auch nach Trennung
+  aller Subscriber nie entfernt wird (`res.on('close', ...)` leert nur die
+  innere Map, nicht den äußeren Key) — struktureller Leak über viele Shows
+  hinweg, unabhängig vom bereits erfassten LRU-Eviction-Punkt.
+- **Remediation**: `if (map.size === 0) clients.delete(key)` im Close-Handler.
+
 ---
 
 ## Erledigt
@@ -124,8 +269,58 @@ Status, Beschreibung, Remediation.
 - `template-apply-to-show.js` (Template→Show) und
   `template-save-from-show.js` (Show→Template).
 
+### DB-Constraint-Verletzung bei Show-Erstellung als 409 statt generischem 500
+- **Quelle**: error-handling-resilience-audit-2026-09-03 / round2 (Finding 1/4)
+- **Erledigt**: bereits vor diesem Audit-Zyklus, Commit `161d7d2`
+  ("fix: Error-Handling/Resilience-Härtung und Testabdeckung nach
+  Audit-Zyklus") — verifiziert per Grep: `routes/shows.js` prüft
+  `err.code === 'SQLITE_CONSTRAINT_UNIQUE'` und liefert 409.
+- Wurde vom Recherche-Review zunächst fälschlich als offen gemeldet;
+  gegen aktuellen Code verifiziert und korrigiert.
+
+### Server-weite HTTP-Timeouts (`headersTimeout`/`requestTimeout`)
+- **Quelle**: resilience-fault-tolerance-audit-2026-09-03 (1.2)
+- **Erledigt**: bereits vor diesem Audit-Zyklus, Commit `161d7d2`
+- `server/index.js` setzt `server.headersTimeout = 30_000` und
+  `server.requestTimeout = 120_000`. Verifiziert per Grep.
+
+### CI führt Test-Suite nicht aus
+- **Quelle**: testing-implementation-audit-2026-09-03 (Finding 1.1, 9/10)
+- **Erledigt**: bereits vor diesem Audit-Zyklus, Commit `161d7d2`
+  (`.github/workflows/test.yml` erstellt)
+- Workflow läuft bei jedem Push/PR auf `main`, führt `npm test -w server`
+  und `npm test -w web-app` aus. Wurde vom Recherche-Review zunächst
+  fälschlich als offen gemeldet; gegen aktuellen Code verifiziert.
+
 ---
 
 ## Verworfen
 
-(noch keine Einträge)
+### SSE-Reconnect ohne Backoff
+- **Quelle**: resilience-fault-tolerance-audit-2026-09-03 (2.1)
+- **Verworfen**: bereits vor diesem Audit-Zyklus behoben (Commit `161d7d2`
+  bestätigt in error-handling-resilience-round2 als "verified fix" —
+  exponentielles Backoff + Jitter vorhanden). Nicht erneut in den Backlog
+  aufgenommen, da erledigt und nicht separat verifizierbar ohne den
+  ursprünglichen Vergleichspunkt.
+
+### `router.test.js` "false sense of coverage" / reihenfolge-abhängige Tests
+- **Quelle**: readability-naming-audit-2026-09-03 (Findings 4-15),
+  testing-implementation-audit-2026-09-03 (2.2/2.3)
+- **Verworfen**: 2026-09-05 — real, aber niedrigwertig/kosmetisch laut
+  eigener Einschätzung des Recherche-Reviews; bewusst nicht aufgenommen, um
+  den Backlog auf hochwertige Punkte zu fokussieren. Bei Bedarf erneut
+  aufnehmen.
+
+### Vage Test-/Performance-Forderungen ("mehr Komponententests", "Load-Tests")
+- **Quelle**: testing-implementation-audit-2026-09-03 (diverse)
+- **Verworfen**: 2026-09-05 — zu unspezifisch für einen Backlog-Eintrag
+  (kein konkretes Ziel/Datei benennbar). Erst bei einer konkreten
+  Test-Lücke wieder aufnehmen.
+
+### `umsetzungsreihenfolge-*.md` (alle Versionen)
+- **Quelle**: audits_old/umsetzungsreihenfolge-2026-09-01.md und
+  -2026-09-03(-b/-c/-d/-e).md
+- **Verworfen**: 2026-09-05 — reine Sequenzierungs-/Tracking-Dokumente
+  vorheriger Remediation-Runden ohne eigenständige neue Befunde; ihr
+  Inhalt ist vollständig in den oben verarbeiteten Einzel-Audits enthalten.
