@@ -18,14 +18,22 @@ Nach der Abarbeitung eines jeden offenen Punktes einen commit machen.
 ### `useShowChannels.ts` kombiniert 5 Konzerne in einem Composable
 - **Quelle**: 2026-09-05-software-design-analysis.md, Finding 4c
 - **Importance**: 3/10
-- **Status**: offen
-- 448 Zeilen: Channel-CRUD, CSV-Import/Export, EOS-CSV-Merge,
-  Circuit-Scan-Diffing, Undo/Redo-Wiring. Bereits teilweise entkoppelt
-  (delegiert Parsing/Diffing an `utils/eos-csv.ts`,
-  `utils/circuitScanDiff.ts`).
-- **Remediation (optional)**: `useShowChannelImport.ts` für CSV/EOS/
-  Circuit-Scan-Import-Flows heraustrennen, `useShowChannels.ts` bleibt
-  CRUD + Undo. Nicht dringend.
+- **Status**: offen — geprüft 2026-09-05, bewusst nicht umgesetzt
+- Mittlerweile 551 Zeilen (Stand 2026-09-05, war 448 zum Audit-Zeitpunkt):
+  Channel-CRUD, CSV-Import/Export, EOS-CSV-Merge, Circuit-Scan-Diffing,
+  Undo/Redo-Wiring. Bereits teilweise entkoppelt (delegiert Parsing/Diffing
+  an `utils/eos-csv.ts`, `utils/circuitScanDiff.ts`).
+- **Grund für Zurückstellung**: EOS-Import (~200 Zeilen) und Circuit-Scan-
+  Import (~50 Zeilen) sind tief mit `channels`/`scheduleChannelsSave`/
+  `showId`/`t`/`localeReady` verzahnt — eine Extraktion nach
+  `useShowChannelImport.ts` müsste diese State-Refs zwischen zwei
+  Composables teilen. Nur eine einzige Call-Site (`ShowDetailView.vue`),
+  keine dedizierten Tests für die Import-Flows — mechanisches Risiko ohne
+  Sicherheitsnetz höher als bei den bereits umgesetzten Punkten dieser
+  Session. Explizit als "nicht dringend" markiert; bei Bedarf erneut prüfen.
+- **Remediation (optional, unverändert)**: `useShowChannelImport.ts` für CSV/
+  EOS/Circuit-Scan-Import-Flows heraustrennen, `useShowChannels.ts` bleibt
+  CRUD + Undo.
 
 ### Drei-Datei-Kosten für eine neue gesperrte Route
 - **Quelle**: 2026-09-05-software-design-analysis.md, §5
