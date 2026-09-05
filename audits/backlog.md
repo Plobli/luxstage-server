@@ -131,19 +131,6 @@ Nach der Abarbeitung eines jeden offenen Punktes einen commit machen.
 - **Remediation**: optionaler `client = defaultClient()`-Parameter als
   Injection-Punkt, kein DI-Container nötig.
 
-### SMTP-Transport ohne vollständige Timeout-Konfiguration
-- **Quelle**: resilience-fault-tolerance-audit-2026-09-03 (1.1)
-- **Importance**: 3/10
-- **Status**: offen (teilweise erledigt — `server.headersTimeout`/
-  `requestTimeout` bereits in Commit `161d7d2` gesetzt; SMTP selbst laut Grep
-  nur mit einem Teil der Timeout-Optionen konfiguriert, nicht verifiziert
-  welche genau)
-- Nodemailer-Transport braucht `connectionTimeout`/`greetingTimeout`/
-  `socketTimeout`, damit ein hängender SMTP-Host (Test-Mail, Passwort-Reset)
-  den Request nicht unbegrenzt blockiert.
-- **Remediation**: fehlende der drei Timeout-Optionen in `server/email.js`
-  ergänzen (welche fehlen: vor Umsetzung kurz gegenprüfen).
-
 ### Positionale Parameter mit Vertauschungsrisiko (Bar-Fixtures, PDF-Rendering)
 - **Quelle**: readability-naming-audit-2026-09-03 (Findings 1-3)
 - **Importance**: 3/10
@@ -174,6 +161,14 @@ Nach der Abarbeitung eines jeden offenen Punktes einen commit machen.
 ---
 
 ## Erledigt
+
+### SMTP-Transport ohne vollständige Timeout-Konfiguration
+- **Quelle**: resilience-fault-tolerance-audit-2026-09-03 (1.1)
+- **Erledigt**: bereits vor diesem Audit-Zyklus, Commit `161d7d2` — verifiziert
+  2026-09-05: `server/email.js` setzt `connectionTimeout`, `greetingTimeout`
+  und `socketTimeout` bereits vollständig.
+- Wurde vom Recherche-Review fälschlich als teilweise offen gemeldet; gegen
+  aktuellen Code verifiziert und korrigiert.
 
 ### SSE-Client-Map für Shows wird nie bereinigt
 - **Quelle**: resilience-fault-tolerance-audit-2026-09-03 (4.4)
