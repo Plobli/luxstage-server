@@ -22,6 +22,28 @@ markiert sind — siehe `## Bewusst zurückgestellt` weiter unten.
 
 ## Erledigt
 
+### Kein Health-Check-Endpoint für Uptime-Monitoring
+- **Quelle**: codebase-quality-security-review-2026-09-06
+- **Erledigt**: 2026-09-06 (bereits vorhanden, verifiziert)
+- Vermuteter offener Punkt aus einer allgemeinen Codebase-Review-Frage. Gegen
+  aktuellen Code geprüft: `GET /api/health` existiert bereits
+  (`server/routes/system.js`, in `route-table.js` als `PUBLIC_ROUTES`-Eintrag
+  ohne Auth erreichbar, liefert `{ ok: true }`), inkl. Test in
+  `server/test/router.test.js`. Kein weiterer Handlungsbedarf — vom Nutzer
+  bestätigt, dass Uptime Kuma bereits als externer Monitor betrieben wird und
+  diesen Endpoint abfragen kann.
+
+### Kein zentrales Error-Handling-Middleware-Pattern
+- **Quelle**: codebase-quality-security-review-2026-09-06
+- **Erledigt**: 2026-09-06 (bereits vorhanden, verifiziert)
+- Vermuteter offener Punkt. Gegen aktuellen Code geprüft: `dispatchRoute()`
+  (`server/router.js`) fängt bereits zentral jeden Handler-Fehler ab (500 +
+  strukturiertes Log, `log.error('Unbehandelter Fehler', ...)`), ebenso der
+  äußere `router()`-Try/Catch für alles außerhalb der API-Dispatch-Kette.
+  Einzelne Routen fangen Fehler zusätzlich lokal ab, wo sie spezifischere
+  Statuscodes brauchen (z.B. 409 bei Constraint-Verletzung), das zentrale
+  Netz greift aber bereits als Fallback. Kein Handlungsbedarf.
+
 ### Verschlüsselungsschlüssel für Settings-at-Rest wurde aus JWT_SECRET abgeleitet
 - **Quelle**: database-security-audit-2026-09-06
 - **Erledigt**: 2026-09-06
@@ -744,6 +766,36 @@ aktive Entscheidungen, aktuell nichts zu tun.
 - **Status**: bewusst zurückgestellt (architektonische Grundsatzentscheidung,
   kein Bug; "no framework, minimal dependencies"-Philosophie ist im Projekt
   durchgängig sichtbar)
+
+### CSP erlaubt `style-src 'unsafe-inline'`
+- **Quelle**: codebase-quality-security-review-2026-09-06
+- **Importance**: 3/10
+- **Status**: bewusst zurückgestellt, geprüft 2026-09-06
+- `applySecurityHeaders` erlaubt `'unsafe-inline'` für Styles.
+- **Grund für Zurückstellung**: Mindestens 14 Vue-Komponenten nutzen
+  `:style`-Bindings (dynamische Inline-Styles, z.B. für berechnete
+  Positionen/Farben im Floorplan/Netzwerk-Editor) — diese landen als
+  `style="..."`-Attribut im DOM und fallen unter dieselbe CSP-Direktive wie
+  `<style>`-Injection. Ein Entfernen von `'unsafe-inline'` bräuchte entweder
+  Nonces (unpraktikabel für dynamisch berechnete Werte) oder eine Umstellung
+  aller betroffenen Bindings auf CSS-Klassen mit CSS-Variablen — ein
+  nennenswerter Frontend-Umbau ohne aktuell bekannten Style-Injection-Vektor
+  (kein `v-html` im Repo, verifiziert per Grep).
+- **Remediation**: Bei Bedarf schrittweise auf CSS-Custom-Properties statt
+  direkter `:style`-Bindings umstellen, dann `'unsafe-inline'` entfernen.
+
+### CSRF-Schutz nicht explizit vorhanden
+- **Quelle**: codebase-quality-security-review-2026-09-06
+- **Importance**: 1/10
+- **Status**: bewusst zurückgestellt, geprüft 2026-09-06
+- Kein CSRF-Token-Mechanismus vorhanden.
+- **Grund für Zurückstellung**: Verifiziert per Grep — kein `Set-Cookie` im
+  gesamten Repo, Auth läuft durchgängig über Bearer-Token im
+  `Authorization`-Header (siehe auch bestehenden Punkt "JWT wird im Frontend
+  in `localStorage`..." weiter oben). CSRF setzt browserseitig automatisch
+  mitgesendete Credentials (Cookies) voraus — ohne solche ist die Angriffsklasse
+  strukturell nicht anwendbar. Kein Fix nötig, solange kein Cookie-basierter
+  Auth-Pfad eingeführt wird.
 
 ### Kein API-Versionierungsschema
 - **Quelle**: api-and-infrastructure-audit-2026-09-06
