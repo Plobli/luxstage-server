@@ -64,6 +64,24 @@ test('readJsonBody liefert 400 und null bei ungültigem JSON', async () => {
   assert.equal(res.body.error, 'Ungültiger JSON-Body')
 })
 
+test('readJsonBody lehnt übermäßig tief verschachteltes JSON ab', async () => {
+  let deeplyNested = 'null'
+  for (let i = 0; i < 100; i++) deeplyNested = `{"a":${deeplyNested}}`
+  const res = fakeRes()
+  const result = await readJsonBody(jsonReq(deeplyNested), res)
+  assert.equal(result, null)
+  assert.equal(res.status, 400)
+  assert.equal(res.body.error, 'JSON-Body zu tief verschachtelt')
+})
+
+test('readJsonBody akzeptiert realistisch verschachteltes JSON (z.B. Tiptap-Content)', async () => {
+  let nested = '"text"'
+  for (let i = 0; i < 20; i++) nested = `{"type":"listItem","content":[${nested}]}`
+  const res = fakeRes()
+  const result = await readJsonBody(jsonReq(nested), res)
+  assert.notEqual(result, null)
+})
+
 test('readJsonBody liefert 413 und null bei zu großem Body', async () => {
   const res = fakeRes()
   const result = await readJsonBody(jsonReq('{"a":"' + 'x'.repeat(100) + '"}'), res, 10)

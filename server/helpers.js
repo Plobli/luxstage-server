@@ -41,15 +41,34 @@ export function readBody(req, maxBytes = 1_048_576) {
   })
 }
 
+// Günstige Post-Parse-Tiefenprüfung statt eines eigenen Streaming-Parsers:
+// JSON.parse() ist nativ und deutlich schneller als ein manueller Parser mit
+// Tiefe-Tracking während des Parsens — die Body-Größe ist bereits auf 1 MB
+// begrenzt, das Risiko ist rekursive Downstream-Verarbeitung ohne eigenes
+// Tiefenlimit (aktuell keine solche Logik gefunden, aber nicht für jeden
+// db/*.js-Mutation-Helper einzeln verifizierbar).
+const MAX_JSON_DEPTH = 50
+function exceedsMaxDepth(value, depth = 0) {
+  if (depth > MAX_JSON_DEPTH) return true
+  if (Array.isArray(value)) return value.some(v => exceedsMaxDepth(v, depth + 1))
+  if (value && typeof value === 'object') return Object.values(value).some(v => exceedsMaxDepth(v, depth + 1))
+  return false
+}
+
 export async function readJsonBody(req, res, maxBytes) {
   let raw
   try { raw = await readBody(req, maxBytes) } catch {
     json(res, 413, { error: 'Request zu groß' }); return null
   }
   if (!raw.trim()) return {}
-  try { return JSON.parse(raw) } catch {
+  let parsed
+  try { parsed = JSON.parse(raw) } catch {
     json(res, 400, { error: 'Ungültiger JSON-Body' }); return null
   }
+  if (exceedsMaxDepth(parsed)) {
+    json(res, 400, { error: 'JSON-Body zu tief verschachtelt' }); return null
+  }
+  return parsed
 }
 
 export function json(res, status, data, extraHeaders = {}) {

@@ -15,26 +15,6 @@ Nach der Abarbeitung eines jeden offenen Punktes einen commit machen.
 
 ## Offen
 
-### Kein Refresh-Token-Mechanismus — Access-Token dient als eigenes "Refresh"
-- **Quelle**: authentication-flow-review-2026-09-06
-- **Importance**: 3/10
-- **Status**: offen
-- `/api/auth/refresh` (`server/routes/auth.js:79-82`) signiert einfach ein
-  neues 12h-Access-Token aus den Claims des aktuell gültigen Tokens neu — es
-  gibt kein separates Refresh-Token mit Rotation/Reuse-Detection und keine
-  serverseitige Revocation-Liste. Bewusster Einfachheits-Trade-off, aber ein
-  gestohlenes Token kann dadurch unbegrenzt über rollierende 12h-Fenster
-  verlängert werden, solange es vor Ablauf präsentiert wird — kombiniert mit
-  dem Punkt zur fehlenden Session-Invalidierung bei Passwort-Änderung
-  überlebt ein gestohlenes Token eine beabsichtigte Aussperrung potenziell
-  unbegrenzt.
-- **Remediation**: Falls dauerhafte Sessions gewünscht sind, kurzlebige
-  Access-Tokens (~15min) + separate serverseitig gespeicherte
-  (gehasht) Refresh-Tokens mit Rotation/Reuse-Detection einführen;
-  andernfalls mindestens `/api/auth/refresh` an die oben vorgeschlagene
-  `tokenVersion`-Prüfung koppeln, damit eine Passwort-Änderung auch die
-  Refresh-Fähigkeit beendet.
-
 ### Kein API-Versionierungsschema
 - **Quelle**: api-and-infrastructure-audit-2026-09-06
 - **Importance**: 2/10
@@ -49,20 +29,6 @@ Nach der Abarbeitung eines jeden offenen Punktes einen commit machen.
 - **Remediation**: Niedrige Priorität; bei Bedarf minimalen
   Versions-Marker (URL-Präfix oder Header) einführen, bevor ein
   Breaking-Change-Vorfall eintritt.
-
-### Kein expliziertes JSON-Nesting-Depth-Limit
-- **Quelle**: api-and-infrastructure-audit-2026-09-06
-- **Importance**: 1/10
-- **Status**: offen
-- `readJsonBody` (`server/helpers.js:39-48`) begrenzt die Body-Größe (1 MB
-  via `readBody`), ruft aber `JSON.parse(raw)` ohne Tiefenlimit auf. Innerhalb
-  der 1-MB-Grenze ist theoretisch sehr tiefe Verschachtelung möglich. Restrisiko
-  wäre rekursive Downstream-Verarbeitung ohne Tiefenlimit — im Rahmen des
-  Audits keine solche rekursive Body-Walking-Logik gefunden; nicht
-  abschließend verifiziert für alle `db/*.js`-Mutation-Helper.
-- **Remediation**: Niedrige Priorität angesichts der Größenbegrenzung; falls
-  ausnutzbar bestätigt, günstige Tiefenprüfung vor/während des Parsens
-  ergänzen.
 
 ### Backup/Restore-Endpunkte nur mit einfacher Auth statt erhöhtem Privileg
 - **Quelle**: database-security-audit-2026-09-06
@@ -103,6 +69,40 @@ Nach der Abarbeitung eines jeden offenen Punktes einen commit machen.
 ---
 
 ## Erledigt
+
+### Kein expliziertes JSON-Nesting-Depth-Limit
+- **Quelle**: api-and-infrastructure-audit-2026-09-06
+- **Erledigt**: 2026-09-06
+- `readJsonBody` begrenzte die Body-Größe (1 MB), rief aber `JSON.parse()`
+  ohne Tiefenlimit auf — innerhalb der 1-MB-Grenze war theoretisch sehr
+  tiefe Verschachtelung möglich. Restrisiko wäre rekursive
+  Downstream-Verarbeitung ohne eigenes Tiefenlimit gewesen.
+- **Remediation**: Günstige Post-Parse-Tiefenprüfung (`exceedsMaxDepth()`,
+  Grenze 50) in `readJsonBody()` ergänzt — lehnt übermäßig verschachteltes
+  JSON mit 400 ab, bevor es an Downstream-Code weitergereicht wird. Grenze
+  von 50 großzügig genug für jeden realistischen Editor-Inhalt (z.B.
+  verschachtelte Tiptap-Listen). Tests in `server/test/helpers.test.js`
+  (übermäßige Tiefe abgelehnt, realistische Tiefe weiterhin akzeptiert).
+
+### Kein Refresh-Token-Mechanismus — Access-Token diente als eigenes "Refresh"
+- **Quelle**: authentication-flow-review-2026-09-06
+- **Erledigt**: 2026-09-06 (Kern-Empfehlung bereits durch vorherigen Fix abgedeckt)
+- `/api/auth/refresh` signiert einfach ein neues 12h-Access-Token aus den
+  Claims des aktuell gültigen Tokens neu — es gibt weiterhin kein separates
+  Refresh-Token mit Rotation/Reuse-Detection (bewusster
+  Einfachheits-Trade-off, kein Bug für sich). Der konkrete Risiko-Punkt war:
+  ein gestohlenes Token hätte eine Passwort-Änderung (Aussperr-Versuch)
+  potenziell unbegrenzt über rollierende 12h-Fenster überlebt.
+- **Remediation**: Bereits durch den `token_version`-Fix
+  ("Passwort-Änderung/-Reset invalidierte keine zuvor ausgestellten JWTs")
+  gelöst, ohne separate Änderung nötig: `/api/auth/refresh` steht nicht in
+  `PUBLIC_ROUTES`, läuft also durch `authenticate()` im Router — das lehnt
+  ein Token mit veralteter `tokenVersion` bereits ab, bevor `req.user`
+  gesetzt wird, `/api/auth/refresh` also erreichbar ist. Eine
+  Passwort-Änderung beendet damit automatisch auch die Refresh-Fähigkeit
+  gestohlener Tokens. Volle Rotation/Reuse-Detection für Refresh-Tokens
+  bleibt ein bewusster Trade-off (siehe `## Bewusst zurückgestellt`), kein
+  offener Punkt mehr.
 
 ### `POST /api/auth/reset-password/confirm` hatte kein dediziertes Rate-Limiting
 - **Quelle**: initial-security-analysis-audit-2026-09-06
