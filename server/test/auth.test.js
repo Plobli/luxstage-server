@@ -5,7 +5,7 @@ import { cleanupDataPath, createResponse } from './helpers/test-env.js'
 
 const { createUserWithHash, createSelfRegisteredUserWithHash, setPasswordHash } = await import('../db/users.js')
 const { authRoutes } = await import('../routes/auth.js')
-const { hashPassword, authenticate, signToken, issueDownloadToken, issueInlineToken } = await import('../auth.js')
+const { hashPassword, authenticate, signToken, issueDownloadToken, issueInlineToken, login } = await import('../auth.js')
 
 async function createUser(username, password) {
   createUserWithHash(username, await hashPassword(password))
@@ -89,6 +89,25 @@ test('Login mit unbekanntem Nutzernamen liefert dieselbe 401-Meldung (kein Enume
   await authRoutes(jsonRequest('POST', { username: 'gibt-es-nicht', password: 'egal' }, { ip: '10.0.0.3' }), res, '/api/auth/login')
   assert.equal(res.status, 401)
   assert.equal(res.body.error, 'Ungültige Anmeldedaten')
+})
+
+test('login() vergleicht bei unbekanntem Username trotzdem per bcrypt (Timing-Enumeration-Schutz)', async () => {
+  await createUser('eve', 'irrelevantes-passwort')
+
+  const t0 = process.hrtime.bigint()
+  await login('existiert-nicht-abc123', 'egal')
+  const unknownMs = Number(process.hrtime.bigint() - t0) / 1e6
+
+  const t1 = process.hrtime.bigint()
+  await login('eve', 'falsches-passwort')
+  const wrongPasswordMs = Number(process.hrtime.bigint() - t1) / 1e6
+
+  // Beide Pfade müssen einen vollen bcrypt.compare durchlaufen — bei Cost 12
+  // typischerweise >50ms. Ohne den Dummy-Compare wäre der unknown-Pfad
+  // praktisch 0ms (sofortiger Return vor jedem bcrypt-Aufruf).
+  assert.ok(unknownMs > 50, `unbekannter Username sollte einen bcrypt-Vergleich durchlaufen (war ${unknownMs}ms)`)
+  // Großzügige Tolerenz statt exakter Gleichheit — Ziel ist "gleiche Größenordnung", nicht Millisekunden-Präzision.
+  assert.ok(Math.abs(unknownMs - wrongPasswordMs) < wrongPasswordMs, 'Zeitunterschied darf nicht die Existenz eines Accounts verraten')
 })
 
 test('Login eines pending-Kontos liefert 403 mit "pending"-Marker', async () => {

@@ -54,21 +54,6 @@ Nach der Abarbeitung eines jeden offenen Punktes einen commit machen.
   `tokenVersion`-Prüfung koppeln, damit eine Passwort-Änderung auch die
   Refresh-Fähigkeit beendet.
 
-### Login hat Timing-Seitenkanal zur Username-Enumeration
-- **Quelle**: authentication-flow-review-2026-09-06
-- **Importance**: 2/10
-- **Status**: offen
-- `login()` (`server/auth.js:87-101`) gibt bei nicht-existierendem Username
-  sofort `null` zurück (Zeile 93) und überspringt den bcrypt-Vergleich
-  vollständig. Bei existierendem Username mit falschem Passwort läuft ein
-  vollständiger `bcrypt.compare` (Cost 12, ~100ms+) vor dem `null`-Return.
-  Beide Fälle liefern dieselbe Fehlermeldung (`401 'Ungültige
-  Anmeldedaten'`), aber die Antwortzeit unterscheidet sich messbar —
-  ermöglicht Username-/Email-Enumeration trotz identischer Fehlermeldung.
-- **Remediation**: Bei nicht gefundenem User-Datensatz immer einen
-  Dummy-`bcrypt.compare` gegen einen fixen/vorberechneten Hash ausführen,
-  damit beide Codepfade vergleichbar lange dauern.
-
 ### Kein API-Versionierungsschema
 - **Quelle**: api-and-infrastructure-audit-2026-09-06
 - **Importance**: 2/10
@@ -152,6 +137,20 @@ Nach der Abarbeitung eines jeden offenen Punktes einen commit machen.
 ---
 
 ## Erledigt
+
+### Login hatte Timing-Seitenkanal zur Username-Enumeration
+- **Quelle**: authentication-flow-review-2026-09-06
+- **Erledigt**: 2026-09-06
+- `login()` gab bei nicht-existierendem Username sofort `null` zurück und
+  übersprang den bcrypt-Vergleich vollständig, während ein existierender
+  Username mit falschem Passwort einen vollen `bcrypt.compare` (Cost 12,
+  ~100ms+) durchlief — trotz identischer Fehlermeldung ermöglichte die
+  messbare Zeitdifferenz Username-Enumeration.
+- **Remediation**: Bei nicht gefundenem User-Datensatz läuft jetzt ein
+  Dummy-`bcrypt.compare` gegen einen fixen, zur Modul-Ladezeit
+  vorberechneten Hash. Test in `server/test/auth.test.js` (misst, dass der
+  unbekannte-Username-Pfad tatsächlich >50ms dauert und in derselben
+  Größenordnung wie der Falsches-Passwort-Pfad liegt).
 
 ### Bestätigungs-Token bei Self-Registration wurde im Klartext gespeichert
 - **Quelle**: authentication-flow-review-2026-09-06

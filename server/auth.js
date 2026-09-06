@@ -69,6 +69,13 @@ function verifyInlineToken(token) {
 
 const BCRYPT_COST = 12
 
+// Fixer, vorberechneter Hash für den Dummy-Compare bei nicht existierendem
+// Username (siehe login() unten) — verhindert Username-Enumeration über den
+// Zeitunterschied zwischen "User nicht gefunden" (sofortiger null-Return)
+// und "User gefunden, Passwort falsch" (voller bcrypt.compare, ~100ms+).
+// Beide Pfade müssen einen bcrypt.compare gleicher Kosten durchlaufen.
+const DUMMY_HASH = bcrypt.hashSync('dummy-password-for-timing-safety', BCRYPT_COST)
+
 export async function hashPassword(plain) {
   return bcrypt.hash(plain, BCRYPT_COST)
 }
@@ -92,7 +99,15 @@ export async function login(username, password) {
   // ggf. nicht — Login muss beide Fälle unabhängig von der eingegebenen
   // Groß-/Kleinschreibung finden.
   const row = getDb().prepare('SELECT * FROM users WHERE username = ? COLLATE NOCASE').get(username)
-  if (!row) return null
+  if (!row) {
+    // Dummy-Compare gegen einen fixen Hash: ohne dies wäre die Antwortzeit
+    // messbar kürzer als bei existierendem Username mit falschem Passwort
+    // (der volle bcrypt.compare unten läuft dort immer durch) — beide Fälle
+    // liefern zwar dieselbe Fehlermeldung, aber die Zeitdifferenz allein
+    // ermöglicht Username-Enumeration.
+    await bcrypt.compare(password, DUMMY_HASH)
+    return null
+  }
   const ok = await verifyPassword(password, row.password)
   if (!ok) return null
   if (row.pending === 1) return { pending: true }
