@@ -217,37 +217,6 @@ Nach der Abarbeitung eines jeden offenen Punktes einen commit machen.
   entfernen/ersetzen (z.B. `showName.replace(/[\r\n"]/g, '')`), oder
   RFC-5987-`filename*=UTF-8''...`-Kodierung verwenden.
 
-### Query-String-Auth-Fallback akzeptiert volles Session-JWT statt nur zweckgebundener Tokens
-- **Quelle**: authorization-implementation-audit-2026-09-06
-- **Importance**: 5/10
-- **Status**: offen
-- `authenticate()` (`server/auth.js:103-123`, erreicht über
-  `server/router.js:260` `handleApi` für jede nicht-öffentliche Route)
-  probiert der Reihe nach: `Authorization: Bearer`, Einmal-`downloadToken`
-  (60s TTL), wiederverwendbaren `inlineToken` (15min TTL) und als letzten
-  Fallback `jwt.verify(downloadToken, config.jwtSecret)` — akzeptiert also
-  das **volle 12h-Session-JWT selbst** als `?token=`-Query-Parameter
-  (`auth.js:119`). Dieser Fallback gilt generisch für *jede* API-Route, nicht
-  nur für die Download-/PDF-/Foto-Endpunkte, für die die zweckgebundenen
-  Tokens gedacht sind. Die beiden zweckgebundenen Tokens
-  (`issueDownloadToken`/`issueInlineToken`, nur in
-  `server/routes/auth.js:84-91` ausgestellt) sind bewusst kurzlebig und
-  einmalig/begrenzt nutzbar, gerade weil URLs in Logs, Browser-History und
-  Referer-Header durchsickern — der Raw-JWT-Fallback hat keine dieser
-  Absicherungen: gleiche 12h-Lebensdauer, unbegrenzte Wiederverwendung,
-  voller API-Scope, funktioniert auf jedem Endpunkt. Der eigene
-  Request-Logger der App loggt nur `pathname` (nicht selbst betroffen), aber
-  vorgeschaltete Reverse-Proxies (z.B. Caddy im SaaS-Deployment) loggen
-  üblicherweise vollständige URLs inkl. Query-String.
-- **Remediation**: Raw-JWT-Zweig im Query-String-Fallback (`auth.js:119`)
-  entfernen — im Query-String nur noch `redeemDownloadToken`/
-  `verifyInlineToken`-Ergebnisse akzeptieren; für alles, was ein volles
-  Session-JWT braucht, den `Authorization`-Header verlangen. Falls ein
-  legitimer Anwendungsfall ein volles JWT in der URL braucht (z.B. SSE
-  `EventSource` kann keine Header setzen), dafür einen eigenen
-  zweckgebundenen, kurzlebigen Token ausstellen statt das allgemeine
-  Session-JWT wiederzuverwenden.
-
 ### Passwort-Änderung/-Reset invalidiert keine zuvor ausgestellten JWTs
 - **Quelle**: authentication-flow-review-2026-09-06
 - **Importance**: 6/10
@@ -485,6 +454,24 @@ Nach der Abarbeitung eines jeden offenen Punktes einen commit machen.
 ---
 
 ## Erledigt
+
+### Query-String-Auth-Fallback akzeptierte volles Session-JWT statt nur zweckgebundener Tokens
+- **Quelle**: authorization-implementation-audit-2026-09-06
+- **Erledigt**: 2026-09-06
+- `authenticate()` probierte als letzten Fallback `jwt.verify(downloadToken,
+  config.jwtSecret)` — akzeptierte also das volle 12h-Session-JWT selbst als
+  `?token=`-Query-Parameter, generisch für jede API-Route. Anders als die
+  zweckgebundenen Download-/Inline-Tokens (60s/15min TTL, begrenzt
+  wiederverwendbar) hatte dieser Fallback keine dieser Absicherungen —
+  problematisch, da Reverse-Proxy-Logs (Caddy im SaaS-Deployment)
+  üblicherweise vollständige URLs inkl. Query-String mitschreiben.
+- **Remediation**: Raw-JWT-Zweig in `server/auth.js` entfernt — der
+  Query-String-Pfad akzeptiert jetzt nur noch `redeemDownloadToken`/
+  `verifyInlineToken`-Ergebnisse. Kein Frontend-Nutzer brauchte den
+  entfernten Zweig (alle Aufrufer gehen bereits über `api.downloadUrl()`
+  bzw. die zweckgebundenen Tokens, verifiziert per Grep). Tests in
+  `server/test/auth.test.js` (Header-JWT weiterhin akzeptiert, Query-JWT
+  abgelehnt, beide zweckgebundenen Tokens weiterhin akzeptiert).
 
 ### Client-gelieferter `slot_count` unvalidiert als Schleifen-Grenze/DELETE-Schwelle — DoS und stiller Datenverlust
 - **Quelle**: business-logic-vulnerabilities-audit-2026-09-06

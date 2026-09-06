@@ -108,7 +108,12 @@ export function authenticate(req) {
     try { return jwt.verify(jwtToken, config.jwtSecret) } catch {}
   }
 
-  // 2. Kurzlebige Download-Token aus URL prüfen (für SSE, PDF, Backup-URLs)
+  // 2. Kurzlebige, zweckgebundene Token aus URL prüfen (für SSE, PDF, Backup-URLs).
+  // Bewusst KEIN Fallback auf das volle Session-JWT hier: dieser Zweig gilt für
+  // *jede* API-Route, nicht nur die Download-/PDF-/Foto-Endpunkte, für die die
+  // zweckgebundenen Tokens gedacht sind — ein 12h-Session-JWT als ?token= wäre
+  // unbegrenzt wiederverwendbar und liefe mit vollem API-Scope, genau die
+  // Absicherungen, die issueDownloadToken/issueInlineToken bewusst herstellen.
   const url = new URL(req.url, 'http://localhost')
   const downloadToken = url.searchParams.get('token')
   if (downloadToken) {
@@ -116,7 +121,6 @@ export function authenticate(req) {
     if (redeemed) return redeemed
     const inline = verifyInlineToken(downloadToken)
     if (inline) return inline
-    try { return jwt.verify(downloadToken, config.jwtSecret) } catch {}
   }
 
   return null

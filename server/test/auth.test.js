@@ -5,7 +5,7 @@ import { cleanupDataPath, createResponse } from './helpers/test-env.js'
 
 const { createUserWithHash, createSelfRegisteredUserWithHash } = await import('../db/users.js')
 const { authRoutes } = await import('../routes/auth.js')
-const { hashPassword } = await import('../auth.js')
+const { hashPassword, authenticate, signToken, issueDownloadToken, issueInlineToken } = await import('../auth.js')
 
 async function createUser(username, password) {
   createUserWithHash(username, await hashPassword(password))
@@ -36,6 +36,37 @@ test('Login mit falschem Passwort liefert 401 mit generischer Meldung', async ()
   await authRoutes(jsonRequest('POST', { username: 'bob', password: 'falsch' }, { ip: '10.0.0.2' }), res, '/api/auth/login')
   assert.equal(res.status, 401)
   assert.equal(res.body.error, 'Ungültige Anmeldedaten')
+})
+
+function reqWithUrl(url) {
+  return { headers: {}, url }
+}
+
+test('authenticate() akzeptiert ein volles Session-JWT im Authorization-Header', () => {
+  const token = signToken('anna')
+  const req = { headers: { authorization: `Bearer ${token}` }, url: '/api/shows' }
+  const user = authenticate(req)
+  assert.equal(user.username, 'anna')
+})
+
+test('authenticate() lehnt ein volles Session-JWT als ?token=-Query-Parameter ab', () => {
+  const token = signToken('anna')
+  const req = reqWithUrl(`/api/shows?token=${encodeURIComponent(token)}`)
+  assert.equal(authenticate(req), null)
+})
+
+test('authenticate() akzeptiert weiterhin einen gültigen zweckgebundenen Download-Token als Query-Parameter', () => {
+  const token = issueDownloadToken('anna')
+  const req = reqWithUrl(`/api/shows?token=${encodeURIComponent(token)}`)
+  const user = authenticate(req)
+  assert.equal(user.username, 'anna')
+})
+
+test('authenticate() akzeptiert weiterhin einen gültigen Inline-Token als Query-Parameter', () => {
+  const { token } = issueInlineToken('anna')
+  const req = reqWithUrl(`/api/shows?token=${encodeURIComponent(token)}`)
+  const user = authenticate(req)
+  assert.equal(user.username, 'anna')
 })
 
 test('Login mit unbekanntem Nutzernamen liefert dieselbe 401-Meldung (kein Enumeration-Leak)', async () => {
