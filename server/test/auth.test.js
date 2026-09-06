@@ -162,4 +162,16 @@ test('reset-password/confirm lehnt zu kurzes Passwort ab', async () => {
   assert.equal(res.status, 400)
 })
 
+test('11. reset-password/confirm-Versuch mit ungültigem Token derselben IP wird mit 429 geblockt', async () => {
+  const ip = '10.0.0.11'
+  for (let i = 0; i < 10; i++) {
+    const res = createResponse()
+    await authRoutes(jsonRequest('POST', { token: 'ungueltiger-token', newPassword: 'neuespasswort123' }, { ip }), res, '/api/auth/reset-password/confirm')
+    assert.equal(res.status, 400)
+  }
+  const blocked = createResponse()
+  await authRoutes(jsonRequest('POST', { token: 'ungueltiger-token', newPassword: 'neuespasswort123' }, { ip }), blocked, '/api/auth/reset-password/confirm')
+  assert.equal(blocked.status, 429)
+})
+
 after(cleanupDataPath)

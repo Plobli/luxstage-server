@@ -83,21 +83,6 @@ Nach der Abarbeitung eines jeden offenen Punktes einen commit machen.
   ausnutzbar bestätigt, günstige Tiefenprüfung vor/während des Parsens
   ergänzen.
 
-### `POST /api/auth/reset-password/confirm` ohne dediziertes Rate-Limiting
-- **Quelle**: initial-security-analysis-audit-2026-09-06
-- **Importance**: 2/10
-- **Status**: offen
-- Anders als `forgot-password` (`server/routes/auth.js:108-129`, mit
-  `isRateLimited`/`recordFailedLogin`) ist der Confirm-Schritt
-  (`server/routes/auth.js:132-142`) öffentlich und nur durch den generischen
-  300/60s-IP-Limiter begrenzt. Praktisches Risiko gering, da der
-  Reset-Token ein 32-Byte-Zufallswert ist (`randomBytes(32)`, Zeile 116) —
-  Brute-Force ist rechnerisch unmöglich unabhängig vom Rate-Limiting — aber
-  Inkonsistenz gegenüber dem sonst in dieser Datei durchgängigen
-  Defense-in-Depth-Muster.
-- **Remediation**: Denselben Limiter aus Konsistenzgründen ergänzen, niedrige
-  Priorität.
-
 ### Backup/Restore-Endpunkte nur mit einfacher Auth statt erhöhtem Privileg
 - **Quelle**: database-security-audit-2026-09-06
 - **Importance**: 3/10
@@ -137,6 +122,17 @@ Nach der Abarbeitung eines jeden offenen Punktes einen commit machen.
 ---
 
 ## Erledigt
+
+### `POST /api/auth/reset-password/confirm` hatte kein dediziertes Rate-Limiting
+- **Quelle**: initial-security-analysis-audit-2026-09-06
+- **Erledigt**: 2026-09-06
+- Anders als `forgot-password` war der Confirm-Schritt nur durch den
+  generischen 300/60s-IP-Limiter begrenzt. Praktisches Risiko gering (Token
+  ist ein 32-Byte-Zufallswert, Brute-Force rechnerisch unmöglich), aber
+  Inkonsistenz gegenüber dem sonst durchgängigen Defense-in-Depth-Muster.
+- **Remediation**: Denselben `isRateLimited`/`recordFailedLogin`-Limiter aus
+  Konsistenzgründen ergänzt. Test in `server/test/auth.test.js` (11.
+  Versuch blockiert).
 
 ### Login hatte Timing-Seitenkanal zur Username-Enumeration
 - **Quelle**: authentication-flow-review-2026-09-06

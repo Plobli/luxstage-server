@@ -97,12 +97,17 @@ export async function authRoutes(req, res, pathname) {
 
   // Self-Service: neues Passwort mit Reset-Token setzen (öffentlich).
   if (method === 'POST' && pathname === '/api/auth/reset-password/confirm') {
+    const ip = clientIp(req)
+    if (isRateLimited(ip)) return json(res, 429, { error: 'Zu viele Versuche. Bitte warten.' })
     const body = await readJsonBody(req, res); if (body === null) return
     const token = String(body.token || '')
     const newPassword = String(body.newPassword || '')
     if (newPassword.length < PASSWORD_MIN_LENGTH) return json(res, 400, { error: `Passwort zu kurz (min. ${PASSWORD_MIN_LENGTH} Zeichen)` })
     const username = takeResetToken(token)
-    if (!username) return json(res, 400, { error: 'Link ungültig oder abgelaufen' })
+    if (!username) {
+      recordFailedLogin(ip)
+      return json(res, 400, { error: 'Link ungültig oder abgelaufen' })
+    }
     setPasswordHash(username, await hashPassword(newPassword), 0)
     log.warn('Passwort zurückgesetzt', { user: username })
     return json(res, 200, { ok: true })
