@@ -217,32 +217,6 @@ Nach der Abarbeitung eines jeden offenen Punktes einen commit machen.
   entfernen/ersetzen (z.B. `showName.replace(/[\r\n"]/g, '')`), oder
   RFC-5987-`filename*=UTF-8''...`-Kodierung verwenden.
 
-### Bulk "Template auf alle Shows anwenden" umgeht Show-Locks ohne Konflikt-Signal
-- **Quelle**: business-logic-vulnerabilities-audit-2026-09-06
-- **Importance**: 5/10
-- **Status**: offen
-- `POST /api/templates/:name/apply-to-all` (matcht `TEMPLATE_WRITE_PATH`,
-  `server/routes/templates.js:86-100` → `applyTemplateToAllShows`,
-  `server/db/template-apply-to-show.js:157-192`) wird nur durch das
-  **Template**-Lock gegated (`template:<name>`), nie durch das Lock der
-  einzelnen betroffenen Shows (`SHOW_WRITE_PATH`-Gate in
-  `server/router.js:21-41`). Die Funktion fügt direkt Bars/Towers/Sections
-  in jede Show ein, ohne `db/locks.js` zu konsultieren und ohne SSE-Broadcast
-  an die betroffenen Shows.
-- **Warum relevant**: Ein Nutzer, der ein Show-Lock hält und aktiv
-  Bars/Towers editiert, kann durch den Bulk-Apply eines anderen Nutzers
-  still zusätzliche Bars/Towers/Sections untergeschoben bekommen — ohne
-  Warnung, ohne SSE-Refresh, ohne 423-Konflikt. Verletzt genau die Garantie,
-  für die das Lock-System existiert (kein verdecktes gleichzeitiges
-  Schreiben an einer gerade bearbeiteten Show), über die gesamte Laufzeit
-  des Bulk-Jobs über alle Shows mit diesem Template.
-- **Remediation**: Vor der Mutation jeder Show innerhalb von
-  `applyTemplateToAllShows` das Lock prüfen (`getLock(show.slug)`, keine
-  Acquisition nötig, ein transienter Check reicht), gelockte Shows
-  überspringen/melden (analog zur bestehenden `failedShows`-Pro-Item-
-  Isolation), und ein SSE-Update an betroffene Shows senden, damit offene
-  Clients aktualisieren.
-
 ### Client-gelieferter `slot_count` unvalidiert als Schleifen-Grenze/DELETE-Schwelle — DoS und stiller Datenverlust
 - **Quelle**: business-logic-vulnerabilities-audit-2026-09-06
 - **Importance**: 5/10
@@ -537,6 +511,22 @@ Nach der Abarbeitung eines jeden offenen Punktes einen commit machen.
 ---
 
 ## Erledigt
+
+### Bulk "Template auf alle Shows anwenden" umging Show-Locks ohne Konflikt-Signal
+- **Quelle**: business-logic-vulnerabilities-audit-2026-09-06
+- **Erledigt**: 2026-09-06
+- `applyTemplateToAllShows` (`server/db/template-apply-to-show.js`) wurde
+  nur durch das Template-Lock gegated, nie durch das Lock der einzelnen
+  betroffenen Shows — fügte Bars/Towers/Sections still in eine Show ein,
+  auch während ein anderer Nutzer sie per Show-Lock aktiv bearbeitete, ohne
+  SSE-Refresh für offene Clients.
+- **Remediation**: Vor jeder Show-Mutation ein transienter
+  `getLock(show.slug)`-Check; gesperrte Shows werden übersprungen und in
+  `stats.skippedLockedShows` gemeldet (analog zur bestehenden
+  `failedShows`-Isolation). Nach erfolgreicher Anwendung sendet die Funktion
+  jetzt `bars-updated`/`towers-updated`/`sections-updated` per SSE an die
+  betroffene Show, wie es die Einzel-Apply-Route bereits tut. Test in
+  `server/test/template-apply-all.test.js`.
 
 ### Undo/Redo-Restore konnte Channel-zu-Slot-Referenzen desynchronisieren (Rigging-Datenkorruption)
 - **Quelle**: business-logic-vulnerabilities-audit-2026-09-06

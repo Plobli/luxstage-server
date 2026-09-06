@@ -6,6 +6,7 @@ const { writeTemplate } = await import('../db/templates.js')
 const { writeTemplateBar } = await import('../db/template-bars.js')
 const { createShow, readShow } = await import('../db/shows.js')
 const { applyTemplateToAllShows } = await import('../db/template-apply-to-show.js')
+const { acquireLock } = await import('../db/locks.js')
 
 test('applyTemplateToAllShows übernimmt neue Template-Bars in alle Shows mit diesem Template', async () => {
   writeTemplate('tpl-apply-all', [])
@@ -33,6 +34,25 @@ test('applyTemplateToAllShows ist idempotent — ein zweiter Lauf fügt nichts e
 
 test('applyTemplateToAllShows wirft bei unbekanntem Template', async () => {
   await assert.rejects(applyTemplateToAllShows('gibt-es-nicht', 'bars'), /nicht gefunden/)
+})
+
+test('applyTemplateToAllShows überspringt gesperrte Shows statt den Lock zu umgehen', async () => {
+  writeTemplate('tpl-apply-locked', [])
+  writeTemplateBar('tpl-apply-locked', { name: 'Zug L', zug_nr: '1', length_cm: 800, sort_order: 0 })
+
+  createShow('show-apply-locked', { name: 'Locked Show', template: 'tpl-apply-locked', importSections: false })
+  createShow('show-apply-unlocked', { name: 'Unlocked Show', template: 'tpl-apply-locked', importSections: false })
+  acquireLock('show-apply-locked', 'editor-a')
+
+  const stats = await applyTemplateToAllShows('tpl-apply-locked', 'bars')
+
+  assert.deepEqual(stats.skippedLockedShows, ['show-apply-locked'])
+  assert.equal(stats.barsAdded, 1, 'nur die ungesperrte Show wurde geändert')
+
+  const lockedShow = readShow('show-apply-locked')
+  const barsLocked = (await import('../db-context.js')).getDb()
+    .prepare('SELECT name FROM bars WHERE show_id = ?').all(lockedShow.id)
+  assert.deepEqual(barsLocked, [], 'gesperrte Show blieb unverändert')
 })
 
 after(cleanupDataPath)

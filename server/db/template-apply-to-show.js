@@ -2,6 +2,8 @@ import { getDb } from '../db-context.js'
 import { randomUUID } from 'node:crypto'
 import { setTimeout as sleep } from 'node:timers/promises'
 import { sectionTypeHasRows } from '../../shared/constants.js'
+import { getLock } from './locks.js'
+import { broadcast } from '../sse.js'
 
 // Richtung "Template → Show": kopiert Template-Bereiche/-Bars/-Towers in eine Show —
 // fügt nur fehlende Einträge hinzu (nach Titel/Name), überschreibt nichts Bestehendes.
@@ -159,7 +161,7 @@ export async function applyTemplateToAllShows(templateName, scope) {
   if (!tpl) throw new Error('Bühnen-Template nicht gefunden')
 
   const shows = getDb().prepare('SELECT * FROM shows WHERE template = ? AND archived = 0').all(templateName)
-  const stats = { shows: shows.length, barsAdded: 0, towersAdded: 0, sectionsAdded: 0, failedShows: [] }
+  const stats = { shows: shows.length, barsAdded: 0, towersAdded: 0, sectionsAdded: 0, failedShows: [], skippedLockedShows: [] }
 
   // Eine Transaktion pro Show statt einer einzigen über alle Shows hinweg
   // (analog zu history.js' Bulkhead-Muster): better-sqlite3 ist synchron, ohne
@@ -173,6 +175,17 @@ export async function applyTemplateToAllShows(templateName, scope) {
   // bei einer Show bricht nicht den ganzen Lauf ab, sondern überspringt nur
   // diese eine (wie beim history.js-Vorbild: Fehlerisolierung pro Einheit).
   for (const show of shows) {
+    // Show-Lock respektieren: nur ein transienter Check (keine Acquisition),
+    // da der Bulk-Job nicht selbst als Editor auftreten soll — ein Nutzer, der
+    // eine Show gerade aktiv bearbeitet, soll nicht durch verdecktes
+    // Untermischen von Bars/Towers/Sections überrascht werden (das ist genau
+    // die Garantie, für die das Lock-System existiert).
+    if (getLock(show.slug)) {
+      stats.skippedLockedShows.push(show.slug)
+      await sleep(0)
+      continue
+    }
+
     const applyToOneShow = getDb().transaction(() => {
       if (scope === 'bars')     stats.barsAdded     += applyBars(tpl, show, null, false)
       if (scope === 'towers')   stats.towersAdded   += applyTowers(tpl, show, null, false)
@@ -180,6 +193,9 @@ export async function applyTemplateToAllShows(templateName, scope) {
     })
     try {
       applyToOneShow()
+      if (scope === 'bars')     broadcast(show.slug, 'bars-updated', {})
+      if (scope === 'towers')   broadcast(show.slug, 'towers-updated', {})
+      if (scope === 'sections') broadcast(show.slug, 'sections-updated', { updatedBy: null })
     } catch (err) {
       console.error(`[template-apply] Show ${show.slug} übersprungen:`, err.message)
       stats.failedShows.push({ slug: show.slug, error: err.message })
