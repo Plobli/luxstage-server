@@ -7,44 +7,11 @@ import { getTenantId } from '../db-context.js'
 import { config } from '../config.js'
 import { PASSWORD_MIN_LENGTH } from '../../shared/constants.js'
 import { logger } from '../logger.js'
+import { createLoginRateLimiter } from '../login-rate-limit.js'
 
 const log = logger('auth')
 
-const loginAttempts = new Map()
-const MAX_LOGIN_ATTEMPTS = 10
-const LOGIN_WINDOW_MS = 15 * 60 * 1000
-const MAX_TRACKED_IPS = 10_000
-
-function purgeExpiredAttempts() {
-  const cutoff = Date.now() - LOGIN_WINDOW_MS
-  for (const [ip, entry] of loginAttempts) {
-    if (entry.firstAt <= cutoff) loginAttempts.delete(ip)
-  }
-}
-
-const attemptCleanup = setInterval(purgeExpiredAttempts, LOGIN_WINDOW_MS)
-attemptCleanup.unref()
-
-function isRateLimited(ip) {
-  const now = Date.now()
-  const entry = loginAttempts.get(ip)
-  if (!entry) return false
-  if (now - entry.firstAt > LOGIN_WINDOW_MS) { loginAttempts.delete(ip); return false }
-  return entry.count >= MAX_LOGIN_ATTEMPTS
-}
-
-function recordFailedLogin(ip) {
-  const now = Date.now()
-  const entry = loginAttempts.get(ip)
-  if (!entry || now - entry.firstAt > LOGIN_WINDOW_MS) {
-    if (!entry && loginAttempts.size >= MAX_TRACKED_IPS) {
-      loginAttempts.delete(loginAttempts.keys().next().value)
-    }
-    loginAttempts.set(ip, { count: 1, firstAt: now })
-  } else {
-    loginAttempts.set(ip, { ...entry, count: entry.count + 1 })
-  }
-}
+const { isRateLimited, recordFailedAttempt: recordFailedLogin } = createLoginRateLimiter()
 
 export async function authRoutes(req, res, pathname) {
   const { method } = req

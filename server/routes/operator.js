@@ -8,8 +8,9 @@
 //   GET    /api/operator/pending            -> offene Registrierungen
 //   POST   /api/operator/pending/:id/resend -> Bestätigungsmail erneut senden
 //   DELETE /api/operator/pending/:id        -> offene Registrierung verwerfen
-import { json, readJsonBody } from '../helpers.js'
+import { json, readJsonBody, clientIp } from '../helpers.js'
 import { operatorLogin, requireOperator, operatorEnabled } from '../operator.js'
+import { createLoginRateLimiter } from '../login-rate-limit.js'
 import { openTenantDb, deleteTenant, tenantExists } from '../tenants.js'
 import { runWithDb } from '../db-context.js'
 import {
@@ -35,14 +36,27 @@ function tenantStats(tenantId) {
   }), tenantId)
 }
 
+// Eigener Zähler-Store statt dem Tenant-Login-Limiter aus routes/auth.js:
+// das Operator-Panel authentifiziert mit einem einzigen geteilten
+// ENV-Secret, das alle Mandanten kontrolliert — ein gemeinsamer Bucket mit
+// dem Tenant-Login würde einem Angreifer erlauben, das Operator-Budget durch
+// harmlose Tenant-Login-Fehlversuche künstlich zu verbrauchen (oder
+// umgekehrt einen Tenant-Nutzer durch Operator-Angriffe auszusperren).
+const { isRateLimited: isOperatorRateLimited, recordFailedAttempt: recordFailedOperatorLogin } = createLoginRateLimiter()
+
 export async function operatorRoutes(req, res, pathname) {
   const { method } = req
 
   if (method === 'POST' && pathname === '/api/operator/login') {
     if (!operatorEnabled()) return json(res, 404, { error: 'Betreiber-Panel nicht aktiviert' })
+    const ip = clientIp(req)
+    if (isOperatorRateLimited(ip)) return json(res, 429, { error: 'Zu viele Versuche. Bitte warten.' })
     const body = await readJsonBody(req, res); if (body === null) return
     const result = operatorLogin(String(body.username || ''), String(body.password || ''))
-    if (!result) return json(res, 401, { error: 'Ungültige Betreiber-Anmeldedaten' })
+    if (!result) {
+      recordFailedOperatorLogin(ip)
+      return json(res, 401, { error: 'Ungültige Betreiber-Anmeldedaten' })
+    }
     return json(res, 200, result)
   }
 

@@ -364,25 +364,6 @@ Nach der Abarbeitung eines jeden offenen Punktes einen commit machen.
   ausnutzbar bestätigt, günstige Tiefenprüfung vor/während des Parsens
   ergänzen.
 
-### Operator-Login (SaaS-Admin) ohne dediziertes Brute-Force-Rate-Limiting
-- **Quelle**: initial-security-analysis-audit-2026-09-06
-- **Importance**: 5/10
-- **Status**: offen
-- `operatorLogin()` (`server/operator.js:21-27`) vergleicht Credentials mit
-  `timingSafeEqual` (gut), aber es wird kein Pro-Route-Attempt-Limiter
-  aufgerufen — anders als beim Tenant-Login (`server/routes/auth.js:28-47`,
-  10 Versuche/15min pro IP) greift hier nur der generische globale Limiter
-  (`isGloballyRateLimited`, 300 Requests/60s pro IP, geteilt mit allem
-  anderen `/api/`-Traffic, `server/rate-limit.js:6-8`). Das Operator-Panel
-  authentifiziert mit einem einzigen geteilten Nutzername/Passwort
-  (Env-konfiguriert, keine Pro-Nutzer-Accounts) und der resultierende Token
-  kontrolliert alle Tenants (u.a. Suspend) — 300 Versuche/Minute pro IP sind
-  ein nennenswertes Online-Brute-Force-Budget gegen ein einziges statisches
-  Secret.
-- **Remediation**: Denselben Attempt-Counter-Mechanismus wie in
-  `server/routes/auth.js` (`isRateLimited`/`recordFailedLogin`) auch vor
-  `operatorLogin()` anwenden.
-
 ### Registrierungs-Endpunkte ohne dediziertes Rate-Limiting
 - **Quelle**: initial-security-analysis-audit-2026-09-06
 - **Importance**: 4/10
@@ -454,6 +435,23 @@ Nach der Abarbeitung eines jeden offenen Punktes einen commit machen.
 ---
 
 ## Erledigt
+
+### Operator-Login (SaaS-Admin) hatte kein dediziertes Brute-Force-Rate-Limiting
+- **Quelle**: initial-security-analysis-audit-2026-09-06
+- **Erledigt**: 2026-09-06
+- `operatorLogin()` verglich Credentials mit `timingSafeEqual`, aber es wurde
+  kein Pro-Route-Attempt-Limiter aufgerufen — nur der generische globale
+  Limiter (300 Requests/60s pro IP) griff, ein nennenswertes
+  Online-Brute-Force-Budget gegen das einzige statische Operator-Secret, das
+  alle Tenants kontrolliert.
+- **Remediation**: Den Attempt-Counter aus `routes/auth.js` nach
+  `server/login-rate-limit.js` extrahiert (`createLoginRateLimiter()`) und
+  sowohl dort als auch neu in `routes/operator.js` verwendet — mit
+  **getrenntem** Zähler-Store pro Route, damit Tenant- und Operator-Login
+  sich nicht gegenseitig das Rate-Limit-Budget verbrauchen können. Tests in
+  `server/test/operator-login.test.js` (11. Versuch blockiert, Blockade
+  bleibt bei anschließend korrektem Passwort bestehen, Unabhängigkeit vom
+  Tenant-Login-Limiter).
 
 ### Query-String-Auth-Fallback akzeptierte volles Session-JWT statt nur zweckgebundener Tokens
 - **Quelle**: authorization-implementation-audit-2026-09-06
