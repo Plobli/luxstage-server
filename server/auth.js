@@ -3,6 +3,7 @@ import bcrypt from 'bcrypt'
 import { getDb, getTenantId } from './db-context.js'
 import { config } from './config.js'
 import { randomBytes } from 'node:crypto'
+import { getTokenVersion } from './db/users.js'
 
 // ── Kurzlebige Einmal-Token für URL-basierte Ressourcen (PDF, Fotos, Backup) ──
 // Speichert: token → { username, tenantId, expiresAt }
@@ -80,7 +81,8 @@ async function verifyPassword(plain, stored) {
 export function signToken(username) {
   // Token an den aktuellen Mandanten binden (falls im Mandanten-Kontext ausgestellt).
   const tenantId = getTenantId()
-  const payload = tenantId ? { username, tenantId } : { username }
+  const tokenVersion = getTokenVersion(username)
+  const payload = tenantId ? { username, tenantId, tokenVersion } : { username, tokenVersion }
   return jwt.sign(payload, config.jwtSecret, { expiresIn: '12h' })
 }
 
@@ -100,12 +102,25 @@ export async function login(username, password) {
   }
 }
 
+// Lehnt ab, falls das Token eine ältere token_version trägt als aktuell in
+// der DB hinterlegt (Passwort wurde seither geändert/zurückgesetzt) — macht
+// aus setPasswordHash() einen sofortigen Session-Entzug statt dass gestohlene
+// Tokens bis zu 12h weiter gültig bleiben. Tokens ohne tokenVersion-Claim
+// (ausgestellt vor Einführung dieses Felds) werden wie Version 0 behandelt.
+function hasCurrentTokenVersion(payload) {
+  if (!payload.username) return true // Operator-Token o.ä. ohne username-Claim
+  return (payload.tokenVersion ?? 0) >= getTokenVersion(payload.username)
+}
+
 export function authenticate(req) {
   // 1. JWT aus Header prüfen (verhindert Token-Leak in Browser-History und Logs)
   const header = req.headers['authorization'] || ''
   if (header.startsWith('Bearer ')) {
     const jwtToken = header.slice(7)
-    try { return jwt.verify(jwtToken, config.jwtSecret) } catch {}
+    try {
+      const payload = jwt.verify(jwtToken, config.jwtSecret)
+      if (hasCurrentTokenVersion(payload)) return payload
+    } catch {}
   }
 
   // 2. Kurzlebige, zweckgebundene Token aus URL prüfen (für SSE, PDF, Backup-URLs).

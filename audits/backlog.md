@@ -196,25 +196,6 @@ Nach der Abarbeitung eines jeden offenen Punktes einen commit machen.
   entfernen/ersetzen (z.B. `showName.replace(/[\r\n"]/g, '')`), oder
   RFC-5987-`filename*=UTF-8''...`-Kodierung verwenden.
 
-### Passwort-Änderung/-Reset invalidiert keine zuvor ausgestellten JWTs
-- **Quelle**: authentication-flow-review-2026-09-06
-- **Importance**: 6/10
-- **Status**: offen
-- Das JWT-Payload enthält nur `{ username, tenantId }` mit 12h `expiresIn`
-  (`server/auth.js:80-85`); es gibt keinen `tokenVersion`/`pwdChangedAt`-Claim,
-  und `setPasswordHash` (`server/db/users.js:14-22`) erhöht keinen
-  Invalidierungs-Zähler, den `authenticate()` prüfen würde. Wenn ein Account
-  kompromittiert ist (Angreifer besitzt gültiges Token) und der legitime
-  Nutzer das Passwort ändert oder zurücksetzt, um den Angreifer auszusperren,
-  bleibt dessen Token bis zu 12h weiter gültig — der Hauptzweck einer
-  Passwort-Änderung (sofortiger Session-Entzug) wird verfehlt.
-  Betroffene Pfade: `server/routes/auth.js:94-105` (change-password),
-  `server/routes/auth.js:132-142` (reset-password/confirm).
-- **Remediation**: `token_version`- oder `password_changed_at`-Spalte auf
-  `users` einführen, in `signToken()` ins JWT-Payload aufnehmen, in
-  `authenticate()`/`requireAuth()` gegen den aktuellen DB-Wert prüfen und
-  bei Abweichung ablehnen. In `setPasswordHash` hochzählen/aktualisieren.
-
 ### JWT-`verify()`-Aufrufe pinnen `algorithms` nicht explizit
 - **Quelle**: authentication-flow-review-2026-09-06
 - **Importance**: 4/10
@@ -414,6 +395,24 @@ Nach der Abarbeitung eines jeden offenen Punktes einen commit machen.
 ---
 
 ## Erledigt
+
+### Passwort-Änderung/-Reset invalidierte keine zuvor ausgestellten JWTs
+- **Quelle**: authentication-flow-review-2026-09-06
+- **Erledigt**: 2026-09-06
+- Das JWT-Payload enthielt nur `{ username, tenantId }` mit 12h `expiresIn`,
+  kein `tokenVersion`-Claim — `setPasswordHash` erhöhte keinen
+  Invalidierungs-Zähler. Nach einer Passwort-Änderung (z.B. um einen
+  Angreifer mit gestohlenem Token auszusperren) blieb dessen Token bis zu
+  12h weiter gültig.
+- **Remediation**: Neue Spalte `users.token_version` (Migration 042,
+  Default 0). `signToken()` bettet den aktuellen Wert ins JWT ein,
+  `setPasswordHash()` erhöht ihn bei jeder Passwort-Änderung/-Reset,
+  `authenticate()` lehnt ein Token mit veralteter `tokenVersion` ab (Tokens
+  ohne den Claim, ausgestellt vor dieser Änderung, werden wie Version 0
+  behandelt — keine Migration bestehender Sessions nötig, sie laufen
+  natürlich innerhalb der 12h aus). Test in `server/test/auth.test.js`
+  (altes Token nach Passwort-Änderung abgelehnt, neu ausgestelltes bleibt
+  gültig).
 
 ### Operator-Panel-Login wurde gar nicht geloggt (weder Erfolg noch Fehlschlag)
 - **Quelle**: logging-monitoring-audit-2026-09-06

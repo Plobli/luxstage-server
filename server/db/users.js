@@ -11,14 +11,27 @@ export function getDbPassword(username) {
 // Nimmt bewusst einen bereits gehashten Wert entgegen statt selbst zu hashen —
 // die Persistenzschicht soll nicht von auth.js (Hashing-Algorithmus/-Kosten)
 // abhängen. Aufrufer hashen mit hashPassword() aus auth.js und übergeben den Hash.
+//
+// token_version wird bei jeder Passwort-Änderung hochgezählt (nicht beim
+// initialen Anlegen relevant, da ON CONFLICT hier per Definition ein Update
+// eines bestehenden Passworts ist) — signToken() bettet den aktuellen Wert
+// ins JWT ein, authenticate() vergleicht dagegen. Das macht eine
+// Passwort-Änderung/-Reset zu einem sofortigen Session-Entzug für zuvor
+// ausgestellte Tokens, statt dass sie bis zu 12h weiter gültig bleiben.
 export function setPasswordHash(username, passwordHash, requiresChange = 0) {
   getDb().prepare(`
     INSERT INTO users (username, password, requires_password_change)
     VALUES (?, ?, ?)
     ON CONFLICT(username) DO UPDATE SET
       password = excluded.password,
-      requires_password_change = excluded.requires_password_change
+      requires_password_change = excluded.requires_password_change,
+      token_version = token_version + 1
   `).run(username, passwordHash, requiresChange ? 1 : 0)
+}
+
+export function getTokenVersion(username) {
+  const row = getDb().prepare('SELECT token_version FROM users WHERE username = ?').get(username)
+  return row?.token_version ?? 0
 }
 
 export function listUsers() {

@@ -3,7 +3,7 @@ import { Readable } from 'node:stream'
 import { after, test } from 'node:test'
 import { cleanupDataPath, createResponse } from './helpers/test-env.js'
 
-const { createUserWithHash, createSelfRegisteredUserWithHash } = await import('../db/users.js')
+const { createUserWithHash, createSelfRegisteredUserWithHash, setPasswordHash } = await import('../db/users.js')
 const { authRoutes } = await import('../routes/auth.js')
 const { hashPassword, authenticate, signToken, issueDownloadToken, issueInlineToken } = await import('../auth.js')
 
@@ -67,6 +67,21 @@ test('authenticate() akzeptiert weiterhin einen gültigen Inline-Token als Query
   const req = reqWithUrl(`/api/shows?token=${encodeURIComponent(token)}`)
   const user = authenticate(req)
   assert.equal(user.username, 'anna')
+})
+
+test('Passwort-Änderung invalidiert zuvor ausgestellte Tokens sofort (token_version)', async () => {
+  await createUser('dora', 'altes-passwort')
+  const oldToken = signToken('dora')
+  const oldReq = { headers: { authorization: `Bearer ${oldToken}` }, url: '/api/shows' }
+  assert.equal(authenticate(oldReq).username, 'dora') // vor der Änderung gültig
+
+  await setPasswordHash('dora', await hashPassword('neues-passwort'))
+
+  assert.equal(authenticate(oldReq), null, 'altes Token muss nach Passwort-Änderung abgelehnt werden')
+
+  const newToken = signToken('dora')
+  const newReq = { headers: { authorization: `Bearer ${newToken}` }, url: '/api/shows' }
+  assert.equal(authenticate(newReq).username, 'dora') // frisch ausgestelltes Token bleibt gültig
 })
 
 test('Login mit unbekanntem Nutzernamen liefert dieselbe 401-Meldung (kein Enumeration-Leak)', async () => {
