@@ -15,8 +15,597 @@ Nach der Abarbeitung eines jeden offenen Punktes einen commit machen.
 
 ## Offen
 
-Aktuell keine offenen Punkte, die nicht bereits als bewusst zurückgestellt
-markiert sind — siehe `## Bewusst zurückgestellt` weiter unten.
+### JWT wird im Frontend in `localStorage` statt in einem `HttpOnly`-Cookie gespeichert
+- **Quelle**: session-cookie-security-audit-2026-09-06
+- **Importance**: 2/10
+- **Status**: offen
+- `web-app/src/api/client.ts:22-23` (`getToken`/`setToken`) speichert das
+  Session-JWT in `localStorage` (`TOKEN_KEY`), ebenso
+  `UpdateView.vue:144`/`SmtpView.vue:108`. Die App nutzt durchgängig
+  Header-basiertes Bearer-Auth ohne jegliche Cookies (bestätigt: kein
+  `Set-Cookie` im gesamten Repo) — das macht CSRF strukturell irrelevant,
+  vergrößert aber die Angriffsfläche bei einer künftigen XSS-Lücke, da das
+  Token direkt aus JS auslesbar ist statt durch `HttpOnly` geschützt zu
+  sein. Ein vorheriges XSS-Audit hat bestätigt, dass aktuell kein
+  `v-html`/Injection-Pfad existiert — rein ein
+  Defense-in-Depth-Punkt, kein aktiver Fund.
+- **Remediation**: Kein akuter Handlungsbedarf; falls je eine XSS-Lücke
+  auftaucht, wäre `HttpOnly`-Cookie-basierte Token-Übergabe (mit
+  entsprechendem CSRF-Schutz) die robustere Alternative. Bewusst
+  zurückstellbar, da aktuell kein XSS-Vektor bekannt ist.
+
+### Operator-Panel-Login wird gar nicht geloggt (weder Erfolg noch Fehlschlag)
+- **Quelle**: logging-monitoring-audit-2026-09-06
+- **Importance**: 6/10
+- **Status**: offen
+- Anders als `server/routes/auth.js` (Tenant-Login, loggt jeden
+  Erfolg/Fehlschlag/Pending-Fall via `logger('auth')`) haben
+  `operatorLogin()` (`server/operator.js:21-27`) und `requireOperator()`
+  (`server/operator.js:30-41`) überhaupt keine Logging-Aufrufe — nicht
+  einmal eine Fehlschlag-Zeile. Ein fehlgeschlagener oder erfolgreicher
+  Operator-Login, oder ein abgelehntes/abgelaufenes Operator-JWT an einer
+  `/api/operator/*`-Route, hinterlässt keine Spur. Das ist die
+  höchstprivilegierte Credential im System (ein geteiltes
+  ENV-Nutzername/Passwort, das Tenant-Löschung, -Suspendierung und
+  DB-Restore für jeden Tenant schützt) — es gibt keine Möglichkeit,
+  Brute-Force-Versuche zu erkennen oder nachträglich zu untersuchen, ob der
+  Operator-Account sondiert oder kompromittiert wurde.
+- **Remediation**: `logger('operator')`-Aufrufe analog zu `auth.js`
+  ergänzen: warn bei Fehlschlag (nur Ergebnis, kein Passwort), info bei
+  Erfolg, warn wenn `requireOperator` ein fehlendes/ungültiges/abgelaufenes
+  Token ablehnt, jeweils mit `clientIp(req)`.
+
+### Log-Injection über unbereinigten Snapshot-Namen im Operator-Panel-Log
+- **Quelle**: logging-monitoring-audit-2026-09-06
+- **Importance**: 4/10
+- **Status**: offen
+- `console.log(\`[operator] Snapshot wiederhergestellt: ${id}/${body.name}\`)`
+  und `console.error(\`[operator] Snapshot-Restore fehlgeschlagen
+  (${id}/${body.name}):\`, err)` (`server/routes/operator.js:110,116`)
+  interpolieren `body.name` (rohes JSON-Request-Feld) direkt in einen
+  `console.*`-Aufruf. `tenant-backup.js:82` (`restoreSnapshot`) lehnt `name`
+  nur bei `/`, `..` oder fehlendem `.db`-Suffix ab — entfernt aber nie
+  `\n`/`\r`. Ein Wert wie `"x\n2026-09-06T00:00:00.000Z INFO [auth] Login
+  erfolgreich user=admin ip=1.2.3.4.db"` besteht die Validierung, scheitert
+  später an `fs.existsSync(src)` und landet trotzdem mit dem
+  angreifer-gewählten Inhalt (inkl. gefälschtem Timestamp/Level/Scope, das
+  das strukturierte `logger.js`-Format imitiert) im Log. Das Operator-Panel
+  ist die höchstprivilegierte Fläche im System — sein eigenes Aktions-Log
+  (der einzige Audit-Trail dafür) ist genau das, was man nach einem
+  vermuteten Credential-Kompromiss vertrauen möchte, und genau dort können
+  Zeilen gefälscht werden.
+- **Remediation**: Über `logger.js` routen
+  (`log.warn('Snapshot wiederhergestellt', { tenant: id, name: body.name })`),
+  damit das bestehende Whitespace-Quoting in `format()` Zeilenumbrüche
+  neutralisiert, oder `/[\r\n]/g` explizit aus `name` entfernen vor
+  Interpolation/Logging.
+
+### Cross-Tenant-Token-Wiederverwendung (403) nicht identifizierbar geloggt
+- **Quelle**: logging-monitoring-audit-2026-09-06
+- **Importance**: 3/10
+- **Status**: offen
+- Bei `user.tenantId !== tenantId` (`server/router.js:264-267`, ein für
+  einen Tenant ausgestelltes JWT wird gegen die Subdomain eines anderen
+  Tenants verwendet) wird mit 403 abgelehnt, aber außer dem generischen
+  Access-Log (`log.info('request', ...)`, Zeile 167, dessen Closure vor
+  Setzen von `req.user` gebaut wird und daher weder Username noch
+  ursprünglichen Token-Tenant enthält) wird nichts erfasst — der 403 ist im
+  Log nicht von anderen 403s zu unterscheiden.
+- **Remediation**: `log.warn('Cross-Tenant-Tokenverwendung', { user:
+  user.username, tokenTenant: user.tenantId, hostTenant: tenantId, ip:
+  clientIp(req) })` vor dem 403-Return in `server/router.js:265-267`
+  ergänzen.
+
+### Backup/Restore-Operationen inkonsistent und ohne Akteur-Identität geloggt
+- **Quelle**: logging-monitoring-audit-2026-09-06
+- **Importance**: 3/10
+- **Status**: offen
+- `streamBackup`/`restoreBackup` (`server/backup.js:33,48,98`) loggen nur
+  bei Fehlschlag, per rohem `console.error(...)` (umgeht `logger.js`
+  komplett — keine Timestamp-/Level-Konsistenz, nicht durch `LOG_LEVEL`
+  gegated). Für einen erfolgreichen Backup-Export oder Restore gibt es
+  keine Log-Zeile, und keine Log-Zeile erfasst, *wer* die Aktion ausgelöst
+  hat — `server/routes/system.js:34,41` binden das Ergebnis von
+  `requireAuth(req, res)` an `user`, aber diese Variable wird nie an
+  `backup.js` weitergereicht/geloggt.
+- **Remediation**: `logger('backup')`-Aufrufe ergänzen: info bei
+  erfolgreichem Export-/Restore-Start und -Abschluss inkl.
+  `user.username`; Fehlschlag-Logging beibehalten, aber über den
+  strukturierten Logger mit demselben Identitätsfeld routen.
+
+### Kein PM2-Log-Rotation konfiguriert — unbegrenztes Stdout/Stderr-Wachstum
+- **Quelle**: logging-monitoring-audit-2026-09-06
+- **Importance**: 2/10
+- **Status**: offen
+- Die generierte PM2-Ecosystem-Datei (`install.sh:234-252`) setzt kein
+  `error_file`/`out_file`/`max_size`, und `install.sh` installiert nie
+  `pm2-logrotate`. PM2 hängt standardmäßig jede Stdout-/Stderr-Zeile
+  (inklusive der Pro-API-Request-Zeile `log.info('request', ...)`, die bei
+  jedem `/api/*`-Request feuert) unbegrenzt an `~/.pm2/logs/luxstage-*.log`
+  an — auf einer kleinen Self-Hosted-Box ein langsames
+  Disk-Exhaustion-Risiko, und unrotierte Dateien bedeuten auch keine
+  Aufbewahrungsrichtlinie für sicherheitsrelevante Zeilen.
+- **Remediation**: `pm2 install pm2-logrotate` (mit sinnvollen
+  `max_size`/`retain`/`compress`-Einstellungen) zu den PM2-Setup-Schritten
+  in `install.sh` ergänzen.
+
+### `length_cm` (Bar-Länge) wird vor Validierung in JS-Arithmetik verwendet — kann Fixture-Positionen korrumpieren
+- **Quelle**: input-validation-audit-2026-09-06
+- **Importance**: 4/10
+- **Status**: offen
+- `const newLength = data.length_cm ?? 600` (`server/db/bars.js:30`) nimmt
+  den rohen Request-Wert ohne `typeof`/`Number.isFinite`-Prüfung. Er wird
+  zwar direkt in `UPDATE bars SET length_cm=?` gebunden (SQLite ist
+  dynamisch typisiert, ein String bindet ohne Fehler), aber zusätzlich in
+  JS-Division genutzt (Zeile 36: `const scale = newLength / oldLength`),
+  deren Ergebnis dann als SQL-Parameter an `ROUND(position * ?, 1)`
+  gebunden wird (Zeile 38). Bei `length_cm: 0` wird `scale` zu `0` und
+  **alle** `bar_fixtures.position`-Werte dieser Bar werden still auf `0`
+  gesetzt (kein Fehler, keine Warnung) — ein einzelner authentifizierter
+  Nutzer kann mit einem manipulierten Request alle Fixture-Positionen einer
+  Bar zerstören. Bei nicht-numerischem String wird `scale` zu `NaN`, was
+  beim Binden einen Fehler wirft (abgefangen vom äußeren Router-Handler,
+  kein Crash, aber die Zero-Length-Variante läuft fehlerfrei durch.
+- **Remediation**: `data.length_cm` vor Nutzung als endliche positive Zahl
+  validieren
+  (`Number.isFinite(data.length_cm) && data.length_cm > 0`), Rescale
+  überspringen bzw. Request ablehnen, falls `oldLength`/`newLength` nicht
+  beide positive endliche Zahlen sind.
+  **PoC**: `PUT /api/shows/:slug/bars/:id` mit `{ "length_cm": 0 }` auf
+  einer Bar mit Fixtures → alle `bar_fixtures.position`-Werte werden `0`.
+
+### `deleteFloorplanImage` fehlt der Traversal-Schutz der Schwesterfunktion
+- **Quelle**: input-validation-audit-2026-09-06
+- **Importance**: 2/10
+- **Status**: offen
+- `deleteFloorplanImage(imagePath)` (`server/floorplan.js:46-52`) macht
+  `path.join(floorplansDir(), imagePath)` und ruft `fs.unlink`/`fs.rmdir`
+  ohne `path.resolve` + Prefix-Check auf — anders als `serveFloorplanImage`
+  (Zeilen 64-67), das den aufgelösten Pfad gegen `base` prüft. Aktuell ist
+  `imagePath` nur über `layer.image_path`/`fp.image_path` erreichbar, die
+  ausschließlich vom eigenen Rückgabewert von `saveFloorplanImage` gesetzt
+  werden (kein Endpunkt lässt einen Client `image_path` direkt setzen,
+  verifiziert in `server/routes/floorplan.js:63` und
+  `server/routes/template-floorplan.js:48`) — aktuell nicht angreifbar,
+  reiner Defense-in-Depth-Gap.
+- **Remediation**: Guard aus `serveFloorplanImage` spiegeln: `const full =
+  path.resolve(base, imagePath); if (!full.startsWith(base + path.sep))
+  return;` vor `fs.unlink`/`fs.rmdir`.
+
+### Circuit-Scan-Upload ohne echte Inhalts-/MIME-Verifikation
+- **Quelle**: file-handling-business-logic-audit-2026-09-06
+- **Importance**: 2/10
+- **Status**: offen
+- Anders als `photos.js` (das jeden Upload per `sharp(...).jpeg()`
+  re-encodiert, wodurch Nicht-Bilder zwangsläufig einen Fehler werfen)
+  validiert der Circuit-Scan-Pfad (`server/circuit-scan.js:22-27`
+  `mimeFromBuffer`, genutzt von `server/routes/channels.js:43-57`) nie, ob
+  die hochgeladene Datei tatsächlich ein Bild ist. `mimeFromBuffer()` prüft
+  nur JPEG/PNG/RIFF-Magic-Bytes und **fällt bei allem anderen still auf
+  `image/jpeg` zurück** (bestätigt durch bestehenden Test
+  `server/test/circuit-scan.test.js:10`:
+  `mimeFromBuffer([0,0,0,0]) === 'image/jpeg'`). Der rohe Buffer wird
+  base64-kodiert und ohne weitere Prüfung als Bild an die Anthropic-Vision-
+  API gesendet. Da die temporäre Datei sofort nach Verarbeitung gelöscht
+  wird (`server/routes/channels.js:66`) und nichts persistiert/zurückgespielt
+  wird, ist dies kein RCE-/Storage-Risiko, sondern ein
+  Robustheits-/Kosten-Kontroll-Problem (verschwendete API-Kosten bei
+  Garbage-Input, unklare Fehlermeldungen statt sauberem 400).
+- **Remediation**: Vor Aufruf von `analyzeCircuitScan` prüfen, ob der
+  Buffer ein dekodierbares Bild ist (z.B. `await
+  sharp(imageBuffer).metadata()`, bei Wurf ablehnen), analog zum bereits in
+  `photos.js` vorhandenen Schutz, statt nur 2-4 Magic-Bytes mit stillem
+  Default zu prüfen.
+
+### Show-Name wird nicht vor Nutzung im `Content-Disposition`-Dateinamen bereinigt
+- **Quelle**: file-handling-business-logic-audit-2026-09-06
+- **Importance**: 1/10
+- **Status**: offen
+- `pdfFilename(showName, blank)` (`server/pdf.js:19-21`, genutzt in
+  `server/routes/pdf.js:53` und `server/routes/templates.js:120`)
+  interpoliert `show.name` direkt in einen gequoteten
+  `Content-Disposition`-Dateinamen ohne Escaping von `"` und ohne Filterung
+  von Steuerzeichen. `show.name` ist frei wählbarer Nutzertext bei
+  Show-Erstellung (`server/routes/shows.js:55-58`) ohne erkennbare
+  Validierung in `db/shows.js`. Nodes `http`-Modul lehnt Header-Werte mit
+  `\r`/`\n` selbst ab (`ERR_INVALID_CHAR`), daher kein ausnutzbares
+  Response-Splitting — Restwirkung ist nur Verfügbarkeit: ein Show-Name mit
+  eingebettetem Zeilenumbruch bricht PDF-/Netzwerk-Export für diese Show
+  dauerhaft (bis Umbenennung), ein Name mit `"` erzeugt einen
+  fehlerhaften Dateinamen im Download-Dialog.
+- **Remediation**: CR/LF und `"` in `pdfFilename()` vor Interpolation
+  entfernen/ersetzen (z.B. `showName.replace(/[\r\n"]/g, '')`), oder
+  RFC-5987-`filename*=UTF-8''...`-Kodierung verwenden.
+
+### Undo/Redo-Restore kann Channel-zu-Slot-Referenzen desynchronisieren (Rigging-Datenkorruption)
+- **Quelle**: business-logic-vulnerabilities-audit-2026-09-06
+- **Importance**: 7/10
+- **Status**: offen
+- `readFullShowState()` entfernt bewusst das Feld `id` aus dem
+  Channel-Snapshot (`server/db/full-state.js:17`), aber die
+  Tower-/Bar-Snapshots (`readTowers()`/`readBars()`) behalten den echten
+  `channel_id`-Fremdschlüsselwert bei, der zum Snapshot-Zeitpunkt live war.
+  Beim Restore weist `writeChannels()`
+  (`server/db/channels.js:25-68`) jeder Channel-Zeile die `id` per Abgleich
+  gegen die *aktuelle* DB (Channel-Nummer→id-Mapping, `idByNumber`) neu zu —
+  nicht per Snapshot-id. Wurde zwischen Snapshot und Restore eine
+  Channel-Nummer irgendwann vollständig gelöscht und neu angelegt (manuell,
+  EOS-Import, ein weiterer Undo/Redo-Zyklus, Template-Apply/Replace), erhält
+  dieser Channel eine neue UUID. `restoreTowers`/`restoreBars`
+  (`server/db/towers.js:100-114`, `server/db/bars.js:112-136`) schreiben aber
+  die im Snapshot festgehaltene *alte* `channel_id` unverändert in
+  `tower_slots.channel_id`/`bar_fixtures.channel_id` und aktualisieren
+  `channels SET mount_ref=... WHERE id=?` mit dieser alten id — das
+  UPDATE trifft still keine Zeile, der reale (neue) Channel behält einen
+  veralteten/leeren `mount_ref`, während der Tower-Slot auf eine nicht mehr
+  existierende Channel-id verweist. `tower-read-core.js` liest per
+  `SELECT * FROM tower_slots` ohne Join/Validitätsprüfung — der hängende
+  Verweis wird auch beim Lesen nicht erkannt.
+- **Warum relevant**: Genau das Szenario "altes Snapshot nach
+  Schema-/Datenänderung wiederherstellen" — korrumpiert still die
+  bidirektionale Channel↔Mount-Verknüpfung, von der sowohl Tower/Bar-UI als
+  auch PDF-Rigging-Ausgabe abhängen, ohne Fehlermeldung. Falsches
+  Channel-zu-Positions-Mapping in einem PDF ist in einem
+  Bühnenlicht-Planungstool ein reales Betriebsrisiko, kein reiner
+  UI-Fehler. Reale Reproduktion: Channel #1 (id A) in Tower T Slot 1
+  montiert → Snapshot S0 → Channel #1 komplett gelöscht → neu angelegt (id
+  B) → mehrfach Undo bis S0 wiederhergestellt → `writeChannels` mappt #1 auf
+  id B, aber `restoreTowers` schreibt Slot1.channel_id=A (hängend) und das
+  `UPDATE ... WHERE id=A` läuft ins Leere.
+- **Remediation**: `id` nicht mehr aus dem Channel-Snapshot entfernen, und
+  `writeChannels()` einen Restore-Modus geben, der beim Aufruf aus
+  `writeFullShowState` die Snapshot-ids als maßgeblich behandelt (Zeilen mit
+  exakt diesen ids neu anlegen statt per Nummer neu zuzuordnen).
+  Alternativ: `channel_id`-Werte in Tower-/Bar-Snapshots beim Restore über
+  ein Channel-Nummer-Lookup neu auflösen statt die rohe historische id zu
+  schreiben.
+
+### Bulk "Template auf alle Shows anwenden" umgeht Show-Locks ohne Konflikt-Signal
+- **Quelle**: business-logic-vulnerabilities-audit-2026-09-06
+- **Importance**: 5/10
+- **Status**: offen
+- `POST /api/templates/:name/apply-to-all` (matcht `TEMPLATE_WRITE_PATH`,
+  `server/routes/templates.js:86-100` → `applyTemplateToAllShows`,
+  `server/db/template-apply-to-show.js:157-192`) wird nur durch das
+  **Template**-Lock gegated (`template:<name>`), nie durch das Lock der
+  einzelnen betroffenen Shows (`SHOW_WRITE_PATH`-Gate in
+  `server/router.js:21-41`). Die Funktion fügt direkt Bars/Towers/Sections
+  in jede Show ein, ohne `db/locks.js` zu konsultieren und ohne SSE-Broadcast
+  an die betroffenen Shows.
+- **Warum relevant**: Ein Nutzer, der ein Show-Lock hält und aktiv
+  Bars/Towers editiert, kann durch den Bulk-Apply eines anderen Nutzers
+  still zusätzliche Bars/Towers/Sections untergeschoben bekommen — ohne
+  Warnung, ohne SSE-Refresh, ohne 423-Konflikt. Verletzt genau die Garantie,
+  für die das Lock-System existiert (kein verdecktes gleichzeitiges
+  Schreiben an einer gerade bearbeiteten Show), über die gesamte Laufzeit
+  des Bulk-Jobs über alle Shows mit diesem Template.
+- **Remediation**: Vor der Mutation jeder Show innerhalb von
+  `applyTemplateToAllShows` das Lock prüfen (`getLock(show.slug)`, keine
+  Acquisition nötig, ein transienter Check reicht), gelockte Shows
+  überspringen/melden (analog zur bestehenden `failedShows`-Pro-Item-
+  Isolation), und ein SSE-Update an betroffene Shows senden, damit offene
+  Clients aktualisieren.
+
+### Client-gelieferter `slot_count` unvalidiert als Schleifen-Grenze/DELETE-Schwelle — DoS und stiller Datenverlust
+- **Quelle**: business-logic-vulnerabilities-audit-2026-09-06
+- **Importance**: 5/10
+- **Status**: offen
+- `slot_count` aus dem Request-Body fließt unvalidiert in
+  `for (let i = 1; i <= slotCount; i++)` (`server/db/towers.js:120-134`
+  `ensureTowerSlots`, ein synchrones `INSERT` pro Iteration auf der
+  geteilten, single-threaded better-sqlite3-Verbindung) und in
+  `DELETE FROM tower_slots WHERE tower_id = ? AND slot_index > ?`. Gleiches
+  Muster in `server/db/template-towers.js:71-84`,
+  `server/routes/towers.js:30-51` reicht `body.slot_count` direkt durch.
+  Zwei konkrete Client-kontrollierte Fehlerfälle: (a) sehr großer
+  `slot_count` (z.B. `1e8`) blockiert den Event-Loop für den gesamten
+  Tenant-Prozess und fügt eine unbegrenzte Zeilenzahl ein, die jeden
+  zukünftigen Full-State-Read verlangsamt (wird bei jedem Undo/Redo-Snapshot
+  aufgerufen); (b) negativer oder Null-`slot_count` lässt die
+  `DELETE ... slot_index > ?`-Klausel jeden existierenden Slot treffen
+  (`slot_index` beginnt bei 1) — löscht still alle Channel-Zuweisungen dieses
+  Towers ohne Bestätigung und ohne den nun veralteten `mount_ref` auf den
+  betroffenen Channels zu bereinigen (gleiche Klasse hängender Referenzen
+  wie im Undo/Redo-Finding oben).
+- **Remediation**: `slot_count` serverseitig validieren — Nicht-Ganzzahlen
+  ablehnen, auf einen sinnvollen Bereich clampen (z.B. `1..200`), `<= 0`
+  explizit ablehnen statt es über das Fallthrough-Verhalten von
+  `slot_index > ?` still alles löschen zu lassen.
+
+### Query-String-Auth-Fallback akzeptiert volles Session-JWT statt nur zweckgebundener Tokens
+- **Quelle**: authorization-implementation-audit-2026-09-06
+- **Importance**: 5/10
+- **Status**: offen
+- `authenticate()` (`server/auth.js:103-123`, erreicht über
+  `server/router.js:260` `handleApi` für jede nicht-öffentliche Route)
+  probiert der Reihe nach: `Authorization: Bearer`, Einmal-`downloadToken`
+  (60s TTL), wiederverwendbaren `inlineToken` (15min TTL) und als letzten
+  Fallback `jwt.verify(downloadToken, config.jwtSecret)` — akzeptiert also
+  das **volle 12h-Session-JWT selbst** als `?token=`-Query-Parameter
+  (`auth.js:119`). Dieser Fallback gilt generisch für *jede* API-Route, nicht
+  nur für die Download-/PDF-/Foto-Endpunkte, für die die zweckgebundenen
+  Tokens gedacht sind. Die beiden zweckgebundenen Tokens
+  (`issueDownloadToken`/`issueInlineToken`, nur in
+  `server/routes/auth.js:84-91` ausgestellt) sind bewusst kurzlebig und
+  einmalig/begrenzt nutzbar, gerade weil URLs in Logs, Browser-History und
+  Referer-Header durchsickern — der Raw-JWT-Fallback hat keine dieser
+  Absicherungen: gleiche 12h-Lebensdauer, unbegrenzte Wiederverwendung,
+  voller API-Scope, funktioniert auf jedem Endpunkt. Der eigene
+  Request-Logger der App loggt nur `pathname` (nicht selbst betroffen), aber
+  vorgeschaltete Reverse-Proxies (z.B. Caddy im SaaS-Deployment) loggen
+  üblicherweise vollständige URLs inkl. Query-String.
+- **Remediation**: Raw-JWT-Zweig im Query-String-Fallback (`auth.js:119`)
+  entfernen — im Query-String nur noch `redeemDownloadToken`/
+  `verifyInlineToken`-Ergebnisse akzeptieren; für alles, was ein volles
+  Session-JWT braucht, den `Authorization`-Header verlangen. Falls ein
+  legitimer Anwendungsfall ein volles JWT in der URL braucht (z.B. SSE
+  `EventSource` kann keine Header setzen), dafür einen eigenen
+  zweckgebundenen, kurzlebigen Token ausstellen statt das allgemeine
+  Session-JWT wiederzuverwenden.
+
+### Passwort-Änderung/-Reset invalidiert keine zuvor ausgestellten JWTs
+- **Quelle**: authentication-flow-review-2026-09-06
+- **Importance**: 6/10
+- **Status**: offen
+- Das JWT-Payload enthält nur `{ username, tenantId }` mit 12h `expiresIn`
+  (`server/auth.js:80-85`); es gibt keinen `tokenVersion`/`pwdChangedAt`-Claim,
+  und `setPasswordHash` (`server/db/users.js:14-22`) erhöht keinen
+  Invalidierungs-Zähler, den `authenticate()` prüfen würde. Wenn ein Account
+  kompromittiert ist (Angreifer besitzt gültiges Token) und der legitime
+  Nutzer das Passwort ändert oder zurücksetzt, um den Angreifer auszusperren,
+  bleibt dessen Token bis zu 12h weiter gültig — der Hauptzweck einer
+  Passwort-Änderung (sofortiger Session-Entzug) wird verfehlt.
+  Betroffene Pfade: `server/routes/auth.js:94-105` (change-password),
+  `server/routes/auth.js:132-142` (reset-password/confirm).
+- **Remediation**: `token_version`- oder `password_changed_at`-Spalte auf
+  `users` einführen, in `signToken()` ins JWT-Payload aufnehmen, in
+  `authenticate()`/`requireAuth()` gegen den aktuellen DB-Wert prüfen und
+  bei Abweichung ablehnen. In `setPasswordHash` hochzählen/aktualisieren.
+
+### JWT-`verify()`-Aufrufe pinnen `algorithms` nicht explizit
+- **Quelle**: authentication-flow-review-2026-09-06
+- **Importance**: 4/10
+- **Status**: offen
+- `jwt.verify(token, config.jwtSecret)` wird an allen drei Stellen
+  (`server/auth.js:108`, `server/auth.js:119`, `server/operator.js:34`) ohne
+  explizite `algorithms: ['HS256']`-Option aufgerufen. Aktuell nicht aktiv
+  ausnutzbar, da `config.jwtSecret` ein reiner symmetrischer String ist (kein
+  Alg-Confusion-Angriffsvektor über einen öffentlichen RS/ES-Schlüssel
+  vorhanden) — reine Hardening-Lücke, die erst relevant würde, falls je ein
+  asymmetrischer Schlüsselpfad eingeführt wird oder sich das
+  Default-Verhalten der Library ändert.
+- **Remediation**: `{ algorithms: ['HS256'] }` explizit an jeden
+  `jwt.verify()`-Aufruf in `auth.js` und `operator.js` übergeben.
+
+### Kein Refresh-Token-Mechanismus — Access-Token dient als eigenes "Refresh"
+- **Quelle**: authentication-flow-review-2026-09-06
+- **Importance**: 3/10
+- **Status**: offen
+- `/api/auth/refresh` (`server/routes/auth.js:79-82`) signiert einfach ein
+  neues 12h-Access-Token aus den Claims des aktuell gültigen Tokens neu — es
+  gibt kein separates Refresh-Token mit Rotation/Reuse-Detection und keine
+  serverseitige Revocation-Liste. Bewusster Einfachheits-Trade-off, aber ein
+  gestohlenes Token kann dadurch unbegrenzt über rollierende 12h-Fenster
+  verlängert werden, solange es vor Ablauf präsentiert wird — kombiniert mit
+  dem Punkt zur fehlenden Session-Invalidierung bei Passwort-Änderung
+  überlebt ein gestohlenes Token eine beabsichtigte Aussperrung potenziell
+  unbegrenzt.
+- **Remediation**: Falls dauerhafte Sessions gewünscht sind, kurzlebige
+  Access-Tokens (~15min) + separate serverseitig gespeicherte
+  (gehasht) Refresh-Tokens mit Rotation/Reuse-Detection einführen;
+  andernfalls mindestens `/api/auth/refresh` an die oben vorgeschlagene
+  `tokenVersion`-Prüfung koppeln, damit eine Passwort-Änderung auch die
+  Refresh-Fähigkeit beendet.
+
+### Login hat Timing-Seitenkanal zur Username-Enumeration
+- **Quelle**: authentication-flow-review-2026-09-06
+- **Importance**: 2/10
+- **Status**: offen
+- `login()` (`server/auth.js:87-101`) gibt bei nicht-existierendem Username
+  sofort `null` zurück (Zeile 93) und überspringt den bcrypt-Vergleich
+  vollständig. Bei existierendem Username mit falschem Passwort läuft ein
+  vollständiger `bcrypt.compare` (Cost 12, ~100ms+) vor dem `null`-Return.
+  Beide Fälle liefern dieselbe Fehlermeldung (`401 'Ungültige
+  Anmeldedaten'`), aber die Antwortzeit unterscheidet sich messbar —
+  ermöglicht Username-/Email-Enumeration trotz identischer Fehlermeldung.
+- **Remediation**: Bei nicht gefundenem User-Datensatz immer einen
+  Dummy-`bcrypt.compare` gegen einen fixen/vorberechneten Hash ausführen,
+  damit beide Codepfade vergleichbar lange dauern.
+
+### Bestätigungs-Token bei Self-Registration wird im Klartext gespeichert
+- **Quelle**: authentication-flow-review-2026-09-06
+- **Importance**: 2/10
+- **Status**: offen
+- Der Self-Registration-Confirm-Token (`randomBytes(32).toString('hex')`)
+  wird in `pending_registrations.token` im Klartext gespeichert und
+  nachgeschlagen (`server/registry.js:97-103`
+  `addPending`/`server/registry.js:112-116` `getPending`,
+  `server/routes/register.js:50-52`) — im Gegensatz zu Passwort-Reset-Tokens,
+  die per SHA-256 gehasht abgelegt werden (`server/db/users.js:41-57`).
+  Wirkung begrenzt (Registrierungs-Confirm erstellt nur einen Tenant +
+  Erstnutzer für eine vom Angreifer bereits kontrollierte
+  Email/Passwort-Kombination), aber Inkonsistenz zum sonst stärkeren Muster.
+- **Remediation**: Confirm-Token analog zu Reset-Tokens per SHA-256 hashen
+  vor dem Speichern in `pending_registrations`, gehashte Werte in
+  `getPending`/`confirmPending` vergleichen.
+
+### X-Forwarded-For-Spoofing hebelt sämtliches IP-basiertes Rate-Limiting aus
+- **Quelle**: api-and-infrastructure-audit-2026-09-06
+- **Importance**: 8/10
+- **Status**: offen
+- `clientIp()` (`server/helpers.js:6-11`) nimmt bei `config.trustProxy` den
+  **ersten** Eintrag von `X-Forwarded-For`
+  (`req.headers['x-forwarded-for'].split(',')[0].trim()`). `TRUST_PROXY=true`
+  ist die dokumentierte Standardeinstellung für das SaaS-Produktivdeployment
+  (`docker-compose.saas.server.yml:25`, `.env.saas.example:20`), Topologie ist
+  Caddy als Reverse-Proxy davor. Reverse-Proxies (Caddy eingeschlossen)
+  *hängen* die echte Client-IP an einen bereits vorhandenen
+  `X-Forwarded-For`-Header an, statt ihn zu ersetzen — ein Angreifer, der
+  selbst `X-Forwarded-For: 1.2.3.4` sendet, erzeugt beim Server
+  `X-Forwarded-For: 1.2.3.4, <echte-client-ip>`, und die App liest den
+  angreifer-kontrollierten linkesten Wert statt des vertrauenswürdigen
+  rechtesten Hops. Sowohl der globale Abuse-Limiter
+  (`server/rate-limit.js`) als auch der Login-Brute-Force-Limiter
+  (`server/routes/auth.js:61`, 10 Versuche/15min) schlüsseln ausschließlich
+  über diesen spoofbaren Wert — ein Angreifer kann mit rotierender
+  Fake-Leading-IP pro Request das Login-Throttling und den globalen
+  300-Req/min-Schutz vollständig umgehen.
+- **Remediation**: Bei aktiviertem `trustProxy` den **letzten** Eintrag von
+  `X-Forwarded-For` nehmen (den vom nächsten vertrauenswürdigen Proxy
+  angehängten Wert), nicht den ersten — oder besser Caddys `X-Real-IP`
+  (Single-Value, immer proxy-gesetzt, nicht spoofbar solange die App keinen
+  client-gelieferten `X-Real-IP` vertraut) statt `X-Forwarded-For`-Parsing
+  verwenden. Bei mehreren Proxy-Hops müsste korrektes
+  Trusted-Hop-Count-Peeling implementiert werden statt blindem
+  Erste/Letzte-Index-Zugriff.
+
+### Fehlende HSTS-/Permissions-Policy-Header auf Anwendungsebene
+- **Quelle**: api-and-infrastructure-audit-2026-09-06
+- **Importance**: 3/10
+- **Status**: offen
+- `applySecurityHeaders` (`server/security-headers.js:21-28`) setzt
+  `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`,
+  `X-Robots-Tag` und CSP, aber nie `Strict-Transport-Security` oder
+  `Permissions-Policy`. Im dokumentierten Deployment (Caddy davor,
+  automatisches HTTPS) setzt Caddy HSTS üblicherweise selbst, aber die
+  Node-App hat keine eigene Absicherung — ein Deployment mit anderem
+  Reverse-Proxy oder ohne automatisches HTTPS/HSTS verliert HSTS komplett
+  ohne App-seitiges Fallback. `Permissions-Policy` fehlt in jedem Fall.
+- **Remediation**: `Strict-Transport-Security: max-age=31536000;
+  includeSubDomains` in `applySecurityHeaders` ergänzen (nur wenn `!isDev`,
+  um lokale HTTP-Entwicklung nicht zu brechen), plus minimale
+  `Permissions-Policy` zur Deaktivierung ungenutzter Browser-Features
+  (Kamera/Mikrofon/Geolocation).
+
+### CSP erlaubt `style-src 'unsafe-inline'`, kein `frame-ancestors`
+- **Quelle**: api-and-infrastructure-audit-2026-09-06
+- **Importance**: 2/10
+- **Status**: offen
+- `server/security-headers.js:26-27`: `script-src` ist bereits strikt (kein
+  `unsafe-inline`/`unsafe-eval`), aber `style-src 'self' 'unsafe-inline'`
+  erlaubt Inline-Styles, und es fehlt eine `frame-ancestors`-Direktive
+  (funktional bereits durch `X-Frame-Options: DENY` abgedeckt, aber manche
+  Scanner/Compliance-Checklisten bemängeln das Fehlen trotzdem).
+  Geringes Risiko (CSS-Exfiltration statt Script-Injection).
+- **Remediation**: `frame-ancestors 'none'` zur CSP ergänzen (Defense-in-Depth,
+  redundant zu `X-Frame-Options`); Nonce-basierte Inline-Styles nur falls der
+  Frontend-Build das unterstützt, sonst wie bisher belassen.
+
+### Kein API-Versionierungsschema
+- **Quelle**: api-and-infrastructure-audit-2026-09-06
+- **Importance**: 2/10
+- **Status**: offen
+- Alle Endpunkte liegen unter einem flachen `/api/...`-Namespace ohne
+  Versions-Segment, Versions-Header oder Deprecation-Mechanismus
+  (`server/version.js` liefert nur die App-/Build-Version, keinen
+  API-Contract). Kein aktives Sicherheitsproblem, aber ein
+  Rollout-/Kompatibilitätsrisiko, sobald mehrere Client-Versionen
+  (native App + Web-SPA laut `docs/deploy-cx43.md`) parallel unterstützt
+  werden müssen.
+- **Remediation**: Niedrige Priorität; bei Bedarf minimalen
+  Versions-Marker (URL-Präfix oder Header) einführen, bevor ein
+  Breaking-Change-Vorfall eintritt.
+
+### Kein expliziertes JSON-Nesting-Depth-Limit
+- **Quelle**: api-and-infrastructure-audit-2026-09-06
+- **Importance**: 1/10
+- **Status**: offen
+- `readJsonBody` (`server/helpers.js:39-48`) begrenzt die Body-Größe (1 MB
+  via `readBody`), ruft aber `JSON.parse(raw)` ohne Tiefenlimit auf. Innerhalb
+  der 1-MB-Grenze ist theoretisch sehr tiefe Verschachtelung möglich. Restrisiko
+  wäre rekursive Downstream-Verarbeitung ohne Tiefenlimit — im Rahmen des
+  Audits keine solche rekursive Body-Walking-Logik gefunden; nicht
+  abschließend verifiziert für alle `db/*.js`-Mutation-Helper.
+- **Remediation**: Niedrige Priorität angesichts der Größenbegrenzung; falls
+  ausnutzbar bestätigt, günstige Tiefenprüfung vor/während des Parsens
+  ergänzen.
+
+### Operator-Login (SaaS-Admin) ohne dediziertes Brute-Force-Rate-Limiting
+- **Quelle**: initial-security-analysis-audit-2026-09-06
+- **Importance**: 5/10
+- **Status**: offen
+- `operatorLogin()` (`server/operator.js:21-27`) vergleicht Credentials mit
+  `timingSafeEqual` (gut), aber es wird kein Pro-Route-Attempt-Limiter
+  aufgerufen — anders als beim Tenant-Login (`server/routes/auth.js:28-47`,
+  10 Versuche/15min pro IP) greift hier nur der generische globale Limiter
+  (`isGloballyRateLimited`, 300 Requests/60s pro IP, geteilt mit allem
+  anderen `/api/`-Traffic, `server/rate-limit.js:6-8`). Das Operator-Panel
+  authentifiziert mit einem einzigen geteilten Nutzername/Passwort
+  (Env-konfiguriert, keine Pro-Nutzer-Accounts) und der resultierende Token
+  kontrolliert alle Tenants (u.a. Suspend) — 300 Versuche/Minute pro IP sind
+  ein nennenswertes Online-Brute-Force-Budget gegen ein einziges statisches
+  Secret.
+- **Remediation**: Denselben Attempt-Counter-Mechanismus wie in
+  `server/routes/auth.js` (`isRateLimited`/`recordFailedLogin`) auch vor
+  `operatorLogin()` anwenden.
+
+### Registrierungs-Endpunkte ohne dediziertes Rate-Limiting
+- **Quelle**: initial-security-analysis-audit-2026-09-06
+- **Importance**: 4/10
+- **Status**: offen
+- `POST /api/register` (`server/routes/register.js:29`) und
+  `POST /api/self-register` (`server/routes/users.js:62`) stehen in
+  `PUBLIC_ROUTES` (`server/route-table.js:37-46`); jeder Request löst einen
+  bcrypt-Hash (Cost 12) sowie eine ausgehende Mail (`sendConfirmEmail`) aus,
+  aber keiner der beiden Endpunkte hat einen dedizierten Attempt-Limiter wie
+  `/api/auth/login` oder `/api/auth/forgot-password` — nur der generische
+  300 Req/60s-Limiter greift. Ermöglicht anhaltende bcrypt-CPU-Last und
+  Massen-Auslösen von Bestätigungsmails (Spam/Mail-Provider-Reputationsschaden)
+  innerhalb des generischen Budgets.
+- **Remediation**: `isRateLimited`/`recordFailedLogin`-Muster aus
+  `server/routes/auth.js` auch für `POST /api/register` und
+  `POST /api/self-register` anwenden.
+
+### `POST /api/auth/reset-password/confirm` ohne dediziertes Rate-Limiting
+- **Quelle**: initial-security-analysis-audit-2026-09-06
+- **Importance**: 2/10
+- **Status**: offen
+- Anders als `forgot-password` (`server/routes/auth.js:108-129`, mit
+  `isRateLimited`/`recordFailedLogin`) ist der Confirm-Schritt
+  (`server/routes/auth.js:132-142`) öffentlich und nur durch den generischen
+  300/60s-IP-Limiter begrenzt. Praktisches Risiko gering, da der
+  Reset-Token ein 32-Byte-Zufallswert ist (`randomBytes(32)`, Zeile 116) —
+  Brute-Force ist rechnerisch unmöglich unabhängig vom Rate-Limiting — aber
+  Inkonsistenz gegenüber dem sonst in dieser Datei durchgängigen
+  Defense-in-Depth-Muster.
+- **Remediation**: Denselben Limiter aus Konsistenzgründen ergänzen, niedrige
+  Priorität.
+
+### Backup/Restore-Endpunkte nur mit einfacher Auth statt erhöhtem Privileg
+- **Quelle**: database-security-audit-2026-09-06
+- **Importance**: 3/10
+- **Status**: offen
+- `/api/backup` und `/api/restore` (`server/routes/system.js:33-45`, nutzt
+  `backup.js:20`/`backup.js:61`) sind nur mit `requireAuth` geschützt, das
+  jeder registrierte Nutzer erfüllt — es gibt keine separate Admin-Rolle
+  (Rollen wurden bewusst entfernt, siehe
+  `server/db/migrations/032-users-drop-role.js`). Ein kompromittiertes oder
+  böswilliges Nutzerkonto kann damit die komplette Datenbank exfiltrieren
+  (`/api/backup`) oder alle Anwendungsdaten überschreiben (`/api/restore`),
+  nicht nur eigene Daten.
+- **Remediation**: Falls eine stärkere Vertrauensgrenze gewünscht ist, Restore
+  auf den Tenant-Owner/Erstregistrierten beschränken statt auf jeden
+  authentifizierten Nutzer; andernfalls als akzeptiertes Risiko des flachen
+  Berechtigungsmodells (kleines vertrauenswürdiges Team) dokumentieren.
+
+### Verschlüsselungsschlüssel für Settings-at-Rest wird aus JWT_SECRET abgeleitet
+- **Quelle**: database-security-audit-2026-09-06
+- **Importance**: 3/10
+- **Status**: offen
+- Der AES-256-GCM-Schlüssel, der Secrets at Rest schützt (z.B. SMTP-Passwort
+  in `db/settings.js`/`setSecretSetting`), wird per HKDF aus `JWT_SECRET`
+  abgeleitet (`server/auth.js:47`,
+  `hkdfSync('sha256', config.jwtSecret, 'luxstage-settings', ...)`). Ein Leak
+  von `JWT_SECRET` kompromittiert damit sowohl Session-Fälschung als auch die
+  Entschlüsselung gespeicherter Secrets — reduziert Defense-in-Depth
+  zwischen zwei eigentlich trennbaren Vertrauensdomänen. Verwandt mit
+  bestehendem Punkt zu JWT-Secret-Rotation (siehe
+  `## Bewusst zurückgestellt` → "JWT-Secret ohne Rotationsmechanismus"),
+  aber ein eigenständiges Problem (Schlüsseltrennung, nicht Rotation).
+- **Remediation**: Settings-Verschlüsselungsschlüssel aus einem eigenen
+  Secret ableiten (z.B. separate `SETTINGS_ENC_KEY`-Umgebungsvariable), oder
+  die Kopplung als dokumentierten Trade-off akzeptieren, da HKDF bereits
+  über den `'luxstage-settings'`-Info-String domain-separiert.
 
 ---
 

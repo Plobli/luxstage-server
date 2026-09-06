@@ -50,7 +50,7 @@ Fragen wie "ist diese Abstraktion sinnvoll?", "lohnt sich dieser Trade-off?",
 absoluten Maßstab — das ist kein Werkzeug-Problem, sondern die Natur der Frage.
 Diese Fragen laufen über den Backlog:
 
-- **Ein LLM-Review (z.B. `/code-review`) trägt neue Punkte in `audits/backlog.md`
+- **Ein LLM-Review (z.B. `/code-audit`) trägt neue Punkte in `audits/backlog.md`
   ein — es schreibt nie einen neuen Gesamtbericht.** Damit entfällt der Effekt,
   dass ein bereits erledigter Punkt beim nächsten Lauf unter neuer Formulierung
   wieder auftaucht.
