@@ -34,31 +34,6 @@ Nach der Abarbeitung eines jeden offenen Punktes einen commit machen.
   entsprechendem CSRF-Schutz) die robustere Alternative. Bewusst
   zurückstellbar, da aktuell kein XSS-Vektor bekannt ist.
 
-### Log-Injection über unbereinigten Snapshot-Namen im Operator-Panel-Log
-- **Quelle**: logging-monitoring-audit-2026-09-06
-- **Importance**: 4/10
-- **Status**: offen
-- `console.log(\`[operator] Snapshot wiederhergestellt: ${id}/${body.name}\`)`
-  und `console.error(\`[operator] Snapshot-Restore fehlgeschlagen
-  (${id}/${body.name}):\`, err)` (`server/routes/operator.js:110,116`)
-  interpolieren `body.name` (rohes JSON-Request-Feld) direkt in einen
-  `console.*`-Aufruf. `tenant-backup.js:82` (`restoreSnapshot`) lehnt `name`
-  nur bei `/`, `..` oder fehlendem `.db`-Suffix ab — entfernt aber nie
-  `\n`/`\r`. Ein Wert wie `"x\n2026-09-06T00:00:00.000Z INFO [auth] Login
-  erfolgreich user=admin ip=1.2.3.4.db"` besteht die Validierung, scheitert
-  später an `fs.existsSync(src)` und landet trotzdem mit dem
-  angreifer-gewählten Inhalt (inkl. gefälschtem Timestamp/Level/Scope, das
-  das strukturierte `logger.js`-Format imitiert) im Log. Das Operator-Panel
-  ist die höchstprivilegierte Fläche im System — sein eigenes Aktions-Log
-  (der einzige Audit-Trail dafür) ist genau das, was man nach einem
-  vermuteten Credential-Kompromiss vertrauen möchte, und genau dort können
-  Zeilen gefälscht werden.
-- **Remediation**: Über `logger.js` routen
-  (`log.warn('Snapshot wiederhergestellt', { tenant: id, name: body.name })`),
-  damit das bestehende Whitespace-Quoting in `format()` Zeilenumbrüche
-  neutralisiert, oder `/[\r\n]/g` explizit aus `name` entfernen vor
-  Interpolation/Logging.
-
 ### Cross-Tenant-Token-Wiederverwendung (403) nicht identifizierbar geloggt
 - **Quelle**: logging-monitoring-audit-2026-09-06
 - **Importance**: 3/10
@@ -395,6 +370,24 @@ Nach der Abarbeitung eines jeden offenen Punktes einen commit machen.
 ---
 
 ## Erledigt
+
+### Log-Injection über unbereinigten Snapshot-Namen im Operator-Panel-Log
+- **Quelle**: logging-monitoring-audit-2026-09-06
+- **Erledigt**: 2026-09-06
+- `console.log`/`console.error` interpolierten `body.name` (rohes
+  JSON-Request-Feld) direkt als String — `restoreSnapshot()` lehnt `name`
+  nur bei `/`, `..` oder fehlendem `.db`-Suffix ab, nie bei `\n`/`\r`. Ein
+  Wert mit eingebettetem Zeilenumbruch und gefälschtem
+  Timestamp/Level/Scope hätte das strukturierte `logger.js`-Format imitiert
+  und wäre als scheinbar echte Log-Zeile im einzigen Audit-Trail des
+  Operator-Panels gelandet.
+- **Remediation**: `console.log`/`console.error` in `routes/operator.js`
+  (Snapshot-Restore, Snapshot-Erstellung, Tenant-Löschung) durch
+  `logger('operator')` ersetzt — `name`/`tenant` als strukturierte Felder
+  statt String-Interpolation, das bestehende Whitespace-Quoting in
+  `logger.js`'s `format()` neutralisiert eingebettete Zeilenumbrüche. Tests
+  in `server/test/logger.test.js` (Zeilenumbruch bleibt innerhalb eines
+  gequoteten Werts, erzeugt keine zusätzliche Log-Zeile).
 
 ### Passwort-Änderung/-Reset invalidierte keine zuvor ausgestellten JWTs
 - **Quelle**: authentication-flow-review-2026-09-06

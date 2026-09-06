@@ -50,3 +50,10 @@ test('fehlende und leere Feldwerte brechen die Ausgabe nicht', () => {
   const { out } = capture(() => logger('x').info('Test', { a: null, b: undefined, c: 0 }))
   assert.match(out[0], /a= b= c=0$/)
 })
+
+test('Zeilenumbrüche in Feldwerten werden gequotet statt eine gefälschte Log-Zeile einzuschleusen', () => {
+  const injected = 'x\n2026-09-06T00:00:00.000Z INFO [auth] Login erfolgreich user=admin ip=1.2.3.4'
+  const { out } = capture(() => logger('operator').info('Snapshot wiederhergestellt', { tenant: 'acme', name: injected }))
+  assert.equal(out.length, 1, 'darf keine zusätzliche Zeile erzeugen')
+  assert.ok(out[0].includes(JSON.stringify(injected)), 'der eingebettete Zeilenumbruch muss innerhalb eines gequoteten Werts bleiben')
+})

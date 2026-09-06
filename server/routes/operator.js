@@ -99,7 +99,7 @@ export async function operatorRoutes(req, res, pathname) {
       removeTenant(id)      // aus Verzeichnis
       deleteTenant(id)      // DB-Dateien löschen
       deleteBackups(id)     // Snapshots löschen
-      console.log(`[operator] Mandant gelöscht: ${id}`)
+      log.info('Mandant gelöscht', { tenant: id })
       return json(res, 200, { ok: true })
     }
   }
@@ -114,7 +114,7 @@ export async function operatorRoutes(req, res, pathname) {
     }
     if (method === 'POST') { // manuellen Snapshot erstellen
       const name = await createSnapshot(id)
-      console.log(`[operator] Snapshot erstellt: ${id}/${name}`)
+      log.info('Snapshot erstellt', { tenant: id, name })
       return json(res, 201, { ok: true, name })
     }
   }
@@ -126,13 +126,19 @@ export async function operatorRoutes(req, res, pathname) {
     const body = await readJsonBody(req, res); if (body === null) return
     try {
       await restoreSnapshot(id, String(body.name || ''))
-      console.log(`[operator] Snapshot wiederhergestellt: ${id}/${body.name}`)
+      // Über logger.js statt console.log: body.name ist rohes Client-Input,
+      // das restoreSnapshot() nur gegen '/', '..' und fehlendes '.db'-Suffix
+      // prüft (nicht gegen \r/\n) — als Feld statt String-Interpolation
+      // geloggt, damit das bestehende Whitespace-Quoting in logger.js
+      // Zeilenumbrüche neutralisiert und keine gefälschten Log-Zeilen
+      // (mit erfundenem Timestamp/Level/Scope) eingeschleust werden können.
+      log.info('Snapshot wiederhergestellt', { tenant: id, name: body.name })
       return json(res, 200, { ok: true })
     } catch (err) {
       // err.message kann bei Dateisystemfehlern (fs.renameSync/openTenantDb in
       // tenant-backup.js) rohe Pfade enthalten — nur loggen, nicht an den
       // Client durchreichen (analog zum SMTP-Fix in routes/smtp.js).
-      console.error(`[operator] Snapshot-Restore fehlgeschlagen (${id}/${body.name}):`, err)
+      log.error('Snapshot-Restore fehlgeschlagen', { tenant: id, name: body.name, fehler: err.message })
       return json(res, 500, { error: 'Snapshot konnte nicht wiederhergestellt werden. Details siehe Server-Log.' })
     }
   }
