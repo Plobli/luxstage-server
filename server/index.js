@@ -37,8 +37,6 @@ function acquireLock() {
   fs.writeFileSync(lockPath, String(process.pid))
   const releaseLock = () => { try { if (fs.readFileSync(lockPath, 'utf8').trim() === String(process.pid)) fs.unlinkSync(lockPath) } catch {} }
   process.on('exit', releaseLock)
-  process.on('SIGINT', () => process.exit(0))
-  process.on('SIGTERM', () => process.exit(0))
 }
 acquireLock()
 
@@ -97,3 +95,34 @@ server.listen(config.port, '0.0.0.0', () => {
     import('./tenant-backup.js').then(m => m.startBackupJob())
   }
 })
+
+// Graceful Shutdown: PM2 sendet bei jedem Deploy/Neustart SIGTERM an den
+// laufenden Prozess. Ohne dies bricht ein laufender Foto-/Backup-Upload
+// mitten im Stream ab und offene SSE-Verbindungen werden hart gekappt statt
+// sauber beendet zu werden. server.close() nimmt keine neuen Verbindungen
+// mehr an, lässt laufende Requests aber zu Ende laufen; ein Timeout darunter
+// (unterhalb von PM2s Default kill_timeout von 30s) verhindert, dass ein
+// hängender Request den Shutdown unbegrenzt blockiert.
+const SHUTDOWN_TIMEOUT_MS = 15_000
+let shuttingDown = false
+function gracefulShutdown() {
+  if (shuttingDown) return
+  shuttingDown = true
+  console.log('Shutdown-Signal empfangen, beende laufende Anfragen...')
+  import('./sse.js').then(m => m.closeAllConnections())
+  const forceExit = setTimeout(() => {
+    console.error('Shutdown-Timeout erreicht, erzwinge Beendigung.')
+    process.exit(0)
+  }, SHUTDOWN_TIMEOUT_MS)
+  forceExit.unref()
+  server.close(() => {
+    clearTimeout(forceExit)
+    if (saasEnabled) {
+      import('./tenants.js').then(m => m.closeAllTenantDbs()).finally(() => process.exit(0))
+    } else {
+      import('./db-init.js').then(m => { if (m.dbContainer.db) m.dbContainer.db.close() }).finally(() => process.exit(0))
+    }
+  })
+}
+process.on('SIGINT', gracefulShutdown)
+process.on('SIGTERM', gracefulShutdown)

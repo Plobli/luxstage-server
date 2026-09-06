@@ -134,6 +134,11 @@ export function closeTenantDb(tenantId) {
   connections.delete(tenantId)
 }
 
+// Alle offenen Mandanten-Verbindungen schließen (Graceful Shutdown).
+export function closeAllTenantDbs() {
+  for (const tenantId of [...connections.keys()]) closeTenantDb(tenantId)
+}
+
 // Mandant vollständig entfernen: Verbindung schließen, Verzeichnis löschen.
 // Für DSGVO-Löschung und Wegwerf-Demo-Aufräumen.
 export function deleteTenant(tenantId) {

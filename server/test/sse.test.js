@@ -3,7 +3,7 @@ import { EventEmitter } from 'node:events'
 import { test } from 'node:test'
 import './helpers/test-env.js'
 
-const { subscribe, broadcast, getPresence, _clientMapSize } = await import('../sse.js')
+const { subscribe, broadcast, getPresence, _clientMapSize, closeAllConnections } = await import('../sse.js')
 
 function fakeResponse() {
   const res = new EventEmitter()
@@ -50,4 +50,19 @@ test('broadcast auf eine Show ohne (mehr) offene Clients wirft nicht', () => {
   subscribe('show-d', res, 'anna', 'web', null)
   res.emit('close')
   assert.doesNotThrow(() => broadcast('show-d', 'channels-updated', {}))
+})
+
+test('closeAllConnections beendet alle offenen Clients mit einem letzten Event und leert die Client-Map', () => {
+  const res1 = fakeResponse()
+  const res2 = fakeResponse()
+  let ended1 = false, ended2 = false
+  res1.end = () => { ended1 = true }
+  res2.end = () => { ended2 = true }
+  subscribe('show-e', res1, 'anna', 'web', null)
+  subscribe('show-f', res2, 'bea', 'web', null)
+
+  closeAllConnections()
+
+  assert.ok(ended1 && ended2)
+  assert.equal(_clientMapSize(), 0)
 })

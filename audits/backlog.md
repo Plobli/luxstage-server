@@ -57,43 +57,6 @@ Nach der Abarbeitung eines jeden offenen Punktes einen commit machen.
   lässt. Kein Big-Bang nötig — jede einzelne Funktion kann unabhängig
   typisiert werden, ohne die anderen zu berühren.
 
-### Kein Graceful Shutdown bei SIGTERM/SIGINT — laufende Requests, SSE-Verbindungen und Mandanten-DB-Handles werden hart gekappt
-- **Quelle**: resilience-review-2026-09-06
-- **Importance**: 6/10
-- **Status**: offen
-- `server/index.js:39-41` registriert für `SIGINT`/`SIGTERM` nur
-  `process.on('SIGINT', () => process.exit(0))` bzw. dasselbe für `SIGTERM` —
-  beide beenden den Prozess sofort, ohne den HTTP-Server zu drainen. Da
-  `install.sh` den Server produktiv unter PM2 betreibt (`ecosystem.config.cjs`,
-  `pm2 start`/`pm2 save`), sendet **jedes** Deployment/jeder Neustart (`pm2
-  restart`, Server-Reboot, `pm2 reload`) ein SIGTERM an den laufenden Prozess.
-  Konkretes Szenario: Ein Nutzer lädt gerade ein Foto hoch (`photos.js`,
-  Multipart-Stream) oder ein Backup-Export läuft (`backup.js`,
-  `streamBackup`), während ein Deploy ausgelöst wird — der Request bricht
-  mitten im Stream ab (Client sieht einen abgeschnittenen Response/Connection
-  Reset), statt sauber zu Ende zu laufen oder mit einem klaren Fehler zu
-  enden. Ebenso werden alle offenen SSE-Verbindungen (`server/sse.js`,
-  `EventSource` pro offener Show) ohne finales Event hart gekappt — der
-  Web-Client bemerkt das erst über den regulären `onerror`-Reconnect-Pfad
-  (funktioniert, aber mit unnötiger Verzögerung/sichtbarem Kurzausfall exakt
-  in dem Moment, wo aktiv an einer Show gearbeitet wird). Zusätzlich werden
-  offene `better-sqlite3`-Tenant-Verbindungen (`server/tenants.js`,
-  `connections`-Map) nie explizit geschlossen, bevor der Prozess endet — bei
-  WAL-Modus unkritisch für Datenintegrität (SQLite committet synchron pro
-  Transaktion), aber ein unsauberer Prozessabbruch mitten in einer laufenden
-  Transaktion ist der in `server/index.js:47` selbst dokumentierte
-  Risiko-Fall ("ein unsauberer Absturz die SQLite-Datei beschädigen kann").
-- **Remediation**: In `server/index.js` beim Empfang von SIGTERM/SIGINT
-  `server.close()` aufrufen (stoppt die Annahme neuer Verbindungen, lässt
-  laufende Requests zu Ende laufen), ein Timeout (z.B. 10-15s, unterhalb von
-  PM2s Default-`kill_timeout`) als harte Obergrenze setzen, danach erst
-  `process.exit(0)`. Offene SSE-Clients (`server/sse.js`, `clients`-Map)
-  vor dem Shutdown mit einem letzten Event benachrichtigen und `res.end()`
-  aufrufen, damit der Frontend-Reconnect sofort statt erst nach dem
-  `onerror`-Timeout greift. Optional: offene Tenant-DB-Verbindungen
-  (`tenants.js`, `connections`-Map) beim Shutdown iterieren und `db.close()`
-  aufrufen, statt sie dem OS-Prozessende zu überlassen.
-
 ### Undo/Redo-Ausführung ist keine einzige Transaktion — Crash zwischen den Schritten hinterlässt inkonsistenten Stack
 - **Quelle**: business-logic-review-2026-09-06
 - **Importance**: 6/10
@@ -176,6 +139,30 @@ Nach der Abarbeitung eines jeden offenen Punktes einen commit machen.
 ---
 
 ## Erledigt
+
+### Kein Graceful Shutdown bei SIGTERM/SIGINT — laufende Requests, SSE-Verbindungen und Mandanten-DB-Handles werden hart gekappt
+- **Quelle**: resilience-review-2026-09-06
+- **Erledigt**: 2026-09-06
+- `process.on('SIGINT'/'SIGTERM', () => process.exit(0))` beendete den
+  Prozess sofort ohne Drain — jedes PM2-Deployment (jeder `pm2 restart`)
+  sendet SIGTERM, kappte damit laufende Foto-/Backup-Uploads, offene
+  SSE-Verbindungen und Tenant-DB-Handles hart.
+- **Remediation**: `gracefulShutdown()` in `server/index.js`: `server.close()`
+  (nimmt keine neuen Verbindungen mehr an, lässt laufende zu Ende laufen),
+  15s-Timeout als harte Obergrenze (unterhalb PM2s Default-`kill_timeout`),
+  danach `process.exit(0)`. Neue Funktion `closeAllConnections()`
+  (`server/sse.js`) benachrichtigt offene SSE-Clients mit einem
+  `server-shutdown`-Event und beendet sie, statt sie dem Reconnect-Timeout zu
+  überlassen. Neue Funktion `closeAllTenantDbs()` (`server/tenants.js`)
+  schließt beim Shutdown alle offenen Mandanten-DB-Verbindungen (SaaS-Modus);
+  im Self-Hosted-Modus wird die globale DB-Verbindung geschlossen. Tests in
+  `server/test/sse.test.js` und `server/test/tenants-lru.test.js` für die
+  beiden neuen Helper-Funktionen. Der Signal-Handler selbst wurde manuell
+  per In-Prozess-`process.emit('SIGTERM')` verifiziert (Windows liefert
+  `SIGTERM`/`SIGINT` an Kindprozesse nicht zuverlässig zu, ein
+  Kindprozess-Test war deshalb auf der Entwicklungsumgebung nicht möglich —
+  das Produktions-Deployment läuft laut `install.sh` unter Linux/PM2, wo
+  echte POSIX-Signale zugestellt werden).
 
 ### Ungefilterter Snapshot-Name im `Content-Disposition`-Header des Operator-Backup-Downloads
 - **Quelle**: security-review-2026-09-06

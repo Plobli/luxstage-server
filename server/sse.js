@@ -111,6 +111,18 @@ export function _clientMapSize() {
   return clients.size
 }
 
+// Alle offenen SSE-Verbindungen mit einem letzten Event beenden (Graceful
+// Shutdown) — ohne dies bemerkt der Web-Client den Verbindungsabbruch erst
+// über den regulären onerror-Reconnect-Timeout statt sofort.
+export function closeAllConnections() {
+  for (const map of clients.values()) {
+    for (const res of map.keys()) {
+      try { res.write('event: server-shutdown\ndata: {}\n\n'); res.end() } catch { /* ignore */ }
+    }
+  }
+  clients.clear()
+}
+
 export function getPresence(showId) {
   const map = clients.get(scopedKey(showId))
   if (!map?.size) return []

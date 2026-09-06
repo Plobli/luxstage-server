@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { after, test } from 'node:test'
 import { cleanupDataPath } from './helpers/test-env.js'
 
-const { createTenant, openTenantDb, MAX_OPEN_TENANT_DBS, openConnectionCount, markTenantInUse, releaseTenantInUse } = await import('../tenants.js')
+const { createTenant, openTenantDb, MAX_OPEN_TENANT_DBS, openConnectionCount, markTenantInUse, releaseTenantInUse, closeAllTenantDbs } = await import('../tenants.js')
 
 const ids = Array.from({ length: MAX_OPEN_TENANT_DBS + 5 }, (_, i) => `lru-test-${i}`)
 
@@ -41,6 +41,16 @@ test('eine als in Benutzung markierte Verbindung wird nicht verdrängt, auch üb
   } finally {
     releaseTenantInUse('lru-inuse-holder')
   }
+})
+
+test('closeAllTenantDbs schließt alle offenen Verbindungen (Graceful Shutdown)', () => {
+  const db = openTenantDb('lru-test-0')
+  assert.ok(db.open)
+  assert.ok(openConnectionCount() > 0)
+
+  closeAllTenantDbs()
+
+  assert.equal(openConnectionCount(), 0)
 })
 
 after(cleanupDataPath)
