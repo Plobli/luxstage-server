@@ -217,49 +217,6 @@ Nach der Abarbeitung eines jeden offenen Punktes einen commit machen.
   entfernen/ersetzen (z.B. `showName.replace(/[\r\n"]/g, '')`), oder
   RFC-5987-`filename*=UTF-8''...`-Kodierung verwenden.
 
-### Undo/Redo-Restore kann Channel-zu-Slot-Referenzen desynchronisieren (Rigging-Datenkorruption)
-- **Quelle**: business-logic-vulnerabilities-audit-2026-09-06
-- **Importance**: 7/10
-- **Status**: offen
-- `readFullShowState()` entfernt bewusst das Feld `id` aus dem
-  Channel-Snapshot (`server/db/full-state.js:17`), aber die
-  Tower-/Bar-Snapshots (`readTowers()`/`readBars()`) behalten den echten
-  `channel_id`-Fremdschlüsselwert bei, der zum Snapshot-Zeitpunkt live war.
-  Beim Restore weist `writeChannels()`
-  (`server/db/channels.js:25-68`) jeder Channel-Zeile die `id` per Abgleich
-  gegen die *aktuelle* DB (Channel-Nummer→id-Mapping, `idByNumber`) neu zu —
-  nicht per Snapshot-id. Wurde zwischen Snapshot und Restore eine
-  Channel-Nummer irgendwann vollständig gelöscht und neu angelegt (manuell,
-  EOS-Import, ein weiterer Undo/Redo-Zyklus, Template-Apply/Replace), erhält
-  dieser Channel eine neue UUID. `restoreTowers`/`restoreBars`
-  (`server/db/towers.js:100-114`, `server/db/bars.js:112-136`) schreiben aber
-  die im Snapshot festgehaltene *alte* `channel_id` unverändert in
-  `tower_slots.channel_id`/`bar_fixtures.channel_id` und aktualisieren
-  `channels SET mount_ref=... WHERE id=?` mit dieser alten id — das
-  UPDATE trifft still keine Zeile, der reale (neue) Channel behält einen
-  veralteten/leeren `mount_ref`, während der Tower-Slot auf eine nicht mehr
-  existierende Channel-id verweist. `tower-read-core.js` liest per
-  `SELECT * FROM tower_slots` ohne Join/Validitätsprüfung — der hängende
-  Verweis wird auch beim Lesen nicht erkannt.
-- **Warum relevant**: Genau das Szenario "altes Snapshot nach
-  Schema-/Datenänderung wiederherstellen" — korrumpiert still die
-  bidirektionale Channel↔Mount-Verknüpfung, von der sowohl Tower/Bar-UI als
-  auch PDF-Rigging-Ausgabe abhängen, ohne Fehlermeldung. Falsches
-  Channel-zu-Positions-Mapping in einem PDF ist in einem
-  Bühnenlicht-Planungstool ein reales Betriebsrisiko, kein reiner
-  UI-Fehler. Reale Reproduktion: Channel #1 (id A) in Tower T Slot 1
-  montiert → Snapshot S0 → Channel #1 komplett gelöscht → neu angelegt (id
-  B) → mehrfach Undo bis S0 wiederhergestellt → `writeChannels` mappt #1 auf
-  id B, aber `restoreTowers` schreibt Slot1.channel_id=A (hängend) und das
-  `UPDATE ... WHERE id=A` läuft ins Leere.
-- **Remediation**: `id` nicht mehr aus dem Channel-Snapshot entfernen, und
-  `writeChannels()` einen Restore-Modus geben, der beim Aufruf aus
-  `writeFullShowState` die Snapshot-ids als maßgeblich behandelt (Zeilen mit
-  exakt diesen ids neu anlegen statt per Nummer neu zuzuordnen).
-  Alternativ: `channel_id`-Werte in Tower-/Bar-Snapshots beim Restore über
-  ein Channel-Nummer-Lookup neu auflösen statt die rohe historische id zu
-  schreiben.
-
 ### Bulk "Template auf alle Shows anwenden" umgeht Show-Locks ohne Konflikt-Signal
 - **Quelle**: business-logic-vulnerabilities-audit-2026-09-06
 - **Importance**: 5/10
@@ -580,6 +537,28 @@ Nach der Abarbeitung eines jeden offenen Punktes einen commit machen.
 ---
 
 ## Erledigt
+
+### Undo/Redo-Restore konnte Channel-zu-Slot-Referenzen desynchronisieren (Rigging-Datenkorruption)
+- **Quelle**: business-logic-vulnerabilities-audit-2026-09-06
+- **Erledigt**: 2026-09-06
+- `readFullShowState()` entfernte das Feld `id` aus dem Channel-Snapshot,
+  aber Tower-/Bar-Snapshots behielten den `channel_id`-Fremdschlüsselwert
+  bei. Beim Restore wies `writeChannels()` jeder Zeile die `id` per Abgleich
+  gegen die *aktuelle* DB (Nummer→id) neu zu, nicht per Snapshot-id — wurde
+  ein Channel zwischen Snapshot und Restore gelöscht+neu angelegt (neue
+  UUID), schrieb `restoreTowers`/`restoreBars` weiterhin die alte,
+  verwaiste `channel_id` in `tower_slots`/`bar_fixtures`, und der reale
+  Channel behielt einen falschen `mount_ref`.
+- **Remediation**: `id` wird jetzt im Channel-Snapshot mitgeführt
+  (`server/db/full-state.js`). Neue Funktion `restoreChannels()`
+  (`server/db/channels.js`) für den Undo/Redo-Restore-Pfad übernimmt die
+  Snapshot-id 1:1 statt sie per Kanalnummer neu zuzuordnen (Fallback auf
+  neue UUID für Snapshots ohne `id`, alte Undo-Historie bleibt kompatibel).
+  `writeChannels()` (Nummer-basiertes Mapping) bleibt für reguläre
+  CSV/EOS-Importe unverändert. Neuer Regressionstest in
+  `server/test/undo-redo-integrity.test.js` reproduziert exakt das
+  Lösch+Neuanlage-Szenario und prüft, dass Tower-Slot und `mount_ref` nach
+  Restore konsistent bleiben.
 
 ### X-Forwarded-For-Spoofing hebelt sämtliches IP-basiertes Rate-Limiting aus
 - **Quelle**: api-and-infrastructure-audit-2026-09-06

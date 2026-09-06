@@ -9,6 +9,7 @@ const { writeChannels } = await import('../db/channels.js')
 const { readShow } = await import('../db/shows.js')
 const { createShow } = await import('../db/shows.js')
 const { readFullShowState, writeFullShowState, computeStateHash } = await import('../db/full-state.js')
+const { writeTower, writeTowerSlot } = await import('../db/towers.js')
 const { withUndoSnapshot, getLastOperation, pushRedo, popRedo, clearRedo } = await import('../db/operations.js')
 const { channelRoutes } = await import('../routes/channels.js')
 const { showRoutes } = await import('../routes/shows.js')
@@ -42,13 +43,14 @@ test('Migration 039 legt operations (neues Schema) und redo_stack an', () => {
 test('readFullShowState/writeFullShowState sind roundtrip-stabil', () => {
   createShow('test-show-fullstate', { name: 'Testshow', importSections: false })
   const before = readFullShowState('test-show-fullstate')
-  before.channels.push({ channel: '1', address: '1/001', device: 'PAR', position: 'Turm 1', color: 'R80', notes: 'Testnotiz' })
+  before.channels.push({ id: 'fixed-test-channel-id', channel: '1', address: '1/001', device: 'PAR', position: 'Turm 1', color: 'R80', notes: 'Testnotiz' })
 
   writeFullShowState('test-show-fullstate', before, 'tester')
   const after = readFullShowState('test-show-fullstate')
 
   assert.equal(after.channels.length, 1)
   assert.equal(after.channels[0].notes, 'Testnotiz')
+  assert.equal(after.channels[0].id, 'fixed-test-channel-id')
   assert.equal(computeStateHash(after), computeStateHash(before))
 })
 
@@ -136,6 +138,38 @@ test('Undo lehnt einen manipulierten Snapshot ab statt ihn stillschweigend anzuw
   assert.equal(undoRes.status, 409)
   // Zustand darf NICHT übernommen worden sein
   assert.equal(readFullShowState('test-show-hashcheck').channels.length, 0)
+})
+
+test('Restore nach Channel-Löschung+Neuanlage hält Tower-Slot-Referenz konsistent (kein hängender channel_id)', () => {
+  createShow('test-show-restore-channelid', { name: 'Restore-ChannelId-Test', importSections: false })
+  const show = readShow('test-show-restore-channelid')
+
+  writeChannels('test-show-restore-channelid', [{ channel: '1', notes: 'v1' }])
+  const towerId = writeTower('test-show-restore-channelid', { name: 'Turm A', slot_count: 4 })
+  const channelBefore = readFullShowState('test-show-restore-channelid').channels[0]
+  writeTowerSlot(show.id, towerId, 1, channelBefore.id)
+
+  const snapshot = readFullShowState('test-show-restore-channelid')
+  assert.equal(snapshot.channels[0].id, channelBefore.id)
+
+  // Simuliert: Channel #1 wird zwischen Snapshot und Restore komplett gelöscht
+  // und unter derselben Nummer neu angelegt — bekommt dabei eine neue id.
+  writeChannels('test-show-restore-channelid', [])
+  writeChannels('test-show-restore-channelid', [{ channel: '1', notes: 'v2 (neu angelegt)' }])
+  const channelAfterRecreate = readFullShowState('test-show-restore-channelid').channels[0]
+  assert.notEqual(channelAfterRecreate.id, channelBefore.id)
+
+  writeFullShowState('test-show-restore-channelid', snapshot, 'tester')
+
+  const restored = readFullShowState('test-show-restore-channelid')
+  assert.equal(restored.channels[0].id, channelBefore.id) // exakte Snapshot-id wiederhergestellt
+
+  const towers = restored.towers
+  const slot1 = towers[0].slots.find(s => s.slot_index === 1)
+  assert.equal(slot1.channel_id, channelBefore.id) // Slot verweist auf existierenden Kanal, nicht ins Leere
+
+  const channelRow = dbCtx.getDb().prepare('SELECT mount_ref FROM channels WHERE id = ?').get(channelBefore.id)
+  assert.ok(channelRow.mount_ref) // Rückverweis Kanal→Turm ist wiederhergestellt, nicht verwaist
 })
 
 test('Nach Redo ist erneut ein Undo möglich (Undo-Redo-Undo-Kette bleibt konsistent)', async () => {

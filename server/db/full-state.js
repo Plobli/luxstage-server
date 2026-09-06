@@ -5,7 +5,7 @@
 // in einem Schritt ändern, in einen inkonsistenten Zwischenzustand laufen).
 import { createHash } from 'node:crypto'
 import { getDb } from '../db-context.js'
-import { readChannels, writeChannels } from './channels.js'
+import { readChannels, restoreChannels } from './channels.js'
 import { readShowSectionDefs, writeShowSectionDefs, readShowSections, writeShowSections } from './sections.js'
 import { readTowers, restoreTowers } from './towers.js'
 import { readBars, restoreBars } from './bars.js'
@@ -14,8 +14,14 @@ import { readFloorplanForState, restoreFloorplan } from './floorplan.js'
 export function readFullShowState(slug) {
   const sections = readShowSections(slug)
   return {
-    channels: readChannels(slug).map(({ show_id: _showId, sort_order: _sortOrder, id: _id, ...ch }) => {
+    channels: readChannels(slug).map(({ show_id: _showId, sort_order: _sortOrder, ...ch }) => {
       const normalized = {
+        // id bewusst mitgeschnitten (anders als bei anderen Feldern hier
+        // kein reiner Anzeigewert): restoreChannels() braucht die exakte
+        // Snapshot-id, damit Tower-/Bar-Slots, die per channel_id auf diesen
+        // Kanal verweisen, nach einem Restore nicht auf eine inzwischen
+        // durch Löschen+Neuanlage vergebene andere id zeigen.
+        id: ch.id,
         channel: ch.channel,
         address: ch.address,
         device: ch.device,
@@ -38,7 +44,7 @@ export function readFullShowState(slug) {
 
 export function writeFullShowState(slug, state, username) {
   const tx = getDb().transaction(() => {
-    writeChannels(slug, state.channels, username)
+    restoreChannels(slug, state.channels, username)
     writeShowSectionDefs(slug, state.sectionDefs, username)
     writeShowSections(slug, new Map(state.sections.map(s => [s.id, s.content])), username)
     restoreTowers(slug, state.towers)

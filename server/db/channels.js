@@ -67,6 +67,51 @@ export function writeChannels(slug, channels, editedBy = null) {
   tx()
 }
 
+/** Wie writeChannels, aber für Undo/Redo-Restore: übernimmt die Snapshot-`id`
+ *  jeder Kanal-Zeile 1:1 statt sie per Kanalnummer gegen die aktuelle DB neu
+ *  zuzuordnen. writeChannels' Nummer-Mapping ist für reguläre Importe (CSV/EOS)
+ *  richtig, bricht bei Restore aber die channel_id-Fremdschlüssel in
+ *  tower_slots/bar_fixtures, falls ein Kanal zwischen Snapshot und Restore
+ *  gelöscht+neu angelegt wurde (neue id, alte id in Snapshot-Slots verwaist).
+ *  Snapshots ohne `id` (aus einer Zeit vor diesem Feld) bekommen wie bisher
+ *  eine frische UUID — kein Bruch für ältere Undo-Historie. */
+export function restoreChannels(slug, channels, editedBy = null) {
+  const show = readShow(slug)
+  if (!show) throw new Error(`Show not found: ${slug}`)
+
+  const upsert = getDb().prepare(`
+    INSERT INTO channels (id, show_id, channel, address, device, position, color, notes, mount_ref, quantity, sort_order)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(id) DO UPDATE SET
+      channel = excluded.channel, address = excluded.address, device = excluded.device,
+      position = excluded.position, color = excluded.color, notes = excluded.notes,
+      mount_ref = excluded.mount_ref, quantity = excluded.quantity, sort_order = excluded.sort_order
+  `)
+
+  const tx = getDb().transaction(() => {
+    const existing = getDb().prepare('SELECT id FROM channels WHERE show_id = ?').all(show.id)
+    const incomingIds = new Set()
+
+    for (let i = 0; i < channels.length; i++) {
+      const ch = channels[i]
+      const id = ch.id ?? randomUUID()
+      incomingIds.add(id)
+      const mountRef = ch.mount_ref ? (typeof ch.mount_ref === 'string' ? ch.mount_ref : JSON.stringify(ch.mount_ref)) : null
+      upsert.run(id, show.id, ch.channel ?? '', ch.address ?? '', ch.device ?? '', ch.position ?? '', ch.color ?? '', ch.notes ?? '', mountRef, ch.quantity ?? 1, i)
+    }
+
+    for (const { id } of existing) {
+      if (!incomingIds.has(id)) {
+        getDb().prepare('DELETE FROM channels WHERE id = ?').run(id)
+      }
+    }
+
+    getDb().prepare('UPDATE shows SET updated_at = ? WHERE id = ?').run(now(), show.id)
+    if (editedBy) touchLastEdited(show.id, editedBy)
+  })
+  tx()
+}
+
 export function getChecks(showSlug) {
   const CHECK_TTL_MS = 6 * 60 * 60 * 1000
   const cutoff = now() - CHECK_TTL_MS
