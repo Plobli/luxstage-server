@@ -57,41 +57,6 @@ Nach der Abarbeitung eines jeden offenen Punktes einen commit machen.
   lässt. Kein Big-Bang nötig — jede einzelne Funktion kann unabhängig
   typisiert werden, ohne die anderen zu berühren.
 
-### Undo/Redo-Ausführung ist keine einzige Transaktion — Crash zwischen den Schritten hinterlässt inkonsistenten Stack
-- **Quelle**: business-logic-review-2026-09-06
-- **Importance**: 6/10
-- **Status**: offen
-- `handleUndoRedo()` (`server/routes/undo-redo.js:20-41`) führt die
-  Undo/Redo-Sequenz als fünf unabhängige, nicht in eine gemeinsame
-  SQLite-Transaktion gefasste Schritte aus: `getEntry()` → `readState()` →
-  `writeState(targetState)` (Zeile 36) → `consumeEntry(entry)` (Zeile 37) →
-  `pushOpposite(currentState)` (Zeile 38). Jeder einzelne Schritt ist zwar für
-  sich transaktional (`writeFullShowState`/`recordSnapshot` nutzen intern
-  `getDb().transaction()`), aber zwischen den Schritten liegt kein
-  gemeinsames Transaktionsdach. Konkretes Szenario: Server stürzt ab (OOM,
-  PM2-Neustart durch Deploy, unbehandelte Exception in einem der
-  `broadcast`-Aufrufe direkt danach) unmittelbar nach `writeState(targetState)`
-  in Zeile 36, aber bevor `consumeEntry(op)` in Zeile 37 den
-  `operations`-Eintrag löscht. Nach Neustart zeigt die Show bereits den
-  wiederhergestellten (alten) Zustand, aber `getLastOperation(show.id)`
-  liefert beim nächsten Undo-Klick weiterhin denselben, jetzt bereits
-  konsumierten Snapshot zurück — ein zweites Undo wendet denselben Snapshot
-  nochmal an, obwohl der tatsächliche "davor"-Zustand (durch zwischenzeitliche
-  Bearbeitung) längst ein anderer sein kann. Ebenso: Crash zwischen
-  `consumeEntry()` (Zeile 37) und `pushOpposite()` (Zeile 38) löscht den
-  Undo-Eintrag korrekt, befüllt aber nie den Redo-Stack — der Nutzer verliert
-  kommentarlos die Möglichkeit, die gerade rückgängig gemachte Aktion wieder
-  herzustellen. Der Hash-Check in Zeile 29 (`computeHash(targetState) !==
-  entry.hash`) schützt nur die Integrität des Snapshots selbst, nicht die
-  Konsistenz der Gesamtsequenz Undo-Anwendung → Stack-Aktualisierung.
-- **Remediation**: `handleUndoRedo()` (bzw. die aufrufenden Stellen in
-  `routes/shows.js`) in eine einzige `getDb().transaction()` fassen, die
-  `readState`, `writeState`, `consumeEntry` und `pushOpposite` atomar
-  ausführt — analog zum bereits vorhandenen Muster in `undo-stack.js`s
-  `withSnapshot()`. `broadcast()` bewusst außerhalb der Transaktion belassen
-  (SSE-Broadcast ist kein DB-Schreibvorgang und soll einen erfolgreichen
-  Commit nicht blockieren).
-
 ### `saveShowItemsToTemplate` erzeugt doppelte Template-Bars/-Towers bei Namenskollision statt zu aktualisieren
 - **Quelle**: business-logic-review-2026-09-06
 - **Importance**: 5/10
@@ -139,6 +104,27 @@ Nach der Abarbeitung eines jeden offenen Punktes einen commit machen.
 ---
 
 ## Erledigt
+
+### Undo/Redo-Ausführung ist keine einzige Transaktion — Crash zwischen den Schritten hinterlässt inkonsistenten Stack
+- **Quelle**: business-logic-review-2026-09-06
+- **Erledigt**: 2026-09-06
+- `handleUndoRedo()` führte `readState → writeState → consumeEntry →
+  pushOpposite` als vier unabhängige Schritte ohne gemeinsames
+  Transaktionsdach aus — ein Crash zwischen `writeState` und `consumeEntry`
+  hätte einen bereits konsumierten Snapshot im Undo-Stack zurückgelassen
+  (nächstes Undo wendet ihn fälschlich erneut an), ein Crash zwischen
+  `consumeEntry` und `pushOpposite` hätte den Redo-Stack nie befüllt.
+- **Remediation**: Die vier Schritte in `handleUndoRedo()`
+  (`server/routes/undo-redo.js`) in eine gemeinsame `getDb().transaction()`
+  gefasst (`better-sqlite3` verschachtelt automatisch per SAVEPOINT, da
+  `writeFullShowState`/`record()` bereits eigene Transaktionen nutzen).
+  `broadcast()` bewusst außerhalb belassen. Regressionstest in
+  `server/test/undo-redo-integrity.test.js`: simuliert einen Crash in
+  `pushOpposite` und verifiziert, dass sowohl der Show-Zustand als auch der
+  Undo-Eintrag danach unverändert sind (vor dem Fix: `writeState` blieb
+  angewendet, obwohl `pushOpposite` warf — per `git stash` gegen den
+  ungefixten Code verifiziert, dass der Test den Regressionsfall tatsächlich
+  fängt).
 
 ### Kein Graceful Shutdown bei SIGTERM/SIGINT — laufende Requests, SSE-Verbindungen und Mandanten-DB-Handles werden hart gekappt
 - **Quelle**: resilience-review-2026-09-06

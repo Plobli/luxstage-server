@@ -4,6 +4,7 @@
 // keiner da → Hash verifizieren, 409 bei Mismatch → Zustand tauschen →
 // konsumierten Eintrag entfernen → Gegen-Stack füllen) zweimal dupliziert.
 import { json } from '../helpers.js'
+import { getDb } from '../db-context.js'
 
 /**
  * @param res          HTTP-Response
@@ -32,10 +33,19 @@ export function handleUndoRedo(res, direction, {
     })
   }
 
-  const currentState = readState()
-  writeState(targetState)
-  consumeEntry(entry)
-  pushOpposite(currentState)
+  // readState/writeState/consumeEntry/pushOpposite in einer gemeinsamen
+  // Transaktion, damit ein Absturz zwischen den Schritten nie einen bereits
+  // konsumierten Undo-Eintrag zurücklässt oder den Redo-Stack unbefüllt lässt
+  // (better-sqlite3 verschachtelt Transaktionen automatisch via SAVEPOINT,
+  // die einzelnen writeState()/record()-Aufrufe haben bereits eigene
+  // Transaktionen). broadcast() bewusst außerhalb: SSE ist kein DB-Schreib-
+  // vorgang und soll einen erfolgreichen Commit nicht blockieren.
+  getDb().transaction(() => {
+    const currentState = readState()
+    writeState(targetState)
+    consumeEntry(entry)
+    pushOpposite(currentState)
+  })()
   broadcast?.()
   return json(res, 200, { ok: true })
 }

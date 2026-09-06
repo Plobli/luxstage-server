@@ -10,9 +10,10 @@ const { readShow } = await import('../db/shows.js')
 const { createShow } = await import('../db/shows.js')
 const { readFullShowState, writeFullShowState, computeStateHash } = await import('../db/full-state.js')
 const { writeTower, writeTowerSlot } = await import('../db/towers.js')
-const { withUndoSnapshot, getLastOperation, pushRedo, popRedo, clearRedo } = await import('../db/operations.js')
+const { withUndoSnapshot, getLastOperation, pushRedo, popRedo, clearRedo, deleteOperation } = await import('../db/operations.js')
 const { channelRoutes } = await import('../routes/channels.js')
 const { showRoutes } = await import('../routes/shows.js')
+const { handleUndoRedo } = await import('../routes/undo-redo.js')
 
 function jsonRequest(method, user, body) {
   const req = Readable.from([Buffer.from(JSON.stringify(body))])
@@ -196,3 +197,43 @@ test('Nach Redo ist erneut ein Undo möglich (Undo-Redo-Undo-Kette bleibt konsis
   assert.equal(undoRes2.status, 200)
   assert.equal(readFullShowState('test-show-undoredoundo').channels.length, 0)
 })
+
+test('Ein Crash zwischen writeState und pushOpposite rollt die gesamte Undo-Sequenz zurück (keine Halbanwendung)', () => {
+  createShow('test-show-undo-crash', { name: 'Crash-Test', importSections: false })
+  const show = readShow('test-show-undo-crash')
+  writeChannels('test-show-undo-crash', [{ channel: '1', notes: 'v1' }])
+
+  const stateBeforeChange = readFullShowState('test-show-undo-crash')
+  writeChannels('test-show-undo-crash', [{ channel: '1', notes: 'v2' }])
+  recordSnapshotFor(show.id, stateBeforeChange)
+
+  const stateBeforeUndo = readFullShowState('test-show-undo-crash')
+  assert.equal(stateBeforeUndo.channels[0].notes, 'v2')
+
+  assert.throws(() => {
+    handleUndoRedo(createResponseLocal(), 'undo', {
+      getEntry: () => getLastOperation(show.id),
+      computeHash: computeStateHash,
+      readState: () => readFullShowState('test-show-undo-crash'),
+      writeState: (state) => writeFullShowState('test-show-undo-crash', state, 'tester'),
+      consumeEntry: (op) => deleteOperation(op.id),
+      pushOpposite: () => { throw new Error('simulierter Absturz nach writeState') },
+    })
+  }, /simulierter Absturz/)
+
+  // writeState() UND consumeEntry() müssen zurückgerollt sein: der Show-Zustand
+  // ist unverändert (v2), und der Undo-Eintrag existiert weiterhin für einen
+  // erneuten Versuch — ohne die Transaktion bliebe der Zustand auf "v1"
+  // (writeState bereits angewendet), aber der Undo-Eintrag wäre bereits
+  // gelöscht (consumeEntry bereits angewendet) und für immer verloren.
+  assert.equal(readFullShowState('test-show-undo-crash').channels[0].notes, 'v2')
+  assert.ok(getLastOperation(show.id), 'Undo-Eintrag darf nach dem Rollback nicht verloren sein')
+})
+
+function recordSnapshotFor(showId, stateBefore) {
+  const conn = dbCtx.getDb()
+  conn.prepare(`
+    INSERT INTO operations (id, show_id, created_at, performed_by, snapshot, hash)
+    VALUES (?, ?, ?, 'tester', ?, ?)
+  `).run('crash-test-op', showId, Date.now(), JSON.stringify(stateBefore), computeStateHash(stateBefore))
+}
