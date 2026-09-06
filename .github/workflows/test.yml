@@ -22,6 +22,9 @@ jobs:
       - name: Abhängigkeiten installieren
         run: npm ci
 
+      - name: Dependency-Schwachstellenprüfung
+        run: npm audit --audit-level=high
+
       - name: Server-Tests
         run: npm test -w server
 
