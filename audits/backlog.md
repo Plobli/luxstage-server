@@ -106,38 +106,6 @@ Nach der Abarbeitung eines jeden offenen Punktes einen commit machen.
   vor dem Speichern in `pending_registrations`, gehashte Werte in
   `getPending`/`confirmPending` vergleichen.
 
-### Fehlende HSTS-/Permissions-Policy-Header auf Anwendungsebene
-- **Quelle**: api-and-infrastructure-audit-2026-09-06
-- **Importance**: 3/10
-- **Status**: offen
-- `applySecurityHeaders` (`server/security-headers.js:21-28`) setzt
-  `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`,
-  `X-Robots-Tag` und CSP, aber nie `Strict-Transport-Security` oder
-  `Permissions-Policy`. Im dokumentierten Deployment (Caddy davor,
-  automatisches HTTPS) setzt Caddy HSTS üblicherweise selbst, aber die
-  Node-App hat keine eigene Absicherung — ein Deployment mit anderem
-  Reverse-Proxy oder ohne automatisches HTTPS/HSTS verliert HSTS komplett
-  ohne App-seitiges Fallback. `Permissions-Policy` fehlt in jedem Fall.
-- **Remediation**: `Strict-Transport-Security: max-age=31536000;
-  includeSubDomains` in `applySecurityHeaders` ergänzen (nur wenn `!isDev`,
-  um lokale HTTP-Entwicklung nicht zu brechen), plus minimale
-  `Permissions-Policy` zur Deaktivierung ungenutzter Browser-Features
-  (Kamera/Mikrofon/Geolocation).
-
-### CSP erlaubt `style-src 'unsafe-inline'`, kein `frame-ancestors`
-- **Quelle**: api-and-infrastructure-audit-2026-09-06
-- **Importance**: 2/10
-- **Status**: offen
-- `server/security-headers.js:26-27`: `script-src` ist bereits strikt (kein
-  `unsafe-inline`/`unsafe-eval`), aber `style-src 'self' 'unsafe-inline'`
-  erlaubt Inline-Styles, und es fehlt eine `frame-ancestors`-Direktive
-  (funktional bereits durch `X-Frame-Options: DENY` abgedeckt, aber manche
-  Scanner/Compliance-Checklisten bemängeln das Fehlen trotzdem).
-  Geringes Risiko (CSS-Exfiltration statt Script-Injection).
-- **Remediation**: `frame-ancestors 'none'` zur CSP ergänzen (Defense-in-Depth,
-  redundant zu `X-Frame-Options`); Nonce-basierte Inline-Styles nur falls der
-  Frontend-Build das unterstützt, sonst wie bisher belassen.
-
 ### Kein API-Versionierungsschema
 - **Quelle**: api-and-infrastructure-audit-2026-09-06
 - **Importance**: 2/10
@@ -221,6 +189,23 @@ Nach der Abarbeitung eines jeden offenen Punktes einen commit machen.
 ---
 
 ## Erledigt
+
+### Fehlende HSTS-/Permissions-Policy-Header auf Anwendungsebene, CSP ohne `frame-ancestors`
+- **Quelle**: api-and-infrastructure-audit-2026-09-06
+- **Erledigt**: 2026-09-06
+- `applySecurityHeaders` setzte nie `Strict-Transport-Security` oder
+  `Permissions-Policy` — ein Deployment mit anderem Reverse-Proxy als Caddy
+  hätte HSTS komplett ohne App-seitiges Fallback verloren. Die CSP hatte
+  außerdem keine `frame-ancestors`-Direktive (funktional bereits durch
+  `X-Frame-Options: DENY` abgedeckt, aber manche Scanner bemängeln das
+  Fehlen trotzdem).
+- **Remediation**: `applySecurityHeaders(res, isDev)` setzt jetzt HSTS
+  (`max-age=31536000; includeSubDomains`, nur wenn `!isDev`, um lokale
+  HTTP-Entwicklung nicht zu brechen) und eine minimale `Permissions-Policy`
+  (Kamera/Mikrofon/Geolocation deaktiviert); `frame-ancestors 'none'` zur CSP
+  ergänzt. `style-src 'unsafe-inline'` bewusst unverändert gelassen (Nonce-
+  Migration bräuchte Frontend-Build-Änderungen, außerhalb dieses Scopes).
+  Tests in `server/test/security-headers.test.js`.
 
 ### Circuit-Scan-Upload hatte keine echte Inhalts-/MIME-Verifikation
 - **Quelle**: file-handling-business-logic-audit-2026-09-06

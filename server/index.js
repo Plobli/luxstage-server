@@ -67,7 +67,7 @@ const isDev = process.env.NODE_ENV === 'development' && !config.baseDomain
 
 const server = http.createServer((req, res) => {
   if (applyCors(req, res, isDev)) return
-  applySecurityHeaders(res)
+  applySecurityHeaders(res, isDev)
   router(req, res)
 })
 

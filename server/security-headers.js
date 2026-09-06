@@ -18,11 +18,20 @@ export function applyCors(req, res, isDev) {
   return false
 }
 
-export function applySecurityHeaders(res) {
+export function applySecurityHeaders(res, isDev = false) {
   res.setHeader('X-Content-Type-Options', 'nosniff')
   res.setHeader('X-Frame-Options', 'DENY')
   res.setHeader('Referrer-Policy', 'same-origin')
   res.setHeader('X-Robots-Tag', 'noindex, nofollow')
   res.setHeader('Content-Security-Policy',
-    "default-src 'self'; img-src 'self' blob: data:; script-src 'self'; style-src 'self' 'unsafe-inline'")
+    "default-src 'self'; img-src 'self' blob: data:; script-src 'self'; style-src 'self' 'unsafe-inline'; frame-ancestors 'none'")
+  // Nur außerhalb lokaler Entwicklung: HSTS auf HTTP wäre irreführend (der
+  // Header verspricht ein Verhalten, das ohne echtes HTTPS nicht gilt) und
+  // würde lokale HTTP-Entwicklung unnötig erschweren. Im dokumentierten
+  // Deployment (Caddy davor, automatisches HTTPS) setzt Caddy HSTS meist
+  // bereits selbst — dies ist das App-seitige Fallback für andere Reverse-Proxies.
+  if (!isDev) {
+    res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains')
+  }
+  res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()')
 }
