@@ -15,22 +15,8 @@ Nach der Abarbeitung eines jeden offenen Punktes einen commit machen.
 
 ## Offen
 
-### Backup/Restore-Endpunkte nur mit einfacher Auth statt erhöhtem Privileg
-- **Quelle**: database-security-audit-2026-09-06
-- **Importance**: 3/10
-- **Status**: offen
-- `/api/backup` und `/api/restore` (`server/routes/system.js:33-45`, nutzt
-  `backup.js:20`/`backup.js:61`) sind nur mit `requireAuth` geschützt, das
-  jeder registrierte Nutzer erfüllt — es gibt keine separate Admin-Rolle
-  (Rollen wurden bewusst entfernt, siehe
-  `server/db/migrations/032-users-drop-role.js`). Ein kompromittiertes oder
-  böswilliges Nutzerkonto kann damit die komplette Datenbank exfiltrieren
-  (`/api/backup`) oder alle Anwendungsdaten überschreiben (`/api/restore`),
-  nicht nur eigene Daten.
-- **Remediation**: Falls eine stärkere Vertrauensgrenze gewünscht ist, Restore
-  auf den Tenant-Owner/Erstregistrierten beschränken statt auf jeden
-  authentifizierten Nutzer; andernfalls als akzeptiertes Risiko des flachen
-  Berechtigungsmodells (kleines vertrauenswürdiges Team) dokumentieren.
+Aktuell keine offenen Punkte, die nicht bereits als bewusst zurückgestellt
+markiert sind — siehe `## Bewusst zurückgestellt` weiter unten.
 
 ---
 
@@ -638,6 +624,27 @@ weil sie ein bewusster Architektur-Trade-off sind (kein Bug), oder weil eine
 Umsetzung erst bei einem konkreten Anlass sinnvoll geprüft werden sollte.
 Anders als `## Verworfen` sind das keine geprüften Nicht-Probleme, sondern
 aktive Entscheidungen, aktuell nichts zu tun.
+
+### Backup/Restore-Endpunkte nur mit einfacher Auth statt erhöhtem Privileg
+- **Quelle**: database-security-audit-2026-09-06
+- **Importance**: 3/10
+- **Status**: bewusst zurückgestellt, geprüft 2026-09-06
+- `/api/backup` und `/api/restore` sind nur mit `requireAuth` geschützt, das
+  jeder registrierte Nutzer erfüllt — es gibt keine separate Admin-Rolle.
+  Ein kompromittiertes oder böswilliges Nutzerkonto kann damit die komplette
+  Datenbank exfiltrieren oder alle Anwendungsdaten überschreiben, nicht nur
+  eigene Daten.
+- **Grund für Zurückstellung**: Rollen wurden im Projekt bewusst entfernt
+  (siehe `server/db/migrations/032-users-drop-role.js`) — eine
+  Wiedereinführung nur für Backup/Restore würde dieser bereits getroffenen
+  Architekturentscheidung widersprechen. Das flache Berechtigungsmodell ist
+  für ein kleines vertrauenswürdiges Team konzipiert; der Quell-Audit selbst
+  nennt "als akzeptiertes Risiko dokumentieren" als valide Alternative zur
+  Umsetzung.
+- **Remediation**: Falls eine stärkere Vertrauensgrenze künftig gewünscht
+  ist, Restore auf den Tenant-Owner/Erstregistrierten beschränken statt auf
+  jeden authentifizierten Nutzer — bräuchte dafür aber zunächst ein Konzept
+  für "wer ist Owner", das aktuell nirgends im Datenmodell existiert.
 
 ### JWT wird im Frontend in `localStorage` statt in einem `HttpOnly`-Cookie gespeichert
 - **Quelle**: session-cookie-security-audit-2026-09-06
