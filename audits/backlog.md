@@ -34,24 +34,6 @@ Nach der Abarbeitung eines jeden offenen Punktes einen commit machen.
   entsprechendem CSRF-Schutz) die robustere Alternative. Bewusst
   zurückstellbar, da aktuell kein XSS-Vektor bekannt ist.
 
-### `deleteFloorplanImage` fehlt der Traversal-Schutz der Schwesterfunktion
-- **Quelle**: input-validation-audit-2026-09-06
-- **Importance**: 2/10
-- **Status**: offen
-- `deleteFloorplanImage(imagePath)` (`server/floorplan.js:46-52`) macht
-  `path.join(floorplansDir(), imagePath)` und ruft `fs.unlink`/`fs.rmdir`
-  ohne `path.resolve` + Prefix-Check auf — anders als `serveFloorplanImage`
-  (Zeilen 64-67), das den aufgelösten Pfad gegen `base` prüft. Aktuell ist
-  `imagePath` nur über `layer.image_path`/`fp.image_path` erreichbar, die
-  ausschließlich vom eigenen Rückgabewert von `saveFloorplanImage` gesetzt
-  werden (kein Endpunkt lässt einen Client `image_path` direkt setzen,
-  verifiziert in `server/routes/floorplan.js:63` und
-  `server/routes/template-floorplan.js:48`) — aktuell nicht angreifbar,
-  reiner Defense-in-Depth-Gap.
-- **Remediation**: Guard aus `serveFloorplanImage` spiegeln: `const full =
-  path.resolve(base, imagePath); if (!full.startsWith(base + path.sep))
-  return;` vor `fs.unlink`/`fs.rmdir`.
-
 ### Circuit-Scan-Upload ohne echte Inhalts-/MIME-Verifikation
 - **Quelle**: file-handling-business-logic-audit-2026-09-06
 - **Importance**: 2/10
@@ -264,6 +246,18 @@ Nach der Abarbeitung eines jeden offenen Punktes einen commit machen.
 ---
 
 ## Erledigt
+
+### `deleteFloorplanImage` fehlte der Traversal-Schutz der Schwesterfunktion
+- **Quelle**: input-validation-audit-2026-09-06
+- **Erledigt**: 2026-09-06
+- `deleteFloorplanImage(imagePath)` rief `fs.unlink`/`fs.rmdir` ohne
+  `path.resolve` + Prefix-Check auf, anders als `serveFloorplanImage`. Aktuell
+  nicht angreifbar (kein Endpunkt lässt `image_path` clientseitig setzen),
+  aber Defense-in-Depth-Lücke.
+- **Remediation**: Guard aus `serveFloorplanImage` in `deleteFloorplanImage`
+  gespiegelt. Test in `server/test/floorplan.test.js` (regulärer Löschpfad
+  funktioniert weiter, Traversal-Pfad wird ignoriert statt eine Datei
+  außerhalb des Basisverzeichnisses zu löschen).
 
 ### Kein PM2-Log-Rotation konfiguriert — unbegrenztes Stdout/Stderr-Wachstum
 - **Quelle**: logging-monitoring-audit-2026-09-06

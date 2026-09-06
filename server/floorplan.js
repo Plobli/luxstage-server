@@ -45,7 +45,14 @@ export async function saveFloorplanImage(templateId, filename, buffer, mimeType)
 
 export async function deleteFloorplanImage(imagePath) {
   if (!imagePath) return
-  const full = path.join(floorplansDir(), imagePath)
+  // Traversal-Schutz spiegelt serveFloorplanImage(): imagePath ist aktuell
+  // nur über layer.image_path/fp.image_path erreichbar, die ausschließlich
+  // vom eigenen Rückgabewert von saveFloorplanImage gesetzt werden (kein
+  // Client kann image_path direkt setzen) — reine Defense-in-Depth, nicht
+  // aktiv ausnutzbar, aber die Schwesterfunktion hat denselben Guard.
+  const base = floorplansDir()
+  const full = path.resolve(base, imagePath)
+  if (!full.startsWith(base + path.sep)) return
   await fs.unlink(full).catch(() => {})
   // Verzeichnis aufräumen falls leer
   await fs.rmdir(path.dirname(full)).catch(() => {})
