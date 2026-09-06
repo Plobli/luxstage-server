@@ -43,7 +43,7 @@ export function useShowLock(showId: string) {
           // die (evtl. gerade gestörte) SSE-Verbindung zu warten — sonst
           // glaubt dieser Tab weiter, den Lock zu halten, während der Server
           // längst ablehnt.
-          if (e instanceof ApiError && e.status === 423) syncLockFromConflict(e.body)
+          if (e instanceof ApiError && e.status === 423) syncLockFromConflict(e.body ?? {})
         })
       }
     }, HEARTBEAT_INTERVAL_MS)
@@ -63,7 +63,7 @@ export function useShowLock(showId: string) {
       startHeartbeat()
       return result
     } catch (e) {
-      if (e instanceof ApiError && e.status === 423) {
+      if (e instanceof ApiError && e.status === 423 && e.body?.lockedBy && e.body?.since) {
         lock.value = { user: e.body.lockedBy, since: e.body.since }
         return { ok: false, lockedBy: e.body.lockedBy, since: e.body.since }
       }

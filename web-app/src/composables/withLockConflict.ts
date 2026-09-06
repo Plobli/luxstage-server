@@ -17,7 +17,7 @@ export function withLockConflict<T extends unknown[], R>(
     try {
       return await fn(...args)
     } catch (e) {
-      if (e instanceof ApiError && e.status === 423) { onLockConflict?.(e.body); return }
+      if (e instanceof ApiError && e.status === 423) { onLockConflict?.(e.body ?? {}); return }
       throw e
     }
   }

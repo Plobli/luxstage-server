@@ -9,8 +9,8 @@ export interface TemplateMeta {
 }
 
 export const fetchTemplates = (): Promise<TemplateMeta[]> => api.get('/api/templates')
-export const deleteTemplate = (name: string): Promise<any> => api.delete(`/api/templates/${name}`)
-export const saveTemplateOscHost = (name: string, oscHost: string): Promise<any> =>
+export const deleteTemplate = (name: string): Promise<{ ok: true }> => api.delete(`/api/templates/${name}`)
+export const saveTemplateOscHost = (name: string, oscHost: string): Promise<{ ok: true }> =>
   api.put('/api/templates', { name, oscHost })
 
 export const renameTemplate = (name: string, newName: string): Promise<{ ok: boolean, name: string }> =>
@@ -24,7 +24,7 @@ export async function fetchTemplatePdfUrl(name: string): Promise<string> {
   return api.downloadUrl(`/api/templates/${encodeURIComponent(name)}/pdf`)
 }
 
-export async function saveTemplate(name: string, channels: Channel[]): Promise<any> {
+export async function saveTemplate(name: string, channels: Channel[]): Promise<{ ok: true }> {
   return api.put(`/api/templates/${encodeURIComponent(name)}`, channels)
 }
 
@@ -32,7 +32,7 @@ export async function applyTemplateToAllShows(name: string, scope: 'bars' | 'sec
   return api.post(`/api/templates/${encodeURIComponent(name)}/apply-to-shows`, { scope })
 }
 
-export async function uploadTemplate({ name, text }: { name: string, text: string }): Promise<any> {
+export async function uploadTemplate({ name, text }: { name: string, text: string }): Promise<{ ok: true } | undefined> {
   // CSV-Text von Datei-Upload: parsen und als Array senden
   const cleanName = name.replace(/\.csv$/i, '')
   const lines = text.trim().split('\n').filter(Boolean)

@@ -94,7 +94,7 @@ export function useShowChannels({
       }
     } catch (e) {
       if (e instanceof ApiError && e.status === 423) {
-        onLockConflict?.(e.body)
+        onLockConflict?.(e.body ?? {})
         return
       }
       // scheduleChannelsSave() ruft die debounced Version fire-and-forget auf (kein await,
@@ -319,7 +319,7 @@ export function useShowChannels({
       channelsSaveError.value = null
     } catch (e) {
       if (e instanceof ApiError && e.status === 423) {
-        onLockConflict?.(e.body)
+        onLockConflict?.(e.body ?? {})
         return
       }
       channelsSaveError.value = e instanceof ApiError ? e.message : t('error.save_failed')

@@ -24,8 +24,19 @@ export function setToken(t: string): void { localStorage.setItem(TOKEN_KEY, t) }
 export function clearToken(): void { localStorage.removeItem(TOKEN_KEY); inlineTokenCache = null }
 export function isLoggedIn(): boolean { return !!getToken() }
 
+/** Fehler-Body ist je nach Endpunkt/Statuscode unterschiedlich geformt — meist
+ *  `{ error: string }`, bei 423 (Lock-Konflikt) zusätzlich `lockedBy`/`since`
+ *  (siehe useResourceLock.ts/useShowLock.ts, die dort explizit auf status===423
+ *  prüfen, bevor sie diese Felder lesen). */
+export interface ApiErrorBody {
+  error?: string;
+  lockedBy?: string;
+  since?: number;
+  [key: string]: unknown;
+}
+
 export class ApiError extends Error {
-  constructor(message: string, public readonly status: number, public readonly body: any = null) {
+  constructor(message: string, public readonly status: number, public readonly body: ApiErrorBody | null = null) {
     super(message)
   }
 }

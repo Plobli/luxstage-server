@@ -1,20 +1,11 @@
 import { ref, type Ref } from 'vue'
 import { useDebounceFn } from '@vueuse/core'
-import { fetchShowSections, saveShowSections, fetchShowSectionDefs, saveShowSectionDefs } from '../api/sections'
+import { fetchShowSections, saveShowSections, fetchShowSectionDefs, saveShowSectionDefs, type SectionDef, type SectionContent } from '../api/sections'
 import { updateMeta } from '../api/shows'
 import { ApiError } from '../api/client'
 import { useLocale } from './useLocale'
 
-export interface SectionDef {
-  id: string;
-  label?: string;
-  [key: string]: any;
-}
-
-export interface SectionContent {
-  id: string;
-  content: string;
-}
+export type { SectionDef, SectionContent }
 
 export function useShowSections(showId: string, meta: Ref<any>, onLockConflict?: (body: { lockedBy?: string, since?: number }) => void) {
   const { t } = useLocale()
@@ -64,7 +55,7 @@ export function useShowSections(showId: string, meta: Ref<any>, onLockConflict?:
       }
     } catch (e) {
       if (e instanceof ApiError && e.status === 423) {
-        onLockConflict?.(e.body)
+        onLockConflict?.(e.body ?? {})
         return
       }
       // persistSectionsDebounced() wird fire-and-forget aufgerufen (kein await,
@@ -93,7 +84,7 @@ export function useShowSections(showId: string, meta: Ref<any>, onLockConflict?:
       sectionsSaveError.value = null
     } catch (e) {
       if (e instanceof ApiError && e.status === 423) {
-        onLockConflict?.(e.body)
+        onLockConflict?.(e.body ?? {})
         return
       }
       // Aufrufer (SectionEditor.vue, ShowDetailView.vue) rufen dies teils ohne

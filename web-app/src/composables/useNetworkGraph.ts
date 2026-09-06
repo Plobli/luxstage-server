@@ -44,7 +44,7 @@ export function useNetworkGraph(syncFlow: () => void) {
   })
 
   function reportNetworkError(e: any) {
-    if (e instanceof ApiError && e.status === 423) syncLockFromConflict(e.body)
+    if (e instanceof ApiError && e.status === 423) syncLockFromConflict(e.body ?? {})
     networkError.value = e instanceof ApiError ? e.message : t('error.save_failed')
   }
   // An jedem neuen Mutationsversuch aufgerufen, bevor der Request läuft — sonst

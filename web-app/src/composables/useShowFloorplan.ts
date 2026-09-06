@@ -34,7 +34,7 @@ export function useShowFloorplan(showId: string, onLockConflict?: (body: { locke
       floorplanSaveError.value = null
     } catch (e) {
       if (e instanceof ApiError && e.status === 423) {
-        onLockConflict?.(e.body)
+        onLockConflict?.(e.body ?? {})
         return
       }
       // onFloorplanChange() ruft persistFloorplan() fire-and-forget auf (kein

@@ -1,19 +1,30 @@
 // LuxStage/web-app/src/api/floorplan.ts
 import { api, BASE, getToken } from './client'
 
-export function fetchTemplateFloorplan(templateId: string): Promise<any> {
+/** GET .../floorplan (server/routes/floorplan.js, template-floorplan.js) —
+ *  canvas_data ist ein bereits serialisierter JSON-String (Fabric.js-Canvas). */
+export interface FloorplanData {
+  image_url: string | null;
+  canvas_data: string | null;
+}
+
+export interface FloorplanImageUploadResult {
+  image_url: string;
+}
+
+export function fetchTemplateFloorplan(templateId: string): Promise<FloorplanData> {
   return api.get(`/api/templates/${templateId}/floorplan`)
 }
 
-export function saveTemplateFloorplan(templateId: string, canvasData: any): Promise<any> {
+export function saveTemplateFloorplan(templateId: string, canvasData: string): Promise<{ ok: true }> {
   return api.put(`/api/templates/${templateId}/floorplan`, { canvas_data: canvasData })
 }
 
-export function deleteTemplateFloorplanImage(templateId: string): Promise<any> {
+export function deleteTemplateFloorplanImage(templateId: string): Promise<{ ok: true }> {
   return api.delete(`/api/templates/${templateId}/floorplan/image`)
 }
 
-export function uploadTemplateFloorplanImage(templateId: string, file: File): Promise<any> {
+export function uploadTemplateFloorplanImage(templateId: string, file: File): Promise<FloorplanImageUploadResult> {
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest()
     xhr.open('POST', `${BASE()}/api/templates/${templateId}/floorplan/image`)
@@ -33,7 +44,7 @@ export function uploadTemplateFloorplanImage(templateId: string, file: File): Pr
   })
 }
 
-export function uploadShowFloorplanImage(showId: string, file: File): Promise<any> {
+export function uploadShowFloorplanImage(showId: string, file: File): Promise<FloorplanImageUploadResult> {
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest()
     xhr.open('POST', `${BASE()}/api/shows/${showId}/floorplan/image`)
@@ -53,15 +64,15 @@ export function uploadShowFloorplanImage(showId: string, file: File): Promise<an
   })
 }
 
-export function deleteShowFloorplanImage(showId: string): Promise<any> {
+export function deleteShowFloorplanImage(showId: string): Promise<{ ok: true }> {
   return api.delete(`/api/shows/${showId}/floorplan/image`)
 }
 
-export function fetchShowFloorplan(showId: string): Promise<any> {
+export function fetchShowFloorplan(showId: string): Promise<FloorplanData> {
   return api.get(`/api/shows/${showId}/floorplan`)
 }
 
-export function saveShowFloorplan(showId: string, canvasData: any): Promise<any> {
+export function saveShowFloorplan(showId: string, canvasData: string): Promise<{ ok: true }> {
   return api.put(`/api/shows/${showId}/floorplan`, { canvas_data: canvasData })
 }
 

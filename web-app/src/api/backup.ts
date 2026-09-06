@@ -8,7 +8,7 @@ export async function downloadBackup(): Promise<void> {
   window.location.href = url
 }
 
-export async function uploadRestore(file: File): Promise<any> {
+export async function uploadRestore(file: File): Promise<{ ok: true, restart: true }> {
   return api.send('POST', '/api/restore', file, 'application/zip')
 }
 

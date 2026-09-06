@@ -40,7 +40,7 @@ export function useResourceLock(api: ResourceLockApi) {
     heartbeatTimer = setInterval(() => {
       if (isHeldByMe.value) {
         api.touch().catch(e => {
-          if (e instanceof ApiError && e.status === 423) syncLockFromConflict(e.body)
+          if (e instanceof ApiError && e.status === 423) syncLockFromConflict(e.body ?? {})
         })
       }
     }, HEARTBEAT_INTERVAL_MS)
@@ -52,7 +52,7 @@ export function useResourceLock(api: ResourceLockApi) {
       lock.value = { user: currentUsername()!, since: Date.now() }
       startHeartbeat()
     } catch (e) {
-      if (e instanceof ApiError && e.status === 423) {
+      if (e instanceof ApiError && e.status === 423 && e.body?.lockedBy && e.body?.since) {
         lock.value = { user: e.body.lockedBy, since: e.body.since }
         return
       }

@@ -4,11 +4,15 @@
  */
 import { api, getToken, BASE } from './client'
 
-export async function fetchPhotos(showId: string): Promise<any[]> {
+export async function fetchPhotos(showId: string): Promise<string[]> {
   return api.get(`/api/shows/${showId}/photos`)
 }
 
-export function uploadPhoto(showId: string, file: File, onProgress?: (p: number) => void): Promise<any> {
+export interface PhotoUploadResult {
+  saved: string[];
+}
+
+export function uploadPhoto(showId: string, file: File, onProgress?: (p: number) => void): Promise<PhotoUploadResult> {
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest()
     xhr.open('POST', `${BASE()}/api/shows/${showId}/photos`)
@@ -29,15 +33,19 @@ export function uploadPhoto(showId: string, file: File, onProgress?: (p: number)
   })
 }
 
-export async function deletePhoto(showId: string, filename: string): Promise<any> {
+export async function deletePhoto(showId: string, filename: string): Promise<{ ok: true }> {
   return api.delete(`/api/shows/${showId}/photos/${filename}`)
 }
 
-export async function fetchPhotoCaptions(showId: string): Promise<any> {
+/** GET .../photo-captions (server/db/photos.js readPhotoDescriptions()) —
+ *  Map von Dateiname auf Beschriftung. */
+export type PhotoCaptions = Record<string, { caption: string }>
+
+export async function fetchPhotoCaptions(showId: string): Promise<PhotoCaptions> {
   return api.get(`/api/shows/${showId}/photo-captions`)
 }
 
-export async function savePhotoCaption(showId: string, filename: string, caption: string): Promise<any> {
+export async function savePhotoCaption(showId: string, filename: string, caption: string): Promise<{ ok: true }> {
   return api.put(`/api/shows/${showId}/photo-captions/${encodeURIComponent(filename)}`, { caption })
 }
 
@@ -45,7 +53,7 @@ export async function fetchAllPhotoChannels(showId: string): Promise<Record<stri
   return api.get(`/api/shows/${showId}/photo-channels`)
 }
 
-export async function savePhotoChannels(showId: string, filename: string, channelIds: string[]): Promise<any> {
+export async function savePhotoChannels(showId: string, filename: string, channelIds: string[]): Promise<{ ok: true }> {
   return api.put(`/api/shows/${showId}/photos/${encodeURIComponent(filename)}/channels`, { channelIds })
 }
 

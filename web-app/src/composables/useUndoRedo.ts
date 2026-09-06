@@ -71,7 +71,7 @@ export function useServerUndoRedo({ undo: undoCall, redo: redoCall, onLockConfli
       await call()
     } catch (e) {
       if (e instanceof ApiError && e.status === 400) { own.value = false; return false }
-      if (e instanceof ApiError && e.status === 423) { onLockConflict?.(e.body); return false }
+      if (e instanceof ApiError && e.status === 423) { onLockConflict?.(e.body ?? {}); return false }
       throw e
     }
     opposite.value = true

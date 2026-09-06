@@ -1,13 +1,19 @@
 import { api, getToken, BASE } from './client'
 
+/** GET /api/shows/:id/channels (server/routes/channels.js:28) — rohe
+ *  `channels`-Zeile (server/db-init.js) ohne show_id/sort_order. `id` fehlt
+ *  bei client-seitig neu erzeugten/importierten Zeilen (vor dem Speichern). */
 export interface Channel {
+  id?: string;
   channel: string;
   address?: string;
   device?: string;
   position?: string;
   color?: string;
   notes?: string;
-  [key: string]: any;
+  /** JSON-String `{ type, towerId, slotIndex }` oder null — Rückverweis Kanal→Turm-Slot. */
+  mount_ref?: string | null;
+  quantity?: number;
 }
 
 export async function fetchChannels(showId: string): Promise<Channel[]> {
@@ -46,14 +52,15 @@ export function scanCircuitSheet(showId: string, file: File): Promise<CircuitSca
   })
 }
 
+const CSV_HEADERS: (keyof Channel & string)[] = ['channel', 'address', 'device', 'position', 'color', 'notes']
+
 export function parseChannelsCsv(text: string): Channel[] {
   const lines = text.split('\n').filter(Boolean)
   if (lines.length <= 1) return []
-  const headers = ['channel', 'address', 'device', 'position', 'color', 'notes']
   return lines.slice(1).map(line => {
     const parts = line.split(';')
-    return Object.fromEntries(headers.map((h, i) => [h, (parts[i] ?? '').trim()]))
-  }).filter(ch => ch.channel !== '') as Channel[]
+    return Object.fromEntries(CSV_HEADERS.map((h, i) => [h, (parts[i] ?? '').trim()])) as unknown as Channel
+  }).filter(ch => ch.channel !== '')
 }
 
 export function mergeChannels(existing: Channel[], imported: Channel[]): Channel[] {
@@ -72,9 +79,8 @@ export function mergeChannels(existing: Channel[], imported: Channel[]): Channel
 }
 
 export function downloadChannelsCsv(showId: string, channels: Channel[]): void {
-  const headers = ['channel', 'address', 'device', 'position', 'color', 'notes']
-  const rows = [headers.join(';')]
-  for (const ch of channels) rows.push(headers.map(h => ch[h] ?? '').join(';'))
+  const rows = [CSV_HEADERS.join(';')]
+  for (const ch of channels) rows.push(CSV_HEADERS.map(h => ch[h] ?? '').join(';'))
   const csv = rows.join('\n') + '\n'
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
   const url = URL.createObjectURL(blob)

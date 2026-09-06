@@ -39,7 +39,7 @@ export async function confirmRegistration(token: string): Promise<{ tenantId: st
   return request('GET', '/api/register/confirm?token=' + encodeURIComponent(token), { authenticated: false })
 }
 
-export async function changePassword(currentPassword: string, newPassword: string): Promise<any> {
+export async function changePassword(currentPassword: string, newPassword: string): Promise<{ ok: true }> {
   return api.post('/api/auth/change-password', { currentPassword, newPassword })
 }
 

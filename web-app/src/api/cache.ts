@@ -1,9 +1,9 @@
-const store = new Map<string, { data: any, ts: number }>()
+const store = new Map<string, { data: unknown, ts: number }>()
 
 // Läuft ein Request zu einem Schlüssel bereits, bekommen weitere Aufrufer
 // dasselbe Promise statt eines zweiten HTTP-Requests — der Cache füllt sich
 // erst nach dem Auflösen, zwei gleichzeitige Aufrufe liefen sonst parallel los.
-const inFlight = new Map<string, Promise<any>>()
+const inFlight = new Map<string, Promise<unknown>>()
 
 export function cached<T>(key: string, fetcher: () => Promise<T>, ttlMs = 30_000): Promise<T> {
   const entry = store.get(key)

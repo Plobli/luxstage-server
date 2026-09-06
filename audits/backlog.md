@@ -15,51 +15,68 @@ Nach der Abarbeitung eines jeden offenen Punktes einen commit machen.
 
 ## Offen
 
-### API-Client-Schicht (`web-app/src/api/*.ts`) durchgängig mit `any`/`Promise<any>` typisiert
-- **Quelle**: design-quality-review-2026-09-06
-- **Importance**: 5/10
+### `vue-tsc --noEmit` schlägt lokal mit TS5103 fehl (`ignoreDeprecations` ungültig)
+- **Quelle**: entdeckt beim Abarbeiten von "API-Client-Schicht durchgängig
+  mit any typisiert" (design-quality-review-2026-09-06)
+- **Importance**: 3/10
 - **Status**: offen
-- 55 Vorkommen von `any`/`Promise<any>`/`as any` über 14 Dateien in
-  `web-app/src/api/` (`grep -rn ": any\b\|Promise<any>\|<any>\|as any\b"
-  api/` → 55 Treffer, u.a. `client.ts`, `shows.ts`, `channels.ts`,
-  `floorplan.ts`, `templates.ts`, `sections.ts`, `photos.ts`, `smtp.ts`,
-  `users.ts`, `backup.ts`, `auth.ts`). Das ist genau die Grenze, an der
-  TypeScript den größten Nutzen hätte: jede dieser Funktionen ist die
-  einzige Typ-Schnittstelle zwischen Backend-Response und den aufrufenden
-  Vue-Komponenten/Composables. Konkrete Beispiele:
-  - `api/client.ts:28`: `ApiError`s `body: any = null` — jeder
-    Error-Handling-Code, der auf `e.body.lockedBy`/`e.body.since` zugreift
-    (z.B. `useResourceLock.ts:56`, `useShowLock.ts`), tut das ohne jede
-    Typprüfung; ein Tippfehler im Feldnamen fällt erst zur Laufzeit auf.
-  - `api/shows.ts:27-28,57-59`: SSE-Callback-Payloads (`onLockStatus`,
-    `onTakeoverRequested`, `onPresence`) sind `any` bzw. `(e: any) => ...`
-    — obwohl die Shapes durch den Server exakt vorgegeben sind
-    (`{ lockedBy, since }` etc.).
-  - `api/shows.ts:90-140`: praktisch jede exportierte Funktion
-    (`fetchShows`, `createShow`, `updateMeta`, `fetchHistory`, ...) hat
-    `Promise<any>`/`Promise<any[]>` als Rückgabetyp — ein Refactoring der
-    Server-Antwortform (z.B. Feld umbenennen) wird vom Compiler an keiner
-    einzigen Aufrufstelle im Frontend erkannt.
-  - `api/channels.ts:10`: `[key: string]: any` als Index-Signatur für den
-    Channel-Typ selbst, das zentrale Datenmodell der App.
-  - `api/floorplan.ts`: alle 8 exportierten Funktionen `Promise<any>`.
-  Das Projekt hat bereits eine geteilte Typdeklarationsdatei
-  (`web-app/src/shared.d.ts`, genutzt u.a. für `contrastColor()` aus
-  `@shared/color.js`) — die Infrastruktur für echte Typen an dieser Grenze
-  existiert also schon, wird hier aber nicht genutzt.
-- **Remediation**: Schrittweise echte Interfaces für die häufigsten
-  Response-Shapes einführen (`Show`, `Channel`, `HistoryEntry`,
-  `LockStatus`, `FloorplanData`, ...) statt `any` — am wertvollsten zuerst
-  dort, wo mehrere Aufrufer existieren (`shows.ts`, `channels.ts`) und bei
-  SSE-Callback-Payloads (`onLockStatus`/`onTakeoverRequested`/`onPresence`),
-  da deren Shape bereits serverseitig feststeht und sich leicht als
-  Interface in `shared.d.ts` oder einer neuen `api/types.ts` festhalten
-  lässt. Kein Big-Bang nötig — jede einzelne Funktion kann unabhängig
-  typisiert werden, ohne die anderen zu berühren.
+- `web-app/tsconfig.json` setzt `"ignoreDeprecations": "6.0"`, installiert
+  ist aber TypeScript 6.0.3 — die Option akzeptiert nur einen Wert kleiner
+  als die aktuelle Compiler-Version (zur Bestätigung einer *vergangenen*
+  Deprecation-Ankündigung), `"6.0"` selbst wird mit `TS5103: Invalid value
+  for '--ignoreDeprecations'` abgelehnt. `npm run typecheck` (`vue-tsc
+  --noEmit`) bricht dadurch sofort ab, bevor überhaupt eine Datei geprüft
+  wird — ein reines CI/Tooling-Problem, keine Auswirkung auf den
+  Produktions-Build (`vite build` transpiliert ohne Typprüfung). Betrifft
+  vermutlich auch die CI-Pipeline (`.github/workflows/test.yml` führt aber
+  nur `npm test`, keinen `typecheck`-Schritt, daher dort nicht sichtbar).
+- **Remediation**: `ignoreDeprecations` auf einen tatsächlich gültigen
+  Wert für TS 6.0.3 senken (z.B. `"5.0"`) oder ganz entfernen, falls die
+  zugrundeliegende Deprecation (laut Fehlermeldung: `baseUrl`) bereits
+  migriert werden kann. Danach `npm run typecheck` als eigenen CI-Schritt
+  erwägen, da er aktuell nirgends automatisiert läuft.
 
 ---
 
 ## Erledigt
+
+### API-Client-Schicht (`web-app/src/api/*.ts`) durchgängig mit `any`/`Promise<any>` typisiert
+- **Quelle**: design-quality-review-2026-09-06
+- **Erledigt**: 2026-09-06
+- 55 Vorkommen von `any`/`Promise<any>`/`as any` über 14 Dateien in
+  `web-app/src/api/` — genau die Grenze zwischen Backend-Response und
+  Vue-Komponenten/Composables, an der TypeScript den größten Nutzen hätte.
+  Besonders `ApiError.body: any` (jeder 423-Lock-Konflikt-Zugriff ohne
+  Typprüfung), SSE-Callback-Payloads als `any`, und praktisch jede
+  `shows.ts`/`channels.ts`/`floorplan.ts`-Funktion mit `Promise<any>`.
+- **Remediation**: Alle 14 Dateien in `web-app/src/api/` durchgegangen und
+  echte Interfaces gegen die tatsächlichen Server-Response-Shapes gebaut
+  (verifiziert gegen die jeweiligen `server/routes/*.js`-Handler, nicht
+  geraten) — u.a. `Show`/`ShowSummary`/`ShowDetail`, `Channel` (mit `id`,
+  `mount_ref`, `quantity` statt Index-Signatur), `LockInfo`, `HistoryEntry`,
+  `SectionDef`/`SectionContent` (dabei ein loses Duplikat-Interface in
+  `useShowSections.ts` entfernt und durch den echten API-Typ ersetzt),
+  `SmtpConfigResponse`, `FloorplanData`, `UserSummary`, `JwtPayload`.
+  `ApiError.body` ist jetzt `ApiErrorBody | null` (`{ error?, lockedBy?,
+  since? }` plus Index-Signatur für Restfälle) statt `any` — alle
+  Call-Sites, die `e.body` ungeprüft weiterreichten, behandeln den
+  `null`-Fall jetzt explizit (`e.body ?? {}` bzw. Existenz-Check vor
+  Feldzugriff). `mutatesShows<A extends any[], R>` auf `unknown[]`
+  umgestellt, `cache.ts`s generischer Store auf `unknown` statt `any`.
+  Zwei Nebenbefunde beim Verifizieren gegen den echten Server-Code
+  entdeckt und korrigiert: `createShow()` erwartet tatsächlich ein
+  Pflichtfeld `id` (wird als Slug validiert) statt der ursprünglich
+  angenommenen optionalen Felder, und `SmtpView.vue`s `userEmail` liest
+  ein `email`-Feld aus dem JWT, das `signToken()` nie einbettet (bereits
+  vor diesem Fix bestehender Bug, als Kommentar im neuen `JwtPayload`-Typ
+  vermerkt, aber nicht selbst behoben — außerhalb des Scopes dieser reinen
+  Typisierungsarbeit). Vollständiger `vue-tsc --noEmit`-Durchlauf über die
+  gesamte Web-App fehlerfrei (lokal nur mit temporär gesenktem
+  `ignoreDeprecations`-Wert prüfbar — TS 6.0.3 lehnt den im Repo stehenden
+  Wert `"6.0"` als "nicht kleiner als aktuelle Version" ab, ein von diesem
+  Fix unabhängiges Versions-Drift-Problem, siehe eigener Datenpunkt unten).
+  Web-App-Testsuite (119 Tests) und Server-Testsuite (203 Tests, nur
+  bekannte EPERM-Cleanup-Fehler) weiterhin grün.
 
 ### `saveShowItemsToTemplate` erzeugte doppelte Template-Bars/-Towers bei Namenskollision statt zu aktualisieren
 - **Quelle**: business-logic-review-2026-09-06
