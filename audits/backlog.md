@@ -34,31 +34,6 @@ Nach der Abarbeitung eines jeden offenen Punktes einen commit machen.
   entsprechendem CSRF-Schutz) die robustere Alternative. Bewusst
   zurückstellbar, da aktuell kein XSS-Vektor bekannt ist.
 
-### Circuit-Scan-Upload ohne echte Inhalts-/MIME-Verifikation
-- **Quelle**: file-handling-business-logic-audit-2026-09-06
-- **Importance**: 2/10
-- **Status**: offen
-- Anders als `photos.js` (das jeden Upload per `sharp(...).jpeg()`
-  re-encodiert, wodurch Nicht-Bilder zwangsläufig einen Fehler werfen)
-  validiert der Circuit-Scan-Pfad (`server/circuit-scan.js:22-27`
-  `mimeFromBuffer`, genutzt von `server/routes/channels.js:43-57`) nie, ob
-  die hochgeladene Datei tatsächlich ein Bild ist. `mimeFromBuffer()` prüft
-  nur JPEG/PNG/RIFF-Magic-Bytes und **fällt bei allem anderen still auf
-  `image/jpeg` zurück** (bestätigt durch bestehenden Test
-  `server/test/circuit-scan.test.js:10`:
-  `mimeFromBuffer([0,0,0,0]) === 'image/jpeg'`). Der rohe Buffer wird
-  base64-kodiert und ohne weitere Prüfung als Bild an die Anthropic-Vision-
-  API gesendet. Da die temporäre Datei sofort nach Verarbeitung gelöscht
-  wird (`server/routes/channels.js:66`) und nichts persistiert/zurückgespielt
-  wird, ist dies kein RCE-/Storage-Risiko, sondern ein
-  Robustheits-/Kosten-Kontroll-Problem (verschwendete API-Kosten bei
-  Garbage-Input, unklare Fehlermeldungen statt sauberem 400).
-- **Remediation**: Vor Aufruf von `analyzeCircuitScan` prüfen, ob der
-  Buffer ein dekodierbares Bild ist (z.B. `await
-  sharp(imageBuffer).metadata()`, bei Wurf ablehnen), analog zum bereits in
-  `photos.js` vorhandenen Schutz, statt nur 2-4 Magic-Bytes mit stillem
-  Default zu prüfen.
-
 ### Show-Name wird nicht vor Nutzung im `Content-Disposition`-Dateinamen bereinigt
 - **Quelle**: file-handling-business-logic-audit-2026-09-06
 - **Importance**: 1/10
@@ -246,6 +221,22 @@ Nach der Abarbeitung eines jeden offenen Punktes einen commit machen.
 ---
 
 ## Erledigt
+
+### Circuit-Scan-Upload hatte keine echte Inhalts-/MIME-Verifikation
+- **Quelle**: file-handling-business-logic-audit-2026-09-06
+- **Erledigt**: 2026-09-06
+- Anders als `photos.js` (re-encodiert per `sharp(...).jpeg()`) validierte
+  der Circuit-Scan-Pfad nie, ob die hochgeladene Datei tatsächlich ein Bild
+  ist — `mimeFromBuffer()` prüft nur 2-4 Magic-Bytes und fällt bei allem
+  anderen still auf `image/jpeg` zurück. Garbage-Input wäre unnötig
+  base64-kodiert an die Anthropic-Vision-API gesendet worden (verschwendete
+  API-Kosten, unklare Fehlermeldung statt sauberem 400).
+- **Remediation**: `analyzeCircuitScan()` prüft jetzt per
+  `sharp(imageBuffer).metadata()`, ob der Buffer ein dekodierbares Bild ist,
+  bevor der API-Call erfolgt — bei Wurf klare Fehlermeldung statt teurem
+  Fehlschlag später. Tests in `server/test/circuit-scan.test.js` (echte
+  minimale Bilddaten statt bloßer Magic-Bytes, neuer Fall für
+  Nicht-Bild-Ablehnung ohne API-Call).
 
 ### `deleteFloorplanImage` fehlte der Traversal-Schutz der Schwesterfunktion
 - **Quelle**: input-validation-audit-2026-09-06

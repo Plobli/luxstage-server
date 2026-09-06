@@ -5,6 +5,7 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod'
 import { z } from 'zod'
+import sharp from 'sharp'
 
 const MODEL = 'claude-sonnet-5'
 
@@ -41,6 +42,17 @@ export function defaultAnthropicClient() {
 // knownChannels: [{ channel, address, device, position }] — aus der aktuellen
 // Show, dient Claude als Kontext/Anker beim Lesen der vorgedruckten Spalten.
 export async function analyzeCircuitScan(imageBuffer, knownChannels, client = defaultAnthropicClient()) {
+  // mimeFromBuffer() prüft nur 2-4 Magic-Bytes und fällt bei allem anderen
+  // still auf 'image/jpeg' zurück — echte Inhaltsprüfung (analog zum
+  // sharp()-Re-Encode-Schutz in photos.js) vor dem API-Call, statt Garbage-
+  // Input teuer an die Vision-API zu senden und dort mit unklarer
+  // Fehlermeldung zu scheitern.
+  try {
+    await sharp(imageBuffer).metadata()
+  } catch {
+    throw new Error('Datei ist kein gültiges Bild')
+  }
+
   const mediaType = mimeFromBuffer(imageBuffer)
   const imageData = imageBuffer.toString('base64')
 
