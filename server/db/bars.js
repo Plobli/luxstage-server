@@ -27,7 +27,13 @@ export function writeBar(slug, data) {
   // schützt nur die Show aus der URL, nicht beliebige IDs im Body.
   const existing = getDb().prepare('SELECT * FROM bars WHERE id = ? AND show_id = ?').get(id, show.id)
   if (existing) {
-    const newLength = data.length_cm ?? 600
+    // length_cm vor Nutzung in der Fixture-Rescale-Arithmetik (scale =
+    // newLength/oldLength) validieren: ein Wert wie 0 würde scale=0 ergeben
+    // und still ALLE bar_fixtures.position dieser Bar auf 0 setzen, ein
+    // nicht-numerischer String würde scale zu NaN machen. Ungültige Werte
+    // fallen auf den bisherigen Wert zurück statt die Bar-Länge zu ändern.
+    const requestedLength = data.length_cm
+    const newLength = (Number.isFinite(requestedLength) && requestedLength > 0) ? requestedLength : (existing.length_cm ?? 600)
     getDb().prepare(`
       UPDATE bars SET name=?, zug_nr=?, length_cm=?, height_cm=?, notes=?, sort_order=?, hide_scale=?, bar_type=? WHERE id=?
     `).run(data.name ?? '', data.zug_nr ?? '', newLength, data.height_cm ?? null, data.notes ?? '', data.sort_order ?? existing.sort_order ?? 0, data.hide_scale ? 1 : 0, data.bar_type ?? existing.bar_type ?? 'zugstange', id)
@@ -44,7 +50,7 @@ export function writeBar(slug, data) {
     getDb().prepare(`
       INSERT INTO bars (id, show_id, name, zug_nr, length_cm, height_cm, notes, sort_order, bar_type, created_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(id, show.id, data.name ?? '', data.zug_nr ?? '', data.length_cm ?? 600, data.height_cm ?? null, data.notes ?? '', data.sort_order ?? nextOrder, data.bar_type ?? 'zugstange', now())
+    `).run(id, show.id, data.name ?? '', data.zug_nr ?? '', (Number.isFinite(data.length_cm) && data.length_cm > 0) ? data.length_cm : 600, data.height_cm ?? null, data.notes ?? '', data.sort_order ?? nextOrder, data.bar_type ?? 'zugstange', now())
   }
   return id
 }

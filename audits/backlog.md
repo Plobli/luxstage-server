@@ -83,31 +83,6 @@ Nach der Abarbeitung eines jeden offenen Punktes einen commit machen.
   `max_size`/`retain`/`compress`-Einstellungen) zu den PM2-Setup-Schritten
   in `install.sh` ergänzen.
 
-### `length_cm` (Bar-Länge) wird vor Validierung in JS-Arithmetik verwendet — kann Fixture-Positionen korrumpieren
-- **Quelle**: input-validation-audit-2026-09-06
-- **Importance**: 4/10
-- **Status**: offen
-- `const newLength = data.length_cm ?? 600` (`server/db/bars.js:30`) nimmt
-  den rohen Request-Wert ohne `typeof`/`Number.isFinite`-Prüfung. Er wird
-  zwar direkt in `UPDATE bars SET length_cm=?` gebunden (SQLite ist
-  dynamisch typisiert, ein String bindet ohne Fehler), aber zusätzlich in
-  JS-Division genutzt (Zeile 36: `const scale = newLength / oldLength`),
-  deren Ergebnis dann als SQL-Parameter an `ROUND(position * ?, 1)`
-  gebunden wird (Zeile 38). Bei `length_cm: 0` wird `scale` zu `0` und
-  **alle** `bar_fixtures.position`-Werte dieser Bar werden still auf `0`
-  gesetzt (kein Fehler, keine Warnung) — ein einzelner authentifizierter
-  Nutzer kann mit einem manipulierten Request alle Fixture-Positionen einer
-  Bar zerstören. Bei nicht-numerischem String wird `scale` zu `NaN`, was
-  beim Binden einen Fehler wirft (abgefangen vom äußeren Router-Handler,
-  kein Crash, aber die Zero-Length-Variante läuft fehlerfrei durch.
-- **Remediation**: `data.length_cm` vor Nutzung als endliche positive Zahl
-  validieren
-  (`Number.isFinite(data.length_cm) && data.length_cm > 0`), Rescale
-  überspringen bzw. Request ablehnen, falls `oldLength`/`newLength` nicht
-  beide positive endliche Zahlen sind.
-  **PoC**: `PUT /api/shows/:slug/bars/:id` mit `{ "length_cm": 0 }` auf
-  einer Bar mit Fixtures → alle `bar_fixtures.position`-Werte werden `0`.
-
 ### `deleteFloorplanImage` fehlt der Traversal-Schutz der Schwesterfunktion
 - **Quelle**: input-validation-audit-2026-09-06
 - **Importance**: 2/10
@@ -370,6 +345,21 @@ Nach der Abarbeitung eines jeden offenen Punktes einen commit machen.
 ---
 
 ## Erledigt
+
+### `length_cm` (Bar-Länge) wurde vor Validierung in JS-Arithmetik verwendet — konnte Fixture-Positionen korrumpieren
+- **Quelle**: input-validation-audit-2026-09-06
+- **Erledigt**: 2026-09-06
+- `data.length_cm` floss ungeprüft in `scale = newLength / oldLength`, dessen
+  Ergebnis als SQL-Parameter an `ROUND(position * ?, 1)` gebunden wurde. Bei
+  `length_cm: 0` wurde `scale` zu `0` und **alle** `bar_fixtures.position`
+  einer Bar wurden still auf `0` gesetzt.
+- **Remediation**: `data.length_cm` in `writeBar()` (`server/db/bars.js`)
+  wird jetzt vor Nutzung als endliche positive Zahl validiert
+  (`Number.isFinite(...) && ... > 0`) — ein ungültiger Wert fällt auf die
+  bisherige Länge zurück statt die Bar-Länge zu ändern oder die
+  Rescale-Arithmetik mit `0`/`NaN` zu füttern. Tests in
+  `server/test/bars-towers-routes.test.js` (`length_cm: 0`,
+  nicht-numerischer String).
 
 ### Log-Injection über unbereinigten Snapshot-Namen im Operator-Panel-Log
 - **Quelle**: logging-monitoring-audit-2026-09-06

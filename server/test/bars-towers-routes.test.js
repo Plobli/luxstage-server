@@ -7,6 +7,7 @@ const { createShow } = await import('../db/shows.js')
 const { barRoutes } = await import('../routes/bars.js')
 const { towerRoutes } = await import('../routes/towers.js')
 const { readTowers } = await import('../db/towers.js')
+const { readBars } = await import('../db/bars.js')
 
 createShow('show-a', { name: 'Show A', use_bars: 1, use_towers: 1 })
 
@@ -102,6 +103,33 @@ test('negativer slot_count auf bestehendem Tower löscht keine bestehenden Slot-
   const towers = readTowers('show-a')
   const tower = towers.find(t => t.id === towerId)
   assert.ok(tower.slots.length >= 1, 'negativer slot_count darf nicht alle Slots via slot_index > n löschen')
+})
+
+test('length_cm=0 löscht nicht still alle Fixture-Positionen einer Bar', async () => {
+  const created = await call(barRoutes, 'POST', '/api/shows/show-a/bars', { name: 'Bar Zero', length_cm: 600 })
+  const barId = created.body.id
+  const fixtureRes = await call(barRoutes, 'POST', `/api/shows/show-a/bars/${barId}/fixtures`, { channelId: 'ch-x', position: 42.5 })
+  assert.equal(fixtureRes.status, 200)
+
+  const putRes = await call(barRoutes, 'PUT', `/api/shows/show-a/bars/${barId}`, { name: 'Bar Zero', length_cm: 0 })
+  assert.equal(putRes.status, 200)
+
+  const bars = readBars('show-a')
+  const bar = bars.find(b => b.id === barId)
+  assert.notEqual(bar.length_cm, 0, 'length_cm=0 darf nicht übernommen werden')
+  assert.equal(bar.fixtures[0].position, 42.5, 'Fixture-Position darf nicht still auf 0 gesetzt werden')
+})
+
+test('nicht-numerischer length_cm-String wirft nicht (fällt auf bisherigen Wert zurück)', async () => {
+  const created = await call(barRoutes, 'POST', '/api/shows/show-a/bars', { name: 'Bar NaN', length_cm: 600 })
+  const barId = created.body.id
+
+  const putRes = await call(barRoutes, 'PUT', `/api/shows/show-a/bars/${barId}`, { name: 'Bar NaN', length_cm: 'abc' })
+  assert.equal(putRes.status, 200)
+
+  const bars = readBars('show-a')
+  const bar = bars.find(b => b.id === barId)
+  assert.equal(bar.length_cm, 600)
 })
 
 after(cleanupDataPath)
