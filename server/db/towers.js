@@ -5,6 +5,18 @@ import { randomUUID } from 'node:crypto'
 
 function now() { return Date.now() }
 
+// Grenzt client-gelieferte slot_count-Werte ein: ungültige Eingaben (0,
+// negativ, NaN, riesige Zahlen) würden sonst ungeprüft als Schleifen-Grenze
+// (INSERT pro Iteration) und als DELETE-Schwelle (slot_index > n) verwendet —
+// bei n<=0 löscht das DELETE dann jeden bestehenden Slot der Show, bei sehr
+// großem n blockiert die Schleife den einzigen Node-Thread.
+const MIN_SLOT_COUNT = 1
+const MAX_SLOT_COUNT = 200
+function clampSlotCount(value, fallback = 4) {
+  if (!Number.isFinite(value)) return fallback
+  return Math.min(MAX_SLOT_COUNT, Math.max(MIN_SLOT_COUNT, Math.trunc(value)))
+}
+
 export function readTowers(slug) {
   const show = readShow(slug)
   if (!show) return []
@@ -25,7 +37,7 @@ export function writeTower(slug, data) {
       data.name ?? current.name ?? '',
       data.side ?? current.side ?? '',
       data.stage_area ?? current.stage_area ?? '',
-      data.slot_count ?? current.slot_count ?? 4,
+      clampSlotCount(data.slot_count, current.slot_count ?? 4),
       data.sort_order ?? current.sort_order ?? 0,
       data.notes ?? current.notes ?? '',
       id
@@ -35,7 +47,7 @@ export function writeTower(slug, data) {
     getDb().prepare(`
       INSERT INTO towers (id, show_id, name, side, stage_area, slot_count, sort_order, notes, created_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(id, show.id, data.name ?? '', data.side ?? '', data.stage_area ?? '', data.slot_count ?? 4, data.sort_order ?? count, data.notes ?? '', now())
+    `).run(id, show.id, data.name ?? '', data.side ?? '', data.stage_area ?? '', clampSlotCount(data.slot_count), data.sort_order ?? count, data.notes ?? '', now())
   }
   return id
 }
@@ -101,7 +113,7 @@ export function restoreTowers(slug, towers) {
       getDb().prepare(`
         INSERT INTO towers (id, show_id, name, side, stage_area, slot_count, sort_order, notes, created_at)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `).run(tower.id, show.id, tower.name ?? '', tower.side ?? '', tower.stage_area ?? '', tower.slot_count ?? 4, tower.sort_order ?? 0, tower.notes ?? '', tower.created_at ?? Date.now())
+      `).run(tower.id, show.id, tower.name ?? '', tower.side ?? '', tower.stage_area ?? '', clampSlotCount(tower.slot_count), tower.sort_order ?? 0, tower.notes ?? '', tower.created_at ?? Date.now())
       for (const slot of (tower.slots ?? [])) {
         getDb().prepare(`
           INSERT INTO tower_slots (id, tower_id, slot_index, channel_id)
@@ -118,6 +130,7 @@ export function restoreTowers(slug, towers) {
 }
 
 export function ensureTowerSlots(towerId, slotCount) {
+  slotCount = clampSlotCount(slotCount)
   for (let i = 1; i <= slotCount; i++) {
     const exists = getDb().prepare(
       'SELECT id FROM tower_slots WHERE tower_id = ? AND slot_index = ?'

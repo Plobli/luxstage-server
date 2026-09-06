@@ -217,32 +217,6 @@ Nach der Abarbeitung eines jeden offenen Punktes einen commit machen.
   entfernen/ersetzen (z.B. `showName.replace(/[\r\n"]/g, '')`), oder
   RFC-5987-`filename*=UTF-8''...`-Kodierung verwenden.
 
-### Client-gelieferter `slot_count` unvalidiert als Schleifen-Grenze/DELETE-Schwelle — DoS und stiller Datenverlust
-- **Quelle**: business-logic-vulnerabilities-audit-2026-09-06
-- **Importance**: 5/10
-- **Status**: offen
-- `slot_count` aus dem Request-Body fließt unvalidiert in
-  `for (let i = 1; i <= slotCount; i++)` (`server/db/towers.js:120-134`
-  `ensureTowerSlots`, ein synchrones `INSERT` pro Iteration auf der
-  geteilten, single-threaded better-sqlite3-Verbindung) und in
-  `DELETE FROM tower_slots WHERE tower_id = ? AND slot_index > ?`. Gleiches
-  Muster in `server/db/template-towers.js:71-84`,
-  `server/routes/towers.js:30-51` reicht `body.slot_count` direkt durch.
-  Zwei konkrete Client-kontrollierte Fehlerfälle: (a) sehr großer
-  `slot_count` (z.B. `1e8`) blockiert den Event-Loop für den gesamten
-  Tenant-Prozess und fügt eine unbegrenzte Zeilenzahl ein, die jeden
-  zukünftigen Full-State-Read verlangsamt (wird bei jedem Undo/Redo-Snapshot
-  aufgerufen); (b) negativer oder Null-`slot_count` lässt die
-  `DELETE ... slot_index > ?`-Klausel jeden existierenden Slot treffen
-  (`slot_index` beginnt bei 1) — löscht still alle Channel-Zuweisungen dieses
-  Towers ohne Bestätigung und ohne den nun veralteten `mount_ref` auf den
-  betroffenen Channels zu bereinigen (gleiche Klasse hängender Referenzen
-  wie im Undo/Redo-Finding oben).
-- **Remediation**: `slot_count` serverseitig validieren — Nicht-Ganzzahlen
-  ablehnen, auf einen sinnvollen Bereich clampen (z.B. `1..200`), `<= 0`
-  explizit ablehnen statt es über das Fallthrough-Verhalten von
-  `slot_index > ?` still alles löschen zu lassen.
-
 ### Query-String-Auth-Fallback akzeptiert volles Session-JWT statt nur zweckgebundener Tokens
 - **Quelle**: authorization-implementation-audit-2026-09-06
 - **Importance**: 5/10
@@ -511,6 +485,21 @@ Nach der Abarbeitung eines jeden offenen Punktes einen commit machen.
 ---
 
 ## Erledigt
+
+### Client-gelieferter `slot_count` unvalidiert als Schleifen-Grenze/DELETE-Schwelle — DoS und stiller Datenverlust
+- **Quelle**: business-logic-vulnerabilities-audit-2026-09-06
+- **Erledigt**: 2026-09-06
+- `slot_count` floss unvalidiert in eine Schleifen-Grenze (`ensureTowerSlots`/
+  `ensureTemplateTowerSlots`, ein synchrones INSERT pro Iteration) und eine
+  `DELETE ... slot_index > ?`-Schwelle. Sehr großes `slot_count` (z.B. `1e8`)
+  hätte den Event-Loop blockiert; negatives/Null-`slot_count` hätte über das
+  Fallthrough-Verhalten der DELETE-Klausel alle bestehenden Slots eines
+  Towers gelöscht.
+- **Remediation**: `clampSlotCount()` in `server/db/towers.js` und
+  `server/db/template-towers.js` (Bereich `1..200`, `Number.isFinite`-Check,
+  `Math.trunc`) an allen Schreibpfaden (`writeTower`, `restoreTowers`,
+  `ensureTowerSlots`, analog für Templates) angewendet. Tests in
+  `server/test/bars-towers-routes.test.js` (0, sehr groß, negativ).
 
 ### Bulk "Template auf alle Shows anwenden" umging Show-Locks ohne Konflikt-Signal
 - **Quelle**: business-logic-vulnerabilities-audit-2026-09-06

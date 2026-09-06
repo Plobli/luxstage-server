@@ -6,6 +6,7 @@ import { cleanupDataPath, createResponse } from './helpers/test-env.js'
 const { createShow } = await import('../db/shows.js')
 const { barRoutes } = await import('../routes/bars.js')
 const { towerRoutes } = await import('../routes/towers.js')
+const { readTowers } = await import('../db/towers.js')
 
 createShow('show-a', { name: 'Show A', use_bars: 1, use_towers: 1 })
 
@@ -69,6 +70,38 @@ test('withShowMutation via towerRoutes: Slot-PATCH liefert { ok: true }', async 
   const res = await call(towerRoutes, 'PATCH', `/api/shows/show-a/towers/${towerId}/slots/1`, { channelId: null })
   assert.equal(res.status, 200)
   assert.deepEqual(res.body, { ok: true })
+})
+
+test('slot_count=0 löscht nicht still alle Slots, sondern wird auf ein Minimum geklemmt', async () => {
+  const created = await call(towerRoutes, 'POST', '/api/shows/show-a/towers', { name: 'Turm Zero', slot_count: 0 })
+  assert.equal(created.status, 201)
+  const towerId = created.body.id
+
+  const towers = readTowers('show-a')
+  const tower = towers.find(t => t.id === towerId)
+  assert.ok(tower.slots.length >= 1, 'slot_count=0 darf nicht zu 0 Slots führen')
+})
+
+test('sehr großer slot_count wird auf ein sinnvolles Maximum geklemmt (kein unbegrenztes INSERT)', async () => {
+  const created = await call(towerRoutes, 'POST', '/api/shows/show-a/towers', { name: 'Turm Riesig', slot_count: 1e8 })
+  assert.equal(created.status, 201)
+  const towerId = created.body.id
+
+  const towers = readTowers('show-a')
+  const tower = towers.find(t => t.id === towerId)
+  assert.ok(tower.slots.length <= 200, 'slot_count muss auf ein Maximum geklemmt werden')
+})
+
+test('negativer slot_count auf bestehendem Tower löscht keine bestehenden Slot-Zuweisungen', async () => {
+  const created = await call(towerRoutes, 'POST', '/api/shows/show-a/towers', { name: 'Turm Negativ', slot_count: 4 })
+  const towerId = created.body.id
+
+  const putRes = await call(towerRoutes, 'PUT', `/api/shows/show-a/towers/${towerId}`, { name: 'Turm Negativ', slot_count: -5 })
+  assert.equal(putRes.status, 200)
+
+  const towers = readTowers('show-a')
+  const tower = towers.find(t => t.id === towerId)
+  assert.ok(tower.slots.length >= 1, 'negativer slot_count darf nicht alle Slots via slot_index > n löschen')
 })
 
 after(cleanupDataPath)

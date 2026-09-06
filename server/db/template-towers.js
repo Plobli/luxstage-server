@@ -2,6 +2,15 @@ import { getDb } from '../db-context.js'
 import { readTowersWithSlotsCore } from './tower-read-core.js'
 import { randomUUID } from 'node:crypto'
 
+// Siehe towers.js: gleiche Absicherung gegen ungültige client-gelieferte
+// slot_count-Werte (Schleifen-Grenze/DELETE-Schwelle).
+const MIN_SLOT_COUNT = 1
+const MAX_SLOT_COUNT = 200
+function clampSlotCount(value, fallback = 4) {
+  if (!Number.isFinite(value)) return fallback
+  return Math.min(MAX_SLOT_COUNT, Math.max(MIN_SLOT_COUNT, Math.trunc(value)))
+}
+
 export function readTemplateTowers(name) {
   const tpl = getDb().prepare('SELECT * FROM templates WHERE name = ?').get(name)
   if (!tpl) return []
@@ -18,12 +27,12 @@ export function writeTemplateTower(name, data) {
   if (existing) {
     getDb().prepare(
       'UPDATE template_towers SET name=?, side=?, stage_area=?, slot_count=?, sort_order=? WHERE id=?'
-    ).run(data.name ?? '', data.side ?? '', data.stage_area ?? '', data.slot_count ?? 4, data.sort_order ?? 0, id)
+    ).run(data.name ?? '', data.side ?? '', data.stage_area ?? '', clampSlotCount(data.slot_count), data.sort_order ?? 0, id)
   } else {
     const count = getDb().prepare('SELECT COUNT(*) as n FROM template_towers WHERE template_id = ?').get(tpl.id).n
     getDb().prepare(
       'INSERT INTO template_towers (id, template_id, name, side, stage_area, slot_count, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?)'
-    ).run(id, tpl.id, data.name ?? '', data.side ?? '', data.stage_area ?? '', data.slot_count ?? 4, data.sort_order ?? count)
+    ).run(id, tpl.id, data.name ?? '', data.side ?? '', data.stage_area ?? '', clampSlotCount(data.slot_count), data.sort_order ?? count)
   }
   return id
 }
@@ -69,6 +78,7 @@ export function clearTemplateTowerSlot(name, towerId, slotIndex) {
 }
 
 export function ensureTemplateTowerSlots(towerId, slotCount) {
+  slotCount = clampSlotCount(slotCount)
   for (let i = 1; i <= slotCount; i++) {
     const exists = getDb().prepare(
       'SELECT id FROM template_tower_slots WHERE tower_id = ? AND slot_index = ?'
