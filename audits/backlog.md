@@ -429,36 +429,6 @@ Nach der Abarbeitung eines jeden offenen Punktes einen commit machen.
   vor dem Speichern in `pending_registrations`, gehashte Werte in
   `getPending`/`confirmPending` vergleichen.
 
-### X-Forwarded-For-Spoofing hebelt sämtliches IP-basiertes Rate-Limiting aus
-- **Quelle**: api-and-infrastructure-audit-2026-09-06
-- **Importance**: 8/10
-- **Status**: offen
-- `clientIp()` (`server/helpers.js:6-11`) nimmt bei `config.trustProxy` den
-  **ersten** Eintrag von `X-Forwarded-For`
-  (`req.headers['x-forwarded-for'].split(',')[0].trim()`). `TRUST_PROXY=true`
-  ist die dokumentierte Standardeinstellung für das SaaS-Produktivdeployment
-  (`docker-compose.saas.server.yml:25`, `.env.saas.example:20`), Topologie ist
-  Caddy als Reverse-Proxy davor. Reverse-Proxies (Caddy eingeschlossen)
-  *hängen* die echte Client-IP an einen bereits vorhandenen
-  `X-Forwarded-For`-Header an, statt ihn zu ersetzen — ein Angreifer, der
-  selbst `X-Forwarded-For: 1.2.3.4` sendet, erzeugt beim Server
-  `X-Forwarded-For: 1.2.3.4, <echte-client-ip>`, und die App liest den
-  angreifer-kontrollierten linkesten Wert statt des vertrauenswürdigen
-  rechtesten Hops. Sowohl der globale Abuse-Limiter
-  (`server/rate-limit.js`) als auch der Login-Brute-Force-Limiter
-  (`server/routes/auth.js:61`, 10 Versuche/15min) schlüsseln ausschließlich
-  über diesen spoofbaren Wert — ein Angreifer kann mit rotierender
-  Fake-Leading-IP pro Request das Login-Throttling und den globalen
-  300-Req/min-Schutz vollständig umgehen.
-- **Remediation**: Bei aktiviertem `trustProxy` den **letzten** Eintrag von
-  `X-Forwarded-For` nehmen (den vom nächsten vertrauenswürdigen Proxy
-  angehängten Wert), nicht den ersten — oder besser Caddys `X-Real-IP`
-  (Single-Value, immer proxy-gesetzt, nicht spoofbar solange die App keinen
-  client-gelieferten `X-Real-IP` vertraut) statt `X-Forwarded-For`-Parsing
-  verwenden. Bei mehreren Proxy-Hops müsste korrektes
-  Trusted-Hop-Count-Peeling implementiert werden statt blindem
-  Erste/Letzte-Index-Zugriff.
-
 ### Fehlende HSTS-/Permissions-Policy-Header auf Anwendungsebene
 - **Quelle**: api-and-infrastructure-audit-2026-09-06
 - **Importance**: 3/10
@@ -610,6 +580,23 @@ Nach der Abarbeitung eines jeden offenen Punktes einen commit machen.
 ---
 
 ## Erledigt
+
+### X-Forwarded-For-Spoofing hebelt sämtliches IP-basiertes Rate-Limiting aus
+- **Quelle**: api-and-infrastructure-audit-2026-09-06
+- **Erledigt**: 2026-09-06
+- `clientIp()` (`server/helpers.js`) nahm bei `config.trustProxy` den
+  **ersten** Eintrag von `X-Forwarded-For` — Reverse-Proxies (Caddy
+  eingeschlossen) hängen die echte Client-IP aber an einen bereits
+  vorhandenen Header an, statt ihn zu ersetzen. Ein Angreifer konnte mit
+  einem gefälschten führenden Eintrag sowohl den globalen Abuse-Limiter als
+  auch den Login-Brute-Force-Limiter (beide schlüsseln über `clientIp()`)
+  vollständig umgehen.
+- **Remediation**: `clientIp()` nimmt jetzt den **letzten** Eintrag von
+  `X-Forwarded-For` (den vom nächstgelegenen, vertrauenswürdigen Hop
+  angehängten Wert). Kein Caddyfile-Wechsel auf `X-Real-IP` nötig, da der
+  Haupt-Reverse-Proxy-Block für die SaaS-App keinen solchen Header setzt.
+  Tests in `server/test/helpers.test.js` (3 Fälle: mehrere Hops, einzelner
+  Hop, kein Proxy-Header).
 
 ### `provide`/`inject` in ShowDetailView.vue ist implizite Kopplung
 - **Quelle**: 2026-09-05-software-design-analysis.md, §2

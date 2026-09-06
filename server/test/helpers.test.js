@@ -2,7 +2,26 @@ import assert from 'node:assert/strict'
 import { Readable } from 'node:stream'
 import { test } from 'node:test'
 import './helpers/test-env.js'
-import { readJsonBody, uploadErrorStatus } from '../helpers.js'
+import { readJsonBody, uploadErrorStatus, clientIp } from '../helpers.js'
+
+process.env.TRUST_PROXY = 'true'
+const { config } = await import('../config.js')
+config.trustProxy = true
+
+test('clientIp nimmt bei trustProxy den letzten X-Forwarded-For-Eintrag (Anti-Spoofing)', () => {
+  const req = { headers: { 'x-forwarded-for': '1.2.3.4, 5.6.7.8' }, socket: {} }
+  assert.equal(clientIp(req), '5.6.7.8')
+})
+
+test('clientIp nimmt den einzigen Eintrag, falls kein Proxy-Hop dazwischenliegt', () => {
+  const req = { headers: { 'x-forwarded-for': '9.9.9.9' }, socket: {} }
+  assert.equal(clientIp(req), '9.9.9.9')
+})
+
+test('clientIp faellt ohne X-Forwarded-For auf die Socket-Adresse zurueck', () => {
+  const req = { headers: {}, socket: { remoteAddress: '127.0.0.1' } }
+  assert.equal(clientIp(req), '127.0.0.1')
+})
 
 test('uploadErrorStatus erkennt Größen-/Mengen-Fehler als 413', () => {
   assert.equal(uploadErrorStatus('Datei zu groß'), 413)

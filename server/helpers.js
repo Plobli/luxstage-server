@@ -5,7 +5,12 @@ import { broadcast } from './sse.js'
 
 export function clientIp(req) {
   if (config.trustProxy && req.headers['x-forwarded-for']) {
-    return req.headers['x-forwarded-for'].split(',')[0].trim()
+    // Reverse-Proxies (Caddy eingeschlossen) haengen die echte Client-IP an
+    // einen ggf. bereits vorhandenen Header an, statt ihn zu ersetzen — der
+    // letzte Eintrag ist der vom naechsten (vertrauenswuerdigen) Hop
+    // gesetzte Wert, der erste ist client-kontrolliert und damit spoofbar.
+    const parts = req.headers['x-forwarded-for'].split(',')
+    return parts[parts.length - 1].trim()
   }
   return req.socket.remoteAddress || 'unknown'
 }
