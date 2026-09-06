@@ -33,14 +33,14 @@ export async function systemRoutes(req, res, pathname) {
   if (method === 'GET' && pathname === '/api/backup') {
     const user = requireAuth(req, res); if (!user) return
     if (config.baseDomain) return json(res, 403, { error: 'Backups werden zentral verwaltet' })
-    streamBackup(res)
+    streamBackup(res, user.username)
     return
   }
 
   if (method === 'POST' && pathname === '/api/restore') {
     const user = requireAuth(req, res); if (!user) return
     if (config.baseDomain) return json(res, 403, { error: 'Restore wird zentral verwaltet' })
-    restoreBackup(req, res)
+    restoreBackup(req, res, user.username)
     return
   }
 

@@ -34,23 +34,6 @@ Nach der Abarbeitung eines jeden offenen Punktes einen commit machen.
   entsprechendem CSRF-Schutz) die robustere Alternative. Bewusst
   zurückstellbar, da aktuell kein XSS-Vektor bekannt ist.
 
-### Backup/Restore-Operationen inkonsistent und ohne Akteur-Identität geloggt
-- **Quelle**: logging-monitoring-audit-2026-09-06
-- **Importance**: 3/10
-- **Status**: offen
-- `streamBackup`/`restoreBackup` (`server/backup.js:33,48,98`) loggen nur
-  bei Fehlschlag, per rohem `console.error(...)` (umgeht `logger.js`
-  komplett — keine Timestamp-/Level-Konsistenz, nicht durch `LOG_LEVEL`
-  gegated). Für einen erfolgreichen Backup-Export oder Restore gibt es
-  keine Log-Zeile, und keine Log-Zeile erfasst, *wer* die Aktion ausgelöst
-  hat — `server/routes/system.js:34,41` binden das Ergebnis von
-  `requireAuth(req, res)` an `user`, aber diese Variable wird nie an
-  `backup.js` weitergereicht/geloggt.
-- **Remediation**: `logger('backup')`-Aufrufe ergänzen: info bei
-  erfolgreichem Export-/Restore-Start und -Abschluss inkl.
-  `user.username`; Fehlschlag-Logging beibehalten, aber über den
-  strukturierten Logger mit demselben Identitätsfeld routen.
-
 ### Kein PM2-Log-Rotation konfiguriert — unbegrenztes Stdout/Stderr-Wachstum
 - **Quelle**: logging-monitoring-audit-2026-09-06
 - **Importance**: 2/10
@@ -297,6 +280,21 @@ Nach der Abarbeitung eines jeden offenen Punktes einen commit machen.
 ---
 
 ## Erledigt
+
+### Backup/Restore-Operationen waren inkonsistent und ohne Akteur-Identität geloggt
+- **Quelle**: logging-monitoring-audit-2026-09-06
+- **Erledigt**: 2026-09-06
+- `streamBackup`/`restoreBackup` loggten nur bei Fehlschlag, per rohem
+  `console.error(...)` (umgeht `logger.js` komplett). Für einen
+  erfolgreichen Export/Restore gab es keine Log-Zeile, und keine erfasste,
+  *wer* die Aktion ausgelöst hat — `routes/system.js` band `user` von
+  `requireAuth`, reichte es aber nie an `backup.js` weiter.
+- **Remediation**: `streamBackup(res, username)`/`restoreBackup(req, res,
+  username)` nehmen jetzt den Akteur entgegen (von `routes/system.js`
+  durchgereicht). `logger('backup')` ersetzt `console.error`: info bei
+  Restore-Start und Export-/Restore-Abschluss, error bei Fehlschlag, jeweils
+  mit `user`-Feld. Tests in `server/test/backup.test.js` (Log-Zeilen per
+  `mock.method(console, 'log')` verifiziert).
 
 ### Cross-Tenant-Token-Wiederverwendung (403) war nicht identifizierbar geloggt
 - **Quelle**: logging-monitoring-audit-2026-09-06

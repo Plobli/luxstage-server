@@ -9,6 +9,9 @@ import path from 'node:path'
 import Database from 'better-sqlite3'
 import { config } from './config.js'
 import { dbContainer, initSchema } from './db-init.js'
+import { logger } from './logger.js'
+
+const log = logger('backup')
 
 let restoreInProgress = false
 const MAX_BACKUP_BYTES = 500 * 1024 * 1024
@@ -17,7 +20,7 @@ const MAX_EXTRACTED_BYTES = 2 * 1024 * 1024 * 1024
 const MAX_DATABASE_BYTES = 500 * 1024 * 1024
 const MAX_PHOTO_BYTES = 50 * 1024 * 1024
 
-export async function streamBackup(res) {
+export async function streamBackup(res, username) {
   const backupPath = path.join(config.dataPath, 'luxstage-backup.db')
 
   try {
@@ -30,7 +33,7 @@ export async function streamBackup(res) {
     scrub.prepare('DELETE FROM password_resets').run()
     scrub.close()
   } catch (err) {
-    console.error('Backup fehlgeschlagen:', err)
+    log.error('Backup fehlgeschlagen', { user: username, fehler: err.message })
     res.writeHead(500, { 'Content-Type': 'application/json' })
     res.end(JSON.stringify({ error: 'Backup fehlgeschlagen' }))
     await fs.unlink(backupPath).catch(() => {})
@@ -45,7 +48,7 @@ export async function streamBackup(res) {
 
   const archive = archiver('zip', { zlib: { level: 6 } })
   archive.on('error', err => {
-    console.error('Archive error:', err)
+    log.error('Archiv-Erstellung fehlgeschlagen', { user: username, fehler: err.message })
     res.destroy(err)
   })
   archive.pipe(res)
@@ -53,12 +56,13 @@ export async function streamBackup(res) {
   archive.directory(path.join(config.dataPath, 'photos'), 'photos')
   try {
     await archive.finalize()
+    log.info('Backup-Export abgeschlossen', { user: username })
   } finally {
     fs.unlink(backupPath).catch(() => {})
   }
 }
 
-export async function restoreBackup(req, res) {
+export async function restoreBackup(req, res, username) {
   const dbPath = path.join(config.dataPath, 'luxstage.db')
   const photosPath = path.join(config.dataPath, 'photos')
 
@@ -68,6 +72,7 @@ export async function restoreBackup(req, res) {
     return
   }
   restoreInProgress = true
+  log.info('Restore gestartet', { user: username })
 
   let workDir
   try {
@@ -91,11 +96,12 @@ export async function restoreBackup(req, res) {
     // Step 4: Alte Daten sichern, dann DB und Fotos als Paar aktivieren.
     await activateRestore({ workDir, dbRestorePath, stagedPhotosPath, dbPath, photosPath })
 
+    log.info('Restore abgeschlossen', { user: username })
     res.writeHead(200, { 'Content-Type': 'application/json' })
     res.end(JSON.stringify({ ok: true, restart: true }))
     setTimeout(() => process.exit(0), 500)
   } catch (err) {
-    console.error('Restore: DB-Austausch fehlgeschlagen:', err)
+    log.error('Restore fehlgeschlagen', { user: username, fehler: err.message })
     const status = err instanceof RestoreError ? err.status : 500
     const error = err instanceof RestoreError ? err.message : 'Wiederherstellung fehlgeschlagen'
     if (!res.headersSent) {

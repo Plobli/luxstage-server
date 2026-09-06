@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import path from 'node:path'
 import { PassThrough, Readable } from 'node:stream'
-import { after, test } from 'node:test'
+import { after, mock, test } from 'node:test'
 import unzipper from 'unzipper'
 import Database from 'better-sqlite3'
 import { cleanupDataPath, dataPath } from './helpers/test-env.js'
@@ -84,6 +84,19 @@ test('streamBackup entfernt offene Passwort-Reset-Token aus der exportierten DB'
   }
 })
 
+test('restoreBackup loggt Start und Akteur-Identität', async () => {
+  const logSpy = mock.method(console, 'log', () => {})
+  try {
+    const req = Readable.from([Buffer.from('irrelevant')])
+    const res = collectingResponse()
+    await restoreBackup(req, res, 'bob')
+    const lines = logSpy.mock.calls.map(c => c.arguments[0])
+    assert.ok(lines.some(l => l.includes('[backup]') && l.includes('gestartet') && l.includes('user=bob')))
+  } finally {
+    logSpy.mock.restore()
+  }
+})
+
 test('restoreBackup lehnt einen zweiten gleichzeitigen Restore mit 409 ab', async () => {
   // Ein Request, dessen Body-Stream bewusst nie endet — hält restoreInProgress
   // aktiv, während der zweite Aufruf gestartet wird. restoreInProgress wird
@@ -103,6 +116,22 @@ test('restoreBackup lehnt einen zweiten gleichzeitigen Restore mit 409 ab', asyn
   await restoreBackup(secondReq, secondRes)
 
   assert.equal(secondRes.statusCode, 409)
+})
+
+test('streamBackup loggt den Export-Erfolg mit Akteur-Identität (bisher: keine Spur, wer den Export auslöste)', async () => {
+  const logSpy = mock.method(console, 'log', () => {})
+  try {
+    const res = collectingResponse()
+    await new Promise((resolve, reject) => {
+      res.on('finish', resolve)
+      res.on('error', reject)
+      streamBackup(res, 'anna').catch(reject)
+    })
+    const lines = logSpy.mock.calls.map(c => c.arguments[0])
+    assert.ok(lines.some(l => l.includes('[backup]') && l.includes('abgeschlossen') && l.includes('user=anna')))
+  } finally {
+    logSpy.mock.restore()
+  }
 })
 
 after(cleanupDataPath)
