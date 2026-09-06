@@ -146,21 +146,6 @@ Nach der Abarbeitung eines jeden offenen Punktes einen commit machen.
   entfernen/ersetzen (z.B. `showName.replace(/[\r\n"]/g, '')`), oder
   RFC-5987-`filename*=UTF-8''...`-Kodierung verwenden.
 
-### JWT-`verify()`-Aufrufe pinnen `algorithms` nicht explizit
-- **Quelle**: authentication-flow-review-2026-09-06
-- **Importance**: 4/10
-- **Status**: offen
-- `jwt.verify(token, config.jwtSecret)` wird an allen drei Stellen
-  (`server/auth.js:108`, `server/auth.js:119`, `server/operator.js:34`) ohne
-  explizite `algorithms: ['HS256']`-Option aufgerufen. Aktuell nicht aktiv
-  ausnutzbar, da `config.jwtSecret` ein reiner symmetrischer String ist (kein
-  Alg-Confusion-Angriffsvektor über einen öffentlichen RS/ES-Schlüssel
-  vorhanden) — reine Hardening-Lücke, die erst relevant würde, falls je ein
-  asymmetrischer Schlüsselpfad eingeführt wird oder sich das
-  Default-Verhalten der Library ändert.
-- **Remediation**: `{ algorithms: ['HS256'] }` explizit an jeden
-  `jwt.verify()`-Aufruf in `auth.js` und `operator.js` übergeben.
-
 ### Kein Refresh-Token-Mechanismus — Access-Token dient als eigenes "Refresh"
 - **Quelle**: authentication-flow-review-2026-09-06
 - **Importance**: 3/10
@@ -345,6 +330,19 @@ Nach der Abarbeitung eines jeden offenen Punktes einen commit machen.
 ---
 
 ## Erledigt
+
+### JWT-`verify()`-Aufrufe pinnten `algorithms` nicht explizit
+- **Quelle**: authentication-flow-review-2026-09-06
+- **Erledigt**: 2026-09-06
+- `jwt.verify(token, config.jwtSecret)` lief ohne explizite
+  `algorithms: ['HS256']`-Option — reine Hardening-Lücke (aktuell kein
+  Alg-Confusion-Vektor, da `jwtSecret` ein symmetrischer String ist), aber
+  relevant, falls je ein asymmetrischer Schlüsselpfad eingeführt wird.
+- **Remediation**: `{ algorithms: ['HS256'] }` an beide verbleibenden
+  `jwt.verify()`-Aufrufe (`server/auth.js`, `server/operator.js`) ergänzt
+  (der dritte, im Query-String-Fallback, wurde bereits in einem vorherigen
+  Fix entfernt). Bestehende Tests (`auth.test.js`, `operator-login.test.js`)
+  bestätigen, dass Tokens weiterhin akzeptiert werden.
 
 ### `length_cm` (Bar-Länge) wurde vor Validierung in JS-Arithmetik verwendet — konnte Fixture-Positionen korrumpieren
 - **Quelle**: input-validation-audit-2026-09-06

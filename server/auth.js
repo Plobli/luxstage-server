@@ -118,7 +118,7 @@ export function authenticate(req) {
   if (header.startsWith('Bearer ')) {
     const jwtToken = header.slice(7)
     try {
-      const payload = jwt.verify(jwtToken, config.jwtSecret)
+      const payload = jwt.verify(jwtToken, config.jwtSecret, { algorithms: ['HS256'] })
       if (hasCurrentTokenVersion(payload)) return payload
     } catch {}
   }

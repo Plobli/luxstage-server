@@ -39,7 +39,7 @@ export function requireOperator(req, res) {
   const header = req.headers['authorization'] || ''
   if (header.startsWith('Bearer ')) {
     try {
-      const payload = jwt.verify(header.slice(7), config.jwtSecret)
+      const payload = jwt.verify(header.slice(7), config.jwtSecret, { algorithms: ['HS256'] })
       if (payload.scope === 'operator') return payload
       log.warn('Betreiber-Token mit falschem Scope abgelehnt', { ip: clientIp(req) })
     } catch {
