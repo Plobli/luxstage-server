@@ -15,7 +15,7 @@ import { openTenantDb, deleteTenant, tenantExists } from '../tenants.js'
 import { runWithDb } from '../db-context.js'
 import {
   listTenants, getTenant, setSuspended, removeTenant, listPending,
-  getPendingByTenant, refreshPendingExpiry, removePendingByTenant,
+  getPendingByTenant, refreshPendingToken, removePendingByTenant,
 } from '../registry.js'
 import {
   createSnapshot, listSnapshots, restoreSnapshot, snapshotPath, deleteBackups,
@@ -179,8 +179,11 @@ export async function operatorRoutes(req, res, pathname) {
     const id = resend[1]
     const row = getPendingByTenant(id)
     if (!row) return json(res, 404, { error: 'Offene Registrierung nicht gefunden' })
-    refreshPendingExpiry(id, CONFIRM_TTL_MS)
-    const confirmUrl = `${config.appUrl}/register/confirm?token=${row.token}`
+    // row.token ist gehasht gespeichert (SHA-256) — refreshPendingToken()
+    // erzeugt einen frischen Klartext-Token für den Link, statt den nicht
+    // mehr verfügbaren ursprünglichen Klartext wiederzuverwenden.
+    const newToken = refreshPendingToken(id, CONFIRM_TTL_MS)
+    const confirmUrl = `${config.appUrl}/register/confirm?token=${newToken}`
     try {
       await sendConfirmEmail(row.email, id, confirmUrl)
     } catch (err) {

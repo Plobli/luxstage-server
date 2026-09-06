@@ -6,7 +6,10 @@
 //  - tenants: Verzeichnis bestätigter Mandanten
 import Database from 'better-sqlite3'
 import path from 'node:path'
+import { createHash, randomBytes } from 'node:crypto'
 import { config } from './config.js'
+
+const hashToken = t => createHash('sha256').update(t).digest('hex')
 
 let db = null
 
@@ -94,12 +97,17 @@ export function listPending() {
 }
 
 // ── Pending Registrations (Doppel-Opt-In) ────────────────────────────────────
+// token wird per SHA-256 gehasht gespeichert/nachgeschlagen — analog zu
+// Passwort-Reset-Token in db/users.js — statt im Klartext, obwohl die
+// Wirkung eines geleakten Tokens hier begrenzt ist (erstellt nur einen
+// Tenant + Erstnutzer für eine vom Angreifer bereits kontrollierte
+// Email/Passwort-Kombination).
 export function addPending({ token, tenantId, email, passwordHash, ttlMs }) {
   const ts = now()
   getRegistry().prepare(`
     INSERT INTO pending_registrations (token, tenant_id, email, password_hash, created_at, expires_at)
     VALUES (?, ?, ?, ?, ?, ?)
-  `).run(token, tenantId, email.toLowerCase(), passwordHash, ts, ts + ttlMs)
+  `).run(hashToken(token), tenantId, email.toLowerCase(), passwordHash, ts, ts + ttlMs)
 }
 
 // Ob für diese Subdomain/E-Mail bereits eine unbestätigte Anmeldung offen ist.
@@ -110,7 +118,7 @@ export function hasPendingForTenant(tenantId) {
 }
 
 export function getPending(token) {
-  const row = getRegistry().prepare('SELECT * FROM pending_registrations WHERE token = ?').get(token)
+  const row = getRegistry().prepare('SELECT * FROM pending_registrations WHERE token = ?').get(hashToken(token))
   if (!row || row.expires_at < now()) return null
   return row
 }
@@ -119,15 +127,16 @@ export function getPending(token) {
 // gemeinsam. Die Tenant-DB muss vorher vollständig angelegt worden sein.
 export function confirmPending(token, tenantId, email) {
   const reg = getRegistry()
+  const hashedToken = hashToken(token)
   return reg.transaction(() => {
-    const row = reg.prepare('SELECT * FROM pending_registrations WHERE token = ?').get(token)
+    const row = reg.prepare('SELECT * FROM pending_registrations WHERE token = ?').get(hashedToken)
     if (!row || row.expires_at < now() || row.tenant_id !== tenantId || row.email !== email.toLowerCase()) {
       return false
     }
     reg.prepare(
       'INSERT INTO tenants (tenant_id, email, created_at) VALUES (?, ?, ?)'
     ).run(tenantId, email.toLowerCase(), now())
-    reg.prepare('DELETE FROM pending_registrations WHERE token = ?').run(token)
+    reg.prepare('DELETE FROM pending_registrations WHERE token = ?').run(hashedToken)
     return true
   })()
 }
@@ -144,6 +153,19 @@ export function refreshPendingExpiry(tenantId, ttlMs) {
   return getRegistry().prepare(
     'UPDATE pending_registrations SET expires_at = ? WHERE tenant_id = ?'
   ).run(now() + ttlMs, tenantId).changes
+}
+
+// Erzeugt beim erneuten Versand einen frischen Klartext-Token statt des alten
+// (der token ist gehasht gespeichert — eine Einwegfunktion, der ursprüngliche
+// Klartext ist nirgends mehr verfügbar, um ihn in eine neue Bestätigungsmail
+// einzubetten). Gibt den neuen Klartext-Token zurück oder null, falls kein
+// offener Pending-Eintrag existiert.
+export function refreshPendingToken(tenantId, ttlMs) {
+  const newToken = randomBytes(32).toString('hex')
+  const changes = getRegistry().prepare(
+    'UPDATE pending_registrations SET token = ?, expires_at = ? WHERE tenant_id = ?'
+  ).run(hashToken(newToken), now() + ttlMs, tenantId).changes
+  return changes > 0 ? newToken : null
 }
 
 export function removePendingByTenant(tenantId) {

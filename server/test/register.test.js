@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { after, test } from 'node:test'
 import { cleanupDataPath, createResponse } from './helpers/test-env.js'
 
-const { addPending, getPending, getRegistry } = await import('../registry.js')
+const { addPending, getPending, getRegistry, refreshPendingToken } = await import('../registry.js')
 const { registerRoutes } = await import('../routes/register.js')
 const { closeTenantDb, tenantExists } = await import('../tenants.js')
 
@@ -56,6 +56,43 @@ test('fehlgeschlagener Registry-Commit entfernt vorbereiteten Tenant und behält
   assert.equal(response.status, 409)
   assert.equal(tenantExists('zweites-team'), false)
   assert.ok(getPending(token))
+})
+
+test('Bestätigungs-Token wird gehasht in der Registry-DB gespeichert, nicht im Klartext', () => {
+  const token = 'c'.repeat(64)
+  addPending({
+    token,
+    tenantId: 'hash-check-team',
+    email: 'hash@example.com',
+    passwordHash: '$2b$12$test-password-hash',
+    ttlMs: 60_000,
+  })
+
+  const stored = getRegistry().prepare('SELECT token FROM pending_registrations WHERE tenant_id = ?').get('hash-check-team')
+  assert.notEqual(stored.token, token, 'Klartext-Token darf nicht in der DB stehen')
+  assert.equal(stored.token.length, 64, 'SHA-256-Hex-Digest erwartet')
+
+  assert.ok(getPending(token), 'getPending muss den Klartext-Token gegen den gehashten Wert auflösen')
+})
+
+test('refreshPendingToken erzeugt einen neuen Klartext-Token, alter Token verliert Gültigkeit', () => {
+  const oldToken = 'd'.repeat(64)
+  addPending({
+    token: oldToken,
+    tenantId: 'resend-team',
+    email: 'resend@example.com',
+    passwordHash: '$2b$12$test-password-hash',
+    ttlMs: 60_000,
+  })
+
+  const newToken = refreshPendingToken('resend-team', 60_000)
+  assert.ok(newToken)
+  assert.notEqual(newToken, oldToken)
+
+  assert.equal(getPending(oldToken), null, 'alter Token darf nach Refresh nicht mehr gelten')
+  const refreshed = getPending(newToken)
+  assert.ok(refreshed, 'neuer Token muss gültig sein')
+  assert.equal(refreshed.tenant_id, 'resend-team')
 })
 
 test('11. Registrierungsversuch derselben IP wird mit 429 geblockt', async () => {

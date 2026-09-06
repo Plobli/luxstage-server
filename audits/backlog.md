@@ -69,23 +69,6 @@ Nach der Abarbeitung eines jeden offenen Punktes einen commit machen.
   Dummy-`bcrypt.compare` gegen einen fixen/vorberechneten Hash ausführen,
   damit beide Codepfade vergleichbar lange dauern.
 
-### Bestätigungs-Token bei Self-Registration wird im Klartext gespeichert
-- **Quelle**: authentication-flow-review-2026-09-06
-- **Importance**: 2/10
-- **Status**: offen
-- Der Self-Registration-Confirm-Token (`randomBytes(32).toString('hex')`)
-  wird in `pending_registrations.token` im Klartext gespeichert und
-  nachgeschlagen (`server/registry.js:97-103`
-  `addPending`/`server/registry.js:112-116` `getPending`,
-  `server/routes/register.js:50-52`) — im Gegensatz zu Passwort-Reset-Tokens,
-  die per SHA-256 gehasht abgelegt werden (`server/db/users.js:41-57`).
-  Wirkung begrenzt (Registrierungs-Confirm erstellt nur einen Tenant +
-  Erstnutzer für eine vom Angreifer bereits kontrollierte
-  Email/Passwort-Kombination), aber Inkonsistenz zum sonst stärkeren Muster.
-- **Remediation**: Confirm-Token analog zu Reset-Tokens per SHA-256 hashen
-  vor dem Speichern in `pending_registrations`, gehashte Werte in
-  `getPending`/`confirmPending` vergleichen.
-
 ### Kein API-Versionierungsschema
 - **Quelle**: api-and-infrastructure-audit-2026-09-06
 - **Importance**: 2/10
@@ -169,6 +152,27 @@ Nach der Abarbeitung eines jeden offenen Punktes einen commit machen.
 ---
 
 ## Erledigt
+
+### Bestätigungs-Token bei Self-Registration wurde im Klartext gespeichert
+- **Quelle**: authentication-flow-review-2026-09-06
+- **Erledigt**: 2026-09-06
+- Der Self-Registration-Confirm-Token wurde in `pending_registrations.token`
+  im Klartext gespeichert — im Gegensatz zu Passwort-Reset-Tokens, die per
+  SHA-256 gehasht abgelegt werden. Wirkung begrenzt (Registrierungs-Confirm
+  erstellt nur einen Tenant + Erstnutzer für eine vom Angreifer bereits
+  kontrollierte Email/Passwort-Kombination), aber Inkonsistenz zum sonst
+  stärkeren Muster.
+- **Remediation**: `addPending`/`getPending`/`confirmPending` in
+  `registry.js` hashen den Token jetzt per SHA-256 vor Speicherung/Lookup.
+  Nebenbefund beim Umsetzen: der Operator-"Resend"-Pfad
+  (`routes/operator.js`) griff bisher direkt auf `row.token` zu, um ihn
+  erneut in eine Bestätigungsmail einzubetten — mit Hashing (Einwegfunktion)
+  ist der ursprüngliche Klartext nicht mehr verfügbar. Neue Funktion
+  `refreshPendingToken()` erzeugt beim Resend einen frischen Token statt den
+  alten wiederzuverwenden (der alte verliert dabei seine Gültigkeit, analog
+  zum Passwort-Reset-Flow). Tests in `server/test/register.test.js`
+  (Klartext nicht in der DB, `refreshPendingToken` invalidiert den alten
+  Token).
 
 ### Show-Name wurde nicht vor Nutzung im `Content-Disposition`-Dateinamen bereinigt
 - **Quelle**: file-handling-business-logic-audit-2026-09-06
