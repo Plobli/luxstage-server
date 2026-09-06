@@ -15,12 +15,187 @@ Nach der Abarbeitung eines jeden offenen Punktes einen commit machen.
 
 ## Offen
 
-Aktuell keine offenen Punkte, die nicht bereits als bewusst zurückgestellt
-markiert sind — siehe `## Bewusst zurückgestellt` weiter unten.
+### API-Client-Schicht (`web-app/src/api/*.ts`) durchgängig mit `any`/`Promise<any>` typisiert
+- **Quelle**: design-quality-review-2026-09-06
+- **Importance**: 5/10
+- **Status**: offen
+- 55 Vorkommen von `any`/`Promise<any>`/`as any` über 14 Dateien in
+  `web-app/src/api/` (`grep -rn ": any\b\|Promise<any>\|<any>\|as any\b"
+  api/` → 55 Treffer, u.a. `client.ts`, `shows.ts`, `channels.ts`,
+  `floorplan.ts`, `templates.ts`, `sections.ts`, `photos.ts`, `smtp.ts`,
+  `users.ts`, `backup.ts`, `auth.ts`). Das ist genau die Grenze, an der
+  TypeScript den größten Nutzen hätte: jede dieser Funktionen ist die
+  einzige Typ-Schnittstelle zwischen Backend-Response und den aufrufenden
+  Vue-Komponenten/Composables. Konkrete Beispiele:
+  - `api/client.ts:28`: `ApiError`s `body: any = null` — jeder
+    Error-Handling-Code, der auf `e.body.lockedBy`/`e.body.since` zugreift
+    (z.B. `useResourceLock.ts:56`, `useShowLock.ts`), tut das ohne jede
+    Typprüfung; ein Tippfehler im Feldnamen fällt erst zur Laufzeit auf.
+  - `api/shows.ts:27-28,57-59`: SSE-Callback-Payloads (`onLockStatus`,
+    `onTakeoverRequested`, `onPresence`) sind `any` bzw. `(e: any) => ...`
+    — obwohl die Shapes durch den Server exakt vorgegeben sind
+    (`{ lockedBy, since }` etc.).
+  - `api/shows.ts:90-140`: praktisch jede exportierte Funktion
+    (`fetchShows`, `createShow`, `updateMeta`, `fetchHistory`, ...) hat
+    `Promise<any>`/`Promise<any[]>` als Rückgabetyp — ein Refactoring der
+    Server-Antwortform (z.B. Feld umbenennen) wird vom Compiler an keiner
+    einzigen Aufrufstelle im Frontend erkannt.
+  - `api/channels.ts:10`: `[key: string]: any` als Index-Signatur für den
+    Channel-Typ selbst, das zentrale Datenmodell der App.
+  - `api/floorplan.ts`: alle 8 exportierten Funktionen `Promise<any>`.
+  Das Projekt hat bereits eine geteilte Typdeklarationsdatei
+  (`web-app/src/shared.d.ts`, genutzt u.a. für `contrastColor()` aus
+  `@shared/color.js`) — die Infrastruktur für echte Typen an dieser Grenze
+  existiert also schon, wird hier aber nicht genutzt.
+- **Remediation**: Schrittweise echte Interfaces für die häufigsten
+  Response-Shapes einführen (`Show`, `Channel`, `HistoryEntry`,
+  `LockStatus`, `FloorplanData`, ...) statt `any` — am wertvollsten zuerst
+  dort, wo mehrere Aufrufer existieren (`shows.ts`, `channels.ts`) und bei
+  SSE-Callback-Payloads (`onLockStatus`/`onTakeoverRequested`/`onPresence`),
+  da deren Shape bereits serverseitig feststeht und sich leicht als
+  Interface in `shared.d.ts` oder einer neuen `api/types.ts` festhalten
+  lässt. Kein Big-Bang nötig — jede einzelne Funktion kann unabhängig
+  typisiert werden, ohne die anderen zu berühren.
+
+### Kein Graceful Shutdown bei SIGTERM/SIGINT — laufende Requests, SSE-Verbindungen und Mandanten-DB-Handles werden hart gekappt
+- **Quelle**: resilience-review-2026-09-06
+- **Importance**: 6/10
+- **Status**: offen
+- `server/index.js:39-41` registriert für `SIGINT`/`SIGTERM` nur
+  `process.on('SIGINT', () => process.exit(0))` bzw. dasselbe für `SIGTERM` —
+  beide beenden den Prozess sofort, ohne den HTTP-Server zu drainen. Da
+  `install.sh` den Server produktiv unter PM2 betreibt (`ecosystem.config.cjs`,
+  `pm2 start`/`pm2 save`), sendet **jedes** Deployment/jeder Neustart (`pm2
+  restart`, Server-Reboot, `pm2 reload`) ein SIGTERM an den laufenden Prozess.
+  Konkretes Szenario: Ein Nutzer lädt gerade ein Foto hoch (`photos.js`,
+  Multipart-Stream) oder ein Backup-Export läuft (`backup.js`,
+  `streamBackup`), während ein Deploy ausgelöst wird — der Request bricht
+  mitten im Stream ab (Client sieht einen abgeschnittenen Response/Connection
+  Reset), statt sauber zu Ende zu laufen oder mit einem klaren Fehler zu
+  enden. Ebenso werden alle offenen SSE-Verbindungen (`server/sse.js`,
+  `EventSource` pro offener Show) ohne finales Event hart gekappt — der
+  Web-Client bemerkt das erst über den regulären `onerror`-Reconnect-Pfad
+  (funktioniert, aber mit unnötiger Verzögerung/sichtbarem Kurzausfall exakt
+  in dem Moment, wo aktiv an einer Show gearbeitet wird). Zusätzlich werden
+  offene `better-sqlite3`-Tenant-Verbindungen (`server/tenants.js`,
+  `connections`-Map) nie explizit geschlossen, bevor der Prozess endet — bei
+  WAL-Modus unkritisch für Datenintegrität (SQLite committet synchron pro
+  Transaktion), aber ein unsauberer Prozessabbruch mitten in einer laufenden
+  Transaktion ist der in `server/index.js:47` selbst dokumentierte
+  Risiko-Fall ("ein unsauberer Absturz die SQLite-Datei beschädigen kann").
+- **Remediation**: In `server/index.js` beim Empfang von SIGTERM/SIGINT
+  `server.close()` aufrufen (stoppt die Annahme neuer Verbindungen, lässt
+  laufende Requests zu Ende laufen), ein Timeout (z.B. 10-15s, unterhalb von
+  PM2s Default-`kill_timeout`) als harte Obergrenze setzen, danach erst
+  `process.exit(0)`. Offene SSE-Clients (`server/sse.js`, `clients`-Map)
+  vor dem Shutdown mit einem letzten Event benachrichtigen und `res.end()`
+  aufrufen, damit der Frontend-Reconnect sofort statt erst nach dem
+  `onerror`-Timeout greift. Optional: offene Tenant-DB-Verbindungen
+  (`tenants.js`, `connections`-Map) beim Shutdown iterieren und `db.close()`
+  aufrufen, statt sie dem OS-Prozessende zu überlassen.
+
+### Undo/Redo-Ausführung ist keine einzige Transaktion — Crash zwischen den Schritten hinterlässt inkonsistenten Stack
+- **Quelle**: business-logic-review-2026-09-06
+- **Importance**: 6/10
+- **Status**: offen
+- `handleUndoRedo()` (`server/routes/undo-redo.js:20-41`) führt die
+  Undo/Redo-Sequenz als fünf unabhängige, nicht in eine gemeinsame
+  SQLite-Transaktion gefasste Schritte aus: `getEntry()` → `readState()` →
+  `writeState(targetState)` (Zeile 36) → `consumeEntry(entry)` (Zeile 37) →
+  `pushOpposite(currentState)` (Zeile 38). Jeder einzelne Schritt ist zwar für
+  sich transaktional (`writeFullShowState`/`recordSnapshot` nutzen intern
+  `getDb().transaction()`), aber zwischen den Schritten liegt kein
+  gemeinsames Transaktionsdach. Konkretes Szenario: Server stürzt ab (OOM,
+  PM2-Neustart durch Deploy, unbehandelte Exception in einem der
+  `broadcast`-Aufrufe direkt danach) unmittelbar nach `writeState(targetState)`
+  in Zeile 36, aber bevor `consumeEntry(op)` in Zeile 37 den
+  `operations`-Eintrag löscht. Nach Neustart zeigt die Show bereits den
+  wiederhergestellten (alten) Zustand, aber `getLastOperation(show.id)`
+  liefert beim nächsten Undo-Klick weiterhin denselben, jetzt bereits
+  konsumierten Snapshot zurück — ein zweites Undo wendet denselben Snapshot
+  nochmal an, obwohl der tatsächliche "davor"-Zustand (durch zwischenzeitliche
+  Bearbeitung) längst ein anderer sein kann. Ebenso: Crash zwischen
+  `consumeEntry()` (Zeile 37) und `pushOpposite()` (Zeile 38) löscht den
+  Undo-Eintrag korrekt, befüllt aber nie den Redo-Stack — der Nutzer verliert
+  kommentarlos die Möglichkeit, die gerade rückgängig gemachte Aktion wieder
+  herzustellen. Der Hash-Check in Zeile 29 (`computeHash(targetState) !==
+  entry.hash`) schützt nur die Integrität des Snapshots selbst, nicht die
+  Konsistenz der Gesamtsequenz Undo-Anwendung → Stack-Aktualisierung.
+- **Remediation**: `handleUndoRedo()` (bzw. die aufrufenden Stellen in
+  `routes/shows.js`) in eine einzige `getDb().transaction()` fassen, die
+  `readState`, `writeState`, `consumeEntry` und `pushOpposite` atomar
+  ausführt — analog zum bereits vorhandenen Muster in `undo-stack.js`s
+  `withSnapshot()`. `broadcast()` bewusst außerhalb der Transaktion belassen
+  (SSE-Broadcast ist kein DB-Schreibvorgang und soll einen erfolgreichen
+  Commit nicht blockieren).
+
+### `saveShowItemsToTemplate` erzeugt doppelte Template-Bars/-Towers bei Namenskollision statt zu aktualisieren
+- **Quelle**: business-logic-review-2026-09-06
+- **Importance**: 5/10
+- **Status**: offen
+- `applyBarsToTemplate()` und `applyTowersToTemplate()`
+  (`server/db/template-save-from-show.js:9-56` bzw. `:58-98`) bauen die
+  Dedupliziertions-Map `tplBarByName`/`tplTowerByName` (Zeile 13 bzw. 62)
+  **einmal vor** der Schleife aus dem bereits in der DB vorhandenen
+  Template-Bestand auf und aktualisieren diese Map innerhalb der Schleife nie
+  mit neu eingefügten Einträgen. `bars.name`/`towers.name`
+  (`server/db/migrations/012-bars.js:13`, `010-towers.js:13`) haben keine
+  UNIQUE-Constraint — zwei Bars derselben Show können also denselben Namen
+  tragen (z.B. durch Nutzerfehler beim manuellen Umbenennen). Konkretes
+  Szenario: Show "Sommerkonzert" hat zwei Bars, beide fälschlich "Zugstange 1"
+  genannt (unterschiedliche `id`s), keiner davon existiert im Ziel-Template
+  bisher. Ein `POST /api/shows/sommerkonzert/to-template` mit `scope: 'bars'`
+  und `selectedIds: [bar1.id, bar2.id]` (technisch möglich — der
+  Route-Handler in `server/routes/shows.js:104-124` validiert `selectedIds`
+  nur als Array, keine Eindeutigkeits- oder Namensprüfung) läuft beide Male
+  durch den `else`-Zweig (Zeile 25-29 in template-save-from-show.js), weil
+  `tplBarByName.has('Zugstange 1')` beim zweiten Durchlauf immer noch `false`
+  ist — es entstehen zwei separate `template_bars`-Zeilen mit identischem
+  Namen `'Zugstange 1'`. Bei einem späteren `applyBars()`
+  (`template-apply-to-show.js:56-91`, `existingByName`-Deduplizierung nach
+  Namen) wird beim Anwenden dieses Templates auf eine neue Show nur einer der
+  beiden Duplikate berücksichtigt (Zeile 65: `if
+  (!existingByName.has(tb.name))`), der andere bleibt dauerhaft als
+  unerreichbare Karteileiche im Template stehen. Zusätzlich verstärkt
+  `overrideName` (`server/routes/shows.js:113`,
+  `template-save-from-show.js:19`/`:68`) dasselbe Problem: der Server
+  erzwingt nicht, dass `overrideName` nur bei genau einem Element in
+  `selectedIds` gesetzt werden darf — bei mehreren ausgewählten Bars/Towers
+  mit demselben `overrideName` entstehen ebenfalls mehrere Template-Einträge
+  mit identischem Namen (aktuell nur über direkten API-Aufruf erreichbar, da
+  das Frontend `useTemplateInsertion.js:60-67` `overrideName` nur mit einem
+  einzelnen `[tower.id]`/`[bar.id]` sendet — das serverseitige Invariant
+  fehlt aber unabhängig vom Frontend-Verhalten).
+- **Remediation**: In beiden Funktionen die Map nach jedem Insert
+  aktualisieren (`tplBarByName.set(barName, { id: tplBarId })` bzw. analog für
+  Towers), damit Duplikate innerhalb desselben Aufrufs zusammengeführt statt
+  neu angelegt werden. Zusätzlich in `saveShowItemsToTemplate()` (bzw. im
+  Route-Handler `server/routes/shows.js:104-124`) `overrideName` nur
+  akzeptieren, wenn `selectedIds.length === 1` ist — sonst 400 zurückgeben.
 
 ---
 
 ## Erledigt
+
+### Ungefilterter Snapshot-Name im `Content-Disposition`-Header des Operator-Backup-Downloads
+- **Quelle**: security-review-2026-09-06
+- **Erledigt**: 2026-09-06
+- `GET /api/operator/tenants/:id/backups/:name/download` interpolierte den
+  Snapshot-Namen ungefiltert in den `Content-Disposition`-Header —
+  `snapshotPath()` prüft nur `/`, `..` und `.db`-Suffix, nicht `"`/`\r`/`\n`.
+  Analog zum bereits behobenen `pdfFilename()`-Finding, das diesen Pfad aber
+  nicht abdeckte. Praktisch nur betreiberseitig relevant (Snapshot-Namen sind
+  serverseitig generierte ISO-Zeitstempel), aber `snapshotPath()` selbst
+  verlässt sich nicht darauf.
+- **Remediation**: Neue exportierte Funktion
+  `safeContentDispositionFilename()` (`server/routes/operator.js`, analog zum
+  Sanitizing in `pdfFilename()`) entfernt `"`/`\r`/`\n` vor Interpolation in
+  den Header. Tests in `server/test/operator-login.test.js`: Unit-Test der
+  Funktion direkt (da `"`/`\r`/`\n` unter Windows/NTFS keine gültigen
+  Dateizeichen sind und ein dateibasierter End-to-End-Test mit dem realen
+  Angriffsstring deshalb plattformabhängig gescheitert wäre) plus
+  Integrationstest des echten Download-Endpunkts mit einem regulären
+  Snapshot-Namen.
 
 ### Keine automatisierte Dependency-Schwachstellenprüfung in CI
 - **Quelle**: codebase-quality-security-review-2026-09-06

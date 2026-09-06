@@ -29,6 +29,13 @@ import { logger } from '../logger.js'
 
 const log = logger('operator')
 
+// Entfernt Zeichen, die einen gequoteten Content-Disposition-Header aufbrechen
+// (`"`) oder von Node als ungültiger Header-Wert abgelehnt würden (`\r`/`\n`) —
+// analog zum gleichnamigen Fix in pdf.js für pdfFilename().
+export function safeContentDispositionFilename(name) {
+  return name.replace(/[\r\n"]/g, '')
+}
+
 // Kennzahlen eines Mandanten aus seiner DB lesen (Shows, Nutzer).
 function tenantStats(tenantId) {
   if (!tenantExists(tenantId)) return { shows: null, users: null }
@@ -149,9 +156,10 @@ export async function operatorRoutes(req, res, pathname) {
     const name = decodeURIComponent(download[2])
     const p = snapshotPath(id, name)
     if (!p) return json(res, 404, { error: 'Snapshot nicht gefunden' })
+    const safeFilename = safeContentDispositionFilename(`${id}-${name}`)
     res.writeHead(200, {
       'Content-Type': 'application/octet-stream',
-      'Content-Disposition': `attachment; filename="${id}-${name}"`,
+      'Content-Disposition': `attachment; filename="${safeFilename}"`,
     })
     fs.createReadStream(p).pipe(res)
     return

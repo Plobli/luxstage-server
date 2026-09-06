@@ -9,7 +9,7 @@ const { config } = await import('../config.js')
 config.operator.user = 'admin'
 config.operator.password = 'super-secret-operator-pw'
 
-const { operatorRoutes } = await import('../routes/operator.js')
+const { operatorRoutes, safeContentDispositionFilename } = await import('../routes/operator.js')
 const { requireOperator } = await import('../operator.js')
 
 function loginReq(username, password, ip) {
@@ -84,6 +84,40 @@ test('Betreiber-Login-Erfolg/-Fehlschlag wird geloggt (bisher: keine Spur)', asy
   } finally {
     logSpy.mock.restore()
   }
+})
+
+test('safeContentDispositionFilename entfernt Anführungszeichen und Zeilenumbrüche', () => {
+  assert.equal(safeContentDispositionFilename('x".db'), 'x.db')
+  assert.equal(safeContentDispositionFilename('x\r\nSet-Cookie: evil=1.db'), 'xSet-Cookie: evil=1.db')
+  assert.equal(safeContentDispositionFilename('team-2026-09-06T10-00-00-000Z.db'), 'team-2026-09-06T10-00-00-000Z.db')
+})
+
+test('Snapshot-Download nutzt safeContentDispositionFilename für den Content-Disposition-Header', async () => {
+  const { Writable } = await import('node:stream')
+  const { createTenant } = await import('../tenants.js')
+  const { createSnapshot } = await import('../tenant-backup.js')
+
+  const tenantId = 'download-header-team'
+  createTenant(tenantId)
+  const name = await createSnapshot(tenantId)
+
+  const loginRes = createResponse()
+  await operatorRoutes(loginReq('admin', 'super-secret-operator-pw', '20.0.0.9'), loginRes, '/api/operator/login')
+  const { token } = loginRes.body
+
+  const res = new Writable({ write(chunk, enc, cb) { cb() } })
+  res.headers = null
+  res.writeHead = function (code, h) { this.status = code; this.headers = h }
+
+  await operatorRoutes(
+    { method: 'GET', headers: { authorization: `Bearer ${token}` }, socket: { remoteAddress: '20.0.0.9' } },
+    res,
+    `/api/operator/tenants/${tenantId}/backups/${encodeURIComponent(name)}/download`
+  )
+  await new Promise(resolve => res.on('finish', resolve))
+
+  assert.equal(res.status, 200)
+  assert.equal(res.headers['Content-Disposition'], `attachment; filename="${tenantId}-${name}"`)
 })
 
 test('requireOperator loggt eine Ablehnung (fehlendes/ungültiges Token)', () => {
