@@ -34,22 +34,6 @@ Nach der Abarbeitung eines jeden offenen Punktes einen commit machen.
   entsprechendem CSRF-Schutz) die robustere Alternative. Bewusst
   zurückstellbar, da aktuell kein XSS-Vektor bekannt ist.
 
-### Kein PM2-Log-Rotation konfiguriert — unbegrenztes Stdout/Stderr-Wachstum
-- **Quelle**: logging-monitoring-audit-2026-09-06
-- **Importance**: 2/10
-- **Status**: offen
-- Die generierte PM2-Ecosystem-Datei (`install.sh:234-252`) setzt kein
-  `error_file`/`out_file`/`max_size`, und `install.sh` installiert nie
-  `pm2-logrotate`. PM2 hängt standardmäßig jede Stdout-/Stderr-Zeile
-  (inklusive der Pro-API-Request-Zeile `log.info('request', ...)`, die bei
-  jedem `/api/*`-Request feuert) unbegrenzt an `~/.pm2/logs/luxstage-*.log`
-  an — auf einer kleinen Self-Hosted-Box ein langsames
-  Disk-Exhaustion-Risiko, und unrotierte Dateien bedeuten auch keine
-  Aufbewahrungsrichtlinie für sicherheitsrelevante Zeilen.
-- **Remediation**: `pm2 install pm2-logrotate` (mit sinnvollen
-  `max_size`/`retain`/`compress`-Einstellungen) zu den PM2-Setup-Schritten
-  in `install.sh` ergänzen.
-
 ### `deleteFloorplanImage` fehlt der Traversal-Schutz der Schwesterfunktion
 - **Quelle**: input-validation-audit-2026-09-06
 - **Importance**: 2/10
@@ -280,6 +264,17 @@ Nach der Abarbeitung eines jeden offenen Punktes einen commit machen.
 ---
 
 ## Erledigt
+
+### Kein PM2-Log-Rotation konfiguriert — unbegrenztes Stdout/Stderr-Wachstum
+- **Quelle**: logging-monitoring-audit-2026-09-06
+- **Erledigt**: 2026-09-06
+- `install.sh` installierte nie `pm2-logrotate` — PM2 hängt standardmäßig
+  jede Stdout-/Stderr-Zeile unbegrenzt an, auf einer kleinen Self-Hosted-Box
+  ein langsames Disk-Exhaustion-Risiko.
+- **Remediation**: `pm2 install pm2-logrotate` (max_size 10M, retain 14,
+  compress) zu den PM2-Setup-Schritten in `install.sh` ergänzt, direkt nach
+  `pm2 save`. Kein automatisierter Test möglich (Shell-Provisioning-Skript,
+  braucht einen echten Server) — per `bash -n` auf Syntaxfehler geprüft.
 
 ### Backup/Restore-Operationen waren inkonsistent und ohne Akteur-Identität geloggt
 - **Quelle**: logging-monitoring-audit-2026-09-06

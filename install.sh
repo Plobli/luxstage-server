@@ -257,6 +257,20 @@ step "Starte LuxStage mit PM2..."
 sudo -i -u "$SERVICE_USER" bash -c '. $HOME/.nvm/nvm.sh && pm2 start '"'$INSTALL_DIR/ecosystem.config.cjs'"' && pm2 save'
 sudo -i -u "$SERVICE_USER" bash -c 'chmod 600 "$HOME/.pm2/dump.pm2" 2>/dev/null || true'
 
+# ── PM2 Log-Rotation ──────────────────────────────────────────────────────────
+# Ohne dieses Modul haengt PM2 jede Stdout-/Stderr-Zeile (inkl. der
+# Pro-Request-Access-Log-Zeile) unbegrenzt an ~/.pm2/logs/*.log an --
+# auf einer kleinen Self-Hosted-Box ein langsames Disk-Exhaustion-Risiko.
+step "Richte PM2-Log-Rotation ein..."
+sudo -i -u "$SERVICE_USER" bash -c '
+  . $HOME/.nvm/nvm.sh
+  pm2 install pm2-logrotate
+  pm2 set pm2-logrotate:max_size 10M
+  pm2 set pm2-logrotate:retain 14
+  pm2 set pm2-logrotate:compress true
+'
+ok "PM2-Log-Rotation eingerichtet"
+
 PM2_STARTUP=$(sudo -i -u "$SERVICE_USER" bash -c ". \$HOME/.nvm/nvm.sh && pm2 startup systemd -u $SERVICE_USER --hp $SERVICE_HOME" | grep "sudo env" || true)
 [ -n "$PM2_STARTUP" ] && eval "$PM2_STARTUP"
 ok "LuxStage läuft und startet automatisch beim Booten"
