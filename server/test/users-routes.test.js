@@ -11,6 +11,7 @@ function request(method, user, body) {
   req.method = method
   req.user = user
   req.headers = { 'content-type': 'application/json' }
+  req.socket = { remoteAddress: '127.0.0.1' }
   return req
 }
 

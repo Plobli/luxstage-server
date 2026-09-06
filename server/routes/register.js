@@ -7,7 +7,7 @@
 // Bestätigung in der Registry-DB. Erst confirm legt Mandanten-DB + Admin an —
 // nie ein vorangelegter User.
 import { randomBytes } from 'node:crypto'
-import { json, readJsonBody } from '../helpers.js'
+import { json, readJsonBody, clientIp } from '../helpers.js'
 import { hashPassword } from '../auth.js'
 import { config } from '../config.js'
 import { isValidTenantId, createTenant, deleteTenant, tenantExists } from '../tenants.js'
@@ -18,15 +18,24 @@ import { createConfirmedUser } from '../db/users.js'
 import { sendConfirmEmail } from '../email.js'
 import { PASSWORD_MIN_LENGTH, isValidEmail } from '../../shared/constants.js'
 import { logger } from '../logger.js'
+import { createLoginRateLimiter } from '../login-rate-limit.js'
 
 const log = logger('register')
 
 export const CONFIRM_TTL_MS = 24 * 60 * 60 * 1000 // 24 h
 
+// Jeder Request löst einen bcrypt-Hash (Cost 12) sowie eine ausgehende Mail
+// aus — ohne dediziertes Limit nur durch den generischen globalen Limiter
+// (300 Req/60s) begrenzt, ein nennenswertes Budget für anhaltende
+// bcrypt-CPU-Last bzw. Massen-Auslösen von Bestätigungsmails.
+const { isRateLimited: isRegisterRateLimited, recordFailedAttempt: recordRegisterAttempt } = createLoginRateLimiter()
+
 export async function registerRoutes(req, res, pathname) {
   const { method } = req
 
   if (method === 'POST' && pathname === '/api/register') {
+    const ip = clientIp(req)
+    if (isRegisterRateLimited(ip)) return json(res, 429, { error: 'Zu viele Versuche. Bitte warten.' })
     const body = await readJsonBody(req, res); if (body === null) return
     const tenantId = String(body.teamId || '').toLowerCase().trim()
     const email = String(body.email || '').trim()
@@ -36,6 +45,12 @@ export async function registerRoutes(req, res, pathname) {
     if (isReservedSubdomain(tenantId)) return json(res, 409, { error: 'Dieses Team-Kürzel ist reserviert' })
     if (!isValidEmail(email)) return json(res, 400, { error: 'Ungültige E-Mail-Adresse' })
     if (password.length < PASSWORD_MIN_LENGTH) return json(res, 400, { error: `Passwort zu kurz (min. ${PASSWORD_MIN_LENGTH} Zeichen)` })
+
+    // Ab hier zählt jeder Request als Versuch, unabhängig vom Ergebnis —
+    // begrenzt bcrypt-CPU-Last und Massen-Auslösen von Bestätigungsmails pro
+    // IP, analog zum Login-Limiter (der ebenfalls unabhängig vom genauen
+    // Fehlergrund zählt).
+    recordRegisterAttempt(ip)
 
     // Konflikte: Subdomain schon vergeben, offene Anmeldung dafür läuft, oder
     // E-Mail schon Admin eines Mandanten. Der pending-Check verhindert, dass

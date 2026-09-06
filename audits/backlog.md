@@ -259,23 +259,6 @@ Nach der Abarbeitung eines jeden offenen Punktes einen commit machen.
   ausnutzbar bestätigt, günstige Tiefenprüfung vor/während des Parsens
   ergänzen.
 
-### Registrierungs-Endpunkte ohne dediziertes Rate-Limiting
-- **Quelle**: initial-security-analysis-audit-2026-09-06
-- **Importance**: 4/10
-- **Status**: offen
-- `POST /api/register` (`server/routes/register.js:29`) und
-  `POST /api/self-register` (`server/routes/users.js:62`) stehen in
-  `PUBLIC_ROUTES` (`server/route-table.js:37-46`); jeder Request löst einen
-  bcrypt-Hash (Cost 12) sowie eine ausgehende Mail (`sendConfirmEmail`) aus,
-  aber keiner der beiden Endpunkte hat einen dedizierten Attempt-Limiter wie
-  `/api/auth/login` oder `/api/auth/forgot-password` — nur der generische
-  300 Req/60s-Limiter greift. Ermöglicht anhaltende bcrypt-CPU-Last und
-  Massen-Auslösen von Bestätigungsmails (Spam/Mail-Provider-Reputationsschaden)
-  innerhalb des generischen Budgets.
-- **Remediation**: `isRateLimited`/`recordFailedLogin`-Muster aus
-  `server/routes/auth.js` auch für `POST /api/register` und
-  `POST /api/self-register` anwenden.
-
 ### `POST /api/auth/reset-password/confirm` ohne dediziertes Rate-Limiting
 - **Quelle**: initial-security-analysis-audit-2026-09-06
 - **Importance**: 2/10
@@ -330,6 +313,18 @@ Nach der Abarbeitung eines jeden offenen Punktes einen commit machen.
 ---
 
 ## Erledigt
+
+### Registrierungs-Endpunkte hatten kein dediziertes Rate-Limiting
+- **Quelle**: initial-security-analysis-audit-2026-09-06
+- **Erledigt**: 2026-09-06
+- `POST /api/register` und `POST /api/self-register` lösen jeweils einen
+  bcrypt-Hash (Cost 12) und eine ausgehende Mail aus, hatten aber keinen
+  dedizierten Attempt-Limiter — nur der generische 300 Req/60s-Limiter
+  griff, ein nennenswertes Budget für anhaltende bcrypt-CPU-Last bzw.
+  Massen-Auslösen von Bestätigungsmails.
+- **Remediation**: `createLoginRateLimiter()` (aus dem Operator-Login-Fix)
+  auch für beide Endpunkte angewendet, jeweils mit eigenem Zähler-Store.
+  Tests in `server/test/register.test.js` (11. Versuch blockiert).
 
 ### JWT-`verify()`-Aufrufe pinnten `algorithms` nicht explizit
 - **Quelle**: authentication-flow-review-2026-09-06

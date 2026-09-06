@@ -6,8 +6,18 @@ const { addPending, getPending, getRegistry } = await import('../registry.js')
 const { registerRoutes } = await import('../routes/register.js')
 const { closeTenantDb, tenantExists } = await import('../tenants.js')
 
+import { Readable } from 'node:stream'
+
 function confirmRequest(token) {
   return { method: 'GET', url: `/api/register/confirm?token=${token}` }
+}
+
+function postRequest(body, ip) {
+  const req = Readable.from([Buffer.from(JSON.stringify(body))])
+  req.method = 'POST'
+  req.headers = { 'content-type': 'application/json' }
+  req.socket = { remoteAddress: ip }
+  return req
 }
 
 test('bestätigte Registrierung erzeugt Tenant und verbraucht den Link', async () => {
@@ -46,6 +56,18 @@ test('fehlgeschlagener Registry-Commit entfernt vorbereiteten Tenant und behält
   assert.equal(response.status, 409)
   assert.equal(tenantExists('zweites-team'), false)
   assert.ok(getPending(token))
+})
+
+test('11. Registrierungsversuch derselben IP wird mit 429 geblockt', async () => {
+  const ip = '30.0.0.1'
+  for (let i = 0; i < 10; i++) {
+    const res = createResponse()
+    await registerRoutes(postRequest({ teamId: `team-${i}`, email: `t${i}@example.com`, password: 'sicheres-passwort-123' }, ip), res, '/api/register')
+    assert.notEqual(res.status, 429)
+  }
+  const blocked = createResponse()
+  await registerRoutes(postRequest({ teamId: 'team-blocked', email: 'blocked@example.com', password: 'sicheres-passwort-123' }, ip), blocked, '/api/register')
+  assert.equal(blocked.status, 429)
 })
 
 after(() => {

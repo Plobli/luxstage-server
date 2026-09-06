@@ -1,12 +1,17 @@
 import { randomBytes } from 'node:crypto'
 import { approveUser, createSelfRegisteredUserWithHash, createUserWithHash, deleteUser, findUserByEmail, getGridDeckConfig, getUserPreferences, listUsers, setGridDeckConfig, setUserPreferences } from '../db/users.js'
 import { requireAuth, hashPassword } from '../auth.js'
-import { readJsonBody, json } from '../helpers.js'
+import { readJsonBody, json, clientIp } from '../helpers.js'
 import { sendWelcomeEmail, sendApprovalRequestEmail, sendPendingRegistrationEmail } from '../email.js'
 import { PASSWORD_MIN_LENGTH, isValidEmail } from '../../shared/constants.js'
 import { logger } from '../logger.js'
+import { createLoginRateLimiter } from '../login-rate-limit.js'
 
 const log = logger('users')
+
+// Siehe routes/register.js: gleiche Absicherung gegen anhaltende
+// bcrypt-CPU-Last und Massen-Auslösen von Freischalt-/Bestätigungsmails.
+const { isRateLimited: isSelfRegisterRateLimited, recordFailedAttempt: recordSelfRegisterAttempt } = createLoginRateLimiter()
 
 const USER_ID = /^\/api\/users\/([^/]+)$/
 const APPROVE_USER = /^\/api\/users\/([^/]+)\/approve$/
@@ -60,11 +65,14 @@ export async function userRoutes(req, res, pathname) {
   // (Subdomain-Routing hat die passende Tenant-DB gebunden). Neuer Nutzer
   // startet als pending — kein Login möglich, bis ein bestehender Nutzer freischaltet.
   if (method === 'POST' && pathname === '/api/self-register') {
+    const ip = clientIp(req)
+    if (isSelfRegisterRateLimited(ip)) return json(res, 429, { error: 'Zu viele Versuche. Bitte warten.' })
     const body = await readJsonBody(req, res); if (body === null) return
     const email = String(body.email || '').trim()
     const password = String(body.password || '')
     if (!isValidEmail(email)) return json(res, 400, { error: 'Ungültige E-Mail-Adresse' })
     if (password.length < PASSWORD_MIN_LENGTH) return json(res, 400, { error: `Passwort zu kurz (min. ${PASSWORD_MIN_LENGTH} Zeichen)` })
+    recordSelfRegisterAttempt(ip)
     if (findUserByEmail(email)) return json(res, 409, { error: 'E-Mail-Adresse bereits registriert' })
 
     // Reiner INSERT ohne UPSERT: schlägt bei Username-Konflikt hart fehl statt
