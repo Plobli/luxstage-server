@@ -27,6 +27,10 @@ function applyBarsToTemplate(tpl, show, idSet, fields, overrideName, withChannel
       getDb().prepare(
         'INSERT INTO template_bars (id, template_id, name, zug_nr, length_cm, sort_order, bar_type) VALUES (?, ?, ?, ?, ?, ?, ?)'
       ).run(tplBarId, tpl.id, barName, bar.zug_nr ?? '', bar.length_cm ?? 600, currentCount + idx, bar.bar_type ?? 'zugstange')
+      // Map sofort ergänzen: zwei Show-Bars mit demselben (Override-)Namen
+      // innerhalb desselben Aufrufs sollen zusammengeführt werden statt
+      // eines unerreichbaren Duplikats (siehe Backlog-Finding).
+      tplBarByName.set(barName, { id: tplBarId })
     }
     idx++
 
@@ -76,6 +80,10 @@ function applyTowersToTemplate(tpl, show, idSet, fields, overrideName, withChann
       getDb().prepare(
         'INSERT INTO template_towers (id, template_id, name, side, stage_area, slot_count, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?)'
       ).run(tplTowerId, tpl.id, towerName, tower.side ?? '', tower.stage_area ?? '', tower.slot_count, currentCount + idx)
+      // Map sofort ergänzen: zwei Show-Towers mit demselben (Override-)Namen
+      // innerhalb desselben Aufrufs sollen zusammengeführt werden statt
+      // eines unerreichbaren Duplikats (siehe Backlog-Finding).
+      tplTowerByName.set(towerName, { id: tplTowerId })
     }
     idx++
 

@@ -111,6 +111,12 @@ export async function showRoutes(req, res, pathname, params) {
       const selectedIds = Array.isArray(body.selectedIds) ? body.selectedIds : []
       const fields = body.fields && typeof body.fields === 'object' ? body.fields : {}
       const overrideName = typeof body.overrideName === 'string' ? body.overrideName.trim() : null
+      // overrideName ersetzt den Namen JEDES ausgewählten Elements — bei mehr
+      // als einer Auswahl entstünden mehrere Template-Einträge mit demselben
+      // Namen (siehe Backlog-Finding zu saveShowItemsToTemplate).
+      if (overrideName && selectedIds.length !== 1) {
+        return json(res, 400, { error: 'overrideName ist nur bei genau einem ausgewählten Element erlaubt' })
+      }
       const show = requireShow(slug, res)
       if (!show) return
       const templateName = body.templateName ?? show.template

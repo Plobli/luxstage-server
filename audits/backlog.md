@@ -57,53 +57,33 @@ Nach der Abarbeitung eines jeden offenen Punktes einen commit machen.
   lässt. Kein Big-Bang nötig — jede einzelne Funktion kann unabhängig
   typisiert werden, ohne die anderen zu berühren.
 
-### `saveShowItemsToTemplate` erzeugt doppelte Template-Bars/-Towers bei Namenskollision statt zu aktualisieren
-- **Quelle**: business-logic-review-2026-09-06
-- **Importance**: 5/10
-- **Status**: offen
-- `applyBarsToTemplate()` und `applyTowersToTemplate()`
-  (`server/db/template-save-from-show.js:9-56` bzw. `:58-98`) bauen die
-  Dedupliziertions-Map `tplBarByName`/`tplTowerByName` (Zeile 13 bzw. 62)
-  **einmal vor** der Schleife aus dem bereits in der DB vorhandenen
-  Template-Bestand auf und aktualisieren diese Map innerhalb der Schleife nie
-  mit neu eingefügten Einträgen. `bars.name`/`towers.name`
-  (`server/db/migrations/012-bars.js:13`, `010-towers.js:13`) haben keine
-  UNIQUE-Constraint — zwei Bars derselben Show können also denselben Namen
-  tragen (z.B. durch Nutzerfehler beim manuellen Umbenennen). Konkretes
-  Szenario: Show "Sommerkonzert" hat zwei Bars, beide fälschlich "Zugstange 1"
-  genannt (unterschiedliche `id`s), keiner davon existiert im Ziel-Template
-  bisher. Ein `POST /api/shows/sommerkonzert/to-template` mit `scope: 'bars'`
-  und `selectedIds: [bar1.id, bar2.id]` (technisch möglich — der
-  Route-Handler in `server/routes/shows.js:104-124` validiert `selectedIds`
-  nur als Array, keine Eindeutigkeits- oder Namensprüfung) läuft beide Male
-  durch den `else`-Zweig (Zeile 25-29 in template-save-from-show.js), weil
-  `tplBarByName.has('Zugstange 1')` beim zweiten Durchlauf immer noch `false`
-  ist — es entstehen zwei separate `template_bars`-Zeilen mit identischem
-  Namen `'Zugstange 1'`. Bei einem späteren `applyBars()`
-  (`template-apply-to-show.js:56-91`, `existingByName`-Deduplizierung nach
-  Namen) wird beim Anwenden dieses Templates auf eine neue Show nur einer der
-  beiden Duplikate berücksichtigt (Zeile 65: `if
-  (!existingByName.has(tb.name))`), der andere bleibt dauerhaft als
-  unerreichbare Karteileiche im Template stehen. Zusätzlich verstärkt
-  `overrideName` (`server/routes/shows.js:113`,
-  `template-save-from-show.js:19`/`:68`) dasselbe Problem: der Server
-  erzwingt nicht, dass `overrideName` nur bei genau einem Element in
-  `selectedIds` gesetzt werden darf — bei mehreren ausgewählten Bars/Towers
-  mit demselben `overrideName` entstehen ebenfalls mehrere Template-Einträge
-  mit identischem Namen (aktuell nur über direkten API-Aufruf erreichbar, da
-  das Frontend `useTemplateInsertion.js:60-67` `overrideName` nur mit einem
-  einzelnen `[tower.id]`/`[bar.id]` sendet — das serverseitige Invariant
-  fehlt aber unabhängig vom Frontend-Verhalten).
-- **Remediation**: In beiden Funktionen die Map nach jedem Insert
-  aktualisieren (`tplBarByName.set(barName, { id: tplBarId })` bzw. analog für
-  Towers), damit Duplikate innerhalb desselben Aufrufs zusammengeführt statt
-  neu angelegt werden. Zusätzlich in `saveShowItemsToTemplate()` (bzw. im
-  Route-Handler `server/routes/shows.js:104-124`) `overrideName` nur
-  akzeptieren, wenn `selectedIds.length === 1` ist — sonst 400 zurückgeben.
-
 ---
 
 ## Erledigt
+
+### `saveShowItemsToTemplate` erzeugte doppelte Template-Bars/-Towers bei Namenskollision statt zu aktualisieren
+- **Quelle**: business-logic-review-2026-09-06
+- **Erledigt**: 2026-09-06
+- `applyBarsToTemplate()`/`applyTowersToTemplate()` bauten die
+  Dedupliziertions-Map `tplBarByName`/`tplTowerByName` einmal vor der
+  Schleife auf und aktualisierten sie nie mit neu eingefügten Einträgen —
+  zwei gleichnamige Show-Bars/-Towers (kein UNIQUE-Constraint auf
+  `bars.name`/`towers.name`) erzeugten beim Speichern ins selbe Template
+  zwei identisch benannte, aber separate Zeilen; eine davon wurde bei
+  künftigem Template-Apply dauerhaft unerreichbar. `overrideName` verstärkte
+  dasselbe Problem ohne serverseitige Eindeutigkeitsprüfung.
+- **Remediation**: Beide Funktionen (`server/db/template-save-from-show.js`)
+  aktualisieren die Map jetzt sofort nach jedem Insert
+  (`tplBarByName.set(barName, { id: tplBarId })` bzw. analog für Towers) —
+  Duplikate innerhalb desselben Aufrufs werden dadurch zusammengeführt statt
+  neu angelegt. `POST /api/shows/:slug/to-template`
+  (`server/routes/shows.js`) lehnt `overrideName` jetzt mit 400 ab, wenn
+  mehr als ein Element in `selectedIds` ausgewählt ist. Neue Tests in
+  `server/test/template-save-from-show.test.js` (4 Fälle: Bar-Duplikate,
+  Tower-Duplikate, `overrideName` bei Mehrfachauswahl abgelehnt,
+  `overrideName` bei Einzelauswahl weiterhin erlaubt) — per `git stash`
+  gegen den ungefixten Code verifiziert, dass 3 der 4 Tests den
+  Regressionsfall tatsächlich fangen.
 
 ### Undo/Redo-Ausführung ist keine einzige Transaktion — Crash zwischen den Schritten hinterlässt inkonsistenten Stack
 - **Quelle**: business-logic-review-2026-09-06
