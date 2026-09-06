@@ -15,25 +15,6 @@ Nach der Abarbeitung eines jeden offenen Punktes einen commit machen.
 
 ## Offen
 
-### JWT wird im Frontend in `localStorage` statt in einem `HttpOnly`-Cookie gespeichert
-- **Quelle**: session-cookie-security-audit-2026-09-06
-- **Importance**: 2/10
-- **Status**: offen
-- `web-app/src/api/client.ts:22-23` (`getToken`/`setToken`) speichert das
-  Session-JWT in `localStorage` (`TOKEN_KEY`), ebenso
-  `UpdateView.vue:144`/`SmtpView.vue:108`. Die App nutzt durchgängig
-  Header-basiertes Bearer-Auth ohne jegliche Cookies (bestätigt: kein
-  `Set-Cookie` im gesamten Repo) — das macht CSRF strukturell irrelevant,
-  vergrößert aber die Angriffsfläche bei einer künftigen XSS-Lücke, da das
-  Token direkt aus JS auslesbar ist statt durch `HttpOnly` geschützt zu
-  sein. Ein vorheriges XSS-Audit hat bestätigt, dass aktuell kein
-  `v-html`/Injection-Pfad existiert — rein ein
-  Defense-in-Depth-Punkt, kein aktiver Fund.
-- **Remediation**: Kein akuter Handlungsbedarf; falls je eine XSS-Lücke
-  auftaucht, wäre `HttpOnly`-Cookie-basierte Token-Übergabe (mit
-  entsprechendem CSRF-Schutz) die robustere Alternative. Bewusst
-  zurückstellbar, da aktuell kein XSS-Vektor bekannt ist.
-
 ### Kein Refresh-Token-Mechanismus — Access-Token dient als eigenes "Refresh"
 - **Quelle**: authentication-flow-review-2026-09-06
 - **Importance**: 3/10
@@ -677,6 +658,29 @@ weil sie ein bewusster Architektur-Trade-off sind (kein Bug), oder weil eine
 Umsetzung erst bei einem konkreten Anlass sinnvoll geprüft werden sollte.
 Anders als `## Verworfen` sind das keine geprüften Nicht-Probleme, sondern
 aktive Entscheidungen, aktuell nichts zu tun.
+
+### JWT wird im Frontend in `localStorage` statt in einem `HttpOnly`-Cookie gespeichert
+- **Quelle**: session-cookie-security-audit-2026-09-06
+- **Importance**: 2/10
+- **Status**: bewusst zurückgestellt, geprüft 2026-09-06
+- `web-app/src/api/client.ts` (`getToken`/`setToken`) speichert das
+  Session-JWT in `localStorage`. Die App nutzt durchgängig Header-basiertes
+  Bearer-Auth ohne jegliche Cookies (bestätigt: kein `Set-Cookie` im
+  gesamten Repo) — das macht CSRF strukturell irrelevant, vergrößert aber
+  die Angriffsfläche bei einer künftigen XSS-Lücke, da das Token direkt aus
+  JS auslesbar ist statt durch `HttpOnly` geschützt zu sein. Ein vorheriges
+  XSS-Audit hat bestätigt, dass aktuell kein `v-html`/Injection-Pfad
+  existiert.
+- **Grund für Zurückstellung**: Eine Umstellung auf `HttpOnly`-Cookies wäre
+  ein grundlegender Auth-Architektur-Umbau, kein lokaler Fix — bräuchte
+  serverseitigen CSRF-Schutz (aktuell strukturell nicht nötig), eine Lösung
+  für SSE/`EventSource` (kann keine Header setzen, aktuell über
+  zweckgebundene Query-Tokens gelöst) und würde native/mobile Client-Pfade
+  betreffen. Kein aktiver XSS-Vektor bekannt, der das rechtfertigt. Bewusst
+  als Defense-in-Depth-Punkt zurückgestellt, nicht als Bug behandelt.
+- **Remediation**: Falls je eine XSS-Lücke auftaucht, wäre
+  `HttpOnly`-Cookie-basierte Token-Übergabe (mit entsprechendem
+  CSRF-Schutz) die robustere Alternative.
 
 ### `useShowChannels.ts` kombiniert 5 Konzerne in einem Composable
 - **Quelle**: 2026-09-05-software-design-analysis.md, Finding 4c
