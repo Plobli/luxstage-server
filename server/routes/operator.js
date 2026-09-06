@@ -25,6 +25,9 @@ import { sendConfirmEmail } from '../email.js'
 import { CONFIRM_TTL_MS } from './register.js'
 import { version } from '../version.js'
 import fs from 'node:fs'
+import { logger } from '../logger.js'
+
+const log = logger('operator')
 
 // Kennzahlen eines Mandanten aus seiner DB lesen (Shows, Nutzer).
 function tenantStats(tenantId) {
@@ -55,8 +58,10 @@ export async function operatorRoutes(req, res, pathname) {
     const result = operatorLogin(String(body.username || ''), String(body.password || ''))
     if (!result) {
       recordFailedOperatorLogin(ip)
+      log.warn('Betreiber-Login fehlgeschlagen', { ip })
       return json(res, 401, { error: 'Ungültige Betreiber-Anmeldedaten' })
     }
+    log.info('Betreiber-Login erfolgreich', { ip })
     return json(res, 200, result)
   }
 

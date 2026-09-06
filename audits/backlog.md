@@ -34,27 +34,6 @@ Nach der Abarbeitung eines jeden offenen Punktes einen commit machen.
   entsprechendem CSRF-Schutz) die robustere Alternative. Bewusst
   zurückstellbar, da aktuell kein XSS-Vektor bekannt ist.
 
-### Operator-Panel-Login wird gar nicht geloggt (weder Erfolg noch Fehlschlag)
-- **Quelle**: logging-monitoring-audit-2026-09-06
-- **Importance**: 6/10
-- **Status**: offen
-- Anders als `server/routes/auth.js` (Tenant-Login, loggt jeden
-  Erfolg/Fehlschlag/Pending-Fall via `logger('auth')`) haben
-  `operatorLogin()` (`server/operator.js:21-27`) und `requireOperator()`
-  (`server/operator.js:30-41`) überhaupt keine Logging-Aufrufe — nicht
-  einmal eine Fehlschlag-Zeile. Ein fehlgeschlagener oder erfolgreicher
-  Operator-Login, oder ein abgelehntes/abgelaufenes Operator-JWT an einer
-  `/api/operator/*`-Route, hinterlässt keine Spur. Das ist die
-  höchstprivilegierte Credential im System (ein geteiltes
-  ENV-Nutzername/Passwort, das Tenant-Löschung, -Suspendierung und
-  DB-Restore für jeden Tenant schützt) — es gibt keine Möglichkeit,
-  Brute-Force-Versuche zu erkennen oder nachträglich zu untersuchen, ob der
-  Operator-Account sondiert oder kompromittiert wurde.
-- **Remediation**: `logger('operator')`-Aufrufe analog zu `auth.js`
-  ergänzen: warn bei Fehlschlag (nur Ergebnis, kein Passwort), info bei
-  Erfolg, warn wenn `requireOperator` ein fehlendes/ungültiges/abgelaufenes
-  Token ablehnt, jeweils mit `clientIp(req)`.
-
 ### Log-Injection über unbereinigten Snapshot-Namen im Operator-Panel-Log
 - **Quelle**: logging-monitoring-audit-2026-09-06
 - **Importance**: 4/10
@@ -435,6 +414,22 @@ Nach der Abarbeitung eines jeden offenen Punktes einen commit machen.
 ---
 
 ## Erledigt
+
+### Operator-Panel-Login wurde gar nicht geloggt (weder Erfolg noch Fehlschlag)
+- **Quelle**: logging-monitoring-audit-2026-09-06
+- **Erledigt**: 2026-09-06
+- Anders als der Tenant-Login (`server/routes/auth.js`, loggt jeden
+  Erfolg/Fehlschlag/Pending-Fall) hatten `operatorLogin()` und
+  `requireOperator()` überhaupt keine Logging-Aufrufe — kein
+  fehlgeschlagener/erfolgreicher Operator-Login und kein
+  abgelehntes/abgelaufenes Operator-JWT hinterließ eine Spur, bei der
+  höchstprivilegierten Credential im System.
+- **Remediation**: `logger('operator')`-Aufrufe ergänzt: `routes/operator.js`
+  loggt Login-Erfolg (info) und -Fehlschlag (warn) inkl. `clientIp(req)`;
+  `requireOperator()` (`server/operator.js`) loggt jede Ablehnung (fehlendes
+  Token, ungültiges/abgelaufenes Token, falscher Scope) als warn. Tests in
+  `server/test/operator-login.test.js` (Log-Zeilen per `mock.method(console,
+  'log')` verifiziert).
 
 ### Operator-Login (SaaS-Admin) hatte kein dediziertes Brute-Force-Rate-Limiting
 - **Quelle**: initial-security-analysis-audit-2026-09-06

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { Readable } from 'node:stream'
-import { after, test } from 'node:test'
+import { after, mock, test } from 'node:test'
 import { cleanupDataPath, createResponse } from './helpers/test-env.js'
 
 process.env.OPERATOR_USER = 'admin'
@@ -10,6 +10,7 @@ config.operator.user = 'admin'
 config.operator.password = 'super-secret-operator-pw'
 
 const { operatorRoutes } = await import('../routes/operator.js')
+const { requireOperator } = await import('../operator.js')
 
 function loginReq(username, password, ip) {
   const req = Readable.from([Buffer.from(JSON.stringify({ username, password }))])
@@ -67,6 +68,36 @@ test('Operator-Rate-Limit ist unabhängig vom Tenant-Login-Rate-Limit (getrennte
   const res = createResponse()
   await operatorRoutes(loginReq('admin', 'super-secret-operator-pw', ip), res, '/api/operator/login')
   assert.equal(res.status, 200)
+})
+
+test('Betreiber-Login-Erfolg/-Fehlschlag wird geloggt (bisher: keine Spur)', async () => {
+  const logSpy = mock.method(console, 'log', () => {})
+  try {
+    const ok = createResponse()
+    await operatorRoutes(loginReq('admin', 'super-secret-operator-pw', '20.0.0.5'), ok, '/api/operator/login')
+    const fail = createResponse()
+    await operatorRoutes(loginReq('admin', 'falsch', '20.0.0.6'), fail, '/api/operator/login')
+
+    const lines = logSpy.mock.calls.map(c => c.arguments[0])
+    assert.ok(lines.some(l => l.includes('[operator]') && l.includes('erfolgreich') && l.includes('20.0.0.5')))
+    assert.ok(lines.some(l => l.includes('[operator]') && l.includes('fehlgeschlagen') && l.includes('20.0.0.6')))
+  } finally {
+    logSpy.mock.restore()
+  }
+})
+
+test('requireOperator loggt eine Ablehnung (fehlendes/ungültiges Token)', () => {
+  const logSpy = mock.method(console, 'log', () => {})
+  try {
+    const res = createResponse()
+    requireOperator({ headers: {}, socket: { remoteAddress: '20.0.0.7' } }, res)
+    assert.equal(res.status, 401)
+
+    const lines = logSpy.mock.calls.map(c => c.arguments[0])
+    assert.ok(lines.some(l => l.includes('[operator]') && l.includes('ohne Token')))
+  } finally {
+    logSpy.mock.restore()
+  }
 })
 
 after(cleanupDataPath)
