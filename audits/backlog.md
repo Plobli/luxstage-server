@@ -34,22 +34,6 @@ Nach der Abarbeitung eines jeden offenen Punktes einen commit machen.
   entsprechendem CSRF-Schutz) die robustere Alternative. Bewusst
   zurückstellbar, da aktuell kein XSS-Vektor bekannt ist.
 
-### Cross-Tenant-Token-Wiederverwendung (403) nicht identifizierbar geloggt
-- **Quelle**: logging-monitoring-audit-2026-09-06
-- **Importance**: 3/10
-- **Status**: offen
-- Bei `user.tenantId !== tenantId` (`server/router.js:264-267`, ein für
-  einen Tenant ausgestelltes JWT wird gegen die Subdomain eines anderen
-  Tenants verwendet) wird mit 403 abgelehnt, aber außer dem generischen
-  Access-Log (`log.info('request', ...)`, Zeile 167, dessen Closure vor
-  Setzen von `req.user` gebaut wird und daher weder Username noch
-  ursprünglichen Token-Tenant enthält) wird nichts erfasst — der 403 ist im
-  Log nicht von anderen 403s zu unterscheiden.
-- **Remediation**: `log.warn('Cross-Tenant-Tokenverwendung', { user:
-  user.username, tokenTenant: user.tenantId, hostTenant: tenantId, ip:
-  clientIp(req) })` vor dem 403-Return in `server/router.js:265-267`
-  ergänzen.
-
 ### Backup/Restore-Operationen inkonsistent und ohne Akteur-Identität geloggt
 - **Quelle**: logging-monitoring-audit-2026-09-06
 - **Importance**: 3/10
@@ -313,6 +297,23 @@ Nach der Abarbeitung eines jeden offenen Punktes einen commit machen.
 ---
 
 ## Erledigt
+
+### Cross-Tenant-Token-Wiederverwendung (403) war nicht identifizierbar geloggt
+- **Quelle**: logging-monitoring-audit-2026-09-06
+- **Erledigt**: 2026-09-06
+- Bei `user.tenantId !== tenantId` (ein für einen Tenant ausgestelltes JWT
+  gegen die Subdomain eines anderen Tenants verwendet) wurde mit 403
+  abgelehnt, aber außer dem generischen Access-Log (dessen Closure vor
+  Setzen von `req.user` gebaut wird) nichts erfasst — im Log nicht von
+  anderen 403s zu unterscheiden.
+- **Remediation**: `log.warn('Cross-Tenant-Tokenverwendung', { user,
+  tokenTenant, hostTenant, ip })` vor dem 403-Return in `server/router.js`
+  ergänzt. Kein dedizierter Test: der Pfad hängt am Multi-Tenant-SaaS-Modus
+  (`BASE_DOMAIN` gesetzt), bestehende `router.test.js`-Tests laufen im
+  Self-Hosted-Modus ohne Tenant-Kontext — ein echter Testaufbau bräuchte
+  eine vollständige zweite Tenant-DB und Host-Header-Routing, unverhältnismäßig
+  für eine reine Logging-Ergänzung (Importance 3/10). Bestehende
+  Router-Tests bleiben grün (keine Regression).
 
 ### Registrierungs-Endpunkte hatten kein dediziertes Rate-Limiting
 - **Quelle**: initial-security-analysis-audit-2026-09-06

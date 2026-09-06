@@ -2,7 +2,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import zlib from 'node:zlib'
 import { fileURLToPath } from 'node:url'
-import { parseUrl, notFound, json } from './helpers.js'
+import { parseUrl, notFound, json, clientIp } from './helpers.js'
 import { authenticate } from './auth.js'
 import { getTenantId } from './db-context.js'
 import { saasEnabled, getSaas } from './saas.js'
@@ -263,6 +263,13 @@ async function handleApi(req, res, pathname, params) {
     // auf der Subdomain von Mandant B gelten.
     const tenantId = getTenantId()
     if (tenantId && user.tenantId !== tenantId) {
+      // Eigene Log-Zeile statt Verlass auf das generische Access-Log: dessen
+      // Closure (log.info('request', ...) weiter unten) wird gebaut, bevor
+      // req.user gesetzt ist, und enthält daher weder Username noch
+      // ursprünglichen Token-Tenant — ohne dies wäre ein für Mandant A
+      // ausgestelltes Token, das gegen Mandant B verwendet wird, im Log
+      // nicht von jedem anderen 403 zu unterscheiden.
+      log.warn('Cross-Tenant-Tokenverwendung', { user: user.username, tokenTenant: user.tenantId, hostTenant: tenantId, ip: clientIp(req) })
       return json(res, 403, { error: 'Token gilt nicht für diesen Mandanten' })
     }
     req.user = user
