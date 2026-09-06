@@ -13,6 +13,12 @@ export const config = {
   port: parseInt(process.env.PORT || '3000'),
   dataPath: process.env.DATA_PATH || path.join(__dirname, '..', 'data'),
   jwtSecret,
+  // Eigenes Secret für die Settings-at-Rest-Verschlüsselung (db/settings.js),
+  // damit ein JWT_SECRET-Leak nicht automatisch auch gespeicherte Secrets
+  // (z.B. SMTP-Passwort) entschlüsselbar macht. Fallback auf jwtSecret hält
+  // bestehende Deployments ohne diese neue Variable funktionsfähig — wer
+  // Schlüsseltrennung will, setzt SETTINGS_ENC_KEY explizit.
+  settingsEncKey: process.env.SETTINGS_ENC_KEY || jwtSecret,
   appUrl: process.env.APP_URL || 'http://localhost:5173',
   trustProxy: process.env.TRUST_PROXY === 'true',
   // SaaS: Basis-Domain, unter der Mandanten als Subdomain laufen (z. B. luxstage.app

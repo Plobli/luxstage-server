@@ -15,21 +15,6 @@ Nach der Abarbeitung eines jeden offenen Punktes einen commit machen.
 
 ## Offen
 
-### Kein API-Versionierungsschema
-- **Quelle**: api-and-infrastructure-audit-2026-09-06
-- **Importance**: 2/10
-- **Status**: offen
-- Alle Endpunkte liegen unter einem flachen `/api/...`-Namespace ohne
-  Versions-Segment, Versions-Header oder Deprecation-Mechanismus
-  (`server/version.js` liefert nur die App-/Build-Version, keinen
-  API-Contract). Kein aktives Sicherheitsproblem, aber ein
-  Rollout-/Kompatibilitätsrisiko, sobald mehrere Client-Versionen
-  (native App + Web-SPA laut `docs/deploy-cx43.md`) parallel unterstützt
-  werden müssen.
-- **Remediation**: Niedrige Priorität; bei Bedarf minimalen
-  Versions-Marker (URL-Präfix oder Header) einführen, bevor ein
-  Breaking-Change-Vorfall eintritt.
-
 ### Backup/Restore-Endpunkte nur mit einfacher Auth statt erhöhtem Privileg
 - **Quelle**: database-security-audit-2026-09-06
 - **Importance**: 3/10
@@ -47,28 +32,23 @@ Nach der Abarbeitung eines jeden offenen Punktes einen commit machen.
   authentifizierten Nutzer; andernfalls als akzeptiertes Risiko des flachen
   Berechtigungsmodells (kleines vertrauenswürdiges Team) dokumentieren.
 
-### Verschlüsselungsschlüssel für Settings-at-Rest wird aus JWT_SECRET abgeleitet
-- **Quelle**: database-security-audit-2026-09-06
-- **Importance**: 3/10
-- **Status**: offen
-- Der AES-256-GCM-Schlüssel, der Secrets at Rest schützt (z.B. SMTP-Passwort
-  in `db/settings.js`/`setSecretSetting`), wird per HKDF aus `JWT_SECRET`
-  abgeleitet (`server/auth.js:47`,
-  `hkdfSync('sha256', config.jwtSecret, 'luxstage-settings', ...)`). Ein Leak
-  von `JWT_SECRET` kompromittiert damit sowohl Session-Fälschung als auch die
-  Entschlüsselung gespeicherter Secrets — reduziert Defense-in-Depth
-  zwischen zwei eigentlich trennbaren Vertrauensdomänen. Verwandt mit
-  bestehendem Punkt zu JWT-Secret-Rotation (siehe
-  `## Bewusst zurückgestellt` → "JWT-Secret ohne Rotationsmechanismus"),
-  aber ein eigenständiges Problem (Schlüsseltrennung, nicht Rotation).
-- **Remediation**: Settings-Verschlüsselungsschlüssel aus einem eigenen
-  Secret ableiten (z.B. separate `SETTINGS_ENC_KEY`-Umgebungsvariable), oder
-  die Kopplung als dokumentierten Trade-off akzeptieren, da HKDF bereits
-  über den `'luxstage-settings'`-Info-String domain-separiert.
-
 ---
 
 ## Erledigt
+
+### Verschlüsselungsschlüssel für Settings-at-Rest wurde aus JWT_SECRET abgeleitet
+- **Quelle**: database-security-audit-2026-09-06
+- **Erledigt**: 2026-09-06
+- Der AES-256-GCM-Schlüssel für Secrets at Rest (z.B. SMTP-Passwort) wurde
+  per HKDF direkt aus `JWT_SECRET` abgeleitet — ein Leak von `JWT_SECRET`
+  hätte damit sowohl Session-Fälschung als auch die Entschlüsselung
+  gespeicherter Secrets ermöglicht, obwohl beides eigentlich trennbare
+  Vertrauensdomänen sind.
+- **Remediation**: Neue optionale `SETTINGS_ENC_KEY`-Umgebungsvariable
+  (`config.settingsEncKey`, Fallback auf `jwtSecret` für
+  Rückwärtskompatibilität mit bestehenden Deployments/verschlüsselten
+  Werten). `db/settings.js` leitet den AES-Schlüssel jetzt daraus ab statt
+  aus `jwtSecret` direkt. Test in `server/test/settings-enc-key.test.js`.
 
 ### Kein expliziertes JSON-Nesting-Depth-Limit
 - **Quelle**: api-and-infrastructure-audit-2026-09-06
@@ -757,6 +737,24 @@ aktive Entscheidungen, aktuell nichts zu tun.
 - **Status**: bewusst zurückgestellt (architektonische Grundsatzentscheidung,
   kein Bug; "no framework, minimal dependencies"-Philosophie ist im Projekt
   durchgängig sichtbar)
+
+### Kein API-Versionierungsschema
+- **Quelle**: api-and-infrastructure-audit-2026-09-06
+- **Importance**: 2/10
+- **Status**: bewusst zurückgestellt, geprüft 2026-09-06
+- Alle Endpunkte liegen unter einem flachen `/api/...`-Namespace ohne
+  Versions-Segment, Versions-Header oder Deprecation-Mechanismus. Kein
+  aktives Sicherheitsproblem, aber ein Rollout-/Kompatibilitätsrisiko,
+  sobald mehrere Client-Versionen (native App + Web-SPA) parallel
+  unterstützt werden müssen.
+- **Grund für Zurückstellung**: Dieselbe "no framework, minimal
+  dependencies"-Philosophie wie beim benachbarten Punkt (kein
+  API-Framework/OpenAPI-Schema) — eine Versionierung vorab einzuführen ohne
+  einen konkreten Breaking-Change-Anlass wäre spekulative Vorabarbeit ohne
+  aktuellen Nutzen. Der Quell-Audit selbst empfiehlt "bei Bedarf", nicht
+  präventiv.
+- **Remediation**: Bei Bedarf minimalen Versions-Marker (URL-Präfix oder
+  Header) einführen, bevor ein Breaking-Change-Vorfall eintritt.
 
 ---
 

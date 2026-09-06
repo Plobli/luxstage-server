@@ -43,8 +43,11 @@ export function isValidPhotosPerPage(n) {
   return VALID_PHOTOS_PER_PAGE.includes(n)
 }
 
-// Eigener Zweck-Schlüssel, damit derselbe JWT_SECRET nicht doppelt genutzt wird.
-const SECRET_KEY = Buffer.from(hkdfSync('sha256', config.jwtSecret, 'luxstage-settings', 'aes-256-gcm', 32))
+// Eigener Zweck-Schlüssel: config.settingsEncKey ist standardmäßig jwtSecret
+// (Rückwärtskompatibilität), kann aber per SETTINGS_ENC_KEY-Umgebungsvariable
+// getrennt gesetzt werden, damit ein JWT_SECRET-Leak nicht automatisch auch
+// gespeicherte Secrets (z.B. SMTP-Passwort) entschlüsselbar macht.
+const SECRET_KEY = Buffer.from(hkdfSync('sha256', config.settingsEncKey, 'luxstage-settings', 'aes-256-gcm', 32))
 
 // Verschlüsselte Ablage für Secrets at rest (z. B. SMTP-Passwort), die in Backups landen können.
 export function setSecretSetting(key, plain) {
