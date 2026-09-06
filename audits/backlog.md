@@ -22,6 +22,21 @@ markiert sind — siehe `## Bewusst zurückgestellt` weiter unten.
 
 ## Erledigt
 
+### Keine automatisierte Dependency-Schwachstellenprüfung in CI
+- **Quelle**: codebase-quality-security-review-2026-09-06
+- **Erledigt**: 2026-09-06
+- Kein `npm audit`-Job in CI — 34 bekannte Schwachstellen (5 High: sharp/
+  libvips, nodemailer CRLF-Injection & SSRF-Bypass, vite/fast-uri) waren
+  unbemerkt im Dependency-Baum.
+- **Remediation**: `sharp` 0.33→0.35, `nodemailer` 8→10 (Major, API in
+  diesem Projekt nur über stabile Grundfunktionen genutzt — `sharp()`,
+  `.rotate()`, `.metadata()`, `nodemailer.createTransport()` — keine
+  Codeänderung nötig), `@tiptap/*`/`vite`/`fast-uri` Patch-Updates. `npm
+  audit` meldet jetzt 0 Vulnerabilities. `npm audit --audit-level=high` als
+  neuer Schritt in `.github/workflows/test.yml`, läuft bei jedem Push/PR vor
+  der Testsuite. Volle Test-Suiten (Server 194 Tests, Web-App 119 Tests)
+  nach dem Upgrade grün.
+
 ### Kein Health-Check-Endpoint für Uptime-Monitoring
 - **Quelle**: codebase-quality-security-review-2026-09-06
 - **Erledigt**: 2026-09-06 (bereits vorhanden, verifiziert)
