@@ -15,9 +15,15 @@ import { groupByPosition, fmt } from './pdf/utils.js'
 import { drawFloorplanVector } from './pdf/floorplan-vector.js'
 
 /** Dateiname für den Content-Disposition-Header — hier, damit alle
- *  Auslieferungswege denselben Namen verwenden. */
+ *  Auslieferungswege denselben Namen verwenden.
+ *  showName ist frei wählbarer Nutzertext (Show-Erstellung, keine
+ *  Validierung in db/shows.js) — CR/LF und `"` entfernt, da Node bei einem
+ *  eingebetteten Zeilenumbruch im Header-Wert sonst mit ERR_INVALID_CHAR
+ *  wirft (bricht den PDF-/Netzwerk-Export dauerhaft) und `"` einen
+ *  fehlerhaften Dateinamen im gequoteten Content-Disposition-Wert erzeugt. */
 export function pdfFilename(showName, blank = false) {
-  return `${blank ? 'kreisliste-vordruck' : 'einleuchtplan'}-${showName || 'show'}.pdf`
+  const safeName = (showName || 'show').replace(/[\r\n"]/g, '')
+  return `${blank ? 'kreisliste-vordruck' : 'einleuchtplan'}-${safeName}.pdf`
 }
 
 /**

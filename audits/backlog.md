@@ -34,26 +34,6 @@ Nach der Abarbeitung eines jeden offenen Punktes einen commit machen.
   entsprechendem CSRF-Schutz) die robustere Alternative. Bewusst
   zurückstellbar, da aktuell kein XSS-Vektor bekannt ist.
 
-### Show-Name wird nicht vor Nutzung im `Content-Disposition`-Dateinamen bereinigt
-- **Quelle**: file-handling-business-logic-audit-2026-09-06
-- **Importance**: 1/10
-- **Status**: offen
-- `pdfFilename(showName, blank)` (`server/pdf.js:19-21`, genutzt in
-  `server/routes/pdf.js:53` und `server/routes/templates.js:120`)
-  interpoliert `show.name` direkt in einen gequoteten
-  `Content-Disposition`-Dateinamen ohne Escaping von `"` und ohne Filterung
-  von Steuerzeichen. `show.name` ist frei wählbarer Nutzertext bei
-  Show-Erstellung (`server/routes/shows.js:55-58`) ohne erkennbare
-  Validierung in `db/shows.js`. Nodes `http`-Modul lehnt Header-Werte mit
-  `\r`/`\n` selbst ab (`ERR_INVALID_CHAR`), daher kein ausnutzbares
-  Response-Splitting — Restwirkung ist nur Verfügbarkeit: ein Show-Name mit
-  eingebettetem Zeilenumbruch bricht PDF-/Netzwerk-Export für diese Show
-  dauerhaft (bis Umbenennung), ein Name mit `"` erzeugt einen
-  fehlerhaften Dateinamen im Download-Dialog.
-- **Remediation**: CR/LF und `"` in `pdfFilename()` vor Interpolation
-  entfernen/ersetzen (z.B. `showName.replace(/[\r\n"]/g, '')`), oder
-  RFC-5987-`filename*=UTF-8''...`-Kodierung verwenden.
-
 ### Kein Refresh-Token-Mechanismus — Access-Token dient als eigenes "Refresh"
 - **Quelle**: authentication-flow-review-2026-09-06
 - **Importance**: 3/10
@@ -189,6 +169,18 @@ Nach der Abarbeitung eines jeden offenen Punktes einen commit machen.
 ---
 
 ## Erledigt
+
+### Show-Name wurde nicht vor Nutzung im `Content-Disposition`-Dateinamen bereinigt
+- **Quelle**: file-handling-business-logic-audit-2026-09-06
+- **Erledigt**: 2026-09-06
+- `pdfFilename(showName, blank)` interpolierte `show.name` direkt in einen
+  gequoteten `Content-Disposition`-Dateinamen ohne Escaping von `"` und ohne
+  Filterung von Steuerzeichen. Ein Show-Name mit eingebettetem Zeilenumbruch
+  hätte den PDF-/Netzwerk-Export für diese Show dauerhaft gebrochen (Node
+  lehnt `\r`/`\n` in Header-Werten mit `ERR_INVALID_CHAR` ab), ein Name mit
+  `"` einen fehlerhaften Dateinamen im Download-Dialog erzeugt.
+- **Remediation**: `pdfFilename()` entfernt CR/LF und `"` aus `showName` vor
+  Interpolation. Tests in `server/test/pdf-generate.test.js`.
 
 ### Fehlende HSTS-/Permissions-Policy-Header auf Anwendungsebene, CSP ohne `frame-ancestors`
 - **Quelle**: api-and-infrastructure-audit-2026-09-06

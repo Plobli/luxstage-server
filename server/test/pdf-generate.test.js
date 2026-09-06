@@ -46,4 +46,9 @@ test('pdfFilename unterscheidet Einleuchtplan und Vordruck', () => {
   assert.equal(pdfFilename(undefined, false), 'einleuchtplan-show.pdf')
 })
 
+test('pdfFilename entfernt CR/LF und Anführungszeichen aus dem Show-Namen', () => {
+  assert.equal(pdfFilename('x\r\ny', false), 'einleuchtplan-xy.pdf')
+  assert.equal(pdfFilename('Ha"mlet', false), 'einleuchtplan-Hamlet.pdf')
+})
+
 after(cleanupDataPath)
