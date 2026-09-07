@@ -86,8 +86,10 @@ export function createUserWithHash(username, passwordHash, email = '') {
 // username wird klein geschrieben gespeichert: findUserByEmail() vergleicht per
 // COLLATE NOCASE, aber username selbst hat keine case-insensitive UNIQUE-Regel —
 // ohne Normalisierung könnten "Foo@Bar.com" und "foo@bar.com" zwei Accounts anlegen.
+// requires_password_change = 0: Nutzer hat das Passwort selbst gewählt, kein
+// erzwungener Wechsel (im Gegensatz zur Admin-Einladung in createUserWithHash).
 export function createSelfRegisteredUserWithHash(username, passwordHash, email) {
-  getDb().prepare('INSERT INTO users (username, password, email, requires_password_change, pending) VALUES (?, ?, ?, 1, 1)')
+  getDb().prepare('INSERT INTO users (username, password, email, requires_password_change, pending) VALUES (?, ?, ?, 0, 1)')
     .run(username.toLowerCase(), passwordHash, email)
 }
 

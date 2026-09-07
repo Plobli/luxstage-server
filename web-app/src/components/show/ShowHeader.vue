@@ -2,21 +2,7 @@
   <div class="shrink-0 border-b border-border bg-surface-raised">
     <div class="flex min-h-12 shrink-0 items-center gap-x-3 px-4 sm:px-6 lg:px-7 py-2">
       <div class="flex flex-col sm:flex-row sm:items-baseline gap-x-3 gap-y-0.5 min-w-0 flex-1">
-        <h1
-          v-if="!editingName"
-          class="text-2xl font-semibold text-foreground truncate cursor-text hover:text-foreground/70 transition-colors"
-          @click="startEditName"
-        >{{ showName }}</h1>
-        <input
-          v-else
-          ref="nameInput"
-          :value="editName"
-          @input="editName = $event.target.value"
-          @blur="commitName"
-          @keydown.enter.prevent="commitName"
-          @keydown.esc.prevent="cancelName"
-          class="text-2xl font-semibold text-foreground bg-transparent border-b border-accent outline-none min-w-20 flex-1"
-        />
+        <h1 class="text-2xl font-semibold text-foreground truncate">{{ showName }}</h1>
         <button
           v-if="showDate"
           class="text-sm text-muted-foreground shrink-0 hover:text-foreground transition-colors flex items-center gap-1 min-h-11 sm:min-h-0"
@@ -86,6 +72,10 @@
       </DialogHeader>
       <DialogBody>
         <div>
+          <Label for="meta-name">{{ t('field.name') }}</Label>
+          <Input id="meta-name" v-model="editMeta.name" type="text" size="lg" />
+        </div>
+        <div>
           <Label for="meta-datum">{{ t('field.date') }}</Label>
           <Input id="meta-datum" v-model="editMeta.datum" type="date" size="lg" />
         </div>
@@ -122,7 +112,7 @@
 </template>
 
 <script setup>
-import { ref, nextTick } from 'vue'
+import { ref } from 'vue'
 import { useLocale } from '@/composables/useLocale.js'
 import { History, ChevronDown, MoreVertical, Pencil } from 'lucide-vue-next'
 import { Button } from '@/components/ui/button'
@@ -156,15 +146,13 @@ const emit = defineEmits([
 const eosFileInput = ref(null)
 const csvImportInput = ref(null)
 const circuitScanInput = ref(null)
-const editingName = ref(false)
-const editName = ref('')
-const nameInput = ref(null)
 const metaDialogOpen = ref(false)
 const importModalOpen = ref(false)
-const editMeta = ref({ datum: '', spielzeit: '', use_bars: true, use_towers: true })
+const editMeta = ref({ name: '', datum: '', spielzeit: '', use_bars: true, use_towers: true })
 
 function openMetaDialog() {
   editMeta.value = {
+    name: props.showName ?? '',
     datum: props.showMeta.datum ?? '',
     spielzeit: props.showMeta.spielzeit ?? '',
     use_bars: props.showMeta.use_bars !== false,
@@ -174,25 +162,10 @@ function openMetaDialog() {
 }
 
 function commitMeta() {
-  emit('update:meta', { ...editMeta.value })
+  const trimmedName = editMeta.value.name.trim()
+  if (trimmedName && trimmedName !== props.showName) emit('update:showName', trimmedName)
+  const { name, ...meta } = editMeta.value
+  emit('update:meta', { ...meta })
   metaDialogOpen.value = false
-}
-
-async function startEditName() {
-  editName.value = props.showName
-  editingName.value = true
-  await nextTick()
-  nameInput.value?.focus()
-  nameInput.value?.select()
-}
-
-function commitName() {
-  const trimmed = editName.value.trim()
-  if (trimmed && trimmed !== props.showName) emit('update:showName', trimmed)
-  editingName.value = false
-}
-
-function cancelName() {
-  editingName.value = false
 }
 </script>

@@ -1,7 +1,15 @@
 import nodemailer from 'nodemailer'
 import { config } from './config.js'
-import { getDb } from './db-context.js'
+import { getDb, getTenantId } from './db-context.js'
 import { getSecretSetting } from './db/settings.js'
+import { tenantBaseUrl } from './tenant-resolve.js'
+
+// Basis-URL für Links in Mails, die im Request-/Tenant-Kontext verschickt
+// werden: Mandanten-Subdomain im SaaS-Betrieb, sonst config.appUrl.
+function currentBaseUrl() {
+  const tenantId = getTenantId()
+  return tenantId ? tenantBaseUrl(tenantId) : config.appUrl
+}
 
 function getSmtpCfg() {
   // SaaS-Modus (BASE_DOMAIN gesetzt): immer die zentrale ENV-Config des Betreibers.
@@ -69,7 +77,7 @@ export async function sendWelcomeEmail(email, username, initialPassword) {
   await sendMail(
     email,
     'Willkommen bei LuxStage',
-    `Hallo,\n\ndein LuxStage-Account wurde erstellt.\n\nE-Mail: ${username}\nPasswort: ${initialPassword}\n\nZum Anmelden: ${config.appUrl}\n\nBitte melde dich an und ändere dein Passwort beim ersten Login.\n\nLuxStage`
+    `Hallo,\n\ndein LuxStage-Account wurde erstellt.\n\nE-Mail: ${username}\nPasswort: ${initialPassword}\n\nZum Anmelden: ${currentBaseUrl()}\n\nBitte melde dich an und ändere dein Passwort beim ersten Login.\n\nLuxStage`
   )
 }
 
@@ -101,7 +109,7 @@ export async function sendApprovalRequestEmail(toEmails, newUserEmail) {
   await Promise.all(toEmails.map(to => sendMail(
     to,
     'LuxStage – Neue Registrierung wartet auf Freischaltung',
-    `Hallo,\n\n${newUserEmail} hat sich bei eurem LuxStage-Team registriert und wartet auf Freischaltung.\n\nZum Freischalten: ${config.appUrl} → Einstellungen → Benutzer.\n\nLuxStage`
+    `Hallo,\n\n${newUserEmail} hat sich bei eurem LuxStage-Team registriert und wartet auf Freischaltung.\n\nZum Freischalten: ${currentBaseUrl()} → Einstellungen → Benutzer.\n\nLuxStage`
   )))
 }
 
@@ -112,6 +120,6 @@ export async function sendTestEmail(to, cfg) {
     from: cfg.from,
     to,
     subject: 'LuxStage – Test-Mail',
-    text: `Die SMTP-Konfiguration funktioniert. Zum Anmelden: ${config.appUrl}`,
+    text: `Die SMTP-Konfiguration funktioniert. Zum Anmelden: ${currentBaseUrl()}`,
   })
 }
