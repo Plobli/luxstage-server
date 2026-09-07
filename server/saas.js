@@ -24,6 +24,8 @@ async function load() {
     resolveTenantId: tenantResolve.resolveTenantId,
     isOperatorHost: tenantResolve.isOperatorHost,
     isRootHost: tenantResolve.isRootHost,
+    tenantBaseUrl: tenantResolve.tenantBaseUrl,
+    getTenantId: dbContext.getTenantId,
     openTenantDb: tenants.openTenantDb,
     tenantExists: tenants.tenantExists,
     markTenantInUse: tenants.markTenantInUse,
