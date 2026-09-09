@@ -95,6 +95,35 @@ test('refreshPendingToken erzeugt einen neuen Klartext-Token, alter Token verlie
   assert.equal(refreshed.tenant_id, 'resend-team')
 })
 
+test('Newsletter-Consent aus dem pending-Eintrag wird beim Bestätigen in tenants übernommen', async () => {
+  const token = 'e'.repeat(64)
+  addPending({
+    token,
+    tenantId: 'newsletter-team',
+    email: 'newsletter@example.com',
+    passwordHash: '$2b$12$test-password-hash',
+    ttlMs: 60_000,
+    newsletterConsent: true,
+  })
+
+  const response = createResponse()
+  await registerRoutes(confirmRequest(token), response, '/api/register/confirm')
+
+  assert.equal(response.status, 200)
+  const row = getRegistry().prepare('SELECT newsletter_consent FROM tenants WHERE tenant_id = ?').get('newsletter-team')
+  assert.equal(row.newsletter_consent, 1)
+  closeTenantDb('newsletter-team')
+})
+
+test('POST /api/register ohne newsletterConsent speichert 0 (Opt-in per Default aus)', async () => {
+  const res = createResponse()
+  await registerRoutes(postRequest({ teamId: 'kein-consent-team', email: 'kein-consent@example.com', password: 'sicheres-passwort-123' }, '30.0.0.2'), res, '/api/register')
+  assert.equal(res.status, 202)
+
+  const row = getRegistry().prepare('SELECT newsletter_consent FROM pending_registrations WHERE tenant_id = ?').get('kein-consent-team')
+  assert.equal(row.newsletter_consent, 0)
+})
+
 test('11. Registrierungsversuch derselben IP wird mit 429 geblockt', async () => {
   const ip = '30.0.0.1'
   for (let i = 0; i < 10; i++) {

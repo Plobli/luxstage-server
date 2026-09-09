@@ -54,7 +54,8 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 |---|---|
 | `./server/index.js` | HTTP-Server-Einstieg mit CORS, Security-Headern und Job-Starter. |
 | `./server/router.js` | HTTP-Router für API-Endpunkte und Datei-Serving; öffentliche API-Ausnahmen sind an Methode und Pfad gebunden, API- und Show-Unterressourcen laufen über geordnete Handler-Listen. Globales IP-Rate-Limiting greift vor jedem API-Request. Fehler in Route-Handlern werden abgefangen (500 statt Prozessabsturz). Liefert hostunabhängig `/.well-known/apple-app-site-association` für Apple Universal Links (Passwort-Reset → App-Login). |
-| `./server/config.js` | Lädt Umgebungsvariablen und Konfigurationsdefaults, einschließlich explizitem Reverse-Proxy-Vertrauen. |
+| `./server/brevo.js` | Startet Newsletter-Double-Opt-in bei Brevo (eigener Bestätigungs-Flow, getrennt von der Registrierungs-Bestätigung) für Mandanten mit Newsletter-Consent. |
+| `./server/config.js` | Lädt Umgebungsvariablen und Konfigurationsdefaults, einschließlich explizitem Reverse-Proxy-Vertrauen und Brevo-Newsletter-Konfiguration. |
 | `./server/bootstrap.js` | Einmaliges Setup-Skript; legt den ersten Admin an (Login = `ADMIN_EMAIL`). |
 | `./server/db.js` | Re-Export der Datenbank-Funktionen aus `db/index.js`. |
 | `./server/db-init.js` | Datenbankverbindung, Basis-Schema und Migrations-Runner (führt `db/migrations/*` einmalig aus, getrackt in `schema_migrations`). |
@@ -100,7 +101,7 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 | `./server/test/undo-redo-integrity.test.js` | Integrationstests für Full-Snapshot-Undo/Redo-Architektur: Snapshot-Konsistenz, Hash-Verifikation, Redo-Stack-Persistierung, mehrfaches Undo/Redo ohne Datenverlust. |
 | `./server/.env` | Server-Development-Umgebungsvariablen. |
 | `./server/saas.js` | Kapsel für SaaS-Funktionalität, lädt Module nur im SaaS-Modus. |
-| `./server/registry.js` | Zentrale Registrierung für Mandantenverzeichnis und Doppel-Opt-In; aktiviert Tenant-Eintrag und verbraucht Bestätigungslink atomar. |
+| `./server/registry.js` | Zentrale Registrierung für Mandantenverzeichnis und Doppel-Opt-In; aktiviert Tenant-Eintrag (inkl. Newsletter-Consent) und verbraucht Bestätigungslink atomar. |
 | `./server/tenants.js` | Mandantenverzeichnis mit separaten SQLite-DBs pro Kunde und Kompensation fehlgeschlagener Registrierungen. |
 | `./server/tenant-resolve.js` | Host-Header-Parsing für Subdomain-basierte Mandantenauflösung, plus `tenantBaseUrl()` für Mandanten-URLs in E-Mail-Links. |
 | `./server/tenant-backup.js` | Tägliche Snapshots pro Mandant mit Retention-Policy; sichert vor Restore den Ist-Zustand und aktiviert Snapshots per rückrollbarem DB-Swap. |
@@ -146,7 +147,7 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 | `./server/routes/shows.js` | API-Routen für Shows (CRUD, Lock inkl. Übernahme-Anfrage und -Übergabe, Events, Templates, Undo/Redo mit Full-Snapshot-Verifikation: Hash-Check bei Undo/Redo, 409 bei manipuliertem Snapshot). |
 | `./server/routes/auth.js` | API-Routen für Login, Passwort-Änderung, Passwort-Reset sowie begrenztes IP-Rate-Limiting. |
 | `./server/routes/users.js` | API-Routen für Benutzer-Verwaltung, Preferences, Selbst-Registrierung (`/api/self-register`) und Freischaltung pending Nutzer. |
-| `./server/routes/register.js` | API-Routen für Self-Service-Registrierung (Double Opt-In). |
+| `./server/routes/register.js` | API-Routen für Self-Service-Registrierung (Double Opt-In); stößt bei Newsletter-Consent zusätzlich den Brevo-DOI-Flow an. |
 | `./server/routes/channels.js` | API-Routen für Kanäle, Beleuchtungs-Checks und mandantenweite Farbnutzungsstatistik (`/api/channels/color-usage`); zeichnet Undo-Operation pro Save auf; `POST .../circuit-scan` wertet Foto eines ausgefüllten Kreislisten-Vordrucks per Claude Vision aus (liefert vollständige Zeilen als Vorschlag, kein DB-Write). |
 | `./server/routes/bars.js` | API-Routen für Obermaschinerie-Elemente, Fixtures (inkl. side/positionText), Reordering; jede Aktion zeichnet den kompletten Bars-Zustand als Undo-Operation auf. |
 | `./server/routes/towers.js` | API-Routen für Show-Türme, Slots, Restore; jede Aktion zeichnet den kompletten Towers-Zustand als Undo-Operation auf. |
@@ -271,7 +272,7 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 | Datei | Beschreibung |
 |---|---|
 | `./web-app/src/views/LoginView.vue` | Anmeldung mit E-Mail und Passwort; zeigt Hinweis bei Konto mit ausstehender Freischaltung, verlinkt Selbst-Registrierung. |
-| `./web-app/src/views/RegisterView.vue` | Team-Registrierung mit E-Mail-Bestätigung. |
+| `./web-app/src/views/RegisterView.vue` | Team-Registrierung mit E-Mail-Bestätigung und optionaler Newsletter-Einwilligung. |
 | `./web-app/src/views/SelfRegisterView.vue` | Selbst-Registrierung neuer Nutzer innerhalb eines bestehenden Tenants; Konto bleibt pending bis ein bestehender Nutzer freischaltet. |
 | `./web-app/src/views/ConfirmView.vue` | Bestätigung der Team-Registrierung via E-Mail-Link. |
 | `./web-app/src/views/ForgotPasswordView.vue` | Passwort-Zurücksetzen anfordern per E-Mail. |

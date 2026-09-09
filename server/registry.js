@@ -20,27 +20,36 @@ export function getRegistry() {
   db.pragma('busy_timeout = 5000')
   db.exec(`
     CREATE TABLE IF NOT EXISTS pending_registrations (
-      token         TEXT PRIMARY KEY,
-      tenant_id     TEXT NOT NULL,
-      email         TEXT NOT NULL,
-      password_hash TEXT NOT NULL,
-      created_at    INTEGER NOT NULL,
-      expires_at    INTEGER NOT NULL
+      token              TEXT PRIMARY KEY,
+      tenant_id          TEXT NOT NULL,
+      email              TEXT NOT NULL,
+      password_hash      TEXT NOT NULL,
+      created_at         INTEGER NOT NULL,
+      expires_at         INTEGER NOT NULL,
+      newsletter_consent INTEGER NOT NULL DEFAULT 0
     );
     CREATE INDEX IF NOT EXISTS idx_pending_tenant ON pending_registrations(tenant_id);
 
     CREATE TABLE IF NOT EXISTS tenants (
-      tenant_id   TEXT PRIMARY KEY,
-      email       TEXT NOT NULL,
-      created_at  INTEGER NOT NULL,
-      suspended   INTEGER NOT NULL DEFAULT 0
+      tenant_id          TEXT PRIMARY KEY,
+      email              TEXT NOT NULL,
+      created_at         INTEGER NOT NULL,
+      suspended          INTEGER NOT NULL DEFAULT 0,
+      newsletter_consent INTEGER NOT NULL DEFAULT 0
     );
     CREATE UNIQUE INDEX IF NOT EXISTS idx_tenants_email ON tenants(email);
   `)
-  // Migration: suspended-Spalte für bestehende Registry-DBs.
+  // Migration: suspended-/newsletter_consent-Spalten für bestehende Registry-DBs.
   const cols = db.pragma('table_info(tenants)').map(c => c.name)
   if (!cols.includes('suspended')) {
     db.exec('ALTER TABLE tenants ADD COLUMN suspended INTEGER NOT NULL DEFAULT 0')
+  }
+  if (!cols.includes('newsletter_consent')) {
+    db.exec('ALTER TABLE tenants ADD COLUMN newsletter_consent INTEGER NOT NULL DEFAULT 0')
+  }
+  const pendingCols = db.pragma('table_info(pending_registrations)').map(c => c.name)
+  if (!pendingCols.includes('newsletter_consent')) {
+    db.exec('ALTER TABLE pending_registrations ADD COLUMN newsletter_consent INTEGER NOT NULL DEFAULT 0')
   }
   return db
 }
@@ -102,12 +111,12 @@ export function listPending() {
 // Wirkung eines geleakten Tokens hier begrenzt ist (erstellt nur einen
 // Tenant + Erstnutzer für eine vom Angreifer bereits kontrollierte
 // Email/Passwort-Kombination).
-export function addPending({ token, tenantId, email, passwordHash, ttlMs }) {
+export function addPending({ token, tenantId, email, passwordHash, ttlMs, newsletterConsent = false }) {
   const ts = now()
   getRegistry().prepare(`
-    INSERT INTO pending_registrations (token, tenant_id, email, password_hash, created_at, expires_at)
-    VALUES (?, ?, ?, ?, ?, ?)
-  `).run(hashToken(token), tenantId, email.toLowerCase(), passwordHash, ts, ts + ttlMs)
+    INSERT INTO pending_registrations (token, tenant_id, email, password_hash, created_at, expires_at, newsletter_consent)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+  `).run(hashToken(token), tenantId, email.toLowerCase(), passwordHash, ts, ts + ttlMs, newsletterConsent ? 1 : 0)
 }
 
 // Ob für diese Subdomain/E-Mail bereits eine unbestätigte Anmeldung offen ist.
@@ -134,8 +143,8 @@ export function confirmPending(token, tenantId, email) {
       return false
     }
     reg.prepare(
-      'INSERT INTO tenants (tenant_id, email, created_at) VALUES (?, ?, ?)'
-    ).run(tenantId, email.toLowerCase(), now())
+      'INSERT INTO tenants (tenant_id, email, created_at, newsletter_consent) VALUES (?, ?, ?, ?)'
+    ).run(tenantId, email.toLowerCase(), now(), row.newsletter_consent)
     reg.prepare('DELETE FROM pending_registrations WHERE token = ?').run(hashedToken)
     return true
   })()

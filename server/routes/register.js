@@ -16,6 +16,7 @@ import { getRegistry, tenantIdTaken, emailTaken, addPending, getPending, confirm
 import { runWithDb } from '../db-context.js'
 import { createConfirmedUser } from '../db/users.js'
 import { sendConfirmEmail } from '../email.js'
+import { startNewsletterDoubleOptin } from '../brevo.js'
 import { PASSWORD_MIN_LENGTH, isValidEmail } from '../../shared/constants.js'
 import { logger } from '../logger.js'
 import { createLoginRateLimiter } from '../login-rate-limit.js'
@@ -40,6 +41,7 @@ export async function registerRoutes(req, res, pathname) {
     const tenantId = String(body.teamId || '').toLowerCase().trim()
     const email = String(body.email || '').trim()
     const password = String(body.password || '')
+    const newsletterConsent = body.newsletterConsent === true
 
     if (!isValidTenantId(tenantId)) return json(res, 400, { error: 'Ungültiges Team-Kürzel (nur a-z, 0-9, Bindestrich)' })
     if (isReservedSubdomain(tenantId)) return json(res, 409, { error: 'Dieses Team-Kürzel ist reserviert' })
@@ -64,7 +66,7 @@ export async function registerRoutes(req, res, pathname) {
 
     const token = randomBytes(32).toString('hex')
     const passwordHash = await hashPassword(password)
-    addPending({ token, tenantId, email, passwordHash, ttlMs: CONFIRM_TTL_MS })
+    addPending({ token, tenantId, email, passwordHash, ttlMs: CONFIRM_TTL_MS, newsletterConsent })
 
     // Bestätigung läuft auf der Root-Domain — der Mandant existiert noch nicht,
     // seine Subdomain würde 404 liefern.
@@ -107,6 +109,9 @@ export async function registerRoutes(req, res, pathname) {
     }
 
     log.info('bestätigt', { team: row.tenant_id, email: row.email })
+    if (row.newsletter_consent) {
+      startNewsletterDoubleOptin(row.email).catch(err => log.error('Brevo-DOI fehlgeschlagen', { team: row.tenant_id, fehler: err.message }))
+    }
     return json(res, 200, { ok: true, tenantId: row.tenant_id, loginUrl: tenantBaseUrl(row.tenant_id) })
   }
 

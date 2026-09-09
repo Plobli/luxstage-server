@@ -20,8 +20,8 @@ export async function selfRegister(email: string, password: string): Promise<voi
 }
 
 /** SaaS-Registrierung: legt eine unbestätigte Anmeldung an, Server verschickt Opt-In-Mail. */
-export async function register(teamId: string, email: string, password: string): Promise<void> {
-  await request('POST', '/api/register', { body: { teamId, email, password }, authenticated: false })
+export async function register(teamId: string, email: string, password: string, newsletterConsent: boolean): Promise<void> {
+  await request('POST', '/api/register', { body: { teamId, email, password, newsletterConsent }, authenticated: false })
 }
 
 /** Fordert einen Passwort-Reset-Link an (neutrale Antwort, kein Existenz-Leak). */

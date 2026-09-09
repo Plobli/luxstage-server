@@ -397,6 +397,7 @@
   "register.error.generic": "Registration failed.",
   "register.error.password_short": "Password too short (min. {min} characters).",
   "register.error.team_id_short": "Team ID too short (min. 2 characters).",
+  "register.newsletter_consent": "I would like to receive the LuxStage newsletter with news and tips by email.",
   "register.password": "Password",
   "register.password.hint": "At least {min} characters.",
   "register.submit": "Register",

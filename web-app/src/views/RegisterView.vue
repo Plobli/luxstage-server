@@ -58,6 +58,13 @@
             <p class="text-xs text-muted-foreground">{{ t('register.password.hint', { min: PASSWORD_MIN_LENGTH }) }}</p>
           </div>
 
+          <div class="flex items-start gap-2">
+            <Checkbox id="newsletterConsent" v-model="newsletterConsent" class="mt-0.5" />
+            <Label for="newsletterConsent" class="cursor-pointer text-sm font-normal text-muted-foreground" @click="newsletterConsent = !newsletterConsent">
+              {{ t('register.newsletter_consent') }}
+            </Label>
+          </div>
+
           <Alert v-if="error" variant="destructive">
             <AlertDescription>{{ error }}</AlertDescription>
           </Alert>
@@ -82,12 +89,14 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card } from '@/components/ui/card'
 import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Checkbox } from '@/components/ui/checkbox'
 
 const { t } = useLocale()
 
 const teamId = ref('')
 const email = ref('')
 const password = ref('')
+const newsletterConsent = ref(false)
 const error = ref('')
 const loading = ref(false)
 const done = ref(false)
@@ -104,7 +113,7 @@ async function handleRegister() {
   if (password.value.length < PASSWORD_MIN_LENGTH) { error.value = t('register.error.password_short', { min: PASSWORD_MIN_LENGTH }); return }
   loading.value = true
   try {
-    await register(teamId.value, email.value, password.value)
+    await register(teamId.value, email.value, password.value, newsletterConsent.value)
     done.value = true
   } catch (e: any) {
     error.value = e?.message || t('register.error.generic')

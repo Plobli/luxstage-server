@@ -397,6 +397,7 @@
   "register.error.generic": "Registrierung fehlgeschlagen.",
   "register.error.password_short": "Passwort zu kurz (min. {min} Zeichen).",
   "register.error.team_id_short": "Team-Kürzel zu kurz (min. 2 Zeichen).",
+  "register.newsletter_consent": "Ich möchte den LuxStage-Newsletter mit Neuigkeiten und Tipps per E-Mail erhalten.",
   "register.password": "Passwort",
   "register.password.hint": "Mindestens {min} Zeichen.",
   "register.submit": "Registrieren",

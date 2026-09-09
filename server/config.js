@@ -43,4 +43,12 @@ export const config = {
     pass: process.env.SMTP_PASS || '',
     from: process.env.SMTP_FROM || 'LuxStage <noreply@luxstage.local>',
   },
+  brevo: {
+    apiKey: process.env.BREVO_API_KEY || '',
+    listId: parseInt(process.env.BREVO_LIST_ID || '0') || 0,
+    // Double-Opt-in: eigene Brevo-E-Mail-Vorlage für die Newsletter-Bestätigung,
+    // getrennt von der LuxStage-Registrierungsbestätigung.
+    doiTemplateId: parseInt(process.env.BREVO_DOI_TEMPLATE_ID || '0') || 0,
+    doiRedirectUrl: process.env.BREVO_DOI_REDIRECT_URL || '',
+  },
 }
