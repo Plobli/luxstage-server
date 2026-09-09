@@ -119,6 +119,14 @@ Funktionen:
 Das Panel ist ein eigener Sicherheitsbereich mit eigenem Token (`scope: operator`);
 ein Mandanten-Login gilt dort nicht.
 
+Die Panel-**Oberfläche** (HTML/JS, `operator-panel/`) läuft als eigener,
+zustandsloser Service (`luxstage-operator-panel`) — getrennt vom Hauptserver,
+damit eine reine UI-Änderung kein Redeploy des Mandanten-Prozesses erfordert.
+Die Panel-**API** (`/api/operator/*`, inkl. Zugriff auf `registry.db`) bleibt
+im Hauptserver, der einzige SQLite-Writer. Caddy leitet auf
+`admin.<baseDomain>` `/api/*` an den Hauptserver, alles andere an den
+Panel-Service (siehe `docs/deploy-cx43.md`).
+
 ## 6. Registrierungs-Fluss (zur Referenz)
 
 1. Nutzer öffnet `luxstage.app/register`, wählt Team-Kürzel + E-Mail + Passwort.

@@ -137,10 +137,21 @@ luxstage.app {
 }
 
 # LuxStage SaaS — Betreiber-Panel (fest, normales ACME-Zertifikat)
+# /api/* geht an den Hauptserver (einziger SQLite-Writer, registry.db),
+# alles andere (HTML/JS) an den eigenständigen Panel-Service — dessen
+# Image kann unabhängig aktualisiert werden, ohne luxstage-saas neuzustarten.
 admin.luxstage.app {
     import common_headers
-    reverse_proxy luxstage-saas:3000 {
-        header_up Host {host}
+    @api path /api/*
+    handle @api {
+        reverse_proxy luxstage-saas:3000 {
+            header_up Host {host}
+        }
+    }
+    handle {
+        reverse_proxy luxstage-operator-panel:3001 {
+            header_up Host {host}
+        }
     }
 }
 ```
@@ -224,11 +235,15 @@ Login läuft immer über die bei der Registrierung angegebene **E-Mail-Adresse**
    ```sh
    git tag v2026.6.X && git push origin v2026.6.X
    ```
-2. GitHub Actions baut das Image und pusht `ghcr.io/plobli/luxstage-saas:<version>`
-   und `:latest`.
+2. GitHub Actions baut beide Images und pusht `ghcr.io/plobli/luxstage-saas:<version>`
+   sowie `ghcr.io/plobli/luxstage-operator-panel:<version>` (jeweils auch `:latest`).
 3. Auf dem Server: im Dockge-Stack **Pull + Redeploy** (zieht `:latest` neu).
-   Der Container startet mit dem neuen Image neu; das Datenvolume bleibt erhalten.
-   Schema-Migrationen laufen beim Start automatisch (idempotent).
+   Beide Container starten mit dem neuen Image neu; das Datenvolume bleibt erhalten.
+   Schema-Migrationen laufen beim Start von `luxstage-saas` automatisch (idempotent).
+
+Reine Änderungen am Betreiber-Panel (`operator-panel/`) betreffen ausschließlich
+`luxstage-operator-panel` — dessen Redeploy läuft unabhängig vom Hauptserver,
+Mandanten-Verbindungen bleiben davon unberührt.
 
 ## Betrieb
 

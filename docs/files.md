@@ -8,8 +8,8 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 
 | Datei | Beschreibung |
 |---|---|
-| `./docker-compose.saas.server.yml` | SaaS-Docker-Compose für geteilten Server; kein Port-Mapping, Ressourcen-Limits. |
-| `./docker-compose.saas.yml` | SaaS-Docker-Compose mit Caddy-Netzwerk. |
+| `./docker-compose.saas.server.yml` | SaaS-Docker-Compose für geteilten Server; kein Port-Mapping, Ressourcen-Limits; zwei Services (`luxstage-saas`, `luxstage-operator-panel`). |
+| `./docker-compose.saas.yml` | SaaS-Docker-Compose mit Caddy-Netzwerk; zwei Services (`luxstage`, `luxstage-operator-panel`). |
 | `./docker-compose.yml` | Self-Hosted Docker-Compose; Port 3030:3000, Data-Volume. |
 | `./Dockerfile` | Multi-Stage Build für Self-Hosted; baut Web-App, entfernt SaaS-Module. |
 | `./Dockerfile.saas` | Multi-Stage Build für SaaS-Image (baut Web-App, Module separat). |
@@ -33,6 +33,7 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 | `./.github/workflows/release.yml` | GitHub Action: baut Release-ZIP bei `v*`-Tags. |
 | `./.github/workflows/codeql.yml` | GitHub Action: CodeQL-Sicherheitsanalyse. |
 | `./.github/workflows/saas-image.yml` | GitHub Action: baut SaaS-Image nach GHCR bei `v*`-Tags. |
+| `./.github/workflows/operator-panel-image.yml` | GitHub Action: baut Betreiber-Panel-Image nach GHCR bei `v*`-Tags, unabhängig vom SaaS-Image. |
 | `./Dev-Server-App/LuxStageMenu.swift` | macOS-Menüleisten-App; startet/stoppt/restartet Dev-Server via `dev.sh`, zeigt Live-Status (Backend/Web-App erreichbar, Version, PID, Laufzeit), Web-App- und Log-Öffnen-Aktionen. |
 | `./Dev-Server-App/LuxStageMenu` | Kompilierte macOS-Executable der Menüleisten-App. |
 | `./Dev-Server-App/dev.sh` | Startet Server + Web-App lokal für Entwicklung; von der Menüleisten-App aufgerufen. |
@@ -47,6 +48,15 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 | `./shared/locales/en.json` | Übersetzungen für englische Oberfläche. |
 | `./shared/filters.json` | Farbfilter-Datenbank (Lee, Rosco etc.) mit Hex-Codes. |
 | `./shared/constants.js` | Gemeinsame Konstanten und Prüffunktionen für Server und Web-App: `PASSWORD_MIN_LENGTH`, `isValidEmail`, Section-Typen (`sectionTypeHasRows`, `isSectionTableType`). |
+
+## operator-panel/ (Betreiber-Panel, eigenständiger Service)
+
+| Datei | Beschreibung |
+|---|---|
+| `./operator-panel/Dockerfile` | Eigenständiges Image für den Panel-Service; kein Zugriff auf Mandanten-Daten. |
+| `./operator-panel/server.js` | Minimaler, zustandsloser Static-Server (liefert nur `index.html`/`operator-panel.js` aus); die eigentliche Operator-API bleibt im Hauptserver. |
+| `./operator-panel/index.html` | HTML-UI für Betreiber-Panel zur Mandantenverwaltung. |
+| `./operator-panel/operator-panel.js` | Client-Skript für Betreiber-Panel (ausgelagert wg. CSP `script-src 'self'`). |
 
 ## server/ (Node.js Backend)
 
@@ -106,8 +116,6 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 | `./server/tenant-resolve.js` | Host-Header-Parsing für Subdomain-basierte Mandantenauflösung, plus `tenantBaseUrl()` für Mandanten-URLs in E-Mail-Links. |
 | `./server/tenant-backup.js` | Tägliche Snapshots pro Mandant mit Retention-Policy; sichert vor Restore den Ist-Zustand und aktiviert Snapshots per rückrollbarem DB-Swap. |
 | `./server/operator.js` | Separater Admin-Login für Betreiber-Panel mit JWT. |
-| `./server/operator-panel.html` | HTML-UI für Betreiber-Panel zur Mandantenverwaltung. |
-| `./server/operator-panel.js` | Client-Skript für Betreiber-Panel (ausgelagert wg. CSP `script-src 'self'`). |
 
 ### server/db/ (Datenbankzugriff)
 

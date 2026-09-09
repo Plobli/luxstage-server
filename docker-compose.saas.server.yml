@@ -50,6 +50,36 @@ services:
       retries: 3
       start_period: 10s
 
+  luxstage-operator-panel:
+    # Vorgebautes Image aus GHCR — eigener, zustandsloser Static-Server für
+    # das Betreiber-Panel-Frontend. Getrennt vom Hauptimage, damit eine
+    # Panel-Änderung kein Redeploy von luxstage-saas (und damit aller
+    # Mandanten-Verbindungen) erfordert.
+    image: ghcr.io/plobli/luxstage-operator-panel:latest
+    container_name: luxstage-operator-panel
+    restart: unless-stopped
+    networks:
+      - luxstage-saas-net
+    environment:
+      PORT: 3001
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+          cpus: '0.25'
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "require('http').get('http://localhost:3001/health', r =>
+          process.exit(r.statusCode === 200 ? 0 : 1)).on('error', () =>
+          process.exit(1))"
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+
 volumes:
   luxstage-saas-data:
 
