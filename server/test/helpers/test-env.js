@@ -26,6 +26,12 @@ export function createResponse() {
   }
 }
 
-export function cleanupDataPath() {
+export async function cleanupDataPath() {
+  // saas.js lädt seine Module (u. a. registry.js, das beim Import per
+  // getRegistry() sofort die registry.db öffnet) asynchron im Hintergrund.
+  // Ohne dieses Warten kann das Verzeichnis schon weg sein, wenn dieser
+  // Import erst nach Testende abschließt — unhandledRejection nach dem Test.
+  const { saasReady } = await import('../../saas.js')
+  await saasReady
   fs.rmSync(dataPath, { recursive: true, force: true })
 }
