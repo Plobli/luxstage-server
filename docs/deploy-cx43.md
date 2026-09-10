@@ -231,19 +231,34 @@ Login läuft immer über die bei der Registrierung angegebene **E-Mail-Adresse**
 
 ## Updates einspielen
 
+Server (`luxstage-saas`) und Betreiber-Panel (`luxstage-operator-panel`) haben
+getrennte Build-Trigger — ein Update am einen baut/deployt nie unnötig den
+anderen.
+
+**Server-Update** (Version-Tag, wie bisher):
+
 1. Lokal: Version in `package.json` erhöhen, committen, Tag pushen (Schema `v2026.6.X`):
    ```sh
    git tag v2026.6.X && git push origin v2026.6.X
    ```
-2. GitHub Actions baut beide Images und pusht `ghcr.io/plobli/luxstage-saas:<version>`
-   sowie `ghcr.io/plobli/luxstage-operator-panel:<version>` (jeweils auch `:latest`).
-3. Auf dem Server: im Dockge-Stack **Pull + Redeploy** (zieht `:latest` neu).
-   Beide Container starten mit dem neuen Image neu; das Datenvolume bleibt erhalten.
-   Schema-Migrationen laufen beim Start von `luxstage-saas` automatisch (idempotent).
+2. GitHub Actions (`saas-image.yml`) baut `ghcr.io/plobli/luxstage-saas:<version>`
+   (auch `:latest`).
+3. Auf dem Server: im Arcade-Stack **luxstage-saas** Force-Pull + Recreate.
+   Schema-Migrationen laufen beim Start automatisch (idempotent).
 
-Reine Änderungen am Betreiber-Panel (`operator-panel/`) betreffen ausschließlich
-`luxstage-operator-panel` — dessen Redeploy läuft unabhängig vom Hauptserver,
-Mandanten-Verbindungen bleiben davon unberührt.
+**Panel-Update** (kein Tag nötig):
+
+1. Lokal: Änderungen unter `operator-panel/` committen und nach `main` pushen.
+2. GitHub Actions (`operator-panel-image.yml`) baut automatisch bei jedem
+   main-Push mit Änderungen unter `operator-panel/` und pusht
+   `ghcr.io/plobli/luxstage-operator-panel:latest` (plus Short-SHA-Tag).
+3. Auf dem Server: im Arcade-Stack **luxstage-operator-panel** Force-Pull +
+   Recreate. `docker compose up -d --force-recreate luxstage-operator-panel`
+   erzwingt das auch dann, wenn Arcades "Neu deployen" allein den Container
+   nicht mit dem neu gepullten `:latest`-Image neu erstellt (bekanntes
+   Docker-Compose-Verhalten bei gleichbleibendem Tag-Namen).
+
+Mandanten-Verbindungen bleiben von einem Panel-Redeploy unberührt.
 
 ## Betrieb
 

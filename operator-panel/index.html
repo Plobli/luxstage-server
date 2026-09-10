@@ -9,7 +9,7 @@
   :root { --bg:#0f1115; --card:#1a1d24; --border:#2a2e38; --fg:#e6e8ec; --mut:#9aa0ac; --acc:#c9a86a; --danger:#e5484d; }
   * { box-sizing:border-box; }
   body { margin:0; font:15px/1.5 system-ui,sans-serif; background:var(--bg); color:var(--fg); }
-  .wrap { max-width:1280px; margin:0 auto; padding:32px 20px; }
+  .wrap { max-width:1600px; margin:0 auto; padding:32px 20px; }
   h1 { font-size:20px; margin:0 0 4px; }
   .sub { color:var(--mut); margin:0 0 24px; font-size:14px; }
   .card { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:24px; }
@@ -20,14 +20,24 @@
   button.ghost { background:transparent; border:1px solid var(--border); color:var(--fg); }
   button.danger { background:var(--danger); color:#fff; }
   button:disabled { opacity:.5; cursor:default; }
-  table { width:100%; border-collapse:collapse; margin-top:8px; }
+  .table-scroll { overflow-x:auto; margin-top:8px; }
+  table { width:100%; border-collapse:collapse; }
   th, td { text-align:left; padding:10px 12px; border-bottom:1px solid var(--border); font-size:14px; }
-  th { color:var(--mut); font-weight:500; }
+  th { color:var(--mut); font-weight:500; white-space:nowrap; }
+  td.nowrap { white-space:nowrap; }
+  .truncate { display:inline-block; max-width:200px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; vertical-align:bottom; }
   .tag { display:inline-block; padding:2px 8px; border-radius:6px; font-size:12px; }
   .tag.ok { background:#1e3a2a; color:#6cd18e; }
   .tag.sus { background:#3a1e1e; color:#e88; }
   .err { color:var(--danger); font-size:14px; margin-top:12px; }
   .row-actions { display:flex; gap:8px; }
+  .menu { position:relative; display:inline-block; }
+  .menu-btn { padding:6px 10px; }
+  .menu-list { display:none; position:absolute; right:0; top:calc(100% + 4px); background:var(--card); border:1px solid var(--border); border-radius:8px; min-width:160px; z-index:20; box-shadow:0 8px 24px rgba(0,0,0,.4); overflow:hidden; }
+  .menu.open .menu-list { display:block; }
+  .menu-list button { display:block; width:100%; text-align:left; border-radius:0; background:transparent; color:var(--fg); padding:10px 14px; }
+  .menu-list button:hover { background:var(--bg); }
+  .menu-list button.danger { color:var(--danger); }
   .topbar { display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; }
   .mut { color:var(--mut); font-size:13px; }
   .hidden { display:none; }
@@ -65,20 +75,24 @@
       </div>
     </div>
     <div class="card">
-      <table>
-        <thead><tr><th>Team</th><th>E-Mail</th><th>Registriert</th><th>Shows</th><th>Nutzer</th><th>Letzter Zugriff</th><th>DB-Größe</th><th>Status</th><th>Konsistenz</th><th></th></tr></thead>
-        <tbody id="tbody"></tbody>
-      </table>
+      <div class="table-scroll">
+        <table>
+          <thead><tr><th>Team</th><th>E-Mail</th><th>Registriert</th><th>Shows</th><th>Nutzer</th><th>Letzter Zugriff</th><th>DB-Größe</th><th>Status</th><th>Konsistenz</th><th></th></tr></thead>
+          <tbody id="tbody"></tbody>
+        </table>
+      </div>
       <div id="empty" class="mut hidden" style="padding:16px 12px">Noch keine Mandanten.</div>
     </div>
 
     <h1 style="font-size:16px; margin:28px 0 2px">Offene Registrierungen</h1>
     <p class="sub" id="pendingCount"></p>
     <div class="card">
-      <table>
-        <thead><tr><th>Team</th><th>E-Mail</th><th>Angefragt</th><th>Läuft ab</th><th></th></tr></thead>
-        <tbody id="pendingBody"></tbody>
-      </table>
+      <div class="table-scroll">
+        <table>
+          <thead><tr><th>Team</th><th>E-Mail</th><th>Angefragt</th><th>Läuft ab</th><th></th></tr></thead>
+          <tbody id="pendingBody"></tbody>
+        </table>
+      </div>
       <div id="pendingEmpty" class="mut hidden" style="padding:16px 12px">Keine offenen Registrierungen.</div>
     </div>
   </div>

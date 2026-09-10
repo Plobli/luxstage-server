@@ -17,6 +17,12 @@ function escapeHtml(s) {
   return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]))
 }
 
+// Lange Werte (v.a. E-Mails) in der Tabelle abschneiden, Volltext per Hover (title).
+function truncated(s) {
+  const escaped = escapeHtml(s)
+  return `<span class="truncate" title="${escaped}">${escaped}</span>`
+}
+
 function fmtDate(ms) { return new Date(ms).toLocaleDateString('de-DE', { day:'2-digit', month:'2-digit', year:'numeric' }) }
 function fmtExpiry(ms) {
   const diff = ms - Date.now()
@@ -77,12 +83,12 @@ async function loadTenants() {
     const id = escapeHtml(t.tenantId)
     const h = t.health || {}
     const lastActivity = h.lastActivityAt
-      ? `${fmtDate(h.lastActivityAt)}${h.lastActivityBy ? ' · ' + escapeHtml(h.lastActivityBy) : ''}`
+      ? `<span${h.lastActivityBy ? ` title="${escapeHtml(h.lastActivityBy)}"` : ''}>${fmtDate(h.lastActivityAt)}</span>`
       : '–'
     const dbSize = typeof h.dbSizeBytes === 'number' ? fmtSize(h.dbSizeBytes) : '–'
     tr.innerHTML = `
       <td><strong>${id}</strong></td>
-      <td class="mut">${escapeHtml(t.email)}</td>
+      <td class="mut">${truncated(t.email)}</td>
       <td class="mut">${fmtDate(t.createdAt)}</td>
       <td>${t.shows ?? '–'}</td>
       <td>${t.users ?? '–'}</td>
@@ -90,11 +96,14 @@ async function loadTenants() {
       <td class="mut">${dbSize}</td>
       <td>${status}</td>
       <td data-check-cell="${id}">${checkBadge(t.tenantId)}</td>
-      <td><div class="row-actions">
-        <button class="ghost" data-act="backups" data-id="${id}">Backups</button>
-        <button class="ghost" data-act="check" data-id="${id}">Konsistenz prüfen</button>
-        <button class="ghost" data-act="toggle" data-id="${id}" data-sus="${t.suspended}">${t.suspended ? 'Entsperren' : 'Sperren'}</button>
-        <button class="danger" data-act="delete" data-id="${id}">Löschen</button>
+      <td><div class="menu">
+        <button class="ghost menu-btn" data-menu-toggle>⋯</button>
+        <div class="menu-list">
+          <button data-act="backups" data-id="${id}">Backups</button>
+          <button data-act="check" data-id="${id}">Konsistenz prüfen</button>
+          <button data-act="toggle" data-id="${id}" data-sus="${t.suspended}">${t.suspended ? 'Entsperren' : 'Sperren'}</button>
+          <button class="danger" data-act="delete" data-id="${id}">Löschen</button>
+        </div>
       </div></td>`
     tbody.appendChild(tr)
   }
@@ -111,7 +120,7 @@ async function loadPending() {
     const id = escapeHtml(p.tenantId)
     tr.innerHTML = `
       <td><strong>${id}</strong></td>
-      <td class="mut">${escapeHtml(p.email)}</td>
+      <td class="mut">${truncated(p.email)}</td>
       <td class="mut">${fmtDate(p.createdAt)}</td>
       <td class="${expired ? '' : 'mut'}">${fmtExpiry(p.expiresAt)}</td>
       <td><div class="row-actions">
@@ -197,9 +206,27 @@ $('#bkBody').addEventListener('click', async e => {
   } catch (err) { alert(err.message) }
 })
 
+function closeAllMenus() {
+  document.querySelectorAll('.menu.open').forEach(m => m.classList.remove('open'))
+}
+
+document.addEventListener('click', e => {
+  if (!e.target.closest('.menu')) closeAllMenus()
+})
+
 $('#tbody').addEventListener('click', async e => {
+  const toggle = e.target.closest('[data-menu-toggle]')
+  if (toggle) {
+    const menu = toggle.closest('.menu')
+    const wasOpen = menu.classList.contains('open')
+    closeAllMenus()
+    if (!wasOpen) menu.classList.add('open')
+    return
+  }
+
   const btn = e.target.closest('button'); if (!btn) return
   const id = btn.dataset.id
+  closeAllMenus()
   try {
     if (btn.dataset.act === 'backups') {
       await openBackups(id); return

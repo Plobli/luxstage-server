@@ -1,13 +1,15 @@
 name: Betreiber-Panel-Image bauen
 
-# Baut das Betreiber-Panel-Image bei jedem Version-Tag und pusht es nach GHCR.
-# Läuft am selben Tag-Trigger wie das SaaS-Image, aber als eigenständiges,
-# unabhängig deploybares Image — eine Panel-Änderung erfordert kein
-# Redeploy von luxstage-saas.
+# Baut das Betreiber-Panel-Image bei jedem main-Push mit Änderungen unter
+# operator-panel/ und pusht es nach GHCR. Eigenständig vom SaaS-Image (das
+# weiterhin am Version-Tag hängt, siehe saas-image.yml) — eine reine
+# Panel-Änderung braucht keinen Version-Tag/Release des ganzen Monorepos,
+# ein Server-Tag baut umgekehrt nicht unnötig das Panel neu.
 on:
   push:
-    tags:
-      - 'v*'
+    branches: [main]
+    paths:
+      - 'operator-panel/**'
 
 env:
   IMAGE: ghcr.io/plobli/luxstage-operator-panel
@@ -37,9 +39,11 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           images: ${{ env.IMAGE }}
+          # Kein Version-Tag als Quelle (Panel hat keine eigene Versionsnummer) —
+          # latest zum Deployen, Short-SHA als eindeutige, nachvollziehbare Referenz.
           tags: |
-            type=semver,pattern={{version}}
             type=raw,value=latest
+            type=sha,format=short
 
       - name: Bauen und pushen
         uses: docker/build-push-action@v6
