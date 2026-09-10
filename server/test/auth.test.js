@@ -110,6 +110,19 @@ test('login() vergleicht bei unbekanntem Username trotzdem per bcrypt (Timing-En
   assert.ok(Math.abs(unknownMs - wrongPasswordMs) < wrongPasswordMs, 'Zeitunterschied darf nicht die Existenz eines Accounts verraten')
 })
 
+test('POST /api/auth/refresh liefert ein neues, gültiges Token für den authentifizierten User', async () => {
+  await createUser('finn', 'irgendeinpasswort')
+  const token = signToken('finn')
+  const req = jsonRequest('POST', {}, { ip: '10.0.0.12' })
+  req.user = authenticate({ headers: { authorization: `Bearer ${token}` }, url: '/api/auth/refresh' })
+  const res = createResponse()
+  await authRoutes(req, res, '/api/auth/refresh')
+  assert.equal(res.status, 200)
+  assert.ok(res.body.token)
+  const refreshedUser = authenticate({ headers: { authorization: `Bearer ${res.body.token}` }, url: '/api/shows' })
+  assert.equal(refreshedUser.username, 'finn')
+})
+
 test('Login eines pending-Kontos liefert 403 mit "pending"-Marker', async () => {
   await createSelfRegisteredUser('pendinguser', 'irgendeinpasswort', 'pending@example.com')
   const res = createResponse()

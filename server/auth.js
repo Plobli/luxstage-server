@@ -39,7 +39,7 @@ function redeemDownloadToken(token) {
 // ── Kurzlebige, wiederverwendbare Token für Inline-Ressourcen (img src) ──────
 // Anders als Download-Token nicht Einmalnutzung: dasselbe Bild wird vom
 // Browser mehrfach geladen/gecached, ein Einmal-Token würde beim zweiten
-// Request scheitern. Kürzere Lebensdauer als das 12h-JWT begrenzt den
+// Request scheitern. Kürzere Lebensdauer als das 30d-JWT begrenzt den
 // Schaden, falls die URL in Browser-History oder Proxy-Logs landet.
 const inlineTokens = new Map()
 const INLINE_TOKEN_TTL_MS = 15 * 60 * 1000 // 15 Minuten
@@ -90,7 +90,7 @@ export function signToken(username) {
   const tenantId = getTenantId()
   const tokenVersion = getTokenVersion(username)
   const payload = tenantId ? { username, tenantId, tokenVersion } : { username, tokenVersion }
-  return jwt.sign(payload, config.jwtSecret, { expiresIn: '12h' })
+  return jwt.sign(payload, config.jwtSecret, { expiresIn: '30d' })
 }
 
 export async function login(username, password) {
@@ -120,7 +120,7 @@ export async function login(username, password) {
 // Lehnt ab, falls das Token eine ältere token_version trägt als aktuell in
 // der DB hinterlegt (Passwort wurde seither geändert/zurückgesetzt) — macht
 // aus setPasswordHash() einen sofortigen Session-Entzug statt dass gestohlene
-// Tokens bis zu 12h weiter gültig bleiben. Tokens ohne tokenVersion-Claim
+// Tokens bis zu 30 Tage weiter gültig bleiben. Tokens ohne tokenVersion-Claim
 // (ausgestellt vor Einführung dieses Felds) werden wie Version 0 behandelt.
 function hasCurrentTokenVersion(payload) {
   if (!payload.username) return true // Operator-Token o.ä. ohne username-Claim
