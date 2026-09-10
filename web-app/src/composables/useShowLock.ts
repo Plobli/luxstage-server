@@ -30,6 +30,14 @@ export function useShowLock(showId: string) {
   const takeoverRequestedBy = ref<string | null>(null)
   let heartbeatTimer: ReturnType<typeof setInterval> | null = null
   let unsubscribeSSE: (() => void) | null = null
+  // Zusätzlich zu unsubscribeSSE(): ein bereits in der Event-Loop wartender
+  // SSE-Callback (z.B. das eigene lock-status-updated, kurz bevor der Tab per
+  // pagehide verschwindet) läuft trotz unsubscribe noch durch — dieses Flag
+  // lässt onLockStatusChanged ihn dann ignorieren, statt fälschlich erneut
+  // acquireOnOpen() für einen bereits verlassenen Tab auszulösen. Default true,
+  // da onLockStatusChanged auch unabhängig von initLockEvents() aufrufbar
+  // bleibt (siehe Tests) — nur cleanupLockEvents() schaltet gezielt ab.
+  let active = true
 
   const isHeldByMe = computed(() => lock.value?.user === currentUsername())
   const isLockedByOther = computed(() => !!lock.value && !isHeldByMe.value)
@@ -38,8 +46,20 @@ export function useShowLock(showId: string) {
   // und lassen einen normalen fetch()-Request oft unvollendet abbrechen — ohne
   // dies bliebe der Lock bis zum 10-Minuten-Timeout aktiv, obwohl niemand mehr
   // die Show offen hat (siehe releaseOnClose für den regulären Navigations-Fall).
+  //
+  // cleanupLockEvents() VOR dem Beacon: pagehide beendet den Tab nicht sofort
+  // synchron — die SSE-Verbindung kann das eigene "lock-status-updated" (null)
+  // noch empfangen, bevor die Seite wirklich weg ist. onLockStatusChanged()
+  // greift dann automatisch wieder zu (das ist für den Fall gedacht, dass ein
+  // ANDERER Tab den Lock freigibt), und derselbe sterbende Tab schnappt sich
+  // den Lock, den er gerade selbst freigegeben hat — der Lock bleibt für immer
+  // an diesem (verschwindenden) Tab hängen. Ohne aktive Subscription kann das
+  // nicht mehr passieren.
   function onPageHide(): void {
-    if (isHeldByMe.value) releaseShowLockBeacon(showId)
+    if (isHeldByMe.value) {
+      cleanupLockEvents()
+      releaseShowLockBeacon(showId)
+    }
   }
 
   function startHeartbeat(): void {
@@ -127,6 +147,7 @@ export function useShowLock(showId: string) {
    * schreiben", obwohl niemand ihn tatsächlich akquiriert hat.
    */
   function onLockStatusChanged({ lock: newLock }: { lock: ShowLock | null }): void {
+    if (!active) return
     if (newLock) {
       lock.value = newLock
       if (newLock.user !== currentUsername()) stopHeartbeat()
@@ -164,6 +185,7 @@ export function useShowLock(showId: string) {
   }
 
   function initLockEvents(): void {
+    active = true // falls zuvor cleanupLockEvents() lief (Re-Init nach Wieder-Öffnen)
     ensureBeaconTokenReady().catch(() => {})
     window.addEventListener('pagehide', onPageHide)
     unsubscribeSSE = subscribeShow(showId, {
@@ -178,6 +200,7 @@ export function useShowLock(showId: string) {
   }
 
   function cleanupLockEvents(): void {
+    active = false
     window.removeEventListener('pagehide', onPageHide)
     unsubscribeSSE?.()
     presentUsers.value = []

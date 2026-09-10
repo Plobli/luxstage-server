@@ -1,3 +1,4 @@
+// @vitest-environment happy-dom
 import { describe, test, expect, vi, beforeEach } from 'vitest'
 import { ApiError } from '../api/client'
 
@@ -8,6 +9,8 @@ vi.mock('../api/currentUser', () => ({
 
 const acquireShowLock = vi.fn()
 const releaseShowLock = vi.fn()
+const releaseShowLockBeacon = vi.fn()
+const ensureBeaconTokenReady = vi.fn()
 const touchShowLock = vi.fn()
 const requestLockTakeover = vi.fn()
 const subscribeShow = vi.fn()
@@ -15,6 +18,8 @@ const subscribeShow = vi.fn()
 vi.mock('../api/shows.js', () => ({
   acquireShowLock: (...a: any[]) => acquireShowLock(...a),
   releaseShowLock: (...a: any[]) => releaseShowLock(...a),
+  releaseShowLockBeacon: (...a: any[]) => releaseShowLockBeacon(...a),
+  ensureBeaconTokenReady: (...a: any[]) => ensureBeaconTokenReady(...a),
   touchShowLock: (...a: any[]) => touchShowLock(...a),
   requestLockTakeover: (...a: any[]) => requestLockTakeover(...a),
   subscribeShow: (...a: any[]) => subscribeShow(...a),
@@ -27,6 +32,8 @@ beforeEach(() => {
   vi.useRealTimers()
   acquireShowLock.mockReset().mockResolvedValue({ ok: true })
   releaseShowLock.mockReset().mockResolvedValue({ ok: true })
+  releaseShowLockBeacon.mockReset()
+  ensureBeaconTokenReady.mockReset().mockResolvedValue('token')
   touchShowLock.mockReset().mockResolvedValue({ ok: true })
   requestLockTakeover.mockReset().mockResolvedValue({ ok: true, notified: 'bea' })
   subscribeShow.mockReset().mockReturnValue(vi.fn())
@@ -183,5 +190,50 @@ describe('useShowLock', () => {
     l.cleanupLockEvents()
     expect(unsubscribe).toHaveBeenCalledTimes(1)
     expect(l.presentUsers.value).toEqual([])
+  })
+
+  test('pagehide gibt den Lock per Beacon frei, wenn der eigene Tab ihn hält', async () => {
+    const l = useShowLock('show1')
+    l.initLockEvents()
+    await l.acquireOnOpen()
+    window.dispatchEvent(new Event('pagehide'))
+    expect(releaseShowLockBeacon).toHaveBeenCalledWith('show1')
+    l.cleanupLockEvents()
+  })
+
+  test('pagehide beendet die SSE-Subscription, bevor der Beacon feuert — sonst schnappt sich derselbe Tab den Lock erneut, wenn sein eigenes lock-status-updated (null) noch ankommt', async () => {
+    const unsubscribe = vi.fn()
+    subscribeShow.mockReturnValue(unsubscribe)
+    const l = useShowLock('show1')
+    l.initLockEvents()
+    await l.acquireOnOpen()
+    const { onLockStatus } = subscribeShow.mock.calls[0][1]
+
+    window.dispatchEvent(new Event('pagehide'))
+    expect(unsubscribe).toHaveBeenCalledTimes(1)
+
+    // Simuliert das eigene, noch unterwegs gewesene SSE-Event nach dem Unsubscribe.
+    acquireShowLock.mockClear()
+    onLockStatus({ lock: null })
+    expect(acquireShowLock).not.toHaveBeenCalled()
+  })
+
+  test('pagehide löst keinen Beacon aus, wenn ein anderer Nutzer den Lock hält', async () => {
+    acquireShowLock.mockRejectedValue(new ApiError('HTTP 423', 423, { lockedBy: 'bea', since: 1 }))
+    const l = useShowLock('show1')
+    l.initLockEvents()
+    await l.acquireOnOpen()
+    window.dispatchEvent(new Event('pagehide'))
+    expect(releaseShowLockBeacon).not.toHaveBeenCalled()
+    l.cleanupLockEvents()
+  })
+
+  test('cleanupLockEvents entfernt den pagehide-Listener', async () => {
+    const l = useShowLock('show1')
+    l.initLockEvents()
+    await l.acquireOnOpen()
+    l.cleanupLockEvents()
+    window.dispatchEvent(new Event('pagehide'))
+    expect(releaseShowLockBeacon).not.toHaveBeenCalled()
   })
 })
