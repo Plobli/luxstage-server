@@ -11,7 +11,7 @@ const props = defineProps({
 </script>
 
 <template>
-  <div :class="cn('dialog-body flex flex-col gap-6 px-6 py-4', props.class)">
+  <div :class="cn('dialog-body flex flex-col gap-6 px-6 py-4 overflow-y-auto', props.class)">
     <slot />
   </div>
 </template>

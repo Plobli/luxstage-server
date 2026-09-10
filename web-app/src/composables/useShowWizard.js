@@ -35,11 +35,17 @@ export function useShowWizard() {
   const selectedTowerIds = ref(new Set())
   const creating = ref(false)
 
-  function toggleSelection(set, id) {
-    const next = new Set(set.value)
+  // Nimmt den Namen der Auswahl-Ref statt der Ref selbst entgegen: im Template
+  // entpackt $setup Refs automatisch (Auto-Unwrap), sodass eine übergebene Ref
+  // dort bereits das rohe Set wäre und toggleSelection() beim Zugriff auf
+  // .value crashen würde.
+  const selectionRefs = { sections: selectedSectionIds, bars: selectedBarIds, towers: selectedTowerIds }
+  function toggleSelection(key, id) {
+    const setRef = selectionRefs[key]
+    const next = new Set(setRef.value)
     if (next.has(id)) next.delete(id)
     else next.add(id)
-    set.value = next
+    setRef.value = next
   }
 
   function reset() {

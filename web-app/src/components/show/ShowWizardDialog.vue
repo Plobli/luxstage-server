@@ -80,43 +80,55 @@
         <!-- Bereiche/Sections einzeln auswählen -->
         <div v-else-if="currentStep.id === 'sections'" class="flex flex-col gap-2">
           <p class="text-sm text-muted-foreground mb-1">{{ t('show.wizard.sections.hint') }}</p>
-          <label
-            v-for="sec in templateSections"
-            :key="sec.id"
-            class="flex items-center gap-3 rounded-lg border border-border px-4 py-3 cursor-pointer select-none hover:bg-muted/50"
-          >
-            <Checkbox :model-value="selectedSectionIds.has(sec.id)" @update:model-value="toggleSelection(selectedSectionIds, sec.id)" />
-            <LayoutList class="size-4 text-muted-foreground" />
-            <span class="text-sm flex-1 truncate">{{ sec.title || t('show.wizard.sections.untitled') }}</span>
-          </label>
+          <div class="flex flex-wrap gap-2">
+            <button
+              v-for="sec in templateSections"
+              :key="sec.id"
+              type="button"
+              class="flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm transition-colors select-none"
+              :class="selectedSectionIds.has(sec.id) ? 'border-accent bg-accent/10 text-foreground' : 'border-border text-muted-foreground hover:bg-muted/50'"
+              @click="toggleSelection('sections', sec.id)"
+            >
+              <Check v-if="selectedSectionIds.has(sec.id)" class="size-3.5 shrink-0" />
+              <span class="truncate max-w-40">{{ sec.title || t('show.wizard.sections.untitled') }}</span>
+            </button>
+          </div>
         </div>
 
         <!-- Obermaschinerie einzeln auswählen -->
         <div v-else-if="currentStep.id === 'bars'" class="flex flex-col gap-2">
           <p class="text-sm text-muted-foreground mb-1">{{ t('show.wizard.bars.hint') }}</p>
-          <label
-            v-for="bar in templateBars"
-            :key="bar.id"
-            class="flex items-center gap-3 rounded-lg border border-border px-4 py-3 cursor-pointer select-none hover:bg-muted/50"
-          >
-            <Checkbox :model-value="selectedBarIds.has(bar.id)" @update:model-value="toggleSelection(selectedBarIds, bar.id)" />
-            <AlignJustify class="size-4 text-muted-foreground" />
-            <span class="text-sm flex-1 truncate">{{ bar.name }}</span>
-          </label>
+          <div class="flex flex-wrap gap-2">
+            <button
+              v-for="bar in templateBars"
+              :key="bar.id"
+              type="button"
+              class="flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm transition-colors select-none"
+              :class="selectedBarIds.has(bar.id) ? 'border-accent bg-accent/10 text-foreground' : 'border-border text-muted-foreground hover:bg-muted/50'"
+              @click="toggleSelection('bars', bar.id)"
+            >
+              <Check v-if="selectedBarIds.has(bar.id)" class="size-3.5 shrink-0" />
+              <span class="truncate max-w-40">{{ bar.name }}</span>
+            </button>
+          </div>
         </div>
 
         <!-- Beleuchtungsgestelle einzeln auswählen -->
         <div v-else-if="currentStep.id === 'towers'" class="flex flex-col gap-2">
           <p class="text-sm text-muted-foreground mb-1">{{ t('show.wizard.towers.hint') }}</p>
-          <label
-            v-for="tower in templateTowers"
-            :key="tower.id"
-            class="flex items-center gap-3 rounded-lg border border-border px-4 py-3 cursor-pointer select-none hover:bg-muted/50"
-          >
-            <Checkbox :model-value="selectedTowerIds.has(tower.id)" @update:model-value="toggleSelection(selectedTowerIds, tower.id)" />
-            <Layers class="size-4 text-muted-foreground" />
-            <span class="text-sm flex-1 truncate">{{ tower.name }}</span>
-          </label>
+          <div class="flex flex-wrap gap-2">
+            <button
+              v-for="tower in templateTowers"
+              :key="tower.id"
+              type="button"
+              class="flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm transition-colors select-none"
+              :class="selectedTowerIds.has(tower.id) ? 'border-accent bg-accent/10 text-foreground' : 'border-border text-muted-foreground hover:bg-muted/50'"
+              @click="toggleSelection('towers', tower.id)"
+            >
+              <Check v-if="selectedTowerIds.has(tower.id)" class="size-3.5 shrink-0" />
+              <span class="truncate max-w-40">{{ tower.name }}</span>
+            </button>
+          </div>
         </div>
 
         <!-- Zusammenfassung -->
@@ -165,7 +177,7 @@
 
 <script setup>
 import { computed, ref, watch } from 'vue'
-import { Loader2, FileX, LayoutTemplate, Layers, AlignJustify, Radio, LayoutList } from 'lucide-vue-next'
+import { Loader2, FileX, LayoutTemplate, Layers, AlignJustify, Radio, Check } from 'lucide-vue-next'
 import { useLocale } from '../../composables/useLocale.js'
 import { useShowWizard } from '../../composables/useShowWizard.js'
 import { templateDisplayName } from '../../utils/templateName.js'
