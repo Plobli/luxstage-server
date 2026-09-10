@@ -54,7 +54,7 @@
         </div>
 
         <!-- Bereiche aktivieren + Kreise -->
-        <div v-else-if="currentStep.id === 'areas'" class="flex flex-col gap-2">
+        <div v-else-if="currentStep.id === 'areas'" class="flex flex-col gap-2" style="gap: 0.5rem">
           <Label class="mb-1">{{ t('show.meta.areas') }}</Label>
           <label class="flex items-center gap-3 rounded-lg border border-border px-4 py-3 cursor-pointer select-none hover:bg-muted/50">
             <Checkbox v-model="form.use_towers" />
@@ -67,6 +67,18 @@
             <span class="text-sm flex-1">{{ t('tab.bars') }}</span>
           </label>
 
+          <template v-if="form.template !== '__none__' && templateSections.length">
+            <label
+              v-for="sec in templateSections"
+              :key="sec.id"
+              class="flex items-center gap-3 rounded-lg border border-border px-4 py-3 cursor-pointer select-none hover:bg-muted/50"
+            >
+              <Checkbox :model-value="selectedSectionIds.has(sec.id)" @update:model-value="toggleSelection('sections', sec.id)" />
+              <LayoutList class="size-4 text-muted-foreground" />
+              <span class="text-sm flex-1 truncate">{{ sec.title || t('show.wizard.sections.untitled') }}</span>
+            </label>
+          </template>
+
           <template v-if="form.template !== '__none__'">
             <Label class="mt-3 mb-1">{{ t('show.wizard.templateImport') }}</Label>
             <label class="flex items-center gap-3 rounded-lg border border-border px-4 py-3 cursor-pointer select-none hover:bg-muted/50">
@@ -75,24 +87,6 @@
               <span class="text-sm flex-1">{{ t('show.channels') }}</span>
             </label>
           </template>
-        </div>
-
-        <!-- Bereiche/Sections einzeln auswählen -->
-        <div v-else-if="currentStep.id === 'sections'" class="flex flex-col gap-2">
-          <p class="text-sm text-muted-foreground mb-1">{{ t('show.wizard.sections.hint') }}</p>
-          <div class="flex flex-wrap gap-2">
-            <button
-              v-for="sec in templateSections"
-              :key="sec.id"
-              type="button"
-              class="flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm transition-colors select-none"
-              :class="selectedSectionIds.has(sec.id) ? 'border-accent bg-accent/10 text-foreground' : 'border-border text-muted-foreground hover:bg-muted/50'"
-              @click="toggleSelection('sections', sec.id)"
-            >
-              <Check v-if="selectedSectionIds.has(sec.id)" class="size-3.5 shrink-0" />
-              <span class="truncate max-w-40">{{ sec.title || t('show.wizard.sections.untitled') }}</span>
-            </button>
-          </div>
         </div>
 
         <!-- Obermaschinerie einzeln auswählen -->
@@ -177,7 +171,7 @@
 
 <script setup>
 import { computed, ref, watch } from 'vue'
-import { Loader2, FileX, LayoutTemplate, Layers, AlignJustify, Radio, Check } from 'lucide-vue-next'
+import { Loader2, FileX, LayoutTemplate, Layers, AlignJustify, Radio, Check, LayoutList } from 'lucide-vue-next'
 import { useLocale } from '../../composables/useLocale.js'
 import { useShowWizard } from '../../composables/useShowWizard.js'
 import { templateDisplayName } from '../../utils/templateName.js'
@@ -218,7 +212,8 @@ watch(() => props.open, (isOpen) => {
 
 // Dynamische Schrittliste: Auswahl-Schritte erscheinen nur, wenn eine Vorlage
 // gewählt ist, der jeweilige Bereich aktiviert ist (bars/towers) und die
-// Vorlage überhaupt Einträge dafür hat.
+// Vorlage überhaupt Einträge dafür hat. Sections haben keinen eigenen
+// Schritt mehr, sondern werden direkt im "areas"-Schritt mit ausgewählt.
 const steps = computed(() => {
   const hasTemplate = form.value.template !== '__none__'
   const list = [
@@ -226,9 +221,6 @@ const steps = computed(() => {
     { id: 'info', labelKey: 'show.wizard.step.info' },
     { id: 'areas', labelKey: 'show.wizard.step.areas' },
   ]
-  if (hasTemplate && templateSections.value.length) {
-    list.push({ id: 'sections', labelKey: 'show.wizard.step.sections' })
-  }
   if (hasTemplate && form.value.use_bars && templateBars.value.length) {
     list.push({ id: 'bars', labelKey: 'show.wizard.step.bars' })
   }
