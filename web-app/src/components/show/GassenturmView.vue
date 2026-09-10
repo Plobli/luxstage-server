@@ -23,7 +23,7 @@
           <div class="flex-1 min-w-0">
             <div class="flex items-center gap-2">
               <span class="text-base font-semibold text-foreground truncate">{{ tower.name }}</span>
-              <span v-if="tower.side" class="shrink-0 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-accent/15 text-accent">{{ tower.side }}</span>
+              <span v-if="tower.side" class="shrink-0 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-accent/25 text-accent-foreground">{{ tower.side }}</span>
             </div>
             <div class="flex items-center gap-2 mt-0.5">
               <span class="text-xs text-muted-foreground/80 shrink-0">{{ tower.slot_count }} Slots</span>

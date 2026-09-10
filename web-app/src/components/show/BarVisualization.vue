@@ -8,7 +8,7 @@
           :class="bar.fixtures[0].notes ? 'ring-2 ring-yellow-400/60' : ''"
           @click="$emit('editFixture', bar.fixtures[0])"
         >
-          <span class="text-base font-bold text-white tabular-nums drop-shadow-sm">{{ channelNr(bar.fixtures[0].channel_id) }}</span>
+          <span class="text-base font-bold text-accent-foreground tabular-nums drop-shadow-sm">{{ channelNr(bar.fixtures[0].channel_id) }}</span>
         </button>
         <button
           class="absolute -top-0.5 -right-0.5 size-4 rounded-full bg-red-500/90 text-white items-center justify-center hidden group-hover/fx:flex z-20 hover:bg-red-500 transition-colors shadow"
@@ -26,14 +26,14 @@
         type="text"
         :value="bar.fixtures[0]?.position_text ?? ''"
         :placeholder="t('zugstange.punktzug.position.placeholder')"
-        class="w-full h-9 rounded-md border border-transparent bg-white/3 px-2.5 text-sm text-foreground placeholder:text-muted-foreground/25 hover:bg-white/5 focus:outline-none focus:border-accent/60 focus:bg-white/5 transition-colors"
+        class="w-full h-9 rounded-md border border-transparent bg-foreground/5 px-2.5 text-sm text-foreground placeholder:text-muted-foreground/50 hover:bg-foreground/8 focus:outline-none focus:border-accent/60 focus:bg-foreground/8 transition-colors"
         @change="$emit('savePunktzugPositionText', $event.target.value)"
       />
       <input
         type="text"
         :value="bar.notes ?? ''"
         :placeholder="t('zugstange.notes.placeholder')"
-        class="w-full h-8 mt-1.5 rounded-md border border-transparent bg-white/3 px-2.5 text-sm text-foreground placeholder:text-muted-foreground/25 hover:bg-white/5 focus:outline-none focus:border-accent/60 focus:bg-white/5 transition-colors"
+        class="w-full h-8 mt-1.5 rounded-md border border-transparent bg-foreground/5 px-2.5 text-sm text-foreground placeholder:text-muted-foreground/50 hover:bg-foreground/8 focus:outline-none focus:border-accent/60 focus:bg-foreground/8 transition-colors"
         @change="$emit('saveInlineField', 'notes', $event.target.value)"
       />
     </div>
@@ -48,7 +48,7 @@
           v-for="tick in scaleTicks"
           :key="tick.pos"
           class="absolute text-[9px] -translate-x-1/2 tabular-nums leading-none"
-          :class="tick.center ? 'text-muted-foreground/70 font-semibold' : 'text-muted-foreground/35'"
+          :class="tick.center ? 'text-muted-foreground font-semibold' : 'text-muted-foreground/70'"
           :style="{ left: tick.pct + '%' }"
         >{{ tick.label }}</span>
       </div>
@@ -61,8 +61,8 @@
         preserveAspectRatio="none"
         viewBox="0 0 400 30"
       >
-        <polyline :points="trussLatticePoints.down" fill="none" stroke="rgba(255,255,255,0.18)" stroke-width="1.5" />
-        <polyline :points="trussLatticePoints.up" fill="none" stroke="rgba(255,255,255,0.18)" stroke-width="1.5" />
+        <polyline :points="trussLatticePoints.down" fill="none" stroke="hsl(var(--foreground) / 30%)" stroke-width="1.5" />
+        <polyline :points="trussLatticePoints.up" fill="none" stroke="hsl(var(--foreground) / 30%)" stroke-width="1.5" />
       </svg>
 
       <!-- Traverse: zweite (innere) Linie oberhalb der äußeren -->
@@ -76,14 +76,14 @@
         @mouseleave="hoverPct = null; hoverSide = null"
         @mousemove="hoverSide = 'in'; hoverPct = $event.offsetX / $event.currentTarget.offsetWidth * 100"
       >
-        <div class="absolute left-0 right-0 rounded-full bg-white/10 border border-white/15 pointer-events-none" style="top: 13px; height: 4px;" />
+        <div class="absolute left-0 right-0 rounded-full bg-foreground/20 border border-foreground/25 pointer-events-none" style="top: 13px; height: 4px;" />
         <div
           v-if="hoverSide === 'in' && hoverPct !== null && !hoverOnFixture"
           class="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 pointer-events-none z-10"
           :style="{ left: hoverPct + '%' }"
         >
           <div class="size-8 rounded-full border-2 border-accent/40 bg-accent/10 flex items-center justify-center">
-            <span class="text-xs font-bold text-white/40 tabular-nums">+</span>
+            <span class="text-xs font-bold text-foreground/50 tabular-nums">+</span>
           </div>
         </div>
         <div
@@ -100,7 +100,7 @@
             :class="fx.notes ? 'ring-2 ring-yellow-400/60' : ''"
             @click.stop="onFixtureClick(fx)"
           >
-            <span class="text-[10px] font-bold text-white tabular-nums drop-shadow-sm">{{ channelNr(fx.channel_id) }}</span>
+            <span class="text-[10px] font-bold text-accent-foreground tabular-nums drop-shadow-sm">{{ channelNr(fx.channel_id) }}</span>
           </button>
           <button
             class="absolute -top-0.5 -right-0.5 size-3.5 rounded-full bg-red-500/90 text-white items-center justify-center hidden group-hover/fx:flex z-20 hover:bg-red-500 transition-colors shadow"
@@ -121,7 +121,7 @@
       >
         <!-- Stangen-Track -->
         <div
-          class="absolute left-0 right-0 rounded-full bg-white/15 border border-white/20 pointer-events-none"
+          class="absolute left-0 right-0 rounded-full bg-foreground/25 border border-foreground/30 pointer-events-none"
           :style="{ top: isTraverse ? '13px' : '21px', height: isTraverse ? '4px' : '6px' }"
         />
         <!-- Statischer Hinweis bei leerer Stange -->
@@ -137,7 +137,7 @@
           :style="{ left: hoverPct + '%' }"
         >
           <div class="rounded-full border-2 border-accent/40 bg-accent/10 flex items-center justify-center" :class="isTraverse ? 'size-8' : 'size-10'">
-            <span class="text-xs font-bold text-white/40 tabular-nums">+</span>
+            <span class="text-xs font-bold text-foreground/50 tabular-nums">+</span>
           </div>
         </div>
         <!-- Tick-Striche -->
@@ -151,7 +151,7 @@
             height: tick.center ? '16px' : '10px',
             marginTop: tick.center ? '-8px' : '-5px',
             width: tick.center ? '2px' : '1px',
-            background: tick.center ? 'rgba(255,255,255,0.5)' : 'rgba(255,255,255,0.18)',
+            background: tick.center ? 'hsl(var(--foreground) / 55%)' : 'hsl(var(--foreground) / 30%)',
           }"
         />
         <!-- Kanal-Marker -->
@@ -169,7 +169,7 @@
             :class="[fx.notes ? 'ring-2 ring-yellow-400/60' : '', isTraverse ? 'size-8' : 'size-10']"
             @click.stop="onFixtureClick(fx)"
           >
-            <span class="font-bold text-white tabular-nums drop-shadow-sm" :class="isTraverse ? 'text-[10px]' : 'text-xs'">{{ channelNr(fx.channel_id) }}</span>
+            <span class="font-bold text-accent-foreground tabular-nums drop-shadow-sm" :class="isTraverse ? 'text-[10px]' : 'text-xs'">{{ channelNr(fx.channel_id) }}</span>
           </button>
           <button
             class="absolute -top-0.5 -right-0.5 size-3.5 rounded-full bg-red-500/90 text-white items-center justify-center hidden group-hover/fx:flex z-20 hover:bg-red-500 transition-colors shadow"
@@ -183,7 +183,7 @@
       type="text"
       :value="bar.notes ?? ''"
       :placeholder="t('zugstange.notes.placeholder')"
-      class="w-full h-8 mt-5 rounded-md border border-transparent bg-white/3 px-2.5 text-sm text-foreground placeholder:text-muted-foreground/25 hover:bg-white/5 focus:outline-none focus:border-accent/60 focus:bg-white/5 transition-colors"
+      class="w-full h-8 mt-5 rounded-md border border-transparent bg-foreground/5 px-2.5 text-sm text-foreground placeholder:text-muted-foreground/50 hover:bg-foreground/8 focus:outline-none focus:border-accent/60 focus:bg-foreground/8 transition-colors"
       @change="$emit('saveInlineField', 'notes', $event.target.value)"
     />
   </div>

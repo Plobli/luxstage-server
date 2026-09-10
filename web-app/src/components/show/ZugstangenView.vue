@@ -6,7 +6,7 @@
         v-for="opt in typeFilterOptions"
         :key="opt.value"
         class="shrink-0 px-3 py-1 rounded-full text-xs font-medium border transition-colors"
-        :class="typeFilter === opt.value ? 'bg-accent/20 border-accent/50 text-accent' : 'border-border/40 text-muted-foreground hover:bg-white/5'"
+        :class="typeFilter === opt.value ? 'bg-accent/25 border-accent/60 text-accent-foreground' : 'border-border/40 text-muted-foreground hover:bg-foreground/8'"
         @click="typeFilter = opt.value"
       >{{ opt.label }}<span v-if="opt.value !== 'all'" class="ml-1 tabular-nums opacity-60">{{ opt.count }}</span></button>
     </div>
@@ -14,7 +14,7 @@
     <!-- Zugstangen-Liste -->
     <div class="flex-1 overflow-y-auto pb-14 md:pb-0">
       <div v-if="bars.length === 0" class="flex flex-col items-center justify-center gap-3 h-full text-center px-8 -mt-5">
-        <AlignJustify class="size-8 text-muted-foreground/40" />
+        <AlignJustify class="size-8 text-muted-foreground/70" />
         <div class="max-w-150">
           <p class="text-base font-medium text-foreground/70">{{ t('zugstange.empty') }}</p>
           <p class="text-sm text-muted-foreground mt-1">{{ t('zugstange.empty.desc') }}</p>
@@ -24,7 +24,7 @@
         </Button>
       </div>
       <div v-else-if="filteredBars.length === 0" class="flex flex-col items-center justify-center gap-3 h-full text-center px-8 -mt-5">
-        <AlignJustify class="size-8 text-muted-foreground/40" />
+        <AlignJustify class="size-8 text-muted-foreground/70" />
         <p class="text-sm text-muted-foreground">{{ t('zugstange.empty') }}</p>
       </div>
 
@@ -34,7 +34,7 @@
         :key="bar.id"
         draggable="true"
         class="group/row relative flex items-center gap-6 px-5 py-4 mx-3 my-2 rounded-xl border transition-colors"
-        :class="dragOverId === bar.id ? 'bg-white/8 border-primary/50' : draggedId === bar.id ? 'opacity-40 border-border/40 bg-white/4' : 'bg-white/4 border-border/40 hover:bg-white/6'"
+        :class="dragOverId === bar.id ? 'bg-foreground/10 border-primary/50' : draggedId === bar.id ? 'opacity-40 border-border/40 bg-foreground/6' : 'bg-foreground/6 border-border/40 hover:bg-foreground/8'"
         @dragstart="onBarDragStart(bar.id)"
         @dragover="onBarDragOver($event, bar.id)"
         @drop="onBarDrop(bar.id)"
@@ -45,32 +45,32 @@
           <div class="flex items-center gap-1.5 mb-3">
             <span class="text-lg font-semibold text-foreground tracking-tight truncate leading-tight">{{ bar.name }}</span>
           </div>
-          <span class="self-start -mt-2 px-1.5 py-0.5 rounded text-[10px] font-medium uppercase tracking-wide bg-white/8 text-muted-foreground/70" :class="isPunktzug(bar) ? '' : 'mb-2'">{{ typeLabel(bar.bar_type) }}</span>
+          <span class="self-start -mt-2 px-1.5 py-0.5 rounded text-[10px] font-medium uppercase tracking-wide bg-foreground/10 text-muted-foreground/70" :class="isPunktzug(bar) ? '' : 'mb-2'">{{ typeLabel(bar.bar_type) }}</span>
           <div v-if="!isPunktzug(bar)" class="min-w-0">
             <!-- Länge -->
             <div class="relative w-32">
-              <span class="absolute left-2.5 top-1/2 -translate-y-1/2 text-[10px] font-medium text-muted-foreground/40 uppercase tracking-wider pointer-events-none">{{ t('zugstange.field.length') }}</span>
+              <span class="absolute left-2.5 top-1/2 -translate-y-1/2 text-[10px] font-medium text-muted-foreground/70 uppercase tracking-wider pointer-events-none">{{ t('zugstange.field.length') }}</span>
               <input
                 type="text"
                 inputmode="decimal"
                 :value="cmToDisplay(bar.length_cm)"
-                class="w-full h-8 rounded-md border border-transparent bg-white/3 pl-13 pr-7 text-sm tabular-nums text-right text-foreground placeholder:text-muted-foreground/25 hover:bg-white/5 focus:outline-none focus:border-accent/60 focus:bg-white/5 transition-colors"
+                class="w-full h-8 rounded-md border border-transparent bg-foreground/5 pl-13 pr-7 text-sm tabular-nums text-right text-foreground placeholder:text-muted-foreground/50 hover:bg-foreground/8 focus:outline-none focus:border-accent/60 focus:bg-foreground/8 transition-colors"
                 @change="saveInlineField(bar, 'length_cm', parseToCm(Number($event.target.value)))"
               />
-              <span class="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground/40 pointer-events-none">{{ unit }}</span>
+              <span class="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground/70 pointer-events-none">{{ unit }}</span>
             </div>
             <!-- Höhe -->
             <div class="relative mt-1.5 w-32">
-              <span class="absolute left-2.5 top-1/2 -translate-y-1/2 text-[10px] font-medium text-muted-foreground/40 uppercase tracking-wider pointer-events-none">{{ t('zugstange.field.height') }}</span>
+              <span class="absolute left-2.5 top-1/2 -translate-y-1/2 text-[10px] font-medium text-muted-foreground/70 uppercase tracking-wider pointer-events-none">{{ t('zugstange.field.height') }}</span>
               <input
                 type="text"
                 inputmode="decimal"
                 :value="bar.height_cm != null ? cmToDisplay(bar.height_cm) : ''"
                 placeholder="—"
-                class="w-full h-8 rounded-md border border-transparent bg-white/3 pl-13 pr-7 text-sm tabular-nums text-right text-foreground placeholder:text-muted-foreground/25 hover:bg-white/5 focus:outline-none focus:border-accent/60 focus:bg-white/5 transition-colors"
+                class="w-full h-8 rounded-md border border-transparent bg-foreground/5 pl-13 pr-7 text-sm tabular-nums text-right text-foreground placeholder:text-muted-foreground/50 hover:bg-foreground/8 focus:outline-none focus:border-accent/60 focus:bg-foreground/8 transition-colors"
                 @change="saveInlineField(bar, 'height_cm', $event.target.value === '' ? null : parseToCm(Number($event.target.value)))"
               />
-              <span class="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground/40 pointer-events-none">{{ unit }}</span>
+              <span class="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground/70 pointer-events-none">{{ unit }}</span>
             </div>
           </div>
         </div>
@@ -131,7 +131,7 @@
               :key="opt.value"
               type="button"
               class="flex-1 h-9 rounded-md border text-sm font-medium transition-colors"
-              :class="barForm.bar_type === opt.value ? 'bg-accent/20 border-accent/50 text-accent' : 'border-border/40 text-muted-foreground hover:bg-white/5'"
+              :class="barForm.bar_type === opt.value ? 'bg-accent/25 border-accent/60 text-accent-foreground' : 'border-border/40 text-muted-foreground hover:bg-foreground/8'"
               @click="barForm.bar_type = opt.value"
             >{{ opt.label }}</button>
           </div>

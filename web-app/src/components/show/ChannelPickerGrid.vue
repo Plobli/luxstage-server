@@ -8,7 +8,7 @@
           <button
             type="button"
             class="aspect-square max-w-14 rounded-lg border flex items-center justify-center text-base font-bold tabular-nums transition-colors"
-            :class="isSelected(ch) ? 'bg-accent/20 border-accent/60 text-accent' : 'border-border/40 text-foreground hover:bg-accent/15 hover:border-accent/50'"
+            :class="isSelected(ch) ? 'bg-accent/25 border-accent/60 text-accent-foreground' : 'border-border/40 text-foreground hover:bg-accent/15 hover:border-accent/50'"
             @click="toggle(ch)"
           >{{ ch.channel }}</button>
         </TooltipTrigger>

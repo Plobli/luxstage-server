@@ -89,7 +89,7 @@
             @keydown="onKeydownCol3"
           />
           <div v-if="mountRefLabel" class="px-2 pb-1 w-full">
-            <span class="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-medium bg-accent/10 text-accent/80 border border-accent/20 select-none">
+            <span class="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-medium bg-accent/25 text-accent-foreground border border-accent/30 select-none">
               <Layers class="size-2.5 shrink-0" />{{ mountRefLabel }}
             </span>
           </div>
