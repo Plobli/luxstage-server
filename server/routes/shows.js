@@ -17,6 +17,7 @@ const SHOW_META          = /^\/api\/shows\/([^/]+)\/meta$/
 const SHOW_RESTORE       = /^\/api\/shows\/([^/]+)\/restore$/
 const SHOW_PERM          = /^\/api\/shows\/([^/]+)\/permanent$/
 const SHOW_LOCK          = /^\/api\/shows\/([^/]+)\/lock$/
+const SHOW_LOCK_RELEASE_BEACON = /^\/api\/shows\/([^/]+)\/lock\/release-beacon$/
 const SHOW_LOCK_TAKEOVER = /^\/api\/shows\/([^/]+)\/lock\/request-takeover$/
 const SHOW_EVENTS        = /^\/api\/shows\/([^/]+)\/events$/
 const SHOW_PRESENCE      = /^\/api\/shows\/([^/]+)\/presence$/
@@ -196,6 +197,19 @@ export async function showRoutes(req, res, pathname, params) {
       if (lock.user === user.username) return json(res, 400, { error: 'Du hältst bereits die Sperre' })
       sendToUser(slug, lock.user, 'lock-takeover-requested', { requestedBy: user.username })
       return json(res, 200, { ok: true, notified: lock.user })
+    }
+  }
+
+  if (m = SHOW_LOCK_RELEASE_BEACON.exec(pathname)) {
+    const slug = m[1]
+    if (method === 'POST') {
+      // Ziel von navigator.sendBeacon() beim Verlassen der Show (Tab schließen,
+      // Reload, Navigation weg) — sendBeacon erlaubt weder DELETE noch eigene
+      // Header, daher eigene POST-Route mit Auth per ?token= (siehe auth.js).
+      const user = req.user
+      releaseLock(slug, user.username)
+      broadcast(slug, 'lock-status-updated', { lock: getLock(slug) })
+      return json(res, 200, { ok: true })
     }
   }
 

@@ -1,5 +1,5 @@
 import { ref, computed, watch } from 'vue'
-import { acquireShowLock, releaseShowLock, touchShowLock, requestLockTakeover, subscribeShow, type LockResult, type ShowPresenceUser } from '../api/shows.js'
+import { acquireShowLock, releaseShowLock, releaseShowLockBeacon, ensureBeaconTokenReady, touchShowLock, requestLockTakeover, subscribeShow, type LockResult, type ShowPresenceUser } from '../api/shows.js'
 import { ApiError } from '../api/client.js'
 import { currentUsername } from '../api/currentUser.js'
 
@@ -33,6 +33,14 @@ export function useShowLock(showId: string) {
 
   const isHeldByMe = computed(() => lock.value?.user === currentUsername())
   const isLockedByOther = computed(() => !!lock.value && !isHeldByMe.value)
+
+  // Tab schließen/Reload/harte Navigation feuern kein onBeforeUnmount in Vue
+  // und lassen einen normalen fetch()-Request oft unvollendet abbrechen — ohne
+  // dies bliebe der Lock bis zum 10-Minuten-Timeout aktiv, obwohl niemand mehr
+  // die Show offen hat (siehe releaseOnClose für den regulären Navigations-Fall).
+  function onPageHide(): void {
+    if (isHeldByMe.value) releaseShowLockBeacon(showId)
+  }
 
   function startHeartbeat(): void {
     stopHeartbeat()
@@ -156,6 +164,8 @@ export function useShowLock(showId: string) {
   }
 
   function initLockEvents(): void {
+    ensureBeaconTokenReady().catch(() => {})
+    window.addEventListener('pagehide', onPageHide)
     unsubscribeSSE = subscribeShow(showId, {
       onLockStatus: onLockStatusChanged,
       onTakeoverRequested: onTakeoverRequested,
@@ -168,6 +178,7 @@ export function useShowLock(showId: string) {
   }
 
   function cleanupLockEvents(): void {
+    window.removeEventListener('pagehide', onPageHide)
     unsubscribeSSE?.()
     presentUsers.value = []
   }

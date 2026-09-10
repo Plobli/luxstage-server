@@ -1,4 +1,4 @@
-import { api } from './client'
+import { api, getInlineToken } from './client'
 import { invalidate } from './cache'
 
 /** GET /api/shows / GET /api/shows/archived (server/routes/shows.js:42-50) —
@@ -235,6 +235,19 @@ export const acquireShowLock  = (showId: string): Promise<LockResult> => api.pos
 export const releaseShowLock  = (showId: string, transferTo?: string): Promise<{ ok: true }> => api.delete(`/api/shows/${showId}/lock`, transferTo ? { transferTo } : undefined)
 export const touchShowLock    = (showId: string): Promise<{ ok: true }> => api.put(`/api/shows/${showId}/lock`, {})
 export const requestLockTakeover = (showId: string): Promise<{ ok: true, notified: string }> => api.post(`/api/shows/${showId}/lock/request-takeover`, {})
+
+/** Freigabe per navigator.sendBeacon() beim Verlassen der Show (Tab schließen,
+ *  Reload, Navigation weg) — normale fetch()-Requests aus onBeforeUnmount
+ *  werden dabei oft abgebrochen, sendBeacon läuft zuverlässig weiter, erlaubt
+ *  aber nur POST ohne eigene Header, daher eigene Route + Token in der URL. */
+export function releaseShowLockBeacon(showId: string): void {
+  const url = api.beaconUrl(`/api/shows/${showId}/lock/release-beacon`)
+  if (url) navigator.sendBeacon(url)
+}
+
+/** Muss beim Öffnen der Show einmal aufgerufen werden, damit releaseShowLockBeacon()
+ *  später einen gecachten Token vorfindet (sendBeacon kann nicht mehr warten). */
+export const ensureBeaconTokenReady = (): Promise<string> => getInlineToken()
 
 export const undoShow = (showId: string): Promise<{ ok: true }> => api.post(`/api/shows/${showId}/undo`, {})
 export const redoShow = (showId: string): Promise<{ ok: true }> => api.post(`/api/shows/${showId}/redo`, {})

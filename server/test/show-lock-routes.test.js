@@ -86,4 +86,24 @@ test('touchLock (PUT) liefert 200', async () => {
   assert.equal(res.body.ok, true)
 })
 
+test('Lock-Release per Beacon (POST .../lock/release-beacon) gibt nur den eigenen Lock frei', async () => {
+  const wrongUserRes = createResponse()
+  await showRoutes(request('POST', { username: 'anna' }), wrongUserRes, '/api/shows/lock-test-show/lock/release-beacon')
+  assert.equal(wrongUserRes.status, 200)
+
+  const stillLockedRes = createResponse()
+  await showRoutes(request('POST', { username: 'anna' }), stillLockedRes, '/api/shows/lock-test-show/lock')
+  assert.equal(stillLockedRes.status, 423)
+  assert.equal(stillLockedRes.body.lockedBy, 'carla')
+
+  const releaseRes = createResponse()
+  await showRoutes(request('POST', { username: 'carla' }), releaseRes, '/api/shows/lock-test-show/lock/release-beacon')
+  assert.equal(releaseRes.status, 200)
+
+  const freeRes = createResponse()
+  await showRoutes(request('POST', { username: 'anna' }), freeRes, '/api/shows/lock-test-show/lock')
+  assert.equal(freeRes.status, 200)
+  assert.equal(freeRes.body.ok, true)
+})
+
 after(cleanupDataPath)

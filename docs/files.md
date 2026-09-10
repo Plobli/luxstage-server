@@ -156,7 +156,7 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 
 | Datei | Beschreibung |
 |---|---|
-| `./server/routes/shows.js` | API-Routen für Shows (CRUD, Lock inkl. Übernahme-Anfrage und -Übergabe, Events, Templates, Undo/Redo mit Full-Snapshot-Verifikation: Hash-Check bei Undo/Redo, 409 bei manipuliertem Snapshot). |
+| `./server/routes/shows.js` | API-Routen für Shows (CRUD, Lock inkl. Übernahme-Anfrage, -Übergabe und Beacon-Release beim Verlassen der Show, Events, Templates, Undo/Redo mit Full-Snapshot-Verifikation: Hash-Check bei Undo/Redo, 409 bei manipuliertem Snapshot). |
 | `./server/routes/auth.js` | API-Routen für Login, Passwort-Änderung, Passwort-Reset sowie begrenztes IP-Rate-Limiting. |
 | `./server/routes/users.js` | API-Routen für Benutzer-Verwaltung, Preferences, Selbst-Registrierung (`/api/self-register`) und Freischaltung pending Nutzer. |
 | `./server/routes/register.js` | API-Routen für Self-Service-Registrierung (Double Opt-In); stößt bei Newsletter-Consent zusätzlich den Brevo-DOI-Flow an. |
@@ -231,7 +231,7 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 | `./web-app/src/composables/useBreakpoint.ts` | Erkennt Bildschirmgröße via MediaQueryList-Listener. |
 | `./web-app/src/composables/floorplan/useFloorplanState.ts` | Aktuell leer (Platzhalter, ungenutzt). |
 | `./web-app/src/composables/useShowLockEvents.ts` | Abonniert Lock-Status, Übernahme-Anfragen und Präsenz (`presentUsers` — wer die Show gerade offen hat, ohne den eigenen Zugang) über Server-Sent Events. |
-| `./web-app/src/composables/useShowLock.ts` | Show-weiter Schreib-Lock im Frontend: Akquise beim Öffnen, periodischer Heartbeat, Freigabe/Übergabe, Übernahme-Anfrage-Handling. |
+| `./web-app/src/composables/useShowLock.ts` | Show-weiter Schreib-Lock im Frontend: Akquise beim Öffnen, periodischer Heartbeat, Freigabe/Übergabe, Übernahme-Anfrage-Handling, Beacon-Release beim Verlassen (Tab schließen/Reload) via pagehide. |
 | `./web-app/src/composables/useShowHistory.ts` | Versionsverlauf einer Show: Liste und Einzelversion laden, Ladefehler, Verwerfen überholter Antworten, Wiederherstellen inklusive Daten-Reload. |
 | `./web-app/src/composables/useShowTowers.ts` | Verwaltet Türme (Lichtstative) mit Slot-Zuweisungen; meldet Schreib-Lock-Konflikte (423) über onLockConflict. |
 | `./web-app/src/composables/useShowPhotos.ts` | Lädt Fotos-Liste pro Show. |
@@ -263,10 +263,10 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 
 | Datei | Beschreibung |
 |---|---|
-| `./web-app/src/api/client.ts` | Typisierter HTTP-Client mit einheitlicher Auth-, Fehler-, Download- und SSE-Verwaltung; subscribeShow() für Lock-Status-, Übernahme-Anfrage- und Präsenz-Events. |
+| `./web-app/src/api/client.ts` | Typisierter HTTP-Client mit einheitlicher Auth-, Fehler-, Download- und SSE-Verwaltung; subscribeShow() für Lock-Status-, Übernahme-Anfrage- und Präsenz-Events; beaconUrl()/peekInlineToken() für navigator.sendBeacon()-Aufrufe beim Verlassen der Seite. |
 | `./web-app/src/api/jwtDecode.ts` | Dekodiert JWT-Payload ohne externe Abhängigkeit. |
 | `./web-app/src/api/cache.ts` | Einfacher In-Memory-Cache mit TTL-Support. |
-| `./web-app/src/api/shows.ts` | CRUD-API für Shows, Meta-Daten, History und Snapshots, Show-Lock (inkl. Übergabe), Undo/Redo. Listenverändernde Aufrufe verwerfen den `shows`-Cache selbst (`mutatesShows()`) — Aufrufer müssen nicht daran denken. |
+| `./web-app/src/api/shows.ts` | CRUD-API für Shows, Meta-Daten, History und Snapshots, Show-Lock (inkl. Übergabe und Beacon-Release beim Verlassen der Show), Undo/Redo. Listenverändernde Aufrufe verwerfen den `shows`-Cache selbst (`mutatesShows()`) — Aufrufer müssen nicht daran denken. |
 | `./web-app/src/api/channels.ts` | CRUD und CSV-Im-/Export für Kanäle, Merging-Logik, Abruf der Farbnutzungsstatistik; `scanCircuitSheet` lädt Vordruck-Foto zur Vision-Auswertung hoch. |
 | `./web-app/src/api/bars.ts` | Verwaltet Obermaschinerie-Elemente (Zugstange/Traverse/Punktzug), Fixtures und deren Reihenfolge. |
 | `./web-app/src/api/towers.ts` | CRUD-API für Lichtstative und Slot-Zuweisungen. |

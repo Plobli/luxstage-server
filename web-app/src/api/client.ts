@@ -98,7 +98,14 @@ export async function request<T>(method: string, path: string, {
 
 const INLINE_TOKEN_REFRESH_MARGIN_MS = 60 * 1000
 
-async function getInlineToken(): Promise<string> {
+/** Liefert den aktuell gecachten Inline-Token ohne Netzwerk-Request, oder null
+ *  falls keiner (mehr) vorhanden ist — siehe api.beaconUrl(). */
+export function peekInlineToken(): string | null {
+  if (inlineTokenCache && inlineTokenCache.expiresAt > Date.now()) return inlineTokenCache.token
+  return null
+}
+
+export async function getInlineToken(): Promise<string> {
   if (inlineTokenCache && inlineTokenCache.expiresAt - INLINE_TOKEN_REFRESH_MARGIN_MS > Date.now()) {
     return inlineTokenCache.token
   }
@@ -137,6 +144,17 @@ export const api = {
    *  Verhindert, dass der langlebige JWT in Server-Logs landet. */
   downloadUrl: async (path: string): Promise<string> => {
     const { token } = await request<{ token: string }>('POST', '/api/auth/download-token')
+    return BASE() + path + (path.includes('?') ? '&' : '?') + 'token=' + token
+  },
+
+  /** Synchrone URL mit dem bereits gecachten Inline-Token (siehe getInlineToken) —
+   *  für navigator.sendBeacon() in pagehide-Handlern, wo kein await mehr
+   *  garantiert zu Ende läuft. Liefert null, falls noch kein Token im Cache ist
+   *  (Aufrufer muss dafür sorgen, dass vorher einmal ein Inline-Request lief,
+   *  z.B. beim Öffnen der Show). */
+  beaconUrl: (path: string): string | null => {
+    const token = peekInlineToken()
+    if (!token) return null
     return BASE() + path + (path.includes('?') ? '&' : '?') + 'token=' + token
   },
 }
