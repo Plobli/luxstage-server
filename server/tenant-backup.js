@@ -137,6 +137,37 @@ function moveIfExists(source, target) {
   if (fs.existsSync(source)) fs.renameSync(source, target)
 }
 
+// Prüft die Konsistenz eines gespeicherten Snapshots (Betreiber-Panel
+// "Prüfen"-Button). Öffnet die Datei readonly, unabhängig von der aktiven
+// Mandanten-Verbindung — kein Trockenlauf-Restore, quick_check reicht, um
+// Datei-Korruption zu erkennen (die restoreSnapshot()-Mechanik selbst ist
+// bereits in tenant-backup.test.js getestet).
+export function verifySnapshot(tenantId, name) {
+  if (name.includes('/') || name.includes('..') || !name.endsWith('.db')) {
+    return { ok: false, error: 'Ungültiger Snapshot-Name' }
+  }
+  const p = path.join(backupDir(tenantId), name)
+  if (!fs.existsSync(p)) return { ok: false, error: 'Snapshot nicht gefunden' }
+
+  let db
+  try {
+    db = new Database(p, { readonly: true })
+  } catch (err) {
+    return { ok: false, error: err.message }
+  }
+  try {
+    const rows = db.pragma('quick_check')
+    const issues = rows
+      .map(row => (typeof row === 'string' ? row : row.quick_check))
+      .filter(value => value !== 'ok')
+    return { ok: issues.length === 0, issues }
+  } catch (err) {
+    return { ok: false, error: err.message }
+  } finally {
+    db.close()
+  }
+}
+
 // Snapshot einer Datei zum Download bereitstellen (absoluter Pfad oder null).
 export function snapshotPath(tenantId, name) {
   if (name.includes('/') || name.includes('..') || !name.endsWith('.db')) return null

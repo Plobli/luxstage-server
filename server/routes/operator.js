@@ -18,8 +18,9 @@ import {
   getPendingByTenant, refreshPendingToken, removePendingByTenant,
 } from '../registry.js'
 import {
-  createSnapshot, listSnapshots, restoreSnapshot, snapshotPath, deleteBackups,
+  createSnapshot, listSnapshots, restoreSnapshot, snapshotPath, deleteBackups, verifySnapshot,
 } from '../tenant-backup.js'
+import { tenantHealth, checkTenantConsistency } from '../tenant-health.js'
 import { config } from '../config.js'
 import { sendConfirmEmail } from '../email.js'
 import { CONFIRM_TTL_MS } from './register.js'
@@ -36,13 +37,14 @@ export function safeContentDispositionFilename(name) {
   return name.replace(/[\r\n"]/g, '')
 }
 
-// Kennzahlen eines Mandanten aus seiner DB lesen (Shows, Nutzer).
+// Kennzahlen eines Mandanten aus seiner DB lesen (Shows, Nutzer, Health).
 function tenantStats(tenantId) {
-  if (!tenantExists(tenantId)) return { shows: null, users: null }
+  if (!tenantExists(tenantId)) return { shows: null, users: null, health: { reachable: false } }
   const db = openTenantDb(tenantId)
   return runWithDb(db, () => ({
     shows: db.prepare('SELECT count(*) c FROM shows').get().c,
     users: db.prepare('SELECT count(*) c FROM users').get().c,
+    health: tenantHealth(tenantId),
   }), tenantId)
 }
 
@@ -147,6 +149,30 @@ export async function operatorRoutes(req, res, pathname) {
       // Client durchreichen (analog zum SMTP-Fix in routes/smtp.js).
       log.error('Snapshot-Restore fehlgeschlagen', { tenant: id, name: body.name, fehler: err.message })
       return json(res, 500, { error: 'Snapshot konnte nicht wiederhergestellt werden. Details siehe Server-Log.' })
+    }
+  }
+
+  const verify = pathname.match(/^\/api\/operator\/tenants\/([a-z0-9-]+)\/backups\/([^/]+)\/verify$/)
+  if (verify && method === 'POST') {
+    const id = verify[1]
+    const name = decodeURIComponent(verify[2])
+    if (!getTenant(id)) return json(res, 404, { error: 'Mandant nicht gefunden' })
+    const result = verifySnapshot(id, name)
+    log.info('Snapshot geprüft', { tenant: id, name, ok: result.ok })
+    return json(res, 200, result)
+  }
+
+  const check = pathname.match(/^\/api\/operator\/tenants\/([a-z0-9-]+)\/check$/)
+  if (check && method === 'POST') {
+    const id = check[1]
+    if (!getTenant(id)) return json(res, 404, { error: 'Mandant nicht gefunden' })
+    try {
+      const result = checkTenantConsistency(id)
+      log.info('Konsistenz geprüft', { tenant: id, ok: result.ok })
+      return json(res, 200, result)
+    } catch (err) {
+      log.error('Konsistenzprüfung fehlgeschlagen', { tenant: id, fehler: err.message })
+      return json(res, 500, { error: 'Konsistenzprüfung fehlgeschlagen. Details siehe Server-Log.' })
     }
   }
 

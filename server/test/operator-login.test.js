@@ -120,6 +120,69 @@ test('Snapshot-Download nutzt safeContentDispositionFilename für den Content-Di
   assert.equal(res.headers['Content-Disposition'], `attachment; filename="${tenantId}-${name}"`)
 })
 
+async function registerTenant(tenantId) {
+  const { createTenant } = await import('../tenants.js')
+  const { getRegistry } = await import('../registry.js')
+  createTenant(tenantId)
+  getRegistry().prepare(
+    'INSERT INTO tenants (tenant_id, email, created_at) VALUES (?, ?, ?)'
+  ).run(tenantId, `${tenantId}@example.com`, Date.now())
+}
+
+test('POST .../backups/:name/verify prüft einen Snapshot und liefert ok', async () => {
+  const { createSnapshot } = await import('../tenant-backup.js')
+
+  const tenantId = 'verify-route-team'
+  await registerTenant(tenantId)
+  const name = await createSnapshot(tenantId)
+
+  const loginRes = createResponse()
+  await operatorRoutes(loginReq('admin', 'super-secret-operator-pw', '20.0.0.10'), loginRes, '/api/operator/login')
+  const { token } = loginRes.body
+
+  const res = createResponse()
+  await operatorRoutes(
+    { method: 'POST', headers: { authorization: `Bearer ${token}` }, socket: { remoteAddress: '20.0.0.10' } },
+    res,
+    `/api/operator/tenants/${tenantId}/backups/${encodeURIComponent(name)}/verify`
+  )
+  assert.equal(res.status, 200)
+  assert.equal(res.body.ok, true)
+})
+
+test('POST .../check führt eine Konsistenzprüfung durch und liefert ok', async () => {
+  const tenantId = 'check-route-team'
+  await registerTenant(tenantId)
+
+  const loginRes = createResponse()
+  await operatorRoutes(loginReq('admin', 'super-secret-operator-pw', '20.0.0.11'), loginRes, '/api/operator/login')
+  const { token } = loginRes.body
+
+  const res = createResponse()
+  await operatorRoutes(
+    { method: 'POST', headers: { authorization: `Bearer ${token}` }, socket: { remoteAddress: '20.0.0.11' } },
+    res,
+    `/api/operator/tenants/${tenantId}/check`
+  )
+  assert.equal(res.status, 200)
+  assert.equal(res.body.ok, true)
+  assert.deepEqual(res.body.issues, [])
+})
+
+test('POST .../check für unbekannten Mandanten liefert 404', async () => {
+  const loginRes = createResponse()
+  await operatorRoutes(loginReq('admin', 'super-secret-operator-pw', '20.0.0.12'), loginRes, '/api/operator/login')
+  const { token } = loginRes.body
+
+  const res = createResponse()
+  await operatorRoutes(
+    { method: 'POST', headers: { authorization: `Bearer ${token}` }, socket: { remoteAddress: '20.0.0.12' } },
+    res,
+    '/api/operator/tenants/no-such-team/check'
+  )
+  assert.equal(res.status, 404)
+})
+
 test('requireOperator loggt eine Ablehnung (fehlendes/ungültiges Token)', () => {
   const logSpy = mock.method(console, 'log', () => {})
   try {

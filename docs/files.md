@@ -98,7 +98,8 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 | `./server/test/register.test.js` | Regressionstests für atomare SaaS-Registrierungsbestätigung und Cleanup bei Registry-Konflikten. |
 | `./server/test/router.test.js` | Regressionstests für öffentliche API-Methoden und Authentifizierungsgrenzen des HTTP-Routers. |
 | `./server/test/photos.test.js` | Regressionstest für gestreamtes Multipart-Staging und garantiertes Cleanup temporärer Foto-Uploads. |
-| `./server/test/tenant-backup.test.js` | Regressionstests für Tenant-Snapshot-Restore und Rollback bei fehlgeschlagener Aktivierung. |
+| `./server/test/tenant-backup.test.js` | Regressionstests für Tenant-Snapshot-Restore, Rollback bei fehlgeschlagener Aktivierung und Snapshot-Verifikation (verifySnapshot). |
+| `./server/test/tenant-health.test.js` | Regressionstests für Mandanten-Health-Check (Erreichbarkeit, Schema-Migrationen, Snapshot-Alter, mandantenweite letzte Aktivität) und On-Demand-Konsistenzcheck. |
 | `./server/test/secrets.test.js` | Regressionstests für AES-256-GCM-Verschlüsselung der SMTP-Settings und SHA-256-Hashing der Passwort-Reset-Token (inkl. Ablauf, Einmal-Einlösung). |
 | `./server/test/network-undo.test.js` | Tests für den globalen Netzwerk-Undo-Stack: Snapshot vor der Änderung, Transaktions-Rollback, Redo-Reihenfolge, Hash-Integrität, Stack-Begrenzung. |
 | `./server/test/logger.test.js` | Tests für Format, Log-Level-Schwelle, stdout/stderr-Trennung und Feld-Quoting des Loggers. |
@@ -114,7 +115,8 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 | `./server/registry.js` | Zentrale Registrierung für Mandantenverzeichnis und Doppel-Opt-In; aktiviert Tenant-Eintrag (inkl. Newsletter-Consent) und verbraucht Bestätigungslink atomar. |
 | `./server/tenants.js` | Mandantenverzeichnis mit separaten SQLite-DBs pro Kunde und Kompensation fehlgeschlagener Registrierungen. |
 | `./server/tenant-resolve.js` | Host-Header-Parsing für Subdomain-basierte Mandantenauflösung, plus `tenantBaseUrl()` für Mandanten-URLs in E-Mail-Links. |
-| `./server/tenant-backup.js` | Tägliche Snapshots pro Mandant mit Retention-Policy; sichert vor Restore den Ist-Zustand und aktiviert Snapshots per rückrollbarem DB-Swap. |
+| `./server/tenant-backup.js` | Tägliche Snapshots pro Mandant mit Retention-Policy; sichert vor Restore den Ist-Zustand, aktiviert Snapshots per rückrollbarem DB-Swap und verifiziert Snapshot-Konsistenz (quick_check). |
+| `./server/tenant-health.js` | Integritätsüberwachung pro Mandant fürs Betreiber-Panel: Erreichbarkeit, Schema-Migrationsstand, letzte Aktivität, DB-Größe, Snapshot-Alter, On-Demand-Konsistenzcheck (quick_check + foreign_key_check). |
 | `./server/operator.js` | Separater Admin-Login für Betreiber-Panel mit JWT. |
 
 ### server/db/ (Datenbankzugriff)
@@ -169,7 +171,7 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 | `./server/routes/system.js` | API-Routen für System-Status, Health-Check, Backup, Restore. |
 | `./server/routes/update.js` | API-Routen für Versions-Check und Server-Update; entpackt Release-ZIP streamend, spart Infrastruktur-Dateien aus, sichert den Stand vorher und macht bei Fehlschlag (npm install, Modul-Rauchtest) automatisch ein Rollback. |
 | `./server/routes/smtp.js` | API-Routen für SMTP-Konfiguration und Test-E-Mails. |
-| `./server/routes/operator.js` | API-Routen für Betreiber-Panel (Mandanten-Verwaltung, Server-Version). |
+| `./server/routes/operator.js` | API-Routen für Betreiber-Panel (Mandanten-Verwaltung, Server-Version, Health-Status, Snapshot-Verifikation, Konsistenzcheck). |
 | `./server/routes/network.js` | API-Routen für die gebäudeweite Netzwerk-Übersicht (Elemente wie Dose/Switch/Gerät und deren Verbindungen), unabhängig von einzelnen Shows; validiert, dass Netzwerkdose↔Netzwerkdose und Gerät↔Gerät nicht direkt verbunden werden (nur über einen Switch) und dass Dose max. zwei Verbindungen (Durchschleifung rein/raus), Gerät max. eine hat (Switch-Ausnahme); jede Mutation läuft über `withNetworkUndoSnapshot()`, dazu `POST /api/network/undo`/`redo`; inkl. PDF-Export (`GET /api/network/pdf`, siehe `pdf/network.js`). |
 
 ## web-app/ (Vue 3 + TypeScript Frontend, Vite)

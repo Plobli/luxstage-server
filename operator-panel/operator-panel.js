@@ -26,6 +26,25 @@ function fmtExpiry(ms) {
   return `in ${Math.max(1, Math.floor(diff / 60000))} min`
 }
 
+const SNAPSHOT_STALE_MS = 48 * 3600000 // Schwelle passend zum täglichen Auto-Backup-Job
+
+// Konsistenzprüfungs-Ergebnisse bleiben bis zum nächsten Check/Reload sichtbar.
+const checkResults = new Map() // tenantId -> { ok, issues }
+
+function healthBadge(h) {
+  if (!h || !h.reachable) return '<span class="tag sus">nicht erreichbar</span>'
+  if (h.lastSnapshotAgeMs === null) return '<span class="tag sus">kein Backup</span>'
+  if (h.lastSnapshotAgeMs > SNAPSHOT_STALE_MS) return '<span class="tag sus">Backup veraltet</span>'
+  return '<span class="tag ok">gesund</span>'
+}
+
+function checkBadge(tenantId) {
+  const r = checkResults.get(tenantId)
+  if (!r) return '<span class="mut">–</span>'
+  if (r.ok) return '<span class="tag ok">ok</span>'
+  return `<span class="tag sus" title="${escapeHtml(r.issues.join('; '))}">${r.issues.length} Problem(e)</span>`
+}
+
 function show(view) {
   $('#loginView').classList.toggle('hidden', view !== 'login')
   $('#dashView').classList.toggle('hidden', view !== 'dash')
@@ -54,17 +73,26 @@ async function loadTenants() {
   const tbody = $('#tbody'); tbody.innerHTML = ''
   for (const t of tenants) {
     const tr = document.createElement('tr')
-    const status = t.suspended ? '<span class="tag sus">gesperrt</span>' : '<span class="tag ok">aktiv</span>'
+    const status = t.suspended ? '<span class="tag sus">gesperrt</span>' : healthBadge(t.health)
     const id = escapeHtml(t.tenantId)
+    const h = t.health || {}
+    const lastActivity = h.lastActivityAt
+      ? `${fmtDate(h.lastActivityAt)}${h.lastActivityBy ? ' · ' + escapeHtml(h.lastActivityBy) : ''}`
+      : '–'
+    const dbSize = typeof h.dbSizeBytes === 'number' ? fmtSize(h.dbSizeBytes) : '–'
     tr.innerHTML = `
       <td><strong>${id}</strong></td>
       <td class="mut">${escapeHtml(t.email)}</td>
       <td class="mut">${fmtDate(t.createdAt)}</td>
       <td>${t.shows ?? '–'}</td>
       <td>${t.users ?? '–'}</td>
+      <td class="mut">${lastActivity}</td>
+      <td class="mut">${dbSize}</td>
       <td>${status}</td>
+      <td data-check-cell="${id}">${checkBadge(t.tenantId)}</td>
       <td><div class="row-actions">
         <button class="ghost" data-act="backups" data-id="${id}">Backups</button>
+        <button class="ghost" data-act="check" data-id="${id}">Konsistenz prüfen</button>
         <button class="ghost" data-act="toggle" data-id="${id}" data-sus="${t.suspended}">${t.suspended ? 'Entsperren' : 'Sperren'}</button>
         <button class="danger" data-act="delete" data-id="${id}">Löschen</button>
       </div></td>`
@@ -128,7 +156,9 @@ async function loadBackups() {
     tr.innerHTML = `
       <td class="mut">${new Date(s.createdAt).toLocaleString('de-DE')}</td>
       <td class="mut">${fmtSize(s.size)}</td>
+      <td class="mut" data-bk-verify="${escapeHtml(s.name)}"></td>
       <td><div class="row-actions">
+        <button class="ghost" data-bk="verify" data-name="${escapeHtml(s.name)}">Prüfen</button>
         <button class="ghost" data-bk="restore" data-name="${escapeHtml(s.name)}">Wiederherstellen</button>
         <button class="ghost" data-bk="download" data-name="${escapeHtml(s.name)}">Download</button>
       </div></td>`
@@ -145,7 +175,11 @@ $('#bkBody').addEventListener('click', async e => {
   const btn = e.target.closest('button'); if (!btn) return
   const name = btn.dataset.name
   try {
-    if (btn.dataset.bk === 'restore') {
+    if (btn.dataset.bk === 'verify') {
+      const result = await api('POST', `/api/operator/tenants/${bkCurrentTenant}/backups/${encodeURIComponent(name)}/verify`)
+      const cell = document.querySelector(`[data-bk-verify="${CSS.escape(name)}"]`)
+      if (cell) cell.textContent = result.ok ? 'ok' : (result.error || `${result.issues?.length ?? 0} Problem(e)`)
+    } else if (btn.dataset.bk === 'restore') {
       if (!confirm(`Snapshot "${name}" wiederherstellen? Der aktuelle Stand von "${bkCurrentTenant}" wird überschrieben.`)) return
       await api('POST', `/api/operator/tenants/${bkCurrentTenant}/backups/restore`, { name })
       alert('Wiederhergestellt.')
@@ -169,6 +203,13 @@ $('#tbody').addEventListener('click', async e => {
   try {
     if (btn.dataset.act === 'backups') {
       await openBackups(id); return
+    }
+    if (btn.dataset.act === 'check') {
+      const result = await api('POST', `/api/operator/tenants/${id}/check`)
+      checkResults.set(id, result)
+      const cell = document.querySelector(`[data-check-cell="${CSS.escape(id)}"]`)
+      if (cell) cell.innerHTML = checkBadge(id)
+      return
     }
     if (btn.dataset.act === 'toggle') {
       const suspend = btn.dataset.sus !== 'true'

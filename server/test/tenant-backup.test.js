@@ -4,7 +4,7 @@ import { after, test } from 'node:test'
 import { cleanupDataPath } from './helpers/test-env.js'
 
 const { closeTenantDb, createTenant, openTenantDb, tenantDbPath } = await import('../tenants.js')
-const { createSnapshot, listSnapshots, restoreSnapshot } = await import('../tenant-backup.js')
+const { createSnapshot, listSnapshots, restoreSnapshot, verifySnapshot } = await import('../tenant-backup.js')
 
 const tenantId = 'restore-team'
 
@@ -51,6 +51,25 @@ test('Tenant-Restore stellt bei fehlendem Aktivierungs-Rename den Ist-Zustand wi
   }
 
   assert.equal(marker(), 'current-after-failure')
+})
+
+test('verifySnapshot meldet ok für einen intakten Snapshot', async () => {
+  setMarker('verify-ok')
+  const snapshot = await createSnapshot(tenantId)
+  const result = verifySnapshot(tenantId, snapshot)
+  assert.equal(result.ok, true)
+})
+
+test('verifySnapshot lehnt Pfad-Traversal im Namen ab', () => {
+  const result = verifySnapshot(tenantId, '../../etc/passwd.db')
+  assert.equal(result.ok, false)
+  assert.equal(result.error, 'Ungültiger Snapshot-Name')
+})
+
+test('verifySnapshot meldet fehlenden Snapshot', () => {
+  const result = verifySnapshot(tenantId, 'does-not-exist.db')
+  assert.equal(result.ok, false)
+  assert.equal(result.error, 'Snapshot nicht gefunden')
 })
 
 after(() => {
