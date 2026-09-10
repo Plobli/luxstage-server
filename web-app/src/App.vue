@@ -269,7 +269,7 @@ useTokenRefresh()
 const { t } = useLocale()
 const appVersion = __APP_VERSION__
 const serverVersion = ref(null)
-const saasMode = ref(false)
+const saasMode = ref(null)
 
 async function pingServer() {
   try {
@@ -335,10 +335,12 @@ const settingsNavItems = computed(() => [
   { to: '/settings/users', label: 'Benutzerverwaltung' },
   // Backup/Server/SMTP/Update sind Self-Hosted-Einstellungen: im SaaS-Modus laufen
   // Backups zentral automatisch, Server-Betrieb/SMTP/Updates liegen beim Betreiber.
-  ...(!saasMode.value ? [{ to: '/settings/backup', label: t('settings.backup') }] : []),
-  ...(!saasMode.value ? [{ to: '/settings/server', label: t('settings.server') }] : []),
-  ...(!saasMode.value ? [{ to: '/settings/smtp', label: t('settings.smtp') }] : []),
-  ...(!saasMode.value ? [{ to: '/settings/update', label: t('settings.update') }] : []),
+  // saasMode ist bis zur ersten /api/status-Antwort null, damit diese Items nicht
+  // kurz aufblitzen, wenn die WebApp eigentlich im SaaS-Modus läuft.
+  ...(saasMode.value === false ? [{ to: '/settings/backup', label: t('settings.backup') }] : []),
+  ...(saasMode.value === false ? [{ to: '/settings/server', label: t('settings.server') }] : []),
+  ...(saasMode.value === false ? [{ to: '/settings/smtp', label: t('settings.smtp') }] : []),
+  ...(saasMode.value === false ? [{ to: '/settings/update', label: t('settings.update') }] : []),
 ])
 
 function isSettingsItemActive(path) {
