@@ -742,6 +742,7 @@ const { aufbauNavVisible } = useShowSidebarNav({
   onSidebarNavigate,
   addSectionFromSubtab: () => dialogs.addSectionFromSubtab(),
   deleteSection: (sectionId) => dialogs.deleteSection(sectionId),
+  renameSection: (sectionId, title) => dialogs.renameSection(sectionId, title),
 })
 
 const bottomNavItems = computed(() => [

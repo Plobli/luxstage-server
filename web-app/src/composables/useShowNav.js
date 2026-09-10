@@ -6,14 +6,16 @@ const _activeKey = ref(null)
 const _navigate = ref(null)
 const _addSection = ref(null)
 const _deleteSection = ref(null)
+const _renameSection = ref(null)
 
 export function useShowNav() {
-  function setNav({ items, activeKey, navigate, addSection, deleteSection }) {
+  function setNav({ items, activeKey, navigate, addSection, deleteSection, renameSection }) {
     _items.value = items
     _activeKey.value = activeKey
     _navigate.value = navigate
     _addSection.value = addSection
     _deleteSection.value = deleteSection
+    _renameSection.value = renameSection
   }
 
   function clearNav() {
@@ -22,6 +24,7 @@ export function useShowNav() {
     _navigate.value = null
     _addSection.value = null
     _deleteSection.value = null
+    _renameSection.value = null
   }
 
   function navigate(item) {
@@ -36,6 +39,10 @@ export function useShowNav() {
     _deleteSection.value?.(sectionId)
   }
 
+  function renameSection(sectionId, title) {
+    _renameSection.value?.(sectionId, title)
+  }
+
   return {
     navItems: computed(() => _items.value),
     activeKey: computed(() => _activeKey.value),
@@ -44,5 +51,6 @@ export function useShowNav() {
     navigate,
     addSection,
     deleteSection,
+    renameSection,
   }
 }

@@ -50,9 +50,18 @@ export function useShowDialogs({
     }
   }
 
+  async function renameSection(sectionId, title) {
+    const trimmed = title.trim()
+    if (!trimmed) return
+    const sec = sectionDefs.value.find(s => s.id === sectionId)
+    if (!sec || sec.title === trimmed) return
+    sec.title = trimmed
+    await persistSectionDefs()
+  }
+
   return {
     newSectionDialog, newSectionName, newSectionType,
-    addSectionFromSubtab, confirmNewSection, deleteSection,
+    addSectionFromSubtab, confirmNewSection, deleteSection, renameSection,
     eosMergePreview,
     resolveEosMergePreview,
     ...templateInsertion,

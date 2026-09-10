@@ -117,9 +117,33 @@
                     :class="[sub.active ? 'text-foreground bg-muted' : 'text-muted-foreground nav-hover']"
                   >
                     <span v-if="sub.active" class="absolute left-0 top-1.25 bottom-1.25 w-0.75 rounded-full bg-accent" />
-                    <button class="flex-1 min-w-0 text-left" @click="showNavNavigate(sub)">
+                    <input
+                      v-if="renamingSectionId === sub.renameId"
+                      v-model="renamingSectionTitle"
+                      class="flex-1 min-w-0 bg-transparent text-sm font-semibold text-foreground outline-none"
+                      autofocus
+                      @keydown.enter="commitRenameSection"
+                      @keydown.escape="cancelRenameSection"
+                      @blur="commitRenameSection"
+                      @click.stop
+                    />
+                    <button
+                      v-else
+                      class="flex-1 min-w-0 text-left"
+                      @click="showNavNavigate(sub)"
+                      @dblclick="startRenameSection(sub)"
+                    >
                       <span class="text-sm" :class="sub.active ? 'font-semibold' : ''">{{ sub.label }}</span>
                     </button>
+                    <Button
+                      v-if="sub.renameId"
+                      variant="ghost"
+                      size="icon"
+                      class="size-6 shrink-0 rounded-sm text-muted-foreground/50"
+                      @click="startRenameSection(sub)"
+                    >
+                      <Pencil class="size-3" />
+                    </Button>
                     <Button
                       v-if="sub.sectionId"
                       variant="ghost"
@@ -251,6 +275,7 @@ import {
   Files,
   Settings,
   AlertTriangle,
+  Pencil,
 } from 'lucide-vue-next'
 import { useLocale } from './composables/useLocale.js'
 import { api, isOnline } from './api/client.js'
@@ -262,7 +287,26 @@ import { useConfirmDialog, resolveConfirm } from './composables/useConfirm.js'
 import { useShowNav } from './composables/useShowNav.js'
 
 const confirmState = useConfirmDialog()
-const { navItems, navigate: showNavNavigate, addSection: showNavAddSection, deleteSection: showNavDeleteSection } = useShowNav()
+const { navItems, navigate: showNavNavigate, addSection: showNavAddSection, deleteSection: showNavDeleteSection, renameSection: showNavRenameSection } = useShowNav()
+
+const renamingSectionId = ref(null)
+const renamingSectionTitle = ref('')
+
+function startRenameSection(sub) {
+  if (!sub.renameId) return
+  renamingSectionId.value = sub.renameId
+  renamingSectionTitle.value = sub.label
+}
+
+function commitRenameSection() {
+  if (!renamingSectionId.value) return
+  showNavRenameSection(renamingSectionId.value, renamingSectionTitle.value)
+  renamingSectionId.value = null
+}
+
+function cancelRenameSection() {
+  renamingSectionId.value = null
+}
 const isShowDetail = computed(() => route.path.startsWith('/shows/') && route.path !== '/shows')
 useTokenRefresh()
 
