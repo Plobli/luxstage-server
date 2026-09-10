@@ -1,0 +1,33 @@
+# LuxStage — Betreiber-Panel als eigenständiges Compose-Projekt, Variante für
+# Deployments mit lokalem Build + caddy-Netzwerk (analog docker-compose.saas.yml).
+# Für das GHCR-Image + luxstage-saas-net-Variante (CX43) siehe
+# docker-compose.operator-panel.yml.
+services:
+  luxstage-operator-panel:
+    build:
+      context: .
+      dockerfile: operator-panel/Dockerfile
+    container_name: luxstage-operator-panel
+    restart: unless-stopped
+    expose:
+      - 3001
+    networks:
+      - caddy
+    environment:
+      PORT: 3001
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "require('http').get('http://localhost:3001/health', r =>
+          process.exit(r.statusCode === 200 ? 0 : 1)).on('error', () =>
+          process.exit(1))"
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+
+networks:
+  caddy:
+    external: true

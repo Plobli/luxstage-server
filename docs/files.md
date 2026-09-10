@@ -8,8 +8,10 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 
 | Datei | Beschreibung |
 |---|---|
-| `./docker-compose.saas.server.yml` | SaaS-Docker-Compose für geteilten Server; kein Port-Mapping, Ressourcen-Limits; zwei Services (`luxstage-saas`, `luxstage-operator-panel`). |
-| `./docker-compose.saas.yml` | SaaS-Docker-Compose mit Caddy-Netzwerk; zwei Services (`luxstage`, `luxstage-operator-panel`). |
+| `./docker-compose.saas.server.yml` | SaaS-Docker-Compose für geteilten Server; kein Port-Mapping, Ressourcen-Limits; ein Service (`luxstage-saas`), legt das Netz `luxstage-saas-net` an. |
+| `./docker-compose.operator-panel.yml` | Betreiber-Panel als eigenständiges Compose-Projekt (GHCR-Image, `luxstage-saas-net` als external), unabhängig vom SaaS-Stack deploybar. |
+| `./docker-compose.saas.yml` | SaaS-Docker-Compose mit Caddy-Netzwerk; ein Service (`luxstage`). |
+| `./docker-compose.operator-panel.caddy.yml` | Betreiber-Panel als eigenständiges Compose-Projekt, Caddy-Netzwerk-Variante (lokaler Build statt GHCR-Image) analog zu `docker-compose.saas.yml`. |
 | `./docker-compose.yml` | Self-Hosted Docker-Compose; Port 3030:3000, Data-Volume. |
 | `./Dockerfile` | Multi-Stage Build für Self-Hosted; baut Web-App, entfernt SaaS-Module. |
 | `./Dockerfile.saas` | Multi-Stage Build für SaaS-Image (baut Web-App, Module separat). |

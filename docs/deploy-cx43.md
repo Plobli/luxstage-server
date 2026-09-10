@@ -32,11 +32,22 @@ Das Image ist privat. Server einmal an der GitHub Container Registry anmelden:
 echo "<TOKEN>" | docker login ghcr.io -u Plobli --password-stdin
 ```
 
-## Schritt 1 — Stack in Dockge anlegen
+## Schritt 1 — Stacks in Arcade anlegen
 
-Kein Repo-Clone nötig — das Image kommt aus GHCR, es wird nur die Compose-Datei
-gebraucht. In Dockge einen neuen Stack `luxstage-saas` anlegen und den Inhalt von
-`docker-compose.saas.server.yml` (aus dem Repo) einfügen.
+Kein Repo-Clone nötig — die Images kommen aus GHCR, es werden nur die
+Compose-Dateien gebraucht. Zwei getrennte Arcade-Projekte:
+
+- `luxstage-saas` mit dem Inhalt von `docker-compose.saas.server.yml`
+  (aus dem Repo) — legt dabei das Netz `luxstage-saas-net` an.
+- `luxstage-operator-panel` mit dem Inhalt von
+  `docker-compose.operator-panel.yml` (aus dem Repo) — referenziert
+  `luxstage-saas-net` als `external: true`, muss also nach dem
+  `luxstage-saas`-Projekt angelegt werden.
+
+Getrennte Projekte, weil das Betreiber-Panel rein statisches HTML/JS
+ausliefert (keine Code- oder DB-Abhängigkeit auf `luxstage-saas`) und
+unabhängig deploybar bleiben soll — ein Panel-Update braucht kein
+Redeploy des Servers und umgekehrt.
 
 ## Schritt 2 — .env im Dockge-Stack setzen
 
@@ -252,11 +263,13 @@ anderen.
 2. GitHub Actions (`operator-panel-image.yml`) baut automatisch bei jedem
    main-Push mit Änderungen unter `operator-panel/` und pusht
    `ghcr.io/plobli/luxstage-operator-panel:latest` (plus Short-SHA-Tag).
-3. Auf dem Server: im Arcade-Stack **luxstage-operator-panel** Force-Pull +
-   Recreate. `docker compose up -d --force-recreate luxstage-operator-panel`
-   erzwingt das auch dann, wenn Arcades "Neu deployen" allein den Container
-   nicht mit dem neu gepullten `:latest`-Image neu erstellt (bekanntes
-   Docker-Compose-Verhalten bei gleichbleibendem Tag-Namen).
+3. Auf dem Server: im Arcade-Projekt **luxstage-operator-panel** Force-Pull +
+   Recreate. Falls Arcades "Neu deployen" allein den Container nicht mit dem
+   neu gepullten `:latest`-Image neu erstellt (bekanntes Docker-Compose-
+   Verhalten bei gleichbleibendem Tag-Namen), notfalls im Projektverzeichnis:
+   ```sh
+   docker compose -f docker-compose.operator-panel.yml up -d --force-recreate
+   ```
 
 Mandanten-Verbindungen bleiben von einem Panel-Redeploy unberührt.
 

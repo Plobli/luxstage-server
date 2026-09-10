@@ -36,8 +36,7 @@ jobs:
             -x "server/node_modules/*" "*/.DS_Store" \
                "server/tenants.js" "server/registry.js" "server/operator.js" \
                "server/tenant-resolve.js" "server/tenant-backup.js" \
-               "server/routes/operator.js" "server/routes/register.js" \
-               "server/operator-panel.html"
+               "server/routes/operator.js" "server/routes/register.js"
 
       - name: Generate Release Notes
         id: notes

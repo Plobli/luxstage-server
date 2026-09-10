@@ -3,6 +3,12 @@
 #  - kein ports:-Mapping (nur intern erreichbar, ausschließlich über Caddy)
 #  - eigenes Netz luxstage-saas-net; Caddy wird separat hineingehängt
 #  - Ressourcen-Limits gegen RAM-/CPU-Amoklauf (schützt die anderen Dienste)
+#
+# Das Betreiber-Panel (luxstage-operator-panel) läuft NICHT mehr hier, sondern
+# als eigenständiges Compose-Projekt (docker-compose.operator-panel.yml) —
+# unabhängig deploybar, ohne Code- oder Compose-Projekt-Abhängigkeit auf
+# diesen Stack. Beide teilen sich nur luxstage-saas-net (von diesem Projekt
+# erzeugt, siehe networks: unten), damit Caddy beide erreichen kann.
 services:
   luxstage-saas:
     # Vorgebautes Image aus GHCR (GitHub Actions baut es bei jedem v*-Tag).
@@ -50,46 +56,12 @@ services:
       retries: 3
       start_period: 10s
 
-  luxstage-operator-panel:
-    # Vorgebautes Image aus GHCR — eigener, zustandsloser Static-Server für
-    # das Betreiber-Panel-Frontend. Getrennt vom Hauptimage, damit eine
-    # Panel-Änderung kein Redeploy von luxstage-saas (und damit aller
-    # Mandanten-Verbindungen) erfordert.
-    image: ghcr.io/plobli/luxstage-operator-panel:latest
-    container_name: luxstage-operator-panel
-    restart: unless-stopped
-    networks:
-      - luxstage-saas-net
-    environment:
-      PORT: 3001
-    deploy:
-      resources:
-        limits:
-          memory: 128M
-          cpus: '0.25'
-    healthcheck:
-      test:
-        - CMD
-        - node
-        - -e
-        - "require('http').get('http://localhost:3001/health', r =>
-          process.exit(r.statusCode === 200 ? 0 : 1)).on('error', () =>
-          process.exit(1))"
-      interval: 30s
-      timeout: 5s
-      retries: 3
-      start_period: 5s
-
 volumes:
   luxstage-saas-data:
 
 networks:
-  # Von außerhalb dieses Compose-Projekts angelegt (Caddy wird separat
-  # hineingehängt) — ohne external:true versucht Compose bei jedem `up`,
-  # das Netz selbst zu verwalten, findet es aber schon vor. Das führte zur
-  # Warnung "network ... exists but was not created for project ..." und
-  # ließ Arcanes Container-Redeploy den Container nur neu starten statt mit
-  # dem neu gepullten Image neu zu erstellen.
+  # Dieses Projekt legt das Netz an — das operator-panel-Projekt (siehe
+  # docker-compose.operator-panel.yml) referenziert es als external:true
+  # und benutzt nur mit, erzeugt es aber nicht selbst.
   luxstage-saas-net:
     name: luxstage-saas-net
-    external: true
