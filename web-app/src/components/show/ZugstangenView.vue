@@ -55,7 +55,7 @@
                 inputmode="decimal"
                 :value="cmToDisplay(bar.length_cm)"
                 class="w-full h-8 rounded-md border border-transparent bg-foreground/5 pl-13 pr-7 text-sm tabular-nums text-right text-foreground placeholder:text-muted-foreground/50 hover:bg-foreground/8 focus:outline-none focus:border-accent/60 focus:bg-foreground/8 transition-colors"
-                @change="saveInlineField(bar, 'length_cm', parseToCm(Number($event.target.value)))"
+                @change="saveInlineField(bar, 'length_cm', parseToCm(parseDecimal($event.target.value)))"
               />
               <span class="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground/70 pointer-events-none">{{ unit }}</span>
             </div>
@@ -68,7 +68,7 @@
                 :value="bar.height_cm != null ? cmToDisplay(bar.height_cm) : ''"
                 placeholder="—"
                 class="w-full h-8 rounded-md border border-transparent bg-foreground/5 pl-13 pr-7 text-sm tabular-nums text-right text-foreground placeholder:text-muted-foreground/50 hover:bg-foreground/8 focus:outline-none focus:border-accent/60 focus:bg-foreground/8 transition-colors"
-                @change="saveInlineField(bar, 'height_cm', $event.target.value === '' ? null : parseToCm(Number($event.target.value)))"
+                @change="saveInlineField(bar, 'height_cm', $event.target.value === '' ? null : parseToCm(parseDecimal($event.target.value)))"
               />
               <span class="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground/70 pointer-events-none">{{ unit }}</span>
             </div>
@@ -345,7 +345,7 @@ import { useSaveToTemplateDialog } from '@/composables/useSaveToTemplateDialog'
 const { t } = useLocale()
 const { confirm } = useConfirm()
 
-const { unit, unitLabel, formatLength, cmToDisplay, parseToCm, inputStep, lengthMin, lengthMax } = useMeasureUnit()
+const { unit, unitLabel, formatLength, cmToDisplay, parseToCm, parseDecimal, inputStep, lengthMin, lengthMax } = useMeasureUnit()
 import { Plus, Pencil, Trash2, BookmarkPlus, Loader2, AlignJustify } from 'lucide-vue-next'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'

@@ -42,6 +42,11 @@ function parseToCm(val: number): number {
   return Math.round(val)
 }
 
+/** Eingabe-String (Punkt oder Komma als Dezimaltrennzeichen) → Zahl */
+function parseDecimal(input: string): number {
+  return Number(input.replace(',', '.'))
+}
+
 function formatLength(cm: number | null | undefined): string {
   if (cm == null) return '—'
   return `${cmToDisplay(cm)} ${unit.value}`
@@ -83,6 +88,7 @@ export function useMeasureUnit() {
     formatLength,
     cmToDisplay,
     parseToCm,
+    parseDecimal,
     inputStep,
     lengthMin,
     lengthMax,
