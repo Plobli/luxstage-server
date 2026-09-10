@@ -84,5 +84,12 @@ volumes:
   luxstage-saas-data:
 
 networks:
+  # Von außerhalb dieses Compose-Projekts angelegt (Caddy wird separat
+  # hineingehängt) — ohne external:true versucht Compose bei jedem `up`,
+  # das Netz selbst zu verwalten, findet es aber schon vor. Das führte zur
+  # Warnung "network ... exists but was not created for project ..." und
+  # ließ Arcanes Container-Redeploy den Container nur neu starten statt mit
+  # dem neu gepullten Image neu zu erstellen.
   luxstage-saas-net:
     name: luxstage-saas-net
+    external: true
