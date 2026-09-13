@@ -198,13 +198,11 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 | `./web-app/components.json` | Shadcn-vue UI-Komponenten-Konfiguration. |
 | `./web-app/.env` | Development-Umgebungsvariablen für Web-App. |
 | `./web-app/.env.production` | Produktiv-Umgebungsvariablen für Web-App. |
-| `./web-app/.env.development.local` | Lokale Tolgee-Server-URL und API-Key (nicht versioniert). |
-| `./web-app/.tolgeerc.json` | Tolgee-CLI-Config für `npm run tolgee:push`/`tolgee:pull`. |
 | `./web-app/src/main.ts` | Bootstrap: erstellt Vue-App, registriert Router und Tolgee, wendet System-Theme an. |
 | `./web-app/src/env.d.ts` | Vite-Umgebungs- und Build-Konstanten-Typen für den Typecheck. |
 | `./web-app/src/shims-vue.d.ts` | Globale TypeScript-Deklaration für lokale Vue-Single-File-Komponenten. |
 | `./web-app/src/shared.d.ts` | TypeScript-Deklarationen für Shared-JavaScript-Module außerhalb des WebApp-Projekts. |
-| `./web-app/src/tolgee.ts` | Zentrale Tolgee-Instanz: Dev lädt live vom Server (In-Context-Editor), Prod nutzt shared/locales als staticData. |
+| `./web-app/src/tolgee.ts` | Zentrale Tolgee-Instanz: lädt Übersetzungen ausschließlich aus shared/locales als staticData (kein Server/Sync mehr). |
 | `./web-app/src/App.vue` | Root-Komponente: TolgeeProvider, globaler TooltipProvider, Sidebar, Top-Bar, Routing, globale Dialoge und Status-Updates. |
 | `./web-app/src/style.css` | Tailwind, Theme-Variablen, Print-Styles für Tabellen und Foto-Galerien. |
 | `./web-app/src/router/index.ts` | Vue Router mit Auth-Guards, Admin-Checks und Route-Definitionen. |

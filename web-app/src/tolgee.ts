@@ -1,36 +1,23 @@
 /**
  * Zentrale Tolgee-Instanz.
- * Dev: lädt live vom Tolgee-Server (VITE_APP_TOLGEE_API_URL) inkl.
- * In-Context-Editor (DevTools).
- * Prod: kein Server-Zugriff, kein DevTools-UI — nur die zur Build-Zeit
- * exportierten de.json/en.json aus shared/locales/ als staticData.
+ * Übersetzungen werden ausschließlich aus shared/locales/de.json und
+ * en.json geladen (manuell gepflegt, kein Tolgee-Server/Sync mehr).
  */
-import { Tolgee, DevTools, FormatSimple } from '@tolgee/vue'
+import { Tolgee, FormatSimple } from '@tolgee/vue'
 import de from '../../shared/locales/de.json'
 import en from '../../shared/locales/en.json'
 
-let tolgeeBuilder = Tolgee().use(FormatSimple())
+export const tolgee = Tolgee()
+  .use(FormatSimple())
+  .init({
+    language: localStorage.getItem('locale') || 'de',
+    fallbackLanguage: 'de',
 
-if (import.meta.env.DEV) {
-  tolgeeBuilder = tolgeeBuilder.use(DevTools())
-}
-
-export const tolgee = tolgeeBuilder.init({
-  language: localStorage.getItem('locale') || 'de',
-  fallbackLanguage: 'de',
-
-  ...(import.meta.env.DEV
-    ? {
-        apiUrl: import.meta.env.VITE_APP_TOLGEE_API_URL,
-        apiKey: import.meta.env.VITE_APP_TOLGEE_API_KEY,
-      }
-    : {}),
-
-  staticData: {
-    de: () => Promise.resolve(de),
-    en: () => Promise.resolve(en),
-  },
-})
+    staticData: {
+      de: () => Promise.resolve(de),
+      en: () => Promise.resolve(en),
+    },
+  })
 
 tolgee.on('language', ({ value }) => {
   localStorage.setItem('locale', value)

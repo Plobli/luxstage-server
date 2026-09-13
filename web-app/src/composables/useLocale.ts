@@ -1,8 +1,8 @@
 /**
  * useLocale — Kompatibilitäts-Bridge auf @tolgee/vue
  * Bestehende t(key, params)-Aufrufe bleiben unverändert, laufen aber
- * jetzt durch Tolgee (inkl. In-Context-Editor). de.json/en.json dienen
- * als staticData-Fallback, siehe tolgee.ts.
+ * jetzt durch Tolgee. de.json/en.json werden manuell gepflegt,
+ * siehe tolgee.ts.
  */
 import { computed, type ComputedRef } from 'vue'
 import { useTranslate, useTolgee } from '@tolgee/vue'
