@@ -33,10 +33,11 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           images: ${{ env.IMAGE }}
-          # v2026.6.13 -> Tags: 2026.6.13 und latest
+          # v2026.6.13 -> Tags: 2026.6.13, latest und Short-SHA
           tags: |
             type=semver,pattern={{version}}
             type=raw,value=latest
+            type=sha,format=short
 
       - name: Bauen und pushen
         uses: docker/build-push-action@v6

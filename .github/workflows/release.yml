@@ -78,13 +78,6 @@ jobs:
             luxstage-release.zip.sha256
           body: ${{ steps.notes.outputs.notes }}
 
-  self-hosted-image:
-    needs: quality
-    uses: ./.github/workflows/docker-image.yml
-    permissions:
-      contents: read
-      packages: write
-
   saas-image:
     needs: quality
     uses: ./.github/workflows/saas-image.yml

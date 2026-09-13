@@ -32,11 +32,11 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 | `./.claude/launch.json` | Debug-Konfiguration für Web-App und Backend. |
 | `./.code-review-graph/.gitignore` | Ignoriert die Code-Review-Graph-Datenbankdatei. |
 | `./.code-review-graph/graph.db` | Code-Review-Graph-Datenbank (Metadaten, Struktur). |
-| `./.github/workflows/release.yml` | GitHub Action: prüft Qualität und Release-Version, erzeugt ZIP-Prüfsumme und baut Release-ZIP sowie Self-Hosted- und SaaS-Images bei passenden `v*`-Tags. |
+| `./.github/workflows/release.yml` | GitHub Action: prüft Qualität und Release-Version, erzeugt ZIP-Prüfsumme und baut Release-ZIP sowie das SaaS-Image bei passenden `v*`-Tags. |
 | `./.github/workflows/codeql.yml` | GitHub Action: CodeQL-Sicherheitsanalyse. |
 | `./.github/workflows/test.yml` | GitHub Action: prüft Audit, Docker-Compose-Konfigurationen, Server- und Web-App-Tests sowie Web-App-Typprüfung bei Pushes, Pull Requests und manuellem Start; kann als Release-Qualitätsgate aufgerufen werden. |
 | `./docs/testing.md` | Teststrategie, Testgruppen, Laufzeitprofil und Regeln für neue oder redundante Tests. |
-| `./.github/workflows/saas-image.yml` | Wiederverwendbare GitHub Action: baut das SaaS-Image nach GHCR nach erfolgreichem Release-Qualitätsgate. |
+| `./.github/workflows/saas-image.yml` | Wiederverwendbare GitHub Action: baut das SaaS-Image mit Versions-, `latest`- und Short-SHA-Tags nach GHCR. |
 | `./.github/workflows/operator-panel-image.yml` | GitHub Action: prüft Qualität und baut das Betreiber-Panel-Image nach GHCR bei passenden `main`-Änderungen. |
 | `./Dev-Server-App/LuxStageMenu.swift` | macOS-Menüleisten-App; startet/stoppt/restartet Dev-Server via `dev.sh`, zeigt Live-Status (Backend/Web-App erreichbar, Version, PID, Laufzeit), Web-App- und Log-Öffnen-Aktionen. |
 | `./Dev-Server-App/LuxStageMenu` | Kompilierte macOS-Executable der Menüleisten-App. |
