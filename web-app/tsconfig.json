@@ -3,7 +3,6 @@
   "include": ["src/**/*", "src/**/*.vue"],
   "compilerOptions": {
     "composite": true,
-    "ignoreDeprecations": "6.0",
     "allowArbitraryExtensions": true,
     "baseUrl": ".",
     "paths": {

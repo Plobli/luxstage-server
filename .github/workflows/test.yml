@@ -6,6 +6,12 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  workflow_dispatch:
+  workflow_call:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   test:
@@ -25,8 +31,20 @@ jobs:
       - name: Dependency-Schwachstellenprüfung
         run: npm audit --audit-level=high
 
+      - name: Docker-Compose-Konfiguration prüfen
+        run: |
+          JWT_SECRET=test-secret CORS_ORIGINS=http://localhost \
+            docker compose -f docker-compose.yml config --quiet
+          JWT_SECRET=test-secret APP_URL=https://example.test \
+            SMTP_HOST=localhost SMTP_USER=test SMTP_PASS=test \
+            docker compose -f docker-compose.saas.yml config --quiet
+          docker compose -f docker-compose.operator-panel.yml config --quiet
+
       - name: Server-Tests
-        run: npm test -w server
+        run: npm run test:ci -w server
 
       - name: Web-App-Tests
         run: npm test -w web-app
+
+      - name: Web-App-Typprüfung
+        run: npm run typecheck -w web-app

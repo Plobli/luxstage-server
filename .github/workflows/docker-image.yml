@@ -3,9 +3,7 @@ name: Self-Hosted-Image bauen
 # Baut das Self-Hosted-Docker-Image bei Version-Tag und pusht es nach GHCR.
 # Privat (Repo-Sichtbarkeit). Server zieht das Image via docker compose pull.
 on:
-  push:
-    tags:
-      - 'v*'
+  workflow_call:
 
 env:
   IMAGE: ghcr.io/plobli/luxstage-server

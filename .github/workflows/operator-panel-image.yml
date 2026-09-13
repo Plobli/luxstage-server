@@ -15,7 +15,13 @@ env:
   IMAGE: ghcr.io/plobli/luxstage-operator-panel
 
 jobs:
+  quality:
+    uses: ./.github/workflows/test.yml
+    permissions:
+      contents: read
+
   build-push:
+    needs: quality
     runs-on: ubuntu-latest
     permissions:
       contents: read

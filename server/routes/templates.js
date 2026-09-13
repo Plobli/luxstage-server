@@ -141,7 +141,7 @@ export async function templateRoutes(req, res, pathname) {
       const existing = readTemplateSections(templateName)
       if (!existing.length) {
         writeTemplateSections(templateName, [
-          { id: randomUUID(), title: 'Aufbau', type: 'markdown', order: 0, fields: [] },
+          { id: randomUUID(), title: 'Aufbaunotizen', type: 'markdown', order: 0, icon: 'setup', fields: [] },
           { id: randomUUID(), title: 'Besonderheiten', type: 'markdown', order: 1, fields: [] },
         ])
       }

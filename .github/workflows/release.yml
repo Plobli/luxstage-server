@@ -6,10 +6,17 @@ on:
       - 'v*'
 
 jobs:
+  quality:
+    uses: ./.github/workflows/test.yml
+    permissions:
+      contents: read
+
   build-and-release:
+    needs: quality
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      packages: write
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4.2.2
@@ -20,6 +27,15 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '22'
+
+      - name: Release-Version prüfen
+        run: |
+          PACKAGE_VERSION=$(node -p "require('./package.json').version")
+          TAG_VERSION="${GITHUB_REF_NAME#v}"
+          if [[ "$PACKAGE_VERSION" != "$TAG_VERSION" ]]; then
+            echo "Tag $TAG_VERSION stimmt nicht mit package.json $PACKAGE_VERSION überein."
+            exit 1
+          fi
 
       - name: Build Web-App
         run: |
@@ -51,8 +67,27 @@ jobs:
           echo "$NOTES" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
 
+      - name: Release-Prüfsumme erzeugen
+        run: sha256sum luxstage-release.zip > luxstage-release.zip.sha256
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: luxstage-release.zip
+          files: |
+            luxstage-release.zip
+            luxstage-release.zip.sha256
           body: ${{ steps.notes.outputs.notes }}
+
+  self-hosted-image:
+    needs: quality
+    uses: ./.github/workflows/docker-image.yml
+    permissions:
+      contents: read
+      packages: write
+
+  saas-image:
+    needs: quality
+    uses: ./.github/workflows/saas-image.yml
+    permissions:
+      contents: read
+      packages: write

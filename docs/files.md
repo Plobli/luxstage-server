@@ -32,10 +32,12 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 | `./.claude/launch.json` | Debug-Konfiguration für Web-App und Backend. |
 | `./.code-review-graph/.gitignore` | Ignoriert die Code-Review-Graph-Datenbankdatei. |
 | `./.code-review-graph/graph.db` | Code-Review-Graph-Datenbank (Metadaten, Struktur). |
-| `./.github/workflows/release.yml` | GitHub Action: baut Release-ZIP bei `v*`-Tags. |
+| `./.github/workflows/release.yml` | GitHub Action: prüft Qualität und Release-Version, erzeugt ZIP-Prüfsumme und baut Release-ZIP sowie Self-Hosted- und SaaS-Images bei passenden `v*`-Tags. |
 | `./.github/workflows/codeql.yml` | GitHub Action: CodeQL-Sicherheitsanalyse. |
-| `./.github/workflows/saas-image.yml` | GitHub Action: baut SaaS-Image nach GHCR bei `v*`-Tags. |
-| `./.github/workflows/operator-panel-image.yml` | GitHub Action: baut Betreiber-Panel-Image nach GHCR bei `v*`-Tags, unabhängig vom SaaS-Image. |
+| `./.github/workflows/test.yml` | GitHub Action: prüft Audit, Docker-Compose-Konfigurationen, Server- und Web-App-Tests sowie Web-App-Typprüfung bei Pushes, Pull Requests und manuellem Start; kann als Release-Qualitätsgate aufgerufen werden. |
+| `./docs/testing.md` | Teststrategie, Testgruppen, Laufzeitprofil und Regeln für neue oder redundante Tests. |
+| `./.github/workflows/saas-image.yml` | Wiederverwendbare GitHub Action: baut das SaaS-Image nach GHCR nach erfolgreichem Release-Qualitätsgate. |
+| `./.github/workflows/operator-panel-image.yml` | GitHub Action: prüft Qualität und baut das Betreiber-Panel-Image nach GHCR bei passenden `main`-Änderungen. |
 | `./Dev-Server-App/LuxStageMenu.swift` | macOS-Menüleisten-App; startet/stoppt/restartet Dev-Server via `dev.sh`, zeigt Live-Status (Backend/Web-App erreichbar, Version, PID, Laufzeit), Web-App- und Log-Öffnen-Aktionen. |
 | `./Dev-Server-App/LuxStageMenu` | Kompilierte macOS-Executable der Menüleisten-App. |
 | `./Dev-Server-App/dev.sh` | Startet Server + Web-App lokal für Entwicklung; von der Menüleisten-App aufgerufen. |
@@ -190,7 +192,7 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 | `./web-app/e2e/channels-crud.spec.ts` | E2E: Kanal in einer Show anlegen, löschen, Show aufräumen. |
 | `./web-app/e2e/undo-redo.spec.ts` | E2E: Undo/Redo einer Kanal-Erstellung, einfach und mehrfach über mehrere Kanäle (LIFO-Stack). |
 | `./web-app/package.json` | Web-App-Dependencies: Vue 3, Tailwind, Shadcn-ui, Editor. |
-| `./web-app/tsconfig.json` | TypeScript-Compiler-Optionen für die Web-App. |
+| `./web-app/tsconfig.json` | TypeScript-Compiler-Optionen und Pfad-Aliase für die Web-App, kompatibel mit TypeScript 6. |
 | `./web-app/tsconfig.tsbuildinfo` | TypeScript-Build-Metadaten (Laufzeitartefakt). |
 | `./web-app/jsconfig.json` | Pfad-Aliase für Web-App (`@/` und `@shared/`). |
 | `./web-app/components.json` | Shadcn-vue UI-Komponenten-Konfiguration. |

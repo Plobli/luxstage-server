@@ -40,6 +40,7 @@ import * as m039 from './039-operations-full-snapshot.js'
 import * as m040 from './040-network-operations.js'
 import * as m041 from './041-resource-locks.js'
 import * as m042 from './042-users-token-version.js'
+import * as m043 from './043-section-defs-aufbaunotizen.js'
 
 // Reihenfolge ist bindend — manche Migrationen setzen das Ergebnis vorheriger
 // voraus (z.B. 024 liest Titel, die erst durch 023 umbenannt wurden).
@@ -48,5 +49,5 @@ export const migrations = [
   m011, m012, m013, m014, m015, m016, m017, m018, m019, m020,
   m021, m022, m023, m024, m025, m026, m027, m028, m029, m030,
   m031, m032, m033, m034, m035, m036, m037, m038, m039, m040,
-  m041, m042,
+  m041, m042, m043,
 ]

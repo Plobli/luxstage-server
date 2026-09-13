@@ -3,9 +3,7 @@ name: SaaS-Image bauen
 # Baut das SaaS-Docker-Image bei jedem Version-Tag und pusht es nach GHCR.
 # Privat (Repo-Sichtbarkeit). Server zieht das Image via docker compose pull.
 on:
-  push:
-    tags:
-      - 'v*'
+  workflow_call:
 
 env:
   IMAGE: ghcr.io/plobli/luxstage-saas
