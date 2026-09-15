@@ -85,83 +85,101 @@
         <!-- Logo -->
         <RouterLink to="/" class="flex h-16 shrink-0 items-center px-3 gap-3 transition-opacity hover:opacity-80">
           <img src="/favicon.png" alt="LuxStage" class="h-9 w-9 rounded-xl shrink-0" />
-          <span class="text-sm font-bold text-foreground">LuxStage</span>
+          <span v-if="!sidebarCollapsed" class="text-sm font-bold text-foreground">LuxStage</span>
         </RouterLink>
 
         <!-- Hauptnavigation -->
         <nav class="mt-2 flex-1">
           <ul role="list" class="flex flex-col gap-1 px-2">
             <li v-for="item in navigation.slice(0, 1)" :key="item.name" class="w-full">
-              <RouterLink
-                :to="item.to"
-                class="group relative flex items-center gap-3 rounded-lg px-3 h-9 w-full transition-colors"
-                :class="[isActiveRoute(item) ? 'text-foreground bg-muted' : 'text-muted-foreground nav-hover']"
-              >
-                <span v-if="isActiveRoute(item)" class="absolute left-0 top-1.25 bottom-1.25 w-0.75 rounded-full bg-accent" />
-                <div class="shrink-0 rounded-md p-1">
-                  <component :is="item.icon" class="size-4" aria-hidden="true" />
-                </div>
-                <span v-if="item.badge?.value" class="absolute top-1 right-1 size-2 rounded-full bg-accent" />
-                <span class="text-sm" :class="isActiveRoute(item) ? 'font-semibold' : 'font-medium'">{{ item.name }}</span>
-              </RouterLink>
+              <Tooltip :delay-duration="0" :disabled="!sidebarCollapsed">
+                <TooltipTrigger as-child>
+                  <RouterLink
+                    :to="item.to"
+                    class="group relative flex items-center gap-3 rounded-lg px-3 h-9 w-full transition-colors"
+                    :class="[isActiveRoute(item) ? 'text-foreground bg-muted' : 'text-muted-foreground nav-hover', sidebarCollapsed && 'justify-center px-0']"
+                  >
+                    <span v-if="isActiveRoute(item)" class="absolute left-0 top-1.25 bottom-1.25 w-0.75 rounded-full bg-accent" />
+                    <div class="shrink-0 rounded-md" :class="sidebarCollapsed ? 'p-0' : 'p-1'">
+                      <component :is="item.icon" class="size-4" aria-hidden="true" />
+                    </div>
+                    <span v-if="item.badge?.value" class="absolute top-1 right-1 size-2 rounded-full bg-accent" />
+                    <span v-if="!sidebarCollapsed" class="text-sm" :class="isActiveRoute(item) ? 'font-semibold' : 'font-medium'">{{ item.name }}</span>
+                  </RouterLink>
+                </TooltipTrigger>
+                <TooltipContent v-if="sidebarCollapsed" side="right">{{ item.name }}</TooltipContent>
+              </Tooltip>
 
               <!-- Show-Sub-Nav unterhalb von Shows -->
-              <div v-if="item.to === '/' && isShowDetail && navItems.length" class="mt-1 ml-2 border-l border-border/30 pl-1 flex flex-col gap-0.5 items-stretch">
+              <div v-if="item.to === '/' && isShowDetail && navItems.length" class="mt-1 flex flex-col gap-0.5" :class="sidebarCollapsed ? 'ml-0 border-l-0 pl-0 items-center gap-1' : 'ml-2 border-l border-border/30 pl-1 items-stretch'">
                 <template v-for="sub in navItems" :key="sub.key ?? sub.type + sub.label">
-                  <div v-if="sub.type === 'group'" class="px-2 pt-4 pb-1">
+                  <div v-if="sub.type === 'group'" v-show="!sidebarCollapsed" class="px-2 pt-4 pb-1">
                     <div class="text-[10px] font-semibold text-muted-foreground/60 uppercase tracking-widest">{{ sub.label }}</div>
                   </div>
-                  <button
-                    v-else-if="sub.type === 'addSection'"
-                    class="group relative flex items-center justify-center gap-1.5 rounded-lg border border-dashed border-border h-9 w-full text-muted-foreground/70 hover:text-foreground hover:bg-muted/40 transition-colors"
-                    @click="showNavAddSection()"
-                  >
-                    <span class="text-sm leading-none">+</span>
-                    <span class="text-sm">{{ sub.label }}</span>
-                  </button>
-                  <div
-                    v-else
-                    class="group relative flex items-center gap-1 rounded-lg pl-3 pr-1 h-9 w-full transition-colors"
-                    :class="[sub.active ? 'text-foreground bg-muted' : 'text-muted-foreground nav-hover']"
-                  >
-                    <span v-if="sub.active" class="absolute left-0 top-1.25 bottom-1.25 w-0.75 rounded-full bg-accent" />
-                    <input
-                      v-if="renamingSectionId === sub.renameId"
-                      v-model="renamingSectionTitle"
-                      class="flex-1 min-w-0 bg-transparent text-sm font-semibold text-foreground outline-none"
-                      autofocus
-                      @keydown.enter="commitRenameSection"
-                      @keydown.escape="cancelRenameSection"
-                      @blur="commitRenameSection"
-                      @click.stop
-                    />
-                    <button
-                      v-else
-                      class="flex-1 min-w-0 text-left"
-                      @click="showNavNavigate(sub)"
-                      @dblclick="startRenameSection(sub)"
-                    >
-                      <span class="text-sm" :class="sub.active ? 'font-semibold' : ''">{{ sub.label }}</span>
-                    </button>
-                    <Button
-                      v-if="sub.renameId"
-                      variant="ghost"
-                      size="icon"
-                      class="size-6 shrink-0 rounded-sm text-muted-foreground/50 opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
-                      @click="startRenameSection(sub)"
-                    >
-                      <Pencil class="size-3" />
-                    </Button>
-                    <Button
-                      v-if="sub.sectionId"
-                      variant="ghost"
-                      size="icon"
-                      class="size-6 shrink-0 rounded-sm text-muted-foreground/50 opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
-                      @click="showNavDeleteSection(sub.sectionId)"
-                    >
-                      <X class="size-3.5" />
-                    </Button>
-                  </div>
+                  <Tooltip v-else-if="sub.type === 'addSection'" :delay-duration="0" :disabled="!sidebarCollapsed">
+                    <TooltipTrigger as-child>
+                      <button
+                        class="group relative flex items-center justify-center gap-1.5 rounded-lg border border-dashed border-border h-9 w-full text-muted-foreground/70 hover:text-foreground hover:bg-muted/40 transition-colors"
+                        :class="sidebarCollapsed && 'size-9 w-9'"
+                        @click="showNavAddSection()"
+                      >
+                        <span class="text-sm leading-none">+</span>
+                        <span v-if="!sidebarCollapsed" class="text-sm">{{ sub.label }}</span>
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent v-if="sidebarCollapsed" side="right">{{ sub.label }}</TooltipContent>
+                  </Tooltip>
+                  <Tooltip v-else :delay-duration="0" :disabled="!sidebarCollapsed">
+                    <TooltipTrigger as-child>
+                      <div
+                        class="group relative flex items-center gap-1 rounded-lg h-9 w-full transition-colors"
+                        :class="[sub.active ? 'text-foreground bg-muted' : 'text-muted-foreground nav-hover', sidebarCollapsed ? 'justify-center px-0 w-9 h-9 cursor-pointer' : 'pl-3 pr-1']"
+                        @click="sidebarCollapsed && showNavNavigate(sub)"
+                      >
+                        <span v-if="sub.active && !sidebarCollapsed" class="absolute left-0 top-1.25 bottom-1.25 w-0.75 rounded-full bg-accent" />
+                        <component v-if="sidebarCollapsed" :is="sub.icon" class="size-4" aria-hidden="true" />
+                        <template v-else>
+                          <input
+                            v-if="renamingSectionId === sub.renameId"
+                            v-model="renamingSectionTitle"
+                            class="flex-1 min-w-0 bg-transparent text-sm font-semibold text-foreground outline-none"
+                            autofocus
+                            @keydown.enter="commitRenameSection"
+                            @keydown.escape="cancelRenameSection"
+                            @blur="commitRenameSection"
+                            @click.stop
+                          />
+                          <button
+                            v-else
+                            class="flex-1 min-w-0 text-left"
+                            @click="showNavNavigate(sub)"
+                            @dblclick="startRenameSection(sub)"
+                          >
+                            <span class="text-sm" :class="sub.active ? 'font-semibold' : ''">{{ sub.label }}</span>
+                          </button>
+                          <Button
+                            v-if="sub.renameId"
+                            variant="ghost"
+                            size="icon"
+                            class="size-6 shrink-0 rounded-sm text-muted-foreground/50 opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
+                            @click="startRenameSection(sub)"
+                          >
+                            <Pencil class="size-3" />
+                          </Button>
+                          <Button
+                            v-if="sub.sectionId"
+                            variant="ghost"
+                            size="icon"
+                            class="size-6 shrink-0 rounded-sm text-muted-foreground/50 opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
+                            @click="showNavDeleteSection(sub.sectionId)"
+                          >
+                            <X class="size-3.5" />
+                          </Button>
+                        </template>
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent v-if="sidebarCollapsed" side="right">{{ sub.label }}</TooltipContent>
+                  </Tooltip>
                 </template>
               </div>
             </li>
@@ -170,37 +188,45 @@
 
         <!-- Archiv, Templates, Settings, Logout -->
         <div class="flex flex-col gap-1 px-2">
-          <RouterLink
-            v-for="item in navigation.slice(1)"
-            :key="item.name"
-            :to="item.to"
-            class="group relative flex items-center gap-3 rounded-lg px-3 h-9 w-full transition-colors"
-            :class="[isActiveRoute(item) ? 'text-foreground bg-muted' : 'text-muted-foreground nav-hover']"
-          >
-            <span v-if="isActiveRoute(item)" class="absolute left-0 top-1.25 bottom-1.25 w-0.75 rounded-full bg-accent" />
-            <div class="shrink-0 rounded-md p-1">
-              <component :is="item.icon" class="size-4" aria-hidden="true" />
-            </div>
-            <span class="text-sm" :class="isActiveRoute(item) ? 'font-semibold' : 'font-medium'">{{ item.name }}</span>
-          </RouterLink>
+          <Tooltip v-for="item in navigation.slice(1)" :key="item.name" :delay-duration="0" :disabled="!sidebarCollapsed">
+            <TooltipTrigger as-child>
+              <RouterLink
+                :to="item.to"
+                class="group relative flex items-center gap-3 rounded-lg px-3 h-9 w-full transition-colors"
+                :class="[isActiveRoute(item) ? 'text-foreground bg-muted' : 'text-muted-foreground nav-hover', sidebarCollapsed && 'justify-center px-0']"
+              >
+                <span v-if="isActiveRoute(item)" class="absolute left-0 top-1.25 bottom-1.25 w-0.75 rounded-full bg-accent" />
+                <div class="shrink-0 rounded-md p-1">
+                  <component :is="item.icon" class="size-4" aria-hidden="true" />
+                </div>
+                <span v-if="!sidebarCollapsed" class="text-sm" :class="isActiveRoute(item) ? 'font-semibold' : 'font-medium'">{{ item.name }}</span>
+              </RouterLink>
+            </TooltipTrigger>
+            <TooltipContent v-if="sidebarCollapsed" side="right">{{ item.name }}</TooltipContent>
+          </Tooltip>
 
           <div class="my-1 border-t border-border" />
 
-          <RouterLink
-            to="/settings"
-            class="group relative flex items-center gap-3 rounded-lg px-3 h-9 w-full transition-colors overflow-hidden"
-            :class="[isSettingsDetail ? 'text-foreground bg-muted' : 'text-muted-foreground nav-hover']"
-          >
-            <span v-if="isSettingsDetail" class="absolute left-0 top-1.25 bottom-1.25 w-0.75 rounded-full bg-accent" />
-            <div class="shrink-0 rounded-md p-1">
-              <Settings class="size-4" aria-hidden="true" />
-            </div>
-            <span v-if="updateAvailable" class="absolute top-1 right-1 size-2 rounded-full bg-accent" />
-            <span class="text-sm" :class="isSettingsDetail ? 'font-semibold' : 'font-medium'">{{ t('nav.settings') }}</span>
-          </RouterLink>
+          <Tooltip :delay-duration="0" :disabled="!sidebarCollapsed">
+            <TooltipTrigger as-child>
+              <RouterLink
+                to="/settings"
+                class="group relative flex items-center gap-3 rounded-lg px-3 h-9 w-full transition-colors overflow-hidden"
+                :class="[isSettingsDetail ? 'text-foreground bg-muted' : 'text-muted-foreground nav-hover', sidebarCollapsed && 'justify-center px-0']"
+              >
+                <span v-if="isSettingsDetail" class="absolute left-0 top-1.25 bottom-1.25 w-0.75 rounded-full bg-accent" />
+                <div class="shrink-0 rounded-md p-1">
+                  <Settings class="size-4" aria-hidden="true" />
+                </div>
+                <span v-if="updateAvailable" class="absolute top-1 right-1 size-2 rounded-full bg-accent" />
+                <span v-if="!sidebarCollapsed" class="text-sm" :class="isSettingsDetail ? 'font-semibold' : 'font-medium'">{{ t('nav.settings') }}</span>
+              </RouterLink>
+            </TooltipTrigger>
+            <TooltipContent v-if="sidebarCollapsed" side="right">{{ t('nav.settings') }}</TooltipContent>
+          </Tooltip>
 
           <!-- Settings-Sub-Nav unterhalb von Einstellungen -->
-          <div v-if="isSettingsDetail" class="ml-2 border-l border-border/30 pl-1 flex flex-col gap-0.5 items-stretch">
+          <div v-if="isSettingsDetail && !sidebarCollapsed" class="ml-2 border-l border-border/30 pl-1 flex flex-col gap-0.5 items-stretch">
             <RouterLink
               v-for="item in settingsNavItems"
               :key="item.to"
@@ -213,17 +239,23 @@
             </RouterLink>
           </div>
 
-          <button
-            @click="handleLogout"
-            class="group flex items-center gap-3 rounded-lg px-3 h-9 w-full text-muted-foreground nav-hover transition-colors overflow-hidden"
-          >
-            <div class="shrink-0 rounded-md p-1">
-              <LogOut class="size-4" aria-hidden="true" />
-            </div>
-            <span class="text-sm font-medium">{{ t('nav.logout') }}</span>
-          </button>
+          <Tooltip :delay-duration="0" :disabled="!sidebarCollapsed">
+            <TooltipTrigger as-child>
+              <button
+                @click="handleLogout"
+                class="group flex items-center gap-3 rounded-lg px-3 h-9 w-full text-muted-foreground nav-hover transition-colors overflow-hidden"
+                :class="sidebarCollapsed && 'justify-center px-0'"
+              >
+                <div class="shrink-0 rounded-md p-1">
+                  <LogOut class="size-4" aria-hidden="true" />
+                </div>
+                <span v-if="!sidebarCollapsed" class="text-sm font-medium">{{ t('nav.logout') }}</span>
+              </button>
+            </TooltipTrigger>
+            <TooltipContent v-if="sidebarCollapsed" side="right">{{ t('nav.logout') }}</TooltipContent>
+          </Tooltip>
 
-          <div class="px-3 pt-2 text-[11px] text-muted-foreground/60">
+          <div v-if="!sidebarCollapsed" class="px-3 pt-2 text-[11px] text-muted-foreground/60">
             Web {{ appVersion }}<span v-if="serverVersion"> · Srv {{ serverVersion }}</span>
           </div>
         </div>
@@ -270,7 +302,7 @@
 import { ref, watch, onMounted, onUnmounted, computed } from 'vue'
 import { RouterView, RouterLink, useRoute, useRouter } from 'vue-router'
 import { TolgeeProvider } from '@tolgee/vue'
-import { TooltipProvider } from '@/components/ui/tooltip'
+import { TooltipProvider, Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip'
 import { Button } from '@/components/ui/button'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import {
@@ -365,10 +397,13 @@ const sidebarOpen = ref(false)
 
 watch(route, () => { sidebarOpen.value = false })
 
+const SIDEBAR_COLLAPSED_WIDTH = 64
+const SIDEBAR_COLLAPSE_THRESHOLD = 130
 const SIDEBAR_MIN_WIDTH = 200
 const SIDEBAR_MAX_WIDTH = 400
 const SIDEBAR_DEFAULT_WIDTH = 256
 const sidebarWidth = ref(SIDEBAR_DEFAULT_WIDTH)
+const sidebarCollapsed = computed(() => sidebarWidth.value <= SIDEBAR_COLLAPSED_WIDTH)
 let sidebarWidthSaveTimeout = null
 
 api.get('/api/me/preferences').then(prefs => {
@@ -378,7 +413,11 @@ api.get('/api/me/preferences').then(prefs => {
 function startSidebarResize(event) {
   event.preventDefault()
   function onMouseMove(e) {
-    sidebarWidth.value = Math.min(SIDEBAR_MAX_WIDTH, Math.max(SIDEBAR_MIN_WIDTH, e.clientX))
+    if (e.clientX < SIDEBAR_COLLAPSE_THRESHOLD) {
+      sidebarWidth.value = SIDEBAR_COLLAPSED_WIDTH
+    } else {
+      sidebarWidth.value = Math.min(SIDEBAR_MAX_WIDTH, Math.max(SIDEBAR_MIN_WIDTH, e.clientX))
+    }
   }
   function onMouseUp() {
     document.removeEventListener('mousemove', onMouseMove)
