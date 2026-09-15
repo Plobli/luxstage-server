@@ -1,7 +1,7 @@
 import { readJsonBody, json, clientIp } from '../helpers.js'
 import { requireAuth } from '../auth.js'
 import { createLoginRateLimiter } from '../login-rate-limit.js'
-import { getDb } from '../db.js'
+import { getDb } from '../db-context.js'
 
 const { isRateLimited, recordFailedAttempt } = createLoginRateLimiter({ maxAttempts: 50, windowMs: 60 * 1000 })
 
