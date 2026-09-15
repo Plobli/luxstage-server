@@ -73,7 +73,15 @@
       </Transition>
 
       <!-- Desktop Sidebar -->
-      <div class="hidden md:fixed md:inset-y-0 md:left-0 md:z-50 md:flex md:flex-col md:w-64 md:overflow-y-auto md:pb-4 overflow-x-hidden border-r border-border bg-surface-high">
+      <div
+        class="hidden md:fixed md:inset-y-0 md:left-0 md:z-50 md:flex md:flex-col md:overflow-y-auto md:pb-4 overflow-x-hidden border-r border-border bg-surface-high"
+        :style="{ width: sidebarWidth + 'px' }"
+      >
+        <div
+          class="hidden md:block fixed inset-y-0 z-50 w-1.5 -mr-0.75 cursor-col-resize hover:bg-accent/40 transition-colors"
+          :style="{ left: sidebarWidth + 'px' }"
+          @mousedown="startSidebarResize"
+        />
         <!-- Logo -->
         <RouterLink to="/" class="flex h-16 shrink-0 items-center px-3 gap-3 transition-opacity hover:opacity-80">
           <img src="/favicon.png" alt="LuxStage" class="h-9 w-9 rounded-xl shrink-0" />
@@ -234,7 +242,7 @@
       </div>
 
       <!-- Main Content -->
-      <main class="bg-background h-dvh overflow-y-auto md:pl-64">
+      <main class="bg-background h-dvh overflow-y-auto md:pl-(--sidebar-width)" :style="{ '--sidebar-width': sidebarWidth + 'px' }">
         <!-- Offline-Banner -->
         <Alert v-if="!isOnline" variant="destructive" class="sticky top-0 z-50 rounded-none border-x-0 border-t-0 py-2">
           <AlertTriangle class="size-4" />
@@ -356,6 +364,33 @@ const router = useRouter()
 const sidebarOpen = ref(false)
 
 watch(route, () => { sidebarOpen.value = false })
+
+const SIDEBAR_MIN_WIDTH = 200
+const SIDEBAR_MAX_WIDTH = 400
+const SIDEBAR_DEFAULT_WIDTH = 256
+const sidebarWidth = ref(SIDEBAR_DEFAULT_WIDTH)
+let sidebarWidthSaveTimeout = null
+
+api.get('/api/me/preferences').then(prefs => {
+  if (prefs?.sidebarWidth) sidebarWidth.value = prefs.sidebarWidth
+}).catch(() => {})
+
+function startSidebarResize(event) {
+  event.preventDefault()
+  function onMouseMove(e) {
+    sidebarWidth.value = Math.min(SIDEBAR_MAX_WIDTH, Math.max(SIDEBAR_MIN_WIDTH, e.clientX))
+  }
+  function onMouseUp() {
+    document.removeEventListener('mousemove', onMouseMove)
+    document.removeEventListener('mouseup', onMouseUp)
+    clearTimeout(sidebarWidthSaveTimeout)
+    sidebarWidthSaveTimeout = setTimeout(() => {
+      api.patch('/api/me/preferences', { sidebarWidth: sidebarWidth.value }).catch(() => {})
+    }, 800)
+  }
+  document.addEventListener('mousemove', onMouseMove)
+  document.addEventListener('mouseup', onMouseUp)
+}
 
 function isActiveRoute(item) {
   if (item.to === '/') {

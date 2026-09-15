@@ -112,13 +112,19 @@ export function approveUser(username) {
 }
 
 export function getUserPreferences(username) {
-  const row = getDb().prepare('SELECT sidebar_pinned FROM users WHERE username = ?').get(username)
-  return { sidebarPinned: row?.sidebar_pinned === 1 }
+  const row = getDb().prepare('SELECT sidebar_pinned, sidebar_width FROM users WHERE username = ?').get(username)
+  return { sidebarPinned: row?.sidebar_pinned === 1, sidebarWidth: row?.sidebar_width ?? null }
 }
 
-export function setUserPreferences(username, { sidebarPinned }) {
-  getDb().prepare('UPDATE users SET sidebar_pinned = ? WHERE username = ?')
-    .run(sidebarPinned ? 1 : 0, username)
+export function setUserPreferences(username, { sidebarPinned, sidebarWidth }) {
+  if (sidebarPinned !== undefined) {
+    getDb().prepare('UPDATE users SET sidebar_pinned = ? WHERE username = ?')
+      .run(sidebarPinned ? 1 : 0, username)
+  }
+  if (sidebarWidth !== undefined) {
+    getDb().prepare('UPDATE users SET sidebar_width = ? WHERE username = ?')
+      .run(sidebarWidth, username)
+  }
 }
 
 export function getGridDeckConfig(username) {
