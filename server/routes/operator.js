@@ -157,7 +157,7 @@ export async function operatorRoutes(req, res, pathname) {
     const id = verify[1]
     const name = decodeURIComponent(verify[2])
     if (!getTenant(id)) return json(res, 404, { error: 'Mandant nicht gefunden' })
-    const result = verifySnapshot(id, name)
+    const result = await verifySnapshot(id, name)
     log.info('Snapshot geprüft', { tenant: id, name, ok: result.ok })
     return json(res, 200, result)
   }

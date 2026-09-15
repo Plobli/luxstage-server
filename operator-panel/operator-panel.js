@@ -150,6 +150,7 @@ function fmtSize(b) {
 }
 
 async function openBackups(id) {
+  closeAllMenus()
   bkCurrentTenant = id
   $('#bkTenant').textContent = id
   $('#backupOverlay').classList.remove('hidden')

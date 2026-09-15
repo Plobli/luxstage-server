@@ -30,17 +30,24 @@
   .tag.ok { background:#1e3a2a; color:#6cd18e; }
   .tag.sus { background:#3a1e1e; color:#e88; }
   .err { color:var(--danger); font-size:14px; margin-top:12px; }
-  .row-actions { display:flex; gap:8px; }
+  .row-actions { display:flex; gap:8px; flex-wrap:wrap; }
   .menu { position:relative; display:inline-block; }
   .menu-btn { padding:6px 10px; }
-  .menu-list { display:none; position:absolute; right:0; top:calc(100% + 4px); background:var(--card); border:1px solid var(--border); border-radius:8px; min-width:160px; z-index:20; box-shadow:0 8px 24px rgba(0,0,0,.4); overflow:hidden; }
+  .menu-list { display:none; position:absolute; right:0; top:calc(100% + 4px); background:var(--card); border:1px solid var(--border); border-radius:8px; min-width:160px; z-index:60; box-shadow:0 8px 24px rgba(0,0,0,.4); overflow:hidden; }
   .menu.open .menu-list { display:block; }
   .menu-list button { display:block; width:100%; text-align:left; border-radius:0; background:transparent; color:var(--fg); padding:10px 14px; }
   .menu-list button:hover { background:var(--bg); }
   .menu-list button.danger { color:var(--danger); }
-  .topbar { display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; }
+  .topbar { display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; flex-wrap:wrap; gap:12px; }
   .mut { color:var(--mut); font-size:13px; }
   .hidden { display:none; }
+  .overlay { position:fixed; inset:0; background:rgba(0,0,0,.6); display:flex; align-items:center; justify-content:center; padding:20px; z-index:50; overflow-y:auto; }
+  .overlay .card { max-width:640px; width:100%; max-height:calc(100vh - 40px); overflow-y:auto; }
+  @media (max-width: 520px) {
+    .wrap { padding:20px 12px; }
+    .row-actions { gap:6px; }
+    .row-actions button { flex:1 1 auto; }
+  }
 </style>
 </head>
 <body>
@@ -98,17 +105,19 @@
   </div>
 
   <!-- Backup-Dialog -->
-  <div id="backupOverlay" class="hidden" style="position:fixed;inset:0;background:rgba(0,0,0,.6);align-items:center;justify-content:center;padding:20px;z-index:50">
-    <div class="card" style="max-width:560px;width:100%">
+  <div id="backupOverlay" class="hidden overlay">
+    <div class="card">
       <div class="topbar" style="margin-bottom:12px">
         <h1 style="font-size:16px">Backups · <span id="bkTenant"></span></h1>
         <button class="ghost" id="bkClose">Schließen</button>
       </div>
       <div style="margin-bottom:12px"><button id="bkCreate">Jetzt sichern</button></div>
-      <table>
-        <thead><tr><th>Zeitpunkt</th><th>Größe</th><th>Prüfung</th><th></th></tr></thead>
-        <tbody id="bkBody"></tbody>
-      </table>
+      <div class="table-scroll">
+        <table>
+          <thead><tr><th>Zeitpunkt</th><th>Größe</th><th>Prüfung</th><th></th></tr></thead>
+          <tbody id="bkBody"></tbody>
+        </table>
+      </div>
       <div id="bkEmpty" class="mut hidden" style="padding:12px">Noch keine Snapshots.</div>
     </div>
   </div>

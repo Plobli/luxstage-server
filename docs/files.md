@@ -119,7 +119,7 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 | `./server/registry.js` | Zentrale Registrierung für Mandantenverzeichnis und Doppel-Opt-In; aktiviert Tenant-Eintrag (inkl. Newsletter-Consent) und verbraucht Bestätigungslink atomar. |
 | `./server/tenants.js` | Mandantenverzeichnis mit separaten SQLite-DBs pro Kunde und Kompensation fehlgeschlagener Registrierungen. |
 | `./server/tenant-resolve.js` | Host-Header-Parsing für Subdomain-basierte Mandantenauflösung, plus `tenantBaseUrl()` für Mandanten-URLs in E-Mail-Links. |
-| `./server/tenant-backup.js` | Tägliche Snapshots pro Mandant mit Retention-Policy; sichert vor Restore den Ist-Zustand, aktiviert Snapshots per rückrollbarem DB-Swap und verifiziert Snapshot-Konsistenz (quick_check). |
+| `./server/tenant-backup.js` | Tägliche Snapshots pro Mandant (tar.gz mit DB + Datei-Ordnern photos/floorplans) mit Retention-Policy; sichert vor Restore den Ist-Zustand, aktiviert Snapshots per rückrollbarem DB-/Ordner-Swap und verifiziert Snapshot-Konsistenz (quick_check). Legacy-reine-.db-Snapshots bleiben lesbar. |
 | `./server/tenant-health.js` | Integritätsüberwachung pro Mandant fürs Betreiber-Panel: Erreichbarkeit, Schema-Migrationsstand, letzte Aktivität, DB-Größe, Snapshot-Alter, On-Demand-Konsistenzcheck (quick_check + foreign_key_check). |
 | `./server/operator.js` | Separater Admin-Login für Betreiber-Panel mit JWT. |
 

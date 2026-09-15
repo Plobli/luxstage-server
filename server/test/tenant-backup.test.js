@@ -1,9 +1,10 @@
 import assert from 'node:assert/strict'
 import fs from 'node:fs'
+import path from 'node:path'
 import { after, test } from 'node:test'
 import { cleanupDataPath } from './helpers/test-env.js'
 
-const { closeTenantDb, createTenant, openTenantDb, tenantDbPath } = await import('../tenants.js')
+const { closeTenantDb, createTenant, openTenantDb, tenantDbPath, tenantDir } = await import('../tenants.js')
 const { createSnapshot, listSnapshots, restoreSnapshot, verifySnapshot } = await import('../tenant-backup.js')
 
 const tenantId = 'restore-team'
@@ -56,20 +57,36 @@ test('Tenant-Restore stellt bei fehlendem Aktivierungs-Rename den Ist-Zustand wi
 test('verifySnapshot meldet ok für einen intakten Snapshot', async () => {
   setMarker('verify-ok')
   const snapshot = await createSnapshot(tenantId)
-  const result = verifySnapshot(tenantId, snapshot)
+  const result = await verifySnapshot(tenantId, snapshot)
   assert.equal(result.ok, true)
 })
 
-test('verifySnapshot lehnt Pfad-Traversal im Namen ab', () => {
-  const result = verifySnapshot(tenantId, '../../etc/passwd.db')
+test('verifySnapshot lehnt Pfad-Traversal im Namen ab', async () => {
+  const result = await verifySnapshot(tenantId, '../../etc/passwd.db')
   assert.equal(result.ok, false)
   assert.equal(result.error, 'Ungültiger Snapshot-Name')
 })
 
-test('verifySnapshot meldet fehlenden Snapshot', () => {
-  const result = verifySnapshot(tenantId, 'does-not-exist.db')
+test('verifySnapshot meldet fehlenden Snapshot', async () => {
+  const result = await verifySnapshot(tenantId, 'does-not-exist.db')
   assert.equal(result.ok, false)
   assert.equal(result.error, 'Snapshot nicht gefunden')
+})
+
+test('Snapshot sichert und stellt Datei-Ordner (photos/floorplans) mit wieder her', async () => {
+  const dir = tenantDir(tenantId)
+  const photosDir = path.join(dir, 'photos')
+  fs.mkdirSync(photosDir, { recursive: true })
+  fs.writeFileSync(path.join(photosDir, 'a.jpg'), 'bild-inhalt')
+
+  const snapshot = await createSnapshot(tenantId)
+
+  fs.rmSync(photosDir, { recursive: true, force: true })
+  assert.equal(fs.existsSync(photosDir), false)
+
+  await restoreSnapshot(tenantId, snapshot)
+
+  assert.equal(fs.readFileSync(path.join(photosDir, 'a.jpg'), 'utf8'), 'bild-inhalt')
 })
 
 after(() => {
