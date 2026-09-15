@@ -41,6 +41,25 @@ export function useShowSidebarNav({ t, meta, mobileTab, aufbauTab, sectionDefs, 
       navigate: () => onSidebarNavigate({ tab: 'channels' }),
     })
 
+    const sortedSections = [...sectionDefs.value].sort((a, b) => a.order - b.order)
+    const setupSection = sortedSections.find(s => s.icon === 'setup')
+    const otherSections = sortedSections.filter(s => s.icon !== 'setup')
+
+    const pushSection = (s) => {
+      items.push({
+        key: `section:${s.id}`,
+        label: s.title || t('sections.untitled'),
+        icon: SECTION_ICONS[s.icon] ?? IconAufbau,
+        iconClass: s.icon === 'warning' ? 'size-5' : 'size-6',
+        active: activeTab === 'gassenturm' && activeSubTab === `section:${s.id}`,
+        navigate: () => onSidebarNavigate({ tab: 'gassenturm', subTab: `section:${s.id}` }),
+        sectionId: s.icon === 'setup' ? null : s.id,
+        renameId: s.id,
+      })
+    }
+
+    if (setupSection) pushSection(setupSection)
+
     if (meta.value.use_towers !== false) {
       items.push({
         key: 'gassenturm',
@@ -61,18 +80,7 @@ export function useShowSidebarNav({ t, meta, mobileTab, aufbauTab, sectionDefs, 
         navigate: () => onSidebarNavigate({ tab: 'gassenturm', subTab: 'zugstangen' }),
       })
     }
-    for (const s of [...sectionDefs.value].sort((a, b) => a.order - b.order)) {
-      items.push({
-        key: `section:${s.id}`,
-        label: s.title || t('sections.untitled'),
-        icon: SECTION_ICONS[s.icon] ?? IconAufbau,
-        iconClass: s.icon === 'warning' ? 'size-5' : 'size-6',
-        active: activeTab === 'gassenturm' && activeSubTab === `section:${s.id}`,
-        navigate: () => onSidebarNavigate({ tab: 'gassenturm', subTab: `section:${s.id}` }),
-        sectionId: s.icon === 'setup' ? null : s.id,
-        renameId: s.id,
-      })
-    }
+    for (const s of otherSections) pushSection(s)
     items.push({ type: 'addSection', label: t('sections.add') })
 
     items.push({ type: 'group', label: t('show.nav.media') })

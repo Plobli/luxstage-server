@@ -147,7 +147,7 @@
                       v-if="sub.renameId"
                       variant="ghost"
                       size="icon"
-                      class="size-6 shrink-0 rounded-sm text-muted-foreground/50"
+                      class="size-6 shrink-0 rounded-sm text-muted-foreground/50 opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
                       @click="startRenameSection(sub)"
                     >
                       <Pencil class="size-3" />
@@ -156,7 +156,7 @@
                       v-if="sub.sectionId"
                       variant="ghost"
                       size="icon"
-                      class="size-6 shrink-0 rounded-sm text-muted-foreground/50"
+                      class="size-6 shrink-0 rounded-sm text-muted-foreground/50 opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
                       @click="showNavDeleteSection(sub.sectionId)"
                     >
                       <X class="size-3.5" />
