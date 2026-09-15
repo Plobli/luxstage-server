@@ -15,6 +15,7 @@ import { pdfRoutes } from './routes/pdf.js'
 import { towerRoutes } from './routes/towers.js'
 import { barRoutes } from './routes/bars.js'
 import { networkRoutes } from './routes/network.js'
+import { diagnosticsRoutes } from './routes/diagnostics.js'
 
 // Deklarative Route-Tabelle: eine Zeile pro Handler-Gruppe (nicht pro
 // Einzelendpoint — die Handler-Dateien parsen Methode/Pfad innerhalb ihrer
@@ -43,6 +44,7 @@ export const PUBLIC_ROUTES = new Set([
   'POST /api/register',
   'GET /api/register/confirm',
   'POST /api/self-register',
+  'POST /api/diagnostics',
 ])
 
 // Globale API-Gruppen, per Pfad-Präfix oder Prädikat erkannt.
@@ -56,6 +58,7 @@ export const API_ROUTE_HANDLERS = [
   { matches: pathname => pathname.startsWith('/api/templates'), handler: templateRoutes },
   { matches: pathname => pathname.startsWith('/api/channels/color-usage'), handler: channelStatsRoutes },
   { matches: pathname => pathname.startsWith('/api/network/'), handler: networkRoutes },
+  { matches: pathname => pathname.startsWith('/api/diagnostics'), handler: diagnosticsRoutes },
 ]
 
 // Show-Unterressourcen unter /api/shows/:id/... — erste Übereinstimmung

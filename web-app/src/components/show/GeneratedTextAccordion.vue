@@ -1,11 +1,15 @@
 <template>
   <div class="mt-6 mb-8">
-    <div class="flex items-center gap-2 px-6 py-2 border-t border-border bg-muted/40">
+    <div class="relative flex items-center gap-2 px-6 py-2 border-t border-border bg-muted/40">
+      <div
+        class="absolute inset-x-0 top-0 h-1.5 -mt-0.75 cursor-row-resize hover:bg-accent/40 transition-colors z-10"
+        @mousedown="startResize"
+      />
       <Cpu class="size-3.5 text-muted-foreground shrink-0" />
       <p class="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{{ t('generated.title') }}</p>
       <span class="ml-auto text-xs text-muted-foreground/60 italic">{{ t('generated.readonly') }}</span>
     </div>
-    <div class="px-6 pt-4 flex flex-col gap-5">
+    <div class="px-6 pt-4 flex flex-col gap-5 overflow-y-auto" :style="{ height: height + 'px' }">
 
     <div v-if="!gassenturmEntries.length && !hangereiEntries.length" class="flex flex-col items-center justify-center gap-3 py-20 text-center px-8">
       <Cpu class="size-7 text-muted-foreground/40" />
@@ -45,8 +49,10 @@
 </template>
 
 <script setup>
+import { ref } from 'vue'
 import { Cpu } from 'lucide-vue-next'
 import { useLocale } from '@/composables/useLocale.js'
+import { api } from '@/api/client.js'
 
 const { t } = useLocale()
 
@@ -54,4 +60,33 @@ defineProps({
   gassenturmEntries: { type: Array, default: () => [] },
   hangereiEntries: { type: Array, default: () => [] },
 })
+
+const HEIGHT_MIN = 150
+const HEIGHT_MAX = 600
+const HEIGHT_DEFAULT = 260
+const height = ref(HEIGHT_DEFAULT)
+let heightSaveTimeout = null
+
+api.get('/api/me/preferences').then(prefs => {
+  if (prefs?.generatedHeight) height.value = prefs.generatedHeight
+}).catch(() => {})
+
+function startResize(event) {
+  event.preventDefault()
+  const startY = event.clientY
+  const startHeight = height.value
+  function onMouseMove(e) {
+    height.value = Math.min(HEIGHT_MAX, Math.max(HEIGHT_MIN, startHeight - (e.clientY - startY)))
+  }
+  function onMouseUp() {
+    document.removeEventListener('mousemove', onMouseMove)
+    document.removeEventListener('mouseup', onMouseUp)
+    clearTimeout(heightSaveTimeout)
+    heightSaveTimeout = setTimeout(() => {
+      api.patch('/api/me/preferences', { generatedHeight: height.value }).catch(() => {})
+    }, 800)
+  }
+  document.addEventListener('mousemove', onMouseMove)
+  document.addEventListener('mouseup', onMouseUp)
+}
 </script>

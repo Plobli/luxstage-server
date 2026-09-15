@@ -152,6 +152,7 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 | `./server/db/settings.js` | DB-Zugriff für generische Key-Value-Settings-Tabelle (SMTP-Konfig, Anzeige-Einstellungen); `setSecretSetting`/`getSecretSetting` verschlüsseln Secrets (z. B. SMTP-Passwort) at rest mit AES-256-GCM, Schlüssel aus `JWT_SECRET` abgeleitet. |
 | `./server/db/migrations/index.js` | Geordnete Liste aller Schema-Migrationen. |
 | `./server/db/migrations/039-operations-full-snapshot.js` | Migration: ändert operations-Tabelle für Full-Snapshot-Historie, fügt redo_stack-Tabelle für persistente Redo-Stack hinzu. |
+| `./server/db/migrations/046-diagnostics.js` | Migration: erstellt `diagnostics_reports`-Tabelle für Crash-/Error-Diagnosedaten von iOS/Android Apps (platform, app_version, build_number, os_version, device_model, report_type, payload, created_at); Indizes auf (platform, report_type) und created_at. |
 | `./server/db/migrations/NNN-*.js` | Einzelne Schema-Migration (`up`, `alreadyApplied`); wird von `db-init.js` einmalig ausgeführt und in `schema_migrations` getrackt. |
 
 ### server/routes/ (API-Endpunkte)
@@ -177,6 +178,7 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 | `./server/routes/smtp.js` | API-Routen für SMTP-Konfiguration und Test-E-Mails. |
 | `./server/routes/operator.js` | API-Routen für Betreiber-Panel (Mandanten-Verwaltung, Server-Version, Health-Status, Snapshot-Verifikation, Konsistenzcheck). |
 | `./server/routes/network.js` | API-Routen für die gebäudeweite Netzwerk-Übersicht (Elemente wie Dose/Switch/Gerät und deren Verbindungen), unabhängig von einzelnen Shows; validiert, dass Netzwerkdose↔Netzwerkdose und Gerät↔Gerät nicht direkt verbunden werden (nur über einen Switch) und dass Dose max. zwei Verbindungen (Durchschleifung rein/raus), Gerät max. eine hat (Switch-Ausnahme); jede Mutation läuft über `withNetworkUndoSnapshot()`, dazu `POST /api/network/undo`/`redo`; inkl. PDF-Export (`GET /api/network/pdf`, siehe `pdf/network.js`). |
+| `./server/routes/diagnostics.js` | API-Routen für Crash-/Error-Diagnostik von mobilen Apps ohne Auth-Requirement: `POST /api/diagnostics` (öffentlich, Rate-Limited auf 50 Req/Min pro IP) akzeptiert Diagnosedaten (platform, app_version, build_number, os_version, device_model, report_type, payload als JSON), validiert platform-Wert und Pflichtfelder; `GET /api/diagnostics` (authentifiziert) listet Reports mit optionalen Filtern (platform, report_type, since-Timestamp), Standard-Limit 100, Max. 1000. |
 
 ## web-app/ (Vue 3 + TypeScript Frontend, Vite)
 
@@ -327,7 +329,7 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 | `./web-app/src/components/show/ZugstangenView.vue` | Drag-Drop-Liste für Obermaschinerie-Elemente (Zugstange/Traverse/Punktzug, per Typ-Filter und -Auswahl) mit Scheinwerfer-Positionen und Vorlagen; vertikal zentrierter Empty-State mit Hinzufügen-Button, FAB nur bei vorhandenen Einträgen. |
 | `./web-app/src/components/show/SectionEditor.vue` | Bearbeitbare Markdown- oder Tabellen-Abschnitte mit Drag-Drop, komponentenlokalen KV-Table-Refs und Migrations-Fallback. |
 | `./web-app/src/components/show/GassenturmView.vue` | Beleuchtungsgestelle mit Slots und Kanalbelegung, Vorlagen und Drag-Drop; vertikal zentrierter Empty-State mit Hinzufügen-Button, FAB nur bei vorhandenen Einträgen. |
-| `./web-app/src/components/show/GeneratedTextAccordion.vue` | Read-only-Bereich mit automatisch generierten Zusammenfassungen zu Beleuchtungsgestellen und Obermaschinerie. |
+| `./web-app/src/components/show/GeneratedTextAccordion.vue` | Read-only-Bereich mit automatisch generierten Zusammenfassungen zu Beleuchtungsgestellen und Obermaschinerie; Höhe per Drag anpassbar, pro User gespeichert (`generatedHeight`). |
 | `./web-app/src/components/channel/ChannelTable.vue` | Virtuelle Kanaltabelle mit Suche, Gruppierung, Drag-Drop-Sortierung und Inline-Bearbeitung. |
 | `./web-app/src/components/channel/ChannelRow.vue` | Einzelne Kanalzeile mit Nummer, Farbe, Gerät, Notizen, Montage-Referenz und Assign-Menü. |
 | `./web-app/src/components/channel/ChannelTextarea.vue` | Auto-wachsendes Textfeld für Geräte- und Notizenspalten mit Fokus-Styling. |

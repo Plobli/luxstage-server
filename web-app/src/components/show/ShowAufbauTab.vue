@@ -59,7 +59,7 @@
         v-if="sub.sectionId === aufbauSectionId"
         :gassenturmEntries="gassenturmGenerated"
         :hangereiEntries="hangerei"
-        class="shrink-0 max-h-[30vh] overflow-y-auto border-t border-border"
+        class="shrink-0"
         data-scroll-container
       />
     </div>
