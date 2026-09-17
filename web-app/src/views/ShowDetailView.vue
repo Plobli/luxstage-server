@@ -54,6 +54,7 @@
         :saving="channelsSaving || sectionsSaving || setupSaving"
         :saveError="channelsSaveError || sectionsSaveError || floorplanSaveError"
         :lockedByOther="showLock.isLockedByOther.value"
+        :forceTakeoverInSeconds="showLock.forceTakeoverInSeconds.value"
         :presentUsers="presentUsers"
         :dupAddressWarning="dupWarning"
         :dupChannelWarning="dupChannelWarning"
@@ -61,9 +62,12 @@
         :healthLabels="healthLabels"
         :hasEosImport="!!eosActiveChannels"
         v-model:hideEosInactive="hideEosInactive"
+        :helpText="viewHelp?.text"
+        v-model:helpCollapsed="helpCollapsed"
         :labels="{
           undo: t('action.undo'),
           redo: t('action.redo'),
+          help: t('action.help'),
           dupAddress: t('channel.dup_address'),
           dupChannel: t('channel.dup_channel'),
           search: t('channel.search'),
@@ -73,12 +77,22 @@
           legendEos: t('channel.legend.eos'),
           hideEosInactive: t('channel.hide_eos_inactive'),
           lockedBy: lock?.user ? t('lock.lockedBy', { user: lock.user }) : '',
+          forceTakeoverIn: (s) => t('lock.forceTakeoverIn', { seconds: s }),
+          forceTakeoverNow: t('lock.forceTakeoverNow'),
         }"
         @undo="runUndo()"
         @redo="runRedo()"
         @filterDup="dupFilter = $event"
         @healthFilter="onHealthFilter($event)"
         @requestTakeover="showLock.requestTakeover()"
+        @forceTakeover="showLock.forceTakeover()"
+      />
+      <ViewHelpBanner
+        v-if="viewHelp"
+        :key="viewHelp.key"
+        :storageKey="viewHelp.key"
+        :text="viewHelp.text"
+        :collapsed="helpCollapsed"
       />
       <div v-if="dupFilter" class="shrink-0 flex items-center justify-between gap-2 px-4 py-1.5 border-b border-yellow-500/30 bg-yellow-500/10 text-xs text-yellow-400">
         <span>{{ dupFilter === 'address' ? t('channel.dup_address') : t('channel.dup_channel') }}</span>
@@ -386,6 +400,7 @@ const ShowActionBar = defineAsyncComponent(() => import('../components/show/Show
 import { useShowSidebarNav } from '../composables/useShowSidebarNav.js'
 import ShowAufbauTab from '../components/show/ShowAufbauTab.vue'
 import { Button } from '@/components/ui/button'
+import ViewHelpBanner from '@/components/ui/ViewHelpBanner.vue'
 import { fetchShow, updateMeta, createSnapshot } from '../api/shows.js'
 import { uuid } from '../utils/uuid.js'
 import { downloadChannelsCsv } from '../api/channels.js'
@@ -592,6 +607,21 @@ const { mobileTab, aufbauTab, tabMounted } = useShowTabs(props.id, aufbauSubTabs
     activateHealthFilter(null)
   },
 })
+
+const viewHelp = computed(() => {
+  if (mobileTab.value === 'channels') return { key: 'channels', text: t('channel.help.view') }
+  if (mobileTab.value === 'photos') return { key: 'photos', text: t('photo.help') }
+  if (mobileTab.value === 'floorplan') return { key: 'floorplan', text: t('floorplan.help') }
+  if (mobileTab.value === 'gassenturm' && aufbauTab.value === 'gassenturm') return { key: 'gassenturm', text: t('gassenturm.help') }
+  if (mobileTab.value === 'gassenturm' && aufbauTab.value === 'zugstangen') return { key: 'zugstangen', text: t('zugstange.help') }
+  if (mobileTab.value === 'gassenturm' && aufbauSectionId.value && aufbauTab.value === `section:${aufbauSectionId.value}`) return { key: 'setup', text: t('section.setup.help') }
+  return null
+})
+
+const helpCollapsed = ref(false)
+watch(() => viewHelp.value?.key, (key) => {
+  helpCollapsed.value = key ? localStorage.getItem(`viewHelp.collapsed.${key}`) === '1' : false
+}, { immediate: true })
 
 const { unit, cmToDisplay, formatLength } = useMeasureUnit()
 const channelByIdForHangerei = computed(() => new Map(channels.value.map(c => [c.id, c])))

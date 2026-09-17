@@ -13,12 +13,12 @@ function findShowWithLock(slug) {
   `).get(slug) ?? null
 }
 
-export function acquireLock(slug, username) {
+export function acquireLock(slug, username, { force = false } = {}) {
   const row = findShowWithLock(slug)
   if (!row) return { ok: false }
   if (row.lock_username != null) {
     const age = Date.now() - row.lock_since
-    if (age < config.lockTimeout && row.lock_username !== username) {
+    if (age < config.lockTimeout && row.lock_username !== username && !force) {
       return { ok: false, lockedBy: row.lock_username, since: row.lock_since }
     }
   }

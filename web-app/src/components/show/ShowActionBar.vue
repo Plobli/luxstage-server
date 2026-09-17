@@ -21,16 +21,18 @@
       <span v-if="saveError" class="text-xs text-destructive" role="alert">{{ saveError }}</span>
       <span v-else-if="saving" class="text-xs text-muted-foreground">…</span>
     </div>
-    <div v-if="activeTab === 'channels'" class="relative flex-1 self-stretch">
-      <Input
-        :value="search"
-        @input="emit('update:search', $event.target.value)"
-        @keydown.esc="emit('update:search', '')"
-        type="search"
-        :placeholder="labels.search"
-        class="h-full w-full pl-8 text-xs border-0 border-l border-border rounded-none bg-transparent focus-visible:ring-0 focus-visible:bg-white/5"
-      />
-      <Search class="absolute left-2 top-1/2 -translate-y-1/2 size-3 text-muted-foreground pointer-events-none" aria-hidden="true" />
+    <div class="relative flex-1 self-stretch">
+      <template v-if="activeTab === 'channels'">
+        <Input
+          :value="search"
+          @input="emit('update:search', $event.target.value)"
+          @keydown.esc="emit('update:search', '')"
+          type="search"
+          :placeholder="labels.search"
+          class="h-full w-full pl-8 text-xs border-0 border-l border-border rounded-none bg-transparent focus-visible:ring-0 focus-visible:bg-white/5"
+        />
+        <Search class="absolute left-2 top-1/2 -translate-y-1/2 size-3 text-muted-foreground pointer-events-none" aria-hidden="true" />
+      </template>
     </div>
 
     <div class="flex items-center gap-x-3 shrink-0 pr-4 sm:pr-6 lg:pr-8">
@@ -47,8 +49,18 @@
         </Tooltip>
       </div>
       <!-- Schreib-Sperre: fremder Halter -->
-      <Badge v-if="lockedByOther" variant="outline" role="button" tabindex="0" @click="emit('requestTakeover')" class="text-orange-400 border-orange-500/30 bg-orange-500/10 text-xs flex cursor-pointer hover:bg-orange-500/20">
-        <Lock class="size-3 mr-1" />{{ labels.lockedBy }}
+      <Badge
+        v-if="lockedByOther"
+        variant="outline"
+        role="button"
+        tabindex="0"
+        @click="forceTakeoverInSeconds != null && forceTakeoverInSeconds <= 0 ? emit('forceTakeover') : emit('requestTakeover')"
+        class="text-orange-400 border-orange-500/30 bg-orange-500/10 text-xs flex cursor-pointer hover:bg-orange-500/20"
+      >
+        <Lock class="size-3 mr-1" />
+        <span v-if="forceTakeoverInSeconds != null && forceTakeoverInSeconds > 0">{{ labels.forceTakeoverIn?.(forceTakeoverInSeconds) }}</span>
+        <span v-else-if="forceTakeoverInSeconds != null">{{ labels.forceTakeoverNow }}</span>
+        <span v-else>{{ labels.lockedBy }}</span>
       </Badge>
       <!-- Warnings -->
       <Badge v-if="dupAddressWarning && activeTab === 'channels'" variant="outline" role="button" tabindex="0" @click="emit('filterDup', 'address')" @keydown.enter="emit('filterDup', 'address')" class="text-yellow-400 border-yellow-500/30 bg-yellow-500/10 text-xs hidden sm:flex cursor-pointer hover:bg-yellow-500/20">
@@ -113,13 +125,23 @@
         <TooltipContent side="bottom"><p>{{ labels.hideEosInactive }}</p></TooltipContent>
       </Tooltip>
 
+      <button
+        v-if="helpText"
+        type="button"
+        class="flex items-center gap-1.5 h-8 px-1.5 text-sm font-medium text-muted-foreground hover:text-foreground/80 transition-colors"
+        @click="emit('update:helpCollapsed', !helpCollapsed)"
+      >
+        <Info class="size-3.5 shrink-0 text-accent-foreground/60" />
+        <span>{{ labels.help }}</span>
+        <ChevronDown class="size-3.5 shrink-0 transition-transform" :class="{ '-rotate-90': helpCollapsed }" />
+      </button>
     </div>
 
   </div>
 </template>
 
 <script setup>
-import { Search, Undo2, Redo2, AlertTriangle, CircleHelp, Eye, EyeOff, Lock } from 'lucide-vue-next'
+import { Search, Undo2, Redo2, AlertTriangle, CircleHelp, Eye, EyeOff, Lock, Info, ChevronDown } from 'lucide-vue-next'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
@@ -133,6 +155,7 @@ defineProps({
   saving: { type: Boolean, default: false },
   saveError: { type: String, default: null },
   lockedByOther: { type: Boolean, default: false },
+  forceTakeoverInSeconds: { type: Number, default: null },
   /** Nutzer, die die Show gerade offen haben (SSE-Präsenz). */
   presentUsers: { type: Array, default: () => [] },
   dupAddressWarning: { type: Boolean, default: false },
@@ -142,6 +165,8 @@ defineProps({
   healthLabels: { type: Object, default: null },
   hasEosImport: { type: Boolean, default: false },
   hideEosInactive: { type: Boolean, default: false },
+  helpText: { type: String, default: '' },
+  helpCollapsed: { type: Boolean, default: false },
   labels: { type: Object, required: true },
 })
 
@@ -153,7 +178,7 @@ function initials(username) {
   return (parts.slice(0, 2).map(p => p[0]).join('') || '?').toUpperCase()
 }
 
-const emit = defineEmits(['update:search', 'update:hideEosInactive', 'undo', 'redo', 'healthFilter', 'filterDup', 'requestTakeover'])
+const emit = defineEmits(['update:search', 'update:hideEosInactive', 'update:helpCollapsed', 'undo', 'redo', 'healthFilter', 'filterDup', 'requestTakeover', 'forceTakeover'])
 
 
 </script>

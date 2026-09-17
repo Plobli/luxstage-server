@@ -9,6 +9,7 @@ export interface ShowLock {
 }
 
 const HEARTBEAT_INTERVAL_MS = 3 * 60 * 1000 // deutlich unter config.lockTimeout (10 Minuten)
+const FORCE_TAKEOVER_DELAY_MS = 10 * 1000
 
 /**
  * Verwaltet den Show-weiten Schreib-Lock im Frontend: Akquise beim Öffnen,
@@ -28,7 +29,11 @@ export function useShowLock(showId: string) {
   // Verbinden und Trennen. Rein informativ, unabhängig von der Schreibsperre.
   const presentUsers = ref<ShowPresenceUser[]>([])
   const takeoverRequestedBy = ref<string | null>(null)
+  // Sekunden bis zur erzwingbaren Übernahme, während die eigene Anfrage beim
+  // aktuellen Lock-Halter aussteht — null, solange keine eigene Anfrage läuft.
+  const forceTakeoverInSeconds = ref<number | null>(null)
   let heartbeatTimer: ReturnType<typeof setInterval> | null = null
+  let forceTakeoverTimer: ReturnType<typeof setInterval> | null = null
   let unsubscribeSSE: (() => void) | null = null
   // Zusätzlich zu unsubscribeSSE(): ein bereits in der Event-Loop wartender
   // SSE-Callback (z.B. das eigene lock-status-updated, kurz bevor der Tab per
@@ -120,6 +125,36 @@ export function useShowLock(showId: string) {
 
   async function requestTakeover(): Promise<void> {
     await requestLockTakeover(showId)
+    startForceTakeoverCountdown()
+  }
+
+  function startForceTakeoverCountdown(): void {
+    stopForceTakeoverCountdown()
+    forceTakeoverInSeconds.value = Math.ceil(FORCE_TAKEOVER_DELAY_MS / 1000)
+    forceTakeoverTimer = setInterval(() => {
+      if (forceTakeoverInSeconds.value == null) return
+      forceTakeoverInSeconds.value -= 1
+      if (forceTakeoverInSeconds.value <= 0) stopForceTakeoverCountdown()
+    }, 1000)
+  }
+
+  function stopForceTakeoverCountdown(): void {
+    if (forceTakeoverTimer) clearInterval(forceTakeoverTimer)
+    forceTakeoverTimer = null
+  }
+
+  /** Erzwingt die Übernahme, nachdem der Lock-Halter FORCE_TAKEOVER_DELAY_MS
+   *  lang nicht auf die Anfrage reagiert hat — der Server vergibt den Lock
+   *  dabei unabhängig vom lockTimeout neu, der bisherige Halter erfährt es
+   *  über sein eigenes lock-status-updated. */
+  async function forceTakeover(): Promise<void> {
+    stopForceTakeoverCountdown()
+    forceTakeoverInSeconds.value = null
+    const result = await acquireShowLock(showId, true)
+    if (result.ok) {
+      lock.value = { user: currentUsername()!, since: Date.now() }
+      startHeartbeat()
+    }
   }
 
   async function releaseForOther(): Promise<void> {
@@ -148,6 +183,8 @@ export function useShowLock(showId: string) {
    */
   function onLockStatusChanged({ lock: newLock }: { lock: ShowLock | null }): void {
     if (!active) return
+    stopForceTakeoverCountdown()
+    forceTakeoverInSeconds.value = null
     if (newLock) {
       lock.value = newLock
       if (newLock.user !== currentUsername()) stopHeartbeat()
@@ -204,6 +241,8 @@ export function useShowLock(showId: string) {
     window.removeEventListener('pagehide', onPageHide)
     unsubscribeSSE?.()
     presentUsers.value = []
+    stopForceTakeoverCountdown()
+    forceTakeoverInSeconds.value = null
   }
 
   return {
@@ -212,9 +251,11 @@ export function useShowLock(showId: string) {
     isHeldByMe,
     isLockedByOther,
     takeoverRequestedBy,
+    forceTakeoverInSeconds,
     acquireOnOpen,
     releaseOnClose,
     requestTakeover,
+    forceTakeover,
     releaseForOther,
     onTakeoverRequested,
     dismissTakeoverRequest,

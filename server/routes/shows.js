@@ -217,7 +217,8 @@ export async function showRoutes(req, res, pathname, params) {
     const slug = m[1]
     if (method === 'POST') {
       const user = req.user
-      const result = acquireLock(slug, user.username)
+      const body = await readJsonBody(req, res); if (body === null) return
+      const result = acquireLock(slug, user.username, { force: !!body.force })
       if (result.ok) broadcast(slug, 'lock-status-updated', { lock: getLock(slug) })
       return json(res, result.ok ? 200 : 423, result)
     }

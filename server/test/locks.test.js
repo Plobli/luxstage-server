@@ -42,10 +42,23 @@ test('transferLock übergibt an einen anderen Nutzer', () => {
   assert.equal(transferLock(slug, 'anna@test.de', 'cem@test.de'), false)
 })
 
+test('acquireLock lehnt fremden aktiven Lock ohne force ab', () => {
+  // Lock liegt nach dem vorigen Test bereits bei bea@test.de.
+  const result = acquireLock(slug, 'cem@test.de')
+  assert.equal(result.ok, false)
+  assert.equal(result.lockedBy, 'bea@test.de')
+})
+
+test('acquireLock mit force übernimmt einen fremden aktiven Lock', () => {
+  const result = acquireLock(slug, 'cem@test.de', { force: true })
+  assert.equal(result.ok, true)
+  assert.equal(getLock(slug).user, 'cem@test.de')
+})
+
 test('releaseLock gibt nur den eigenen Lock frei', () => {
   releaseLock(slug, 'anna@test.de')
-  assert.equal(getLock(slug).user, 'bea@test.de')
-  releaseLock(slug, 'bea@test.de')
+  assert.equal(getLock(slug).user, 'cem@test.de')
+  releaseLock(slug, 'cem@test.de')
   assert.equal(getLock(slug), null)
 })
 

@@ -231,7 +231,7 @@ export interface LockResult {
   since?: number
 }
 
-export const acquireShowLock  = (showId: string): Promise<LockResult> => api.post(`/api/shows/${showId}/lock`, {})
+export const acquireShowLock  = (showId: string, force = false): Promise<LockResult> => api.post(`/api/shows/${showId}/lock`, force ? { force: true } : {})
 export const releaseShowLock  = (showId: string, transferTo?: string): Promise<{ ok: true }> => api.delete(`/api/shows/${showId}/lock`, transferTo ? { transferTo } : undefined)
 export const touchShowLock    = (showId: string): Promise<{ ok: true }> => api.put(`/api/shows/${showId}/lock`, {})
 export const requestLockTakeover = (showId: string): Promise<{ ok: true, notified: string }> => api.post(`/api/shows/${showId}/lock/request-takeover`, {})
