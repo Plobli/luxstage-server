@@ -48,8 +48,10 @@ jobs:
           images: ${{ env.IMAGE }}
           # Kein Version-Tag als Quelle (Panel hat keine eigene Versionsnummer) —
           # latest zum Deployen, Short-SHA als eindeutige, nachvollziehbare Referenz.
+          # latest nur auf main setzen, damit ein workflow_dispatch auf einem
+          # anderen Branch den latest-Tag nicht überschreiben kann.
           tags: |
-            type=raw,value=latest
+            type=raw,value=latest,enable={{is_default_branch}}
             type=sha,format=short
 
       - name: Bauen und pushen
