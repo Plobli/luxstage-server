@@ -26,21 +26,33 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed, ref, onMounted } from 'vue'
 import { RouterLink, RouterView, useRoute } from 'vue-router'
 import { useLocale } from '../composables/useLocale.js'
+import { api } from '../api/client.js'
 
 const { t } = useLocale()
 const route = useRoute()
 
+const saasMode = ref(null)
+onMounted(async () => {
+  try {
+    const status = await api.get('/api/status')
+    saasMode.value = !!status.saasEnabled
+  } catch {
+    saasMode.value = false
+  }
+})
+
 const nav = computed(() => [
   { to: '/settings/account', label: t('settings.account') },
   { to: '/settings/display', label: t('settings.display') },
-  { to: '/settings/backup', label: t('settings.backup') },
-  { to: '/settings/server', label: t('settings.server') },
-  { to: '/settings/users', label: 'Benutzerverwaltung' },
-  { to: '/settings/smtp', label: t('settings.smtp') },
-  { to: '/settings/update', label: t('settings.update') },
+  { to: '/settings/users', label: t('settings.users') },
+  // Backup/Server/SMTP/Update sind Self-Hosted-Einstellungen, siehe App.vue settingsNavItems.
+  ...(saasMode.value === false ? [{ to: '/settings/backup', label: t('settings.backup') }] : []),
+  ...(saasMode.value === false ? [{ to: '/settings/server', label: t('settings.server') }] : []),
+  ...(saasMode.value === false ? [{ to: '/settings/smtp', label: t('settings.smtp') }] : []),
+  ...(saasMode.value === false ? [{ to: '/settings/update', label: t('settings.update') }] : []),
 ])
 
 function isActive(path) {

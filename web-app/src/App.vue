@@ -451,7 +451,7 @@ const isSettingsDetail = computed(() => route.path.startsWith('/settings'))
 const settingsNavItems = computed(() => [
   { to: '/settings/account', label: t('settings.account') },
   { to: '/settings/display', label: t('settings.display') },
-  { to: '/settings/users', label: 'Benutzerverwaltung' },
+  { to: '/settings/users', label: t('settings.users') },
   // Backup/Server/SMTP/Update sind Self-Hosted-Einstellungen: im SaaS-Modus laufen
   // Backups zentral automatisch, Server-Betrieb/SMTP/Updates liegen beim Betreiber.
   // saasMode ist bis zur ersten /api/status-Antwort null, damit diese Items nicht
