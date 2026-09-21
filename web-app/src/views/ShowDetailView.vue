@@ -30,6 +30,8 @@
       @csvFileSelected="onCsvImportSelected($event)"
       @circuitScanFileSelected="onCircuitScanFileSelected($event)"
       :circuitScanUploading="circuitScanUploading"
+      @planScanFileSelected="onPlanScanFileSelected($event)"
+      :planScanUploading="planScanUploading"
     />
 
     <!-- ── Unterer Bereich: Content ──────────────────────────────────────── -->
@@ -361,12 +363,37 @@
       </div>
     </Transition>
 
+    <!-- Statusanzeige Einleuchtplan-PDF-Scan -->
+    <Transition enter-active-class="transition-all duration-200" enter-from-class="opacity-0 translate-y-2" leave-active-class="transition-all duration-150" leave-to-class="opacity-0">
+      <div
+        v-if="planScanUploading || planScanStatus"
+        class="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 rounded-lg border px-4 py-2.5 text-sm shadow-lg"
+        :class="planScanStatus?.type === 'error'
+          ? 'border-destructive/30 bg-destructive/10 text-destructive'
+          : 'border-border bg-surface-raised text-foreground'"
+      >
+        <span v-if="planScanUploading" class="size-3.5 shrink-0 animate-spin rounded-full border-2 border-current border-t-transparent" />
+        <span>{{ planScanUploading ? t('import.modal.planScan.status.loading') : planScanStatus?.message }}</span>
+      </div>
+    </Transition>
+
     <CircuitScanPreviewDialog
       :open="circuitScanPreview.open"
+      :title="t('import.modal.scan.preview.title')"
       :updated="circuitScanPreview.updated"
       :added="circuitScanPreview.added"
       @resolve="(...args) => resolveCircuitScanPreview(...args)"
       @cancel="resolveCircuitScanPreview(false)"
+    />
+
+    <CircuitScanPreviewDialog
+      :open="planScanPreview.open"
+      :title="t('import.modal.planScan.preview.title')"
+      :updated="planScanPreview.updated"
+      :added="planScanPreview.added"
+      :freitext="planScanPreview.freitext"
+      @resolve="(...args) => resolvePlanScanPreview(...args)"
+      @cancel="resolvePlanScanPreview(false)"
     />
 
   </div>
@@ -502,6 +529,7 @@ const {
   dupWarning, dupChannelWarning, dupChannelNrs, dupFilter, hideEosInactive, groupedChannels,
   scheduleChannelsSave, persistChannels, deleteChannel, clearChannel, flushChannelsSave,
   onCsvImportSelected, onCircuitScanFileSelected, circuitScanUploading, circuitScanStatus, circuitScanPreview, resolveCircuitScanPreview, onEosFileSelected, resolveEosMergePreview,
+  onPlanScanFileSelected, planScanUploading, planScanStatus, planScanPreview, resolvePlanScanPreview,
   channelStatus, toggleChannelStatus,
   undo, redo, canUndo, canRedo,
   loadChannels,

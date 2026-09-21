@@ -2,7 +2,7 @@
   <Dialog :open="open" @update:open="!$event && $emit('cancel')">
     <DialogContent class="sm:max-w-2xl">
       <DialogHeader>
-        <DialogTitle class="mb-4">{{ t('import.modal.scan.preview.title') }}</DialogTitle>
+        <DialogTitle class="mb-4">{{ title }}</DialogTitle>
       </DialogHeader>
 
       <DialogBody class="max-h-[60vh] overflow-y-auto flex flex-col gap-5">
@@ -71,13 +71,34 @@
             </label>
           </div>
         </div>
+
+        <div v-if="freitext" class="flex flex-col gap-2">
+          <div class="text-xs font-medium text-accent uppercase tracking-wide">
+            {{ t('import.modal.planScan.preview.freitextTitle') }}
+          </div>
+          <pre class="whitespace-pre-wrap rounded-lg border border-border p-3 text-xs text-foreground max-h-40 overflow-y-auto">{{ freitext }}</pre>
+          <label class="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer">
+            <input type="checkbox" v-model="applyFreitext" class="accent-accent" />
+            {{ applyFreitext && freitextMode === 'replace' ? t('import.modal.planScan.preview.freitextReplace') : t('import.modal.planScan.preview.freitextAppend') }}
+          </label>
+          <label v-if="applyFreitext" class="flex items-center gap-3 text-xs text-muted-foreground pl-6">
+            <span class="flex items-center gap-1.5 cursor-pointer">
+              <input type="radio" value="append" v-model="freitextMode" class="accent-accent" />
+              {{ t('import.modal.planScan.preview.freitextAppend') }}
+            </span>
+            <span class="flex items-center gap-1.5 cursor-pointer">
+              <input type="radio" value="replace" v-model="freitextMode" class="accent-accent" />
+              {{ t('import.modal.planScan.preview.freitextReplace') }}
+            </span>
+          </label>
+        </div>
       </DialogBody>
 
       <DialogFooter class="gap-3 flex-wrap">
         <Button variant="outline" class="w-full sm:w-auto" @click="$emit('resolve', false)">
           {{ t('action.cancel') }}
         </Button>
-        <Button class="w-full sm:w-auto" :disabled="applyCount === 0" @click="$emit('resolve', true, excluded)">
+        <Button class="w-full sm:w-auto" :disabled="applyCount === 0 && !applyFreitext" @click="$emit('resolve', true, excluded, applyFreitext, freitextMode)">
           {{ t('import.modal.scan.preview.apply', { n: applyCount }) }}
         </Button>
       </DialogFooter>
@@ -96,18 +117,26 @@ const { t } = useLocale()
 
 const props = defineProps({
   open: { type: Boolean, required: true },
+  title: { type: String, required: true },
   updated: { type: Array, default: () => [] },
   added: { type: Array, default: () => [] },
+  freitext: { type: String, default: '' },
 })
 
 defineEmits(['resolve', 'cancel'])
 
 const excluded = ref(new Set())
+const applyFreitext = ref(false)
+const freitextMode = ref('append')
 
 // Bei jedem neuen Scan (Dialog öffnet) die Auswahl zurücksetzen — alles per
 // Default einbezogen, Nutzer wählt gezielt ab statt erst alles abwählen zu müssen.
 watch(() => props.open, (isOpen) => {
-  if (isOpen) excluded.value = new Set()
+  if (isOpen) {
+    excluded.value = new Set()
+    applyFreitext.value = false
+    freitextMode.value = 'append'
+  }
 })
 
 function toggle(channel) {

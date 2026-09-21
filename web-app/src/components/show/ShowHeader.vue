@@ -61,6 +61,7 @@
       <input ref="eosFileInput" type="file" accept=".csv" class="hidden" @change="emit('eosFileSelected', $event)" />
       <input ref="csvImportInput" type="file" accept=".csv" class="hidden" @change="emit('csvFileSelected', $event)" />
       <input ref="circuitScanInput" type="file" accept="image/*" class="hidden" @change="emit('circuitScanFileSelected', $event)" />
+      <input ref="planScanInput" type="file" accept="application/pdf" class="hidden" @change="emit('planScanFileSelected', $event)" />
     </div>
   </div>
 
@@ -107,6 +108,7 @@
     @chooseEos="importModalOpen = false; eosFileInput?.click()"
     @chooseCsv="importModalOpen = false; csvImportInput?.click()"
     @chooseCircuitScan="importModalOpen = false; circuitScanInput?.click()"
+    @choosePlanScan="importModalOpen = false; planScanInput?.click()"
     @cancel="importModalOpen = false"
   />
 </template>
@@ -134,18 +136,20 @@ const props = defineProps({
   showMeta: { type: Object, default: () => ({}) },
   labels: { type: Object, required: true },
   circuitScanUploading: { type: Boolean, default: false },
+  planScanUploading: { type: Boolean, default: false },
 })
 
 const emit = defineEmits([
   'update:showName',
   'update:meta',
   'openHistory', 'openPdf', 'downloadCsv',
-  'eosFileSelected', 'csvFileSelected', 'circuitScanFileSelected',
+  'eosFileSelected', 'csvFileSelected', 'circuitScanFileSelected', 'planScanFileSelected',
 ])
 
 const eosFileInput = ref(null)
 const csvImportInput = ref(null)
 const circuitScanInput = ref(null)
+const planScanInput = ref(null)
 const metaDialogOpen = ref(false)
 const importModalOpen = ref(false)
 const editMeta = ref({ name: '', datum: '', spielzeit: '', use_bars: true, use_towers: true })

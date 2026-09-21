@@ -35,6 +35,16 @@
           <span class="text-sm text-muted-foreground">{{ t('import.modal.scan.description') }}</span>
           <span class="text-xs text-muted-foreground/70">{{ t('import.modal.scan.hint') }}</span>
         </button>
+
+        <button
+          type="button"
+          class="flex flex-col gap-1 rounded-lg border border-border p-4 text-left transition-colors hover:border-accent hover:bg-accent/5"
+          @click="$emit('choosePlanScan')"
+        >
+          <span class="font-medium text-foreground">{{ t('import.modal.planScan.title') }}</span>
+          <span class="text-sm text-muted-foreground">{{ t('import.modal.planScan.description') }}</span>
+          <span class="text-xs text-muted-foreground/70">{{ t('import.modal.planScan.hint') }}</span>
+        </button>
       </DialogBody>
 
       <DialogFooter>
@@ -57,5 +67,5 @@ defineProps({
   open: { type: Boolean, required: true },
 })
 
-defineEmits(['chooseEos', 'chooseCsv', 'chooseCircuitScan', 'cancel'])
+defineEmits(['chooseEos', 'chooseCsv', 'chooseCircuitScan', 'choosePlanScan', 'cancel'])
 </script>
