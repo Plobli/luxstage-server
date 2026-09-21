@@ -7,6 +7,11 @@ import { json, uploadErrorStatus } from '../helpers.js'
 import { pdf } from 'pdf-to-img'
 
 const SHOW_PLAN_SCAN = /^\/api\/shows\/([^/]+)\/plan-scan$/
+// Deutlich über realistischen Einleuchtplänen (Beispiel-PDF: 7 Seiten), aber
+// weit unter dem Anthropic-API-Limit (~100 Bilder/Request) — verhindert, dass
+// ein sehr langes PDF unnötig komplett gerendert/gepuffert wird, bevor die
+// API ohnehin ablehnt (200 Seiten ≈ 70MB PNG + 93MB Base64 im Node-Prozess).
+const MAX_PLAN_SCAN_PAGES = 30
 
 export async function planScanRoutes(req, res, pathname) {
   const { method } = req
@@ -28,7 +33,12 @@ export async function planScanRoutes(req, res, pathname) {
 
         const pageBuffers = []
         const doc = await pdf(pdfBuffer, { scale: 2 })
-        for await (const pageBuffer of doc) pageBuffers.push(pageBuffer)
+        for await (const pageBuffer of doc) {
+          if (pageBuffers.length >= MAX_PLAN_SCAN_PAGES) {
+            return json(res, 400, { error: `PDF hat zu viele Seiten (max. ${MAX_PLAN_SCAN_PAGES}).` })
+          }
+          pageBuffers.push(pageBuffer)
+        }
         if (pageBuffers.length === 0) return json(res, 400, { error: 'PDF enthält keine Seiten' })
 
         const knownChannels = readChannels(slug).map(({ channel, address, device, position }) => ({ channel, address, device, position }))
