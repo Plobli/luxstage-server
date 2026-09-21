@@ -2,6 +2,7 @@ import { authRoutes } from './routes/auth.js'
 import { userRoutes } from './routes/users.js'
 import { showRoutes } from './routes/shows.js'
 import { channelRoutes, channelStatsRoutes } from './routes/channels.js'
+import { planScanRoutes } from './routes/plan-scan.js'
 import { photoRoutes } from './routes/photos.js'
 import { sectionRoutes } from './routes/sections.js'
 import { templateRoutes } from './routes/templates.js'
@@ -65,6 +66,7 @@ export const API_ROUTE_HANDLERS = [
 // gewinnt, Fallback ist showRoutes selbst (Show-CRUD, Meta).
 export const SHOW_ROUTE_HANDLERS = [
   { matches: pathname => /\/channels(\/|$)|\/checks(\/|$)|\/circuit-scan$/.test(pathname), handler: channelRoutes },
+  { matches: pathname => /\/plan-scan$/.test(pathname), handler: planScanRoutes },
   { matches: pathname => /\/photos(\/|$)|\/photo-/.test(pathname), handler: photoRoutes },
   { matches: pathname => /\/sections(\/|$)|\/section-defs/.test(pathname), handler: sectionRoutes },
   { matches: pathname => /\/floorplan(\/|$)/.test(pathname), handler: floorplanRoutes },
