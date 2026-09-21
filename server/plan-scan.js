@@ -7,7 +7,9 @@
 import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod'
 import { z } from 'zod'
 import { defaultAnthropicClient } from './circuit-scan.js'
+import { logger } from './logger.js'
 
+const log = logger('plan-scan')
 const MODEL = 'claude-sonnet-5'
 
 const PlanScanResultSchema = z.object({
@@ -44,7 +46,11 @@ export async function analyzePlanScan(pageBuffers, knownChannels, client = defau
 
   const response = await client.messages.parse({
     model: MODEL,
-    max_tokens: 8000,
+    // 8000 reichte für dichte, mehrseitige Pläne mit vielen Kanälen nicht —
+    // das Modell brach die strukturierte Ausgabe am Limit ab (stop_reason
+    // 'max_tokens'), wodurch parsed_output leer blieb. 16000 gibt spürbar
+    // mehr Luft für lange Kanallisten + Freitext, ohne unnötig zu übertreiben.
+    max_tokens: 16000,
     messages: [{
       role: 'user',
       content: [
@@ -90,6 +96,16 @@ export async function analyzePlanScan(pageBuffers, knownChannels, client = defau
     output_config: { format: zodOutputFormat(PlanScanResultSchema) },
   }, { timeout: 90_000 }) // mehrseitiger Vision-Call, deutlich mehr Bildinhalt als circuit-scan
 
-  if (!response.parsed_output) throw new Error('Einleuchtplan konnte nicht ausgewertet werden')
+  if (!response.parsed_output) {
+    // Generische Client-Fehlermeldung verrät nicht, ob Claude am Token-Limit
+    // abgebrochen hat, sich inhaltlich verweigert hat, oder die Ausgabe aus
+    // einem anderen Grund nicht ins Schema passte — ohne dieses Log ist der
+    // eigentliche Grund nur über einen Debugger sichtbar.
+    log.error('parsed_output fehlt', {
+      stop_reason: response.stop_reason,
+      content_types: response.content?.map(c => c.type).join(','),
+    })
+    throw new Error('Einleuchtplan konnte nicht ausgewertet werden')
+  }
   return response.parsed_output
 }
