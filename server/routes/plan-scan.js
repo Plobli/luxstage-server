@@ -32,7 +32,11 @@ export async function planScanRoutes(req, res, pathname) {
         if (!isPdfBuffer(pdfBuffer)) return json(res, 400, { error: 'Datei ist kein gültiges PDF' })
 
         const pageBuffers = []
-        const doc = await pdf(pdfBuffer, { scale: 2 })
+        // scale:1 statt 2 — Vision-Call mit mehreren Hochaufl.-Seiten +
+        // langer strukturierter Ausgabe überschritt sonst konsistent den
+        // 90s-Timeout in plan-scan.js. Kleinere Bilder verkürzen v.a. die
+        // Modell-Generierungszeit, nicht nur die Übertragung.
+        const doc = await pdf(pdfBuffer, { scale: 1 })
         for await (const pageBuffer of doc) {
           if (pageBuffers.length >= MAX_PLAN_SCAN_PAGES) {
             return json(res, 400, { error: `PDF hat zu viele Seiten (max. ${MAX_PLAN_SCAN_PAGES}).` })
