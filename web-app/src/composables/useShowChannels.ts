@@ -1,6 +1,6 @@
 import { ref, computed, watch, type Ref } from 'vue'
 import { useDebounceFn } from '@vueuse/core'
-import { fetchChannels, saveChannels, mergeChannels, parseChannelsCsv, scanCircuitSheet, type Channel } from '../api/channels'
+import { fetchChannels, saveChannels, mergeChannels, parseChannelsCsv, scanCircuitSheet, scanPlanPdf, type Channel } from '../api/channels'
 import { updateMeta } from '../api/shows'
 import { ApiError } from '../api/client'
 import { useUndoRedo } from './useUndoRedo'
@@ -12,6 +12,13 @@ export interface CircuitScanPreview {
   open: boolean;
   updated: CircuitScanUpdatedRow[];
   added: Channel[];
+}
+
+export interface PlanScanPreview {
+  open: boolean;
+  updated: CircuitScanUpdatedRow[];
+  added: Channel[];
+  freitext: string;
 }
 
 export interface EosMergePreview {
@@ -64,6 +71,25 @@ export function useShowChannels({
     circuitScanStatus.value = { type, message }
     circuitScanStatusTimer = setTimeout(() => { circuitScanStatus.value = null }, ttlMs)
   }
+
+  const planScanUploading = ref(false)
+  const planScanStatus = ref<{ type: 'success' | 'error', message: string } | null>(null)
+  let planScanStatusTimer: ReturnType<typeof setTimeout> | null = null
+  const planScanPreview = ref<PlanScanPreview>({ open: false, updated: [], added: [], freitext: '' })
+  let _planScanResolve: ((v: { ok: boolean, excludedChannels: Set<string>, applyFreitext: boolean, freitextMode: 'append' | 'replace' }) => void) | null = null
+
+  function resolvePlanScanPreview(ok: boolean, excludedChannels?: Set<string>, applyFreitext?: boolean, freitextMode?: 'append' | 'replace'): void {
+    planScanPreview.value.open = false
+    _planScanResolve?.({ ok, excludedChannels: excludedChannels ?? new Set(), applyFreitext: applyFreitext ?? false, freitextMode: freitextMode ?? 'append' })
+    _planScanResolve = null
+  }
+
+  function setPlanScanStatus(type: 'success' | 'error', message: string, ttlMs: number): void {
+    if (planScanStatusTimer) clearTimeout(planScanStatusTimer)
+    planScanStatus.value = { type, message }
+    planScanStatusTimer = setTimeout(() => { planScanStatus.value = null }, ttlMs)
+  }
+
   const search = ref('')
   const healthFilter = ref<'noDevice' | 'noPosition' | 'noAddress' | 'incomplete' | null>(null)
   // Eingefrorene Kanal-IDs beim Aktivieren des Filters — reagiert nicht auf Tipp-Änderungen
@@ -303,6 +329,53 @@ export function useShowChannels({
     }
   }
 
+  async function onPlanScanFileSelected(event: any): Promise<void> {
+    const file = event.target.files?.[0]
+    event.target.value = ''
+    if (!file) return
+    planScanUploading.value = true
+    planScanStatus.value = null
+    try {
+      const result = await scanPlanPdf(showId, file)
+      const imported = result.rows
+      const freitext = result.freitext ?? ''
+      const { updated, added } = buildCircuitScanDiff(channels.value, imported)
+      if (updated.length === 0 && added.length === 0 && !freitext) {
+        setPlanScanStatus('success', t('import.modal.planScan.status.empty'), 4000)
+        return
+      }
+
+      planScanPreview.value = { open: true, updated, added, freitext }
+      const { ok, excludedChannels, applyFreitext, freitextMode } = await new Promise<{ ok: boolean, excludedChannels: Set<string>, applyFreitext: boolean, freitextMode: 'append' | 'replace' }>(resolve => { _planScanResolve = resolve })
+      if (!ok) return
+
+      const filteredImported = imported.filter(row => !excludedChannels.has(row.channel))
+      if (filteredImported.length > 0) {
+        channels.value = mergeChannels(channels.value, filteredImported)
+        scheduleChannelsSave()
+      }
+
+      if (applyFreitext && freitext) {
+        const current = setupMarkdown.value ?? ''
+        setupMarkdown.value = freitextMode === 'append' && current
+          ? `${current}\n\n${freitext}`
+          : freitext
+        await updateMeta(showId, { ...meta.value, setupMarkdown: setupMarkdown.value })
+      }
+
+      const appliedUpdated = updated.filter(row => !excludedChannels.has(row.channel)).length
+      const appliedAdded = added.filter(row => !excludedChannels.has(row.channel)).length
+      setPlanScanStatus('success', t('import.modal.planScan.status.success', {
+        updated: appliedUpdated,
+        added: appliedAdded,
+      }), 5000)
+    } catch (e: any) {
+      setPlanScanStatus('error', e?.message || t('import.modal.planScan.error'), 8000)
+    } finally {
+      planScanUploading.value = false
+    }
+  }
+
   // Wie doPersistChannels() bewusst ohne erneutes throw: beide Aufrufer
   // (onEosFileSelected, toggleChannelStatus) rufen fire-and-forget aus einem
   // Vue-Event-Handler auf (kein await/.catch() am Aufrufort) — ein throw hier
@@ -536,6 +609,11 @@ export function useShowChannels({
     circuitScanStatus,
     circuitScanPreview,
     resolveCircuitScanPreview,
+    onPlanScanFileSelected,
+    planScanUploading,
+    planScanStatus,
+    planScanPreview,
+    resolvePlanScanPreview,
     onEosFileSelected,
     resolveEosMergePreview,
     channelStatus,

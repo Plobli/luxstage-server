@@ -52,6 +52,30 @@ export function scanCircuitSheet(showId: string, file: File): Promise<CircuitSca
   })
 }
 
+export interface PlanScanResult {
+  rows: Channel[]
+  freitext?: string
+}
+
+/** Lädt ein Einleuchtplan-PDF hoch und lässt es per Claude Vision auswerten.
+ *  Schreibt nichts in die Show — liefert nur Kanal-Vorschläge und erkannten
+ *  Freitext (Hängeplan/Züge/Maße) zur Vorschau/Bestätigung durch den Nutzer. */
+export function scanPlanPdf(showId: string, file: File): Promise<PlanScanResult> {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest()
+    xhr.open('POST', `${BASE()}/api/shows/${showId}/plan-scan`)
+    xhr.setRequestHeader('Authorization', 'Bearer ' + (getToken() || ''))
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) resolve(JSON.parse(xhr.responseText))
+      else reject(new Error(JSON.parse(xhr.responseText || '{}')?.error || `Scan fehlgeschlagen: ${xhr.status}`))
+    }
+    xhr.onerror = () => reject(new Error('Netzwerkfehler'))
+    const formData = new FormData()
+    formData.append('pdf', file, file.name)
+    xhr.send(formData)
+  })
+}
+
 const CSV_HEADERS: (keyof Channel & string)[] = ['channel', 'address', 'device', 'position', 'color', 'notes']
 
 export function parseChannelsCsv(text: string): Channel[] {
