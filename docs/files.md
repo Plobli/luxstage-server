@@ -115,7 +115,7 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 | `./server/test/tenants-lru.test.js` | Tests für die LRU-Obergrenze offener Mandanten-Verbindungen (Verdrängung, Wiederöffnen, Schutz des zuletzt Genutzten). |
 | `./server/test/shared-constants.test.js` | Tests für die geteilten Konstanten (`isValidEmail`, `PASSWORD_MIN_LENGTH`) aus `shared/constants.js`. |
 | `./server/test/undo-redo-integrity.test.js` | Integrationstests für Full-Snapshot-Undo/Redo-Architektur: Snapshot-Konsistenz, Hash-Verifikation, Redo-Stack-Persistierung, mehrfaches Undo/Redo ohne Datenverlust. |
-| `./server/test/plan-scan.test.js` | Tests für Claude-Vision-Analyse von Einleuchtplan-PDFs: Kanal-Extraktion (Nummern, Adressen, Geräte, Filter), Freitexterkennung, Fehlerbehandlung bei ungültigen Dateien. |
+| `./server/test/plan-scan.test.js` | Tests für `plan-scan.js`: PDF-Magic-Byte-Validierung (`isPdfBuffer`), korrekte Durchreichung eines injizierten Fake-Clients, Fehlerfälle bei fehlendem `parsed_output` und bei leerem Seiten-Array. Kein Kanal-Extraktions-/Freitexterkennungs-Test — LLM-Output ist nicht sinnvoll automatisiert testbar. |
 | `./server/test/plan-scan-route.test.js` | Test für die Pfad-Zuständigkeit der `plan-scan`-Route (gibt `null` für nicht-passende Pfade zurück); der volle Upload-Pfad ist über `plan-scan.js`-Unit-Tests und den manuellen End-to-End-Test abgedeckt. |
 | `./server/.env` | Server-Development-Umgebungsvariablen. |
 | `./server/saas.js` | Kapsel für SaaS-Funktionalität, lädt Module nur im SaaS-Modus. |
