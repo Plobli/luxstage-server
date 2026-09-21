@@ -32,10 +32,9 @@ export async function planScanRoutes(req, res, pathname) {
         if (!isPdfBuffer(pdfBuffer)) return json(res, 400, { error: 'Datei ist kein gültiges PDF' })
 
         const pageBuffers = []
-        // scale:1 statt 2 — Vision-Call mit mehreren Hochaufl.-Seiten +
-        // langer strukturierter Ausgabe überschritt sonst konsistent den
-        // 90s-Timeout in plan-scan.js. Kleinere Bilder verkürzen v.a. die
-        // Modell-Generierungszeit, nicht nur die Übertragung.
+        // scale:1 reicht für die Texterkennung und hält den Upload schlank —
+        // die eigentliche Ursache für frühere Timeouts war output_config.effort
+        // in plan-scan.js (siehe dort), nicht die Bildauflösung.
         const doc = await pdf(pdfBuffer, { scale: 1 })
         for await (const pageBuffer of doc) {
           if (pageBuffers.length >= MAX_PLAN_SCAN_PAGES) {

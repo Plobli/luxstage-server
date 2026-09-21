@@ -9,13 +9,9 @@ test('isPdfBuffer erkennt PDF-Magic-Bytes', () => {
   assert.equal(isPdfBuffer(Buffer.from([0, 0, 0, 0])), false)
 })
 
-// analyzePlanScan ist zweistufig: Schritt 1 (messages.create, Vision → freier
-// Text) liefert den Rohtext, den Schritt 2 (messages.parse, text-only) ins
-// Zod-Schema strukturiert. Beide Methoden müssen daher gemockt werden.
 test('analyzePlanScan nutzt einen injizierten Client statt echtem Anthropic-SDK', async () => {
   const fakeClient = {
     messages: {
-      create: async () => ({ content: [{ type: 'text', text: '## Kanäle\n| Kanal |\n|---|\n| 1 |' }] }),
       parse: async () => ({ parsed_output: { rows: [{ channel: '1' }], freitext: 'Test' } }),
     },
   }
@@ -23,26 +19,8 @@ test('analyzePlanScan nutzt einen injizierten Client statt echtem Anthropic-SDK'
   assert.deepEqual(result, { rows: [{ channel: '1' }], freitext: 'Test' })
 })
 
-test('analyzePlanScan wirft, wenn Schritt 1 keinen Text liefert', async () => {
-  const fakeClient = {
-    messages: {
-      create: async () => ({ content: [], stop_reason: 'end_turn' }),
-      parse: async () => { throw new Error('sollte nie aufgerufen werden') },
-    },
-  }
-  await assert.rejects(
-    () => analyzePlanScan([Buffer.from('fake-page')], [], fakeClient),
-    /Einleuchtplan konnte nicht ausgewertet werden/
-  )
-})
-
-test('analyzePlanScan wirft, wenn Schritt 2 kein parsed_output liefert', async () => {
-  const fakeClient = {
-    messages: {
-      create: async () => ({ content: [{ type: 'text', text: '## Kanäle' }] }),
-      parse: async () => ({ parsed_output: null }),
-    },
-  }
+test('analyzePlanScan wirft, wenn der Client kein parsed_output liefert', async () => {
+  const fakeClient = { messages: { parse: async () => ({ parsed_output: null }) } }
   await assert.rejects(
     () => analyzePlanScan([Buffer.from('fake-page')], [], fakeClient),
     /Einleuchtplan konnte nicht ausgewertet werden/
@@ -50,12 +28,7 @@ test('analyzePlanScan wirft, wenn Schritt 2 kein parsed_output liefert', async (
 })
 
 test('analyzePlanScan wirft bei leerem Seiten-Array, ohne den Client aufzurufen', async () => {
-  const fakeClient = {
-    messages: {
-      create: async () => { throw new Error('sollte nie aufgerufen werden') },
-      parse: async () => { throw new Error('sollte nie aufgerufen werden') },
-    },
-  }
+  const fakeClient = { messages: { parse: async () => { throw new Error('sollte nie aufgerufen werden') } } }
   await assert.rejects(
     () => analyzePlanScan([], [], fakeClient),
     /Keine PDF-Seiten/
