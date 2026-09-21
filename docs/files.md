@@ -84,7 +84,7 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 | `./server/floorplan.js` | Grundrissbild-Verwaltung mit Format-Validierung (nur PNG/JPEG); Ablage pro Mandant unter dessen Mandantenordner; Pfadauflösung für den PDF-Export. |
 | `./server/migrate-tenant-media.js` | Einmaliges Migrationsskript: verschiebt Fotos/Grundrisse aus dem alten mandantenübergreifend flachen Verzeichnis in die jeweiligen Mandantenordner. |
 | `./server/circuit-scan.js` | Wertet Foto einer Kreisliste per Claude Vision (`@anthropic-ai/sdk`, strukturierte Zod-Ausgabe) aus — Vordruck mit Handschrift oder komplett handschriftlich, ohne Vorlage; liefert pro erkannter Zeile alle Spalten (Kanal, Adresse, Gerät, Position, Filter, Notizen). |
-| `./server/plan-scan.js` | Wertet PDF-Einleuchtplan per Claude Vision aus; extrahiert Kanalliste + Freitext (Setup-Notizen), liefert strukturiertes Objekt mit `channels` (Zeilen je Kanal: Nr., Adresse, Gerät, Filter, Notizen) und `setup` (erkannter Freitextteil als Markdown). |
+| `./server/plan-scan.js` | Wertet mehrseitigen PDF-Einleuchtplan per Claude Vision aus (analog `circuit-scan.js`, aber variable Struktur mit Positions-Headern und Kanalbereichen); liefert `{ rows, freitext }` — `rows` mit einer Zeile je Kanal (Bereiche wie „137-148“ werden zu Einzelzeilen expandiert), `freitext` als gesammeltes Markdown (Hängeplan, Züge, Maße). |
 | `./server/pdf.js` | PDF-Export für Einleuchtpläne: Orchestrierung (Titel, Sections, Kanalliste, Grundriss, Fotos). `generatePDF(data, stream, opts)` rendert in einen beliebigen Writable-Stream und kennt kein HTTP — Response-Header setzt der Aufrufer, Dateiname über `pdfFilename()`. Optionaler Vordruck-Modus (`opts.blank`) für handschriftlich auszufüllende Kreislisten (Filter/Notizen leer, Leerzeilen je Position, Block „Neue Kreise”); Rendering-Details in `pdf/`. |
 | `./server/pdf/constants.js` | Gemeinsame Layout-Konstanten (Maße, Farben, Fonts) für den PDF-Export. |
 | `./server/pdf/filter-colors.js` | Lee/Rosco-Filter-Code zu Hex-Farbe, Kontrastfarben-Berechnung. |
@@ -116,7 +116,7 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 | `./server/test/shared-constants.test.js` | Tests für die geteilten Konstanten (`isValidEmail`, `PASSWORD_MIN_LENGTH`) aus `shared/constants.js`. |
 | `./server/test/undo-redo-integrity.test.js` | Integrationstests für Full-Snapshot-Undo/Redo-Architektur: Snapshot-Konsistenz, Hash-Verifikation, Redo-Stack-Persistierung, mehrfaches Undo/Redo ohne Datenverlust. |
 | `./server/test/plan-scan.test.js` | Tests für Claude-Vision-Analyse von Einleuchtplan-PDFs: Kanal-Extraktion (Nummern, Adressen, Geräte, Filter), Freitexterkennung, Fehlerbehandlung bei ungültigen Dateien. |
-| `./server/test/plan-scan-route.test.js` | Tests für `POST /api/shows/:slug/plan-scan` Route: Datei-Upload, Response-Format (channels + setup), Autorisierung, Fehlerfall ungültiges PDF. |
+| `./server/test/plan-scan-route.test.js` | Test für die Pfad-Zuständigkeit der `plan-scan`-Route (gibt `null` für nicht-passende Pfade zurück); der volle Upload-Pfad ist über `plan-scan.js`-Unit-Tests und den manuellen End-to-End-Test abgedeckt. |
 | `./server/.env` | Server-Development-Umgebungsvariablen. |
 | `./server/saas.js` | Kapsel für SaaS-Funktionalität, lädt Module nur im SaaS-Modus. |
 | `./server/registry.js` | Zentrale Registrierung für Mandantenverzeichnis und Doppel-Opt-In; aktiviert Tenant-Eintrag (inkl. Newsletter-Consent) und verbraucht Bestätigungslink atomar. |
@@ -167,7 +167,7 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 | `./server/routes/users.js` | API-Routen für Benutzer-Verwaltung, Preferences, Selbst-Registrierung (`/api/self-register`) und Freischaltung pending Nutzer. |
 | `./server/routes/register.js` | API-Routen für Self-Service-Registrierung (Double Opt-In); stößt bei Newsletter-Consent zusätzlich den Brevo-DOI-Flow an. |
 | `./server/routes/channels.js` | API-Routen für Kanäle, Beleuchtungs-Checks und mandantenweite Farbnutzungsstatistik (`/api/channels/color-usage`); zeichnet Undo-Operation pro Save auf; `POST .../circuit-scan` wertet Foto eines ausgefüllten Kreislisten-Vordrucks per Claude Vision aus (liefert vollständige Zeilen als Vorschlag, kein DB-Write). |
-| `./server/routes/plan-scan.js` | API-Route `POST /api/shows/:slug/plan-scan` für PDF-Einleuchtplan-Upload: extrahiert Kanalliste + Freitext, liefert Diff-Vorschau (neue/aktualisierte Kanäle, Freitextblock) als JSON, kein DB-Write. |
+| `./server/routes/plan-scan.js` | API-Route `POST /api/shows/:slug/plan-scan` für PDF-Einleuchtplan-Upload: rendert Seiten zu PNG, wertet sie per Claude Vision aus, liefert Kanalzeilen + Freitext als Vorschlag (kein DB-Write) — Diff gegen bestehende Kanäle bildet das Frontend. |
 | `./server/routes/bars.js` | API-Routen für Obermaschinerie-Elemente, Fixtures (inkl. side/positionText), Reordering; jede Aktion zeichnet den kompletten Bars-Zustand als Undo-Operation auf. |
 | `./server/routes/towers.js` | API-Routen für Show-Türme, Slots, Restore; jede Aktion zeichnet den kompletten Towers-Zustand als Undo-Operation auf. |
 | `./server/routes/sections.js` | API-Routen für Show-Sections und deren Definitionen; sendet SSE nach Inhalts- und Definitionsänderungen, zeichnet Undo-Operationen auf. |
