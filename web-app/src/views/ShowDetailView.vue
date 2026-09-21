@@ -435,7 +435,7 @@ import { generateHangereiEntries, generateGassenturmEntries } from '../utils/gen
 const PhotoGallery = defineAsyncComponent(() => import('../components/show/PhotoGallery.vue'))
 const HistorySlideOver = defineAsyncComponent(() => import('../components/show/HistorySlideOver.vue'))
 const ShowDetailDialogs = defineAsyncComponent(() => import('../components/show/ShowDetailDialogs.vue'))
-import { isOnline, api } from '../api/client.js'
+import { isOnline, api, ApiError } from '../api/client.js'
 
 const ChannelTable = defineAsyncComponent(() => import('../components/channel/ChannelTable.vue'))
 const FloorplanEditor = defineAsyncComponent(() => import('../components/FloorplanEditor.vue'))
@@ -510,6 +510,12 @@ async function doPersistSetup() {
   try {
     await updateMeta(props.id, { ...meta.value, setupMarkdown: pendingSetupMd })
     setupDirty = false
+  } catch (e) {
+    if (e instanceof ApiError && e.status === 423) {
+      onLockConflict(e.body ?? {})
+      return
+    }
+    throw e
   } finally {
     setupSaving.value = false
   }
@@ -541,6 +547,10 @@ const {
   localeReady,
   onLockConflict,
   onAfterUndoRedo: () => afterUndoRedoImpl?.(),
+  // Plan-Scan-Freitext-Import muss denselben Persistenz-Pfad wie der normale
+  // Editor nutzen (siehe onSetupChange unten), damit pendingSetupMd/setupDirty
+  // nicht am Import vorbei einen älteren Stand zurückschreiben.
+  onSetupMarkdownChanged: (md) => onSetupChange(md),
 })
 
 // Kanal-/Setup-/Section-Änderungen werden debounced gespeichert (siehe

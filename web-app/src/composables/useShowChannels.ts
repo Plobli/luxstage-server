@@ -6,6 +6,7 @@ import { ApiError } from '../api/client'
 import { useUndoRedo } from './useUndoRedo'
 import { parseEosCsv } from '../utils/eos-csv'
 import { buildCircuitScanDiff, type CircuitScanFieldChange, type CircuitScanUpdatedRow } from '../utils/circuitScanDiff'
+import { markdownToTiptapDoc, markdownToTiptapNodes } from '../utils/markdownToTiptap'
 
 export type { CircuitScanFieldChange, CircuitScanUpdatedRow }
 export interface CircuitScanPreview {
@@ -31,6 +32,23 @@ export interface EosMergePreview {
   previouslyExcluded: Set<string>;
 }
 
+// setup_markdown wird als Tiptap-JSON gespeichert (siehe MarkdownEditor.vue).
+// Beim Append-Import darf der bestehende Wert NICHT als Markdown-String vor
+// dem Parsen mit dem neuen Freitext konkateniert werden (current ist bereits
+// JSON-kodiert, nicht Markdown) — stattdessen werden beide content-Arrays
+// nach dem jeweiligen Parsen kombiniert.
+function appendFreitextToTiptapJson(current: string, freitext: string): { type: 'doc', content: any[] } {
+  let existingContent: any[] = []
+  try {
+    const parsed = JSON.parse(current)
+    if (parsed && Array.isArray(parsed.content)) existingContent = parsed.content
+  } catch {
+    // current war kein valides Tiptap-JSON (z.B. leer oder alter Markdown-Altbestand) — Fallback leeres Array.
+  }
+  const newNodes = markdownToTiptapNodes(freitext)
+  return { type: 'doc', content: [...existingContent, ...newNodes] }
+}
+
 export function useShowChannels({
   showId,
   meta,
@@ -38,7 +56,8 @@ export function useShowChannels({
   t,
   localeReady,
   onLockConflict,
-  onAfterUndoRedo
+  onAfterUndoRedo,
+  onSetupMarkdownChanged
 }: {
   showId: string;
   meta: Ref<any>;
@@ -50,6 +69,12 @@ export function useShowChannels({
    *  geänderten Show-Daten (Kanäle, Sections, Türme, Bars) neu laden, da der
    *  Server sie nur ändert, ohne den neuen Stand direkt zurückzusenden. */
   onAfterUndoRedo?: () => void | Promise<void>;
+  /** Wird aufgerufen, wenn der Plan-Scan-Import setup_markdown (Freitext) ändert.
+   *  Muss denselben Persistenz-Mechanismus wie der normale Editor-Schreibpfad
+   *  auslösen (z.B. denselben @update:modelValue-Handler des MarkdownEditor)
+   *  — useShowChannels selbst ruft dafür KEIN updateMeta auf, um nicht am
+   *  View-lokalen pendingSetupMd/setupDirty-Schatten-State vorbeizuschreiben. */
+  onSetupMarkdownChanged?: (value: string) => void;
 }) {
   const channels = ref<Channel[]>([])
   const channelsSaving = ref(false)
@@ -357,10 +382,17 @@ export function useShowChannels({
 
       if (applyFreitext && freitext) {
         const current = setupMarkdown.value ?? ''
-        setupMarkdown.value = freitextMode === 'append' && current
-          ? `${current}\n\n${freitext}`
-          : freitext
-        await updateMeta(showId, { ...meta.value, setupMarkdown: setupMarkdown.value })
+        const newDoc = freitextMode === 'append' && current
+          ? appendFreitextToTiptapJson(current, freitext)
+          : markdownToTiptapDoc(freitext)
+        setupMarkdown.value = JSON.stringify(newDoc)
+        // Nicht direkt per updateMeta schreiben: setup_markdown hat in
+        // ShowDetailView.vue einen eigenen Schatten-State (pendingSetupMd/
+        // setupDirty), der vom normalen Editor-@update-Pfad befüllt wird. Der
+        // Import muss denselben Mechanismus auslösen, sonst überschreibt ein
+        // späterer doPersistSetup()-Flush (z.B. bei Undo/Redo oder Unmount)
+        // den frisch importierten Freitext mit dem alten pendingSetupMd-Wert.
+        onSetupMarkdownChanged?.(setupMarkdown.value)
       }
 
       const appliedUpdated = updated.filter(row => !excludedChannels.has(row.channel)).length
