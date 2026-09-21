@@ -43,7 +43,11 @@ export function isPdfBuffer(buf) {
 async function extractPlanText(imageBlocks, knownList, client) {
   const response = await client.messages.create({
     model: MODEL,
-    max_tokens: 8000,
+    // 8000 brach bei einem dichten 7-Seiten-Plan mit vielen Kanälen am
+    // Limit ab (stop_reason: max_tokens, siehe Fehlerlog). Freier
+    // Text-Output ist pro Zeichen günstiger als strukturierte Ausgabe,
+    // daher hier deutlich großzügiger als in structurePlanText().
+    max_tokens: 24000,
     messages: [{
       role: 'user',
       content: [
@@ -84,6 +88,12 @@ async function extractPlanText(imageBlocks, knownList, client) {
   }, { timeout: 90_000 })
 
   const text = response.content?.filter(c => c.type === 'text').map(c => c.text).join('\n')
+  if (response.stop_reason === 'max_tokens') {
+    // Trotzdem weiterverarbeiten: ein abgeschnittener Text mit den ersten
+    // Kanälen ist nützlicher als ein kompletter Fehlschlag — nur loggen,
+    // damit sichtbar bleibt, dass das Limit erneut zu knapp war.
+    log.warn('Vision-Call am Token-Limit abgeschnitten', { textLength: text?.length ?? 0 })
+  }
   if (!text) {
     log.error('Vision-Call lieferte keinen Text', { stop_reason: response.stop_reason })
     throw new Error('Einleuchtplan konnte nicht ausgewertet werden')
