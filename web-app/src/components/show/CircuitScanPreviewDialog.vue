@@ -1,11 +1,27 @@
 <template>
   <Dialog :open="open" @update:open="!$event && $emit('cancel')">
-    <DialogContent class="sm:max-w-2xl">
+    <DialogContent class="sm:max-w-4xl w-[95vw] max-h-[90vh] flex flex-col">
       <DialogHeader>
         <DialogTitle class="mb-4">{{ title }}</DialogTitle>
       </DialogHeader>
 
-      <DialogBody class="max-h-[60vh] overflow-y-auto flex flex-col gap-5">
+      <DialogBody class="flex-1 min-h-0 overflow-y-auto flex flex-col gap-5">
+        <div v-if="updated.length > 0 || added.length > 0" class="flex flex-col gap-2">
+          <div class="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+            {{ t('import.modal.scan.preview.columns') }}
+          </div>
+          <div class="flex flex-wrap gap-x-4 gap-y-1.5">
+            <label
+              v-for="col in COLUMN_KEYS"
+              :key="col"
+              class="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer select-none"
+            >
+              <Checkbox :model-value="includedColumns.has(col)" @update:model-value="toggleColumn(col)" />
+              {{ fieldLabel(col) }}
+            </label>
+          </div>
+        </div>
+
         <div v-if="updated.length > 0" class="flex flex-col gap-2">
           <div class="flex items-center justify-between">
             <div class="text-xs font-medium text-accent uppercase tracking-wide">
@@ -29,10 +45,15 @@
               <Checkbox :model-value="!excluded.has(row.channel)" class="mt-0.5 shrink-0" @update:model-value="toggle(row.channel)" />
               <span class="font-mono font-semibold shrink-0 w-10">{{ row.channel }}</span>
               <div class="flex flex-col gap-0.5 min-w-0 flex-1">
-                <div v-for="change in row.changes" :key="change.key" class="flex flex-wrap items-baseline gap-x-1.5 text-xs">
+                <div
+                  v-for="change in row.changes"
+                  :key="change.key"
+                  class="flex flex-wrap items-baseline gap-x-1.5 text-xs"
+                  :class="{ 'opacity-40': !includedColumns.has(change.key) }"
+                >
                   <span class="text-muted-foreground shrink-0">{{ fieldLabel(change.key) }}:</span>
                   <span v-if="change.oldValue" class="text-muted-foreground/60 line-through">{{ change.oldValue }}</span>
-                  <span class="text-foreground font-medium">{{ change.newValue }}</span>
+                  <span class="text-foreground font-medium" :class="{ 'line-through': !includedColumns.has(change.key) }">{{ change.newValue }}</span>
                 </div>
               </div>
             </label>
@@ -62,11 +83,11 @@
               <Checkbox :model-value="!excluded.has(ch.channel)" class="mt-0.5 shrink-0" @update:model-value="toggle(ch.channel)" />
               <span class="font-mono font-semibold shrink-0 w-10">{{ ch.channel }}</span>
               <div class="flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-muted-foreground min-w-0">
-                <span v-if="ch.address">{{ t('field.dmx_address') }}: <span class="text-foreground">{{ ch.address }}</span></span>
-                <span v-if="ch.device">{{ t('field.device') }}: <span class="text-foreground">{{ ch.device }}</span></span>
-                <span v-if="ch.position">{{ t('field.position') }}: <span class="text-foreground">{{ ch.position }}</span></span>
-                <span v-if="ch.color">{{ t('field.color') }}: <span class="text-foreground">{{ ch.color }}</span></span>
-                <span v-if="ch.notes">{{ t('field.notes') }}: <span class="text-foreground">{{ ch.notes }}</span></span>
+                <span v-if="ch.address" :class="{ 'opacity-40 line-through': !includedColumns.has('address') }">{{ t('field.dmx_address') }}: <span class="text-foreground">{{ ch.address }}</span></span>
+                <span v-if="ch.device" :class="{ 'opacity-40 line-through': !includedColumns.has('device') }">{{ t('field.device') }}: <span class="text-foreground">{{ ch.device }}</span></span>
+                <span v-if="ch.position" :class="{ 'opacity-40 line-through': !includedColumns.has('position') }">{{ t('field.position') }}: <span class="text-foreground">{{ ch.position }}</span></span>
+                <span v-if="ch.color" :class="{ 'opacity-40 line-through': !includedColumns.has('color') }">{{ t('field.color') }}: <span class="text-foreground">{{ ch.color }}</span></span>
+                <span v-if="ch.notes" :class="{ 'opacity-40 line-through': !includedColumns.has('notes') }">{{ t('field.notes') }}: <span class="text-foreground">{{ ch.notes }}</span></span>
               </div>
             </label>
           </div>
@@ -98,7 +119,7 @@
         <Button variant="outline" class="w-full sm:w-auto" @click="$emit('resolve', false)">
           {{ t('action.cancel') }}
         </Button>
-        <Button class="w-full sm:w-auto" :disabled="applyCount === 0 && !applyFreitext" @click="$emit('resolve', true, excluded, applyFreitext, freitextMode)">
+        <Button class="w-full sm:w-auto" :disabled="applyCount === 0 && !applyFreitext" @click="$emit('resolve', true, excluded, applyFreitext, freitextMode, includedColumns)">
           {{ t('import.modal.scan.preview.apply', { n: applyCount }) }}
         </Button>
       </DialogFooter>
@@ -121,23 +142,60 @@ const props = defineProps({
   updated: { type: Array, default: () => [] },
   added: { type: Array, default: () => [] },
   freitext: { type: String, default: '' },
+  // Trennt die gemerkte Spaltenauswahl in localStorage zwischen Foto- und
+  // PDF-Import — z.B. "Gerät" bei PDF-Scans dauerhaft abwählen, ohne den
+  // Foto-Scan-Flow zu beeinflussen.
+  scanType: { type: String, default: 'circuit' },
 })
 
 defineEmits(['resolve', 'cancel'])
 
+const COLUMN_KEYS = ['address', 'device', 'position', 'color', 'notes']
+
+function columnsStorageKey() {
+  return `scanImport.columns.${props.scanType}`
+}
+
+function loadIncludedColumns() {
+  try {
+    const raw = localStorage.getItem(columnsStorageKey())
+    if (!raw) return new Set(COLUMN_KEYS)
+    const stored = JSON.parse(raw)
+    return new Set(COLUMN_KEYS.filter(col => stored.includes(col)))
+  } catch {
+    return new Set(COLUMN_KEYS)
+  }
+}
+
 const excluded = ref(new Set())
 const applyFreitext = ref(false)
 const freitextMode = ref('append')
+const includedColumns = ref(loadIncludedColumns())
 
-// Bei jedem neuen Scan (Dialog öffnet) die Auswahl zurücksetzen — alles per
-// Default einbezogen, Nutzer wählt gezielt ab statt erst alles abwählen zu müssen.
+// Bei jedem neuen Scan (Dialog öffnet) die Zeilen-Auswahl zurücksetzen — alles
+// per Default einbezogen, Nutzer wählt gezielt ab statt erst alles abwählen zu
+// müssen. Die Spaltenauswahl bleibt bewusst bestehen (siehe scanType-Prop).
 watch(() => props.open, (isOpen) => {
   if (isOpen) {
     excluded.value = new Set()
     applyFreitext.value = false
     freitextMode.value = 'append'
+    includedColumns.value = loadIncludedColumns()
   }
 })
+
+function toggleColumn(col) {
+  const next = new Set(includedColumns.value)
+  if (next.has(col)) next.delete(col)
+  else next.add(col)
+  includedColumns.value = next
+  try {
+    localStorage.setItem(columnsStorageKey(), JSON.stringify([...next]))
+  } catch {
+    // localStorage kann in Private-Browsing/mit vollem Speicher fehlschlagen —
+    // Auswahl bleibt für diese Sitzung trotzdem im State erhalten.
+  }
+}
 
 function toggle(channel) {
   const next = new Set(excluded.value)

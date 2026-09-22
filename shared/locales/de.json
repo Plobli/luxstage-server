@@ -325,6 +325,7 @@
   "import.modal.scan.hint": "Vordruck vorher unter Vorlagen herunterladen und ausdrucken. Das Foto wird zur Auswertung an die Anthropic-API übertragen.",
   "import.modal.scan.preview.added": "Neue Kreise ({n})",
   "import.modal.scan.preview.apply": "Übernehmen ({n})",
+  "import.modal.scan.preview.columns": "Zu importierende Spalten",
   "import.modal.scan.preview.title": "Kreisliste-Scan — Vorschau",
   "import.modal.scan.preview.toggle_all": "Alle umschalten",
   "import.modal.scan.preview.updated": "Aktualisierte Kreise ({n})",

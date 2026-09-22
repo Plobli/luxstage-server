@@ -382,6 +382,7 @@
       :title="t('import.modal.scan.preview.title')"
       :updated="circuitScanPreview.updated"
       :added="circuitScanPreview.added"
+      scanType="circuit"
       @resolve="(...args) => resolveCircuitScanPreview(...args)"
       @cancel="resolveCircuitScanPreview(false)"
     />
@@ -392,6 +393,7 @@
       :updated="planScanPreview.updated"
       :added="planScanPreview.added"
       :freitext="planScanPreview.freitext"
+      scanType="plan"
       @resolve="(...args) => resolvePlanScanPreview(...args)"
       @cancel="resolvePlanScanPreview(false)"
     />

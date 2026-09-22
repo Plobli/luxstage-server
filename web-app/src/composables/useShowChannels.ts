@@ -83,12 +83,31 @@ export function useShowChannels({
   const circuitScanStatus = ref<{ type: 'success' | 'error', message: string } | null>(null)
   let circuitScanStatusTimer: ReturnType<typeof setTimeout> | null = null
   const circuitScanPreview = ref<CircuitScanPreview>({ open: false, updated: [], added: [] })
-  let _circuitScanResolve: ((v: { ok: boolean, excludedChannels: Set<string> }) => void) | null = null
+  let _circuitScanResolve: ((v: { ok: boolean, excludedChannels: Set<string>, includedColumns: Set<string> }) => void) | null = null
 
-  function resolveCircuitScanPreview(ok: boolean, excludedChannels?: Set<string>): void {
+  type ScanColumn = 'address' | 'device' | 'position' | 'color' | 'notes'
+  const ALL_SCAN_COLUMNS = new Set<ScanColumn>(['address', 'device', 'position', 'color', 'notes'])
+
+  // CircuitScanPreviewDialog.vue ist eine einzige Komponente für beide Scan-Arten
+  // und emittiert deshalb immer dieselben 5 Argumente — Parameter 3+4
+  // (Freitext-Optionen) gelten nur für den Plan-Scan-Dialog und werden hier
+  // ignoriert, die Positionen müssen aber mit resolvePlanScanPreview übereinstimmen.
+  function resolveCircuitScanPreview(ok: boolean, excludedChannels?: Set<string>, _applyFreitext?: boolean, _freitextMode?: string, includedColumns?: Set<string>): void {
     circuitScanPreview.value.open = false
-    _circuitScanResolve?.({ ok, excludedChannels: excludedChannels ?? new Set() })
+    _circuitScanResolve?.({ ok, excludedChannels: excludedChannels ?? new Set(), includedColumns: includedColumns ?? ALL_SCAN_COLUMNS })
     _circuitScanResolve = null
+  }
+
+  // Übernimmt aus einer importierten Zeile nur die vom Nutzer im Vorschau-Dialog
+  // ausgewählten Spalten — die Kanalnummer bleibt immer, alles andere fehlt in
+  // der gefilterten Zeile, wenn abgewählt (mergeChannels lässt den bestehenden
+  // Wert dann unverändert stehen, statt ihn mit einem importierten zu überschreiben).
+  function filterRowColumns(row: Channel, includedColumns: Set<string>): Channel {
+    const filtered: Channel = { channel: row.channel }
+    for (const col of ALL_SCAN_COLUMNS) {
+      if (includedColumns.has(col) && row[col] !== undefined) filtered[col] = row[col]
+    }
+    return filtered
   }
 
   function setCircuitScanStatus(type: 'success' | 'error', message: string, ttlMs: number): void {
@@ -101,11 +120,11 @@ export function useShowChannels({
   const planScanStatus = ref<{ type: 'success' | 'error', message: string } | null>(null)
   let planScanStatusTimer: ReturnType<typeof setTimeout> | null = null
   const planScanPreview = ref<PlanScanPreview>({ open: false, updated: [], added: [], freitext: '' })
-  let _planScanResolve: ((v: { ok: boolean, excludedChannels: Set<string>, applyFreitext: boolean, freitextMode: 'append' | 'replace' }) => void) | null = null
+  let _planScanResolve: ((v: { ok: boolean, excludedChannels: Set<string>, applyFreitext: boolean, freitextMode: 'append' | 'replace', includedColumns: Set<string> }) => void) | null = null
 
-  function resolvePlanScanPreview(ok: boolean, excludedChannels?: Set<string>, applyFreitext?: boolean, freitextMode?: 'append' | 'replace'): void {
+  function resolvePlanScanPreview(ok: boolean, excludedChannels?: Set<string>, applyFreitext?: boolean, freitextMode?: 'append' | 'replace', includedColumns?: Set<string>): void {
     planScanPreview.value.open = false
-    _planScanResolve?.({ ok, excludedChannels: excludedChannels ?? new Set(), applyFreitext: applyFreitext ?? false, freitextMode: freitextMode ?? 'append' })
+    _planScanResolve?.({ ok, excludedChannels: excludedChannels ?? new Set(), applyFreitext: applyFreitext ?? false, freitextMode: freitextMode ?? 'append', includedColumns: includedColumns ?? ALL_SCAN_COLUMNS })
     _planScanResolve = null
   }
 
@@ -330,10 +349,12 @@ export function useShowChannels({
       }
 
       circuitScanPreview.value = { open: true, updated, added }
-      const { ok, excludedChannels } = await new Promise<{ ok: boolean, excludedChannels: Set<string> }>(resolve => { _circuitScanResolve = resolve })
+      const { ok, excludedChannels, includedColumns } = await new Promise<{ ok: boolean, excludedChannels: Set<string>, includedColumns: Set<string> }>(resolve => { _circuitScanResolve = resolve })
       if (!ok) return
 
-      const filteredImported = imported.filter(row => !excludedChannels.has(row.channel))
+      const filteredImported = imported
+        .filter(row => !excludedChannels.has(row.channel))
+        .map(row => filterRowColumns(row, includedColumns))
       if (filteredImported.length === 0) {
         setCircuitScanStatus('success', t('import.modal.scan.status.empty'), 4000)
         return
@@ -371,10 +392,12 @@ export function useShowChannels({
       }
 
       planScanPreview.value = { open: true, updated, added, freitext }
-      const { ok, excludedChannels, applyFreitext, freitextMode } = await new Promise<{ ok: boolean, excludedChannels: Set<string>, applyFreitext: boolean, freitextMode: 'append' | 'replace' }>(resolve => { _planScanResolve = resolve })
+      const { ok, excludedChannels, applyFreitext, freitextMode, includedColumns } = await new Promise<{ ok: boolean, excludedChannels: Set<string>, applyFreitext: boolean, freitextMode: 'append' | 'replace', includedColumns: Set<string> }>(resolve => { _planScanResolve = resolve })
       if (!ok) return
 
-      const filteredImported = imported.filter(row => !excludedChannels.has(row.channel))
+      const filteredImported = imported
+        .filter(row => !excludedChannels.has(row.channel))
+        .map(row => filterRowColumns(row, includedColumns))
       if (filteredImported.length > 0) {
         channels.value = mergeChannels(channels.value, filteredImported)
         scheduleChannelsSave()

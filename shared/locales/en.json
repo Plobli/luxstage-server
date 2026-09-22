@@ -325,6 +325,7 @@
   "import.modal.scan.hint": "Download and print the blank form under Templates first. The photo is sent to the Anthropic API for analysis.",
   "import.modal.scan.preview.added": "New circuits ({n})",
   "import.modal.scan.preview.apply": "Apply ({n})",
+  "import.modal.scan.preview.columns": "Columns to import",
   "import.modal.scan.preview.title": "Circuit list scan — preview",
   "import.modal.scan.preview.toggle_all": "Toggle all",
   "import.modal.scan.preview.updated": "Updated circuits ({n})",
