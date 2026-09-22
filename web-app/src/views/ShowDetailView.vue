@@ -549,10 +549,19 @@ const {
   localeReady,
   onLockConflict,
   onAfterUndoRedo: () => afterUndoRedoImpl?.(),
-  // Plan-Scan-Freitext-Import muss denselben Persistenz-Pfad wie der normale
-  // Editor nutzen (siehe onSetupChange unten), damit pendingSetupMd/setupDirty
-  // nicht am Import vorbei einen älteren Stand zurückschreiben.
-  onSetupMarkdownChanged: (md) => onSetupChange(md),
+  // Aufbaunotizen sind eine Section (icon:'setup') in sectionContents, nicht
+  // shows.setup_markdown — siehe onSectionChange() in SectionEditor.vue, das
+  // denselben Weg für normale Editor-Eingaben nutzt. aufbauSectionId ist erst
+  // weiter unten deklariert, aber beide Callbacks laufen erst zur Laufzeit
+  // (nach einem Datei-Upload), zu dem Zeitpunkt ist sie längst initialisiert.
+  getAufbauNotes: () => aufbauSectionId.value ? (sectionContents.value.get(aufbauSectionId.value) ?? '') : '',
+  onAufbauNotesChanged: (content) => {
+    if (!aufbauSectionId.value) return
+    const newMap = new Map(sectionContents.value)
+    newMap.set(aufbauSectionId.value, content)
+    sectionContents.value = newMap
+    persistSectionsDebounced()
+  },
 })
 
 // Kanal-/Setup-/Section-Änderungen werden debounced gespeichert (siehe
@@ -648,6 +657,13 @@ const { mobileTab, aufbauTab, tabMounted } = useShowTabs(props.id, aufbauSubTabs
   },
 })
 
+// Über icon, nicht über den Titel: benennt der Nutzer den Abschnitt um, soll der
+// generierte Text (Beleuchtungsgestelle/Obermaschinerie) weiter dort erscheinen.
+// Muss vor viewHelp deklariert sein — dessen watch({immediate:true}) unten liest
+// aufbauSectionId synchron beim Erstellen, sobald mobileTab bereits 'gassenturm'
+// ist (z.B. aus einem vorherigen Session-Tab-Zustand) — sonst ReferenceError (TDZ).
+const aufbauSectionId = computed(() => sectionDefs.value.find(s => s.icon === 'setup')?.id ?? null)
+
 const viewHelp = computed(() => {
   if (mobileTab.value === 'channels') return { key: 'channels', text: t('channel.help.view') }
   if (mobileTab.value === 'photos') return { key: 'photos', text: t('photo.help') }
@@ -667,10 +683,6 @@ const { unit, cmToDisplay, formatLength } = useMeasureUnit()
 const channelByIdForHangerei = computed(() => new Map(channels.value.map(c => [c.id, c])))
 const hangerei = computed(() => generateHangereiEntries(bars.value, channelByIdForHangerei.value, unit.value, cmToDisplay, locale.value))
 const gassenturmGenerated = computed(() => generateGassenturmEntries(towers.value, channelByIdForHangerei.value, locale.value))
-
-// Über icon, nicht über den Titel: benennt der Nutzer den Abschnitt um, soll der
-// generierte Text (Beleuchtungsgestelle/Obermaschinerie) weiter dort erscheinen.
-const aufbauSectionId = computed(() => sectionDefs.value.find(s => s.icon === 'setup')?.id ?? null)
 
 const dialogs = useShowDialogs({
   sectionDefs, aufbauTab, aufbauSubTabs, aufbauSectionId,
