@@ -168,7 +168,7 @@ function loadIncludedColumns() {
 }
 
 const excluded = ref(new Set())
-const applyFreitext = ref(false)
+const applyFreitext = ref(true)
 const freitextMode = ref('append')
 const includedColumns = ref(loadIncludedColumns())
 
@@ -178,7 +178,7 @@ const includedColumns = ref(loadIncludedColumns())
 watch(() => props.open, (isOpen) => {
   if (isOpen) {
     excluded.value = new Set()
-    applyFreitext.value = false
+    applyFreitext.value = true
     freitextMode.value = 'append'
     includedColumns.value = loadIncludedColumns()
   }
