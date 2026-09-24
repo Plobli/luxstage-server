@@ -83,6 +83,7 @@
           class="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 pointer-events-none z-10"
           :style="{ left: hoverPct + '%' }"
         >
+          <span v-if="!bar.hide_scale" class="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 text-sm font-bold text-foreground tabular-nums whitespace-nowrap drop-shadow-sm">{{ hoverPositionLabel }}</span>
           <div class="size-8 rounded-full border-2 border-accent/40 bg-accent/10 flex items-center justify-center">
             <span class="text-xs font-bold text-foreground/50 tabular-nums">+</span>
           </div>
@@ -137,6 +138,7 @@
           class="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 pointer-events-none z-10"
           :style="{ left: hoverPct + '%' }"
         >
+          <span v-if="!bar.hide_scale" class="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 text-sm font-bold text-foreground tabular-nums whitespace-nowrap drop-shadow-sm">{{ hoverPositionLabel }}</span>
           <div class="rounded-full border-2 border-accent/40 bg-accent/10 flex items-center justify-center" :class="isTraverse ? 'size-8' : 'size-10'">
             <span class="text-xs font-bold text-foreground/50 tabular-nums">+</span>
           </div>
@@ -301,6 +303,17 @@ const scaleTicks = computed(() => {
 const hoverPct = ref(null)
 const hoverSide = ref(null)
 const hoverOnFixture = ref(false)
+
+// Position (gesnappt, wie beim Klick) unter dem Hover-Cursor — für das
+// vergrößerte Maß-Label, damit der Nutzer vor dem Einfügen sieht wo er landet.
+const hoverPositionLabel = computed(() => {
+  if (hoverPct.value === null) return null
+  const len = props.bar.length_cm || 600
+  const half = len / 2
+  const rawCm = (hoverPct.value / 100) * len - half
+  const snapped = Math.max(-half, Math.min(half, Math.round(rawCm / 10) * 10))
+  return labelForPos(snapped, half)
+})
 
 function onLineClick(event, side) {
   const rect = event.currentTarget.getBoundingClientRect()
