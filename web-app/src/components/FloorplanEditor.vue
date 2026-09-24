@@ -246,6 +246,18 @@
                   fill="white" font-size="18" font-weight="700" text-anchor="middle" dominant-baseline="central"
                 >{{ channelNrById(fx.channel_id) }}</text>
               </g>
+              <!-- Rotation handle -->
+              <circle
+                v-if="hoveredId === el.id || selectedIds.has(el.id)"
+                :cx="(el.w || 160) / 2"
+                :cy="-16"
+                r="7"
+                fill="white"
+                stroke="#f59e0b"
+                stroke-width="2"
+                cursor="grab"
+                @pointerdown.stop="startRotationDrag(el, $event)"
+              />
             </g>
 
             <!-- Channel -->

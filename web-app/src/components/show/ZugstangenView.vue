@@ -6,7 +6,7 @@
         v-for="opt in typeFilterOptions"
         :key="opt.value"
         class="shrink-0 px-3 py-1 rounded-full text-xs font-medium border transition-colors"
-        :class="typeFilter === opt.value ? 'bg-accent/25 border-accent/60 text-accent-foreground' : 'border-border/40 text-muted-foreground hover:bg-foreground/8'"
+        :class="typeFilter === opt.value ? 'bg-accent/25 border-accent/60 text-foreground' : 'border-border/40 text-muted-foreground hover:bg-foreground/8'"
         @click="typeFilter = opt.value"
       >{{ opt.label }}<span v-if="opt.value !== 'all'" class="ml-1 tabular-nums opacity-60">{{ opt.count }}</span></button>
     </div>

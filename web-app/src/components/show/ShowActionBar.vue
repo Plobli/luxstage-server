@@ -41,7 +41,7 @@
         <Tooltip v-for="u in presentUsers" :key="u.username">
           <TooltipTrigger asChild>
             <span
-              class="size-5 rounded-full bg-accent/30 border border-accent/50 text-[10px] font-medium text-accent-foreground
+              class="size-5 rounded-full bg-accent/30 border border-accent/50 text-[10px] font-medium text-foreground
                      flex items-center justify-center ring-1 ring-surface-raised cursor-default"
             >{{ initials(u.username) }}</span>
           </TooltipTrigger>

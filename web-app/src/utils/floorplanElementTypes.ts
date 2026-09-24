@@ -114,6 +114,7 @@ export const ELEMENT_TYPES: Record<FloorplanElementType, ElementTypeDef> = {
     label: 'Zugstange',
     resizeHandles: 'none',
     getBounds: (el) => ({ x: el.x, y: el.y, w: el.w || 160, h: el.h || 28 }),
+    getCenter: (el) => ({ x: el.x + (el.w || 160) / 2, y: el.y + (el.h || 28) / 2 }),
   },
 }
 
