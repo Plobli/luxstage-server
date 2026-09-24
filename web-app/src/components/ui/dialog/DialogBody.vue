@@ -11,18 +11,20 @@ const props = defineProps({
 </script>
 
 <template>
-  <div :class="cn('dialog-body flex flex-col gap-6 px-6 py-4 overflow-y-auto', props.class)">
+  <div :class="cn('dialog-body flex flex-col gap-8 px-6 py-4 overflow-y-auto', props.class)">
     <slot />
   </div>
 </template>
 
 <style>
-/* Abstand Label → Input innerhalb jeder Feldgruppe */
+/* Abstand Label → Input innerhalb jeder Feldgruppe — kleiner als der Abstand
+   zwischen Feldgruppen (dialog-body gap-8 = 2rem), sonst wirkt die Gruppierung
+   invertiert (Label näher am Element der vorigen Gruppe als am eigenen Input). */
 .dialog-body > div,
 .dialog-body > label + * {
   display: flex;
   flex-direction: column;
-  gap: 1.625rem; /* 10px */
+  gap: 0.75rem; /* 12px */
 }
 
 /* Label-Stil */

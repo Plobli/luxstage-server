@@ -268,6 +268,16 @@ const trussLatticePoints = computed(() => {
   return { down: down.join(' '), up: up.join(' ') }
 })
 
+// Bemaßung: 'center' (0 in der Mitte, Standard), 'left' (0 links) oder 'right' (0 rechts).
+// Fixture-Positionen bleiben intern immer mitte-zentriert (-half..half) —
+// scale_origin verschiebt nur die angezeigte Beschriftung/Nullpunkt.
+function labelForPos(snapped, half) {
+  const origin = props.bar.scale_origin || 'center'
+  if (origin === 'left') return cmToDisplay(snapped + half)
+  if (origin === 'right') return cmToDisplay(half - snapped)
+  return snapped === 0 ? '0' : cmToDisplay(snapped)
+}
+
 const scaleTicks = computed(() => {
   const len = props.bar.length_cm || 600
   const half = len / 2
@@ -277,12 +287,11 @@ const scaleTicks = computed(() => {
     const snapped = Math.round(cm)
     const isCenter = snapped === 0
     const hasLabel = Math.abs(snapped % labelStep) < 0.5
-    const displayVal = cmToDisplay(snapped)
     ticks.push({
       pos: snapped,
       pct: posPercent(snapped),
       center: isCenter,
-      label: hasLabel ? (isCenter ? '0' : `${displayVal}`) : null,
+      label: hasLabel ? `${labelForPos(snapped, half)}` : null,
     })
   }
   return ticks

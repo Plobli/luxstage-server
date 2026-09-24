@@ -35,8 +35,8 @@ export function writeBar(slug, data) {
     const requestedLength = data.length_cm
     const newLength = (Number.isFinite(requestedLength) && requestedLength > 0) ? requestedLength : (existing.length_cm ?? 600)
     getDb().prepare(`
-      UPDATE bars SET name=?, zug_nr=?, length_cm=?, height_cm=?, notes=?, sort_order=?, hide_scale=?, bar_type=? WHERE id=?
-    `).run(data.name ?? '', data.zug_nr ?? '', newLength, data.height_cm ?? null, data.notes ?? '', data.sort_order ?? existing.sort_order ?? 0, data.hide_scale ? 1 : 0, data.bar_type ?? existing.bar_type ?? 'zugstange', id)
+      UPDATE bars SET name=?, zug_nr=?, length_cm=?, height_cm=?, notes=?, sort_order=?, hide_scale=?, bar_type=?, scale_origin=? WHERE id=?
+    `).run(data.name ?? '', data.zug_nr ?? '', newLength, data.height_cm ?? null, data.notes ?? '', data.sort_order ?? existing.sort_order ?? 0, data.hide_scale ? 1 : 0, data.bar_type ?? existing.bar_type ?? 'zugstange', data.scale_origin ?? existing.scale_origin ?? 'center', id)
     const oldLength = existing.length_cm
     if (oldLength && newLength && oldLength !== newLength) {
       const scale = newLength / oldLength
@@ -48,9 +48,9 @@ export function writeBar(slug, data) {
     const maxOrder = getDb().prepare('SELECT MAX(sort_order) as m FROM bars WHERE show_id = ?').get(show.id).m
     const nextOrder = maxOrder == null ? 0 : maxOrder + 1
     getDb().prepare(`
-      INSERT INTO bars (id, show_id, name, zug_nr, length_cm, height_cm, notes, sort_order, bar_type, created_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(id, show.id, data.name ?? '', data.zug_nr ?? '', (Number.isFinite(data.length_cm) && data.length_cm > 0) ? data.length_cm : 600, data.height_cm ?? null, data.notes ?? '', data.sort_order ?? nextOrder, data.bar_type ?? 'zugstange', now())
+      INSERT INTO bars (id, show_id, name, zug_nr, length_cm, height_cm, notes, sort_order, bar_type, scale_origin, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(id, show.id, data.name ?? '', data.zug_nr ?? '', (Number.isFinite(data.length_cm) && data.length_cm > 0) ? data.length_cm : 600, data.height_cm ?? null, data.notes ?? '', data.sort_order ?? nextOrder, data.bar_type ?? 'zugstange', data.scale_origin ?? 'center', now())
   }
   return id
 }
@@ -126,9 +126,9 @@ export function restoreBars(slug, bars) {
     getDb().prepare('DELETE FROM bars WHERE show_id = ?').run(show.id)
     for (const bar of bars) {
       getDb().prepare(`
-        INSERT INTO bars (id, show_id, name, zug_nr, length_cm, height_cm, notes, sort_order, bar_type, hide_scale, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `).run(bar.id, show.id, bar.name ?? '', bar.zug_nr ?? '', bar.length_cm ?? 600, bar.height_cm ?? null, bar.notes ?? '', bar.sort_order ?? 0, bar.bar_type ?? 'zugstange', bar.hide_scale ? 1 : 0, bar.created_at ?? Date.now())
+        INSERT INTO bars (id, show_id, name, zug_nr, length_cm, height_cm, notes, sort_order, bar_type, hide_scale, scale_origin, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(bar.id, show.id, bar.name ?? '', bar.zug_nr ?? '', bar.length_cm ?? 600, bar.height_cm ?? null, bar.notes ?? '', bar.sort_order ?? 0, bar.bar_type ?? 'zugstange', bar.hide_scale ? 1 : 0, bar.scale_origin ?? 'center', bar.created_at ?? Date.now())
       for (const fixture of (bar.fixtures ?? [])) {
         getDb().prepare(`
           INSERT INTO bar_fixtures (id, bar_id, channel_id, position, notes, side, position_text)

@@ -26,8 +26,13 @@ export function renderHangereiBars(doc, bars, channels, margin, usableW, startY,
       const tokens = [`V.${ch?.channel ?? '?'}`, ch?.device, ch?.address ? `#${ch.address}` : undefined, fmtColor(ch?.color), fx.notes || undefined]
       if (!bar.hide_scale) {
         const cm = fx.position
+        const origin = bar.scale_origin || 'center'
         let posStr
-        if (cm === 0) posStr = 'Mitte'
+        if (origin === 'left' || origin === 'right') {
+          const half = (bar.length_cm || 600) / 2
+          const val = (origin === 'left' ? cm + half : half - cm) / 100
+          posStr = `${Number.isInteger(val) ? val : parseFloat(val.toFixed(2))}m`
+        } else if (cm === 0) posStr = 'Mitte'
         else {
           const val = Math.abs(cm) / 100
           const valStr = Number.isInteger(val) ? val : parseFloat(val.toFixed(2))
@@ -61,14 +66,18 @@ export function cmToDisplayUnit(cm, unit) {
   return `${Math.round(cm / 100 * 100) / 100} m`
 }
 
-export function posLabel(cm, unit) {
-  const abs = Math.abs(cm)
-  let val
-  if (unit === 'mm') val = Math.round(abs * 10)
-  else if (unit === 'cm') val = Math.round(abs)
-  else val = Math.round(abs / 100 * 100) / 100
+// scale_origin: 'center' (Standard, ± von der Mitte), 'left' (0 links, aufsteigend)
+// oder 'right' (0 rechts, aufsteigend). halfLenCm nur für left/right nötig.
+export function posLabel(cm, unit, scaleOrigin = 'center', halfLenCm = 0) {
+  function toUnit(v) {
+    if (unit === 'mm') return Math.round(v * 10)
+    if (unit === 'cm') return Math.round(v)
+    return Math.round(v / 100 * 100) / 100
+  }
+  if (scaleOrigin === 'left') return `${toUnit(cm + halfLenCm)}`
+  if (scaleOrigin === 'right') return `${toUnit(halfLenCm - cm)}`
   if (cm === 0) return '0'
-  return cm > 0 ? `+${val}` : `-${val}`
+  return cm > 0 ? `+${toUnit(cm)}` : `-${toUnit(Math.abs(cm))}`
 }
 
 // Punktzug: kompakte Zeile ohne Längen-Skala — Freitext-Position + ein Kreis
@@ -195,7 +204,7 @@ export function drawBarRows(doc, bars, channels, margin, usableW, startY, bottom
         doc.moveTo(tx, lineY - tickH / 2).lineTo(tx, lineY + tickH / 2)
           .lineWidth(isCenter ? 1.5 : 0.75).stroke(isCenter ? 'rgba(0,0,0,0.4)' : 'rgba(0,0,0,0.2)')
         // Label oberhalb
-        const label = posLabel(snapped, unit)
+        const label = posLabel(snapped, unit, bar.scale_origin, half)
         doc.font(FONT_NORMAL).fontSize(5.5).fillColor(isCenter ? '#444444' : '#aaaaaa')
           .text(label, tx - mm(6), lineY - tickH / 2 - mm(4.5), { width: mm(12), align: 'center', lineBreak: false })
       }
@@ -223,7 +232,7 @@ export function drawBarRows(doc, bars, channels, margin, usableW, startY, bottom
       const deviceY = bar.hide_scale ? lineY + CIRCLE_R + mm(1.5) : lineY + CIRCLE_R + mm(5.5)
       if (!bar.hide_scale) {
         doc.font(FONT_NORMAL).fontSize(6).fillColor('#555555')
-          .text(posLabel(fx.position, unit), cx - mm(7), lineY + CIRCLE_R + mm(1.5), { width: mm(14), align: 'center', lineBreak: false })
+          .text(posLabel(fx.position, unit, bar.scale_origin, barLenCm / 2), cx - mm(7), lineY + CIRCLE_R + mm(1.5), { width: mm(14), align: 'center', lineBreak: false })
       }
 
       // Gerätename unter Positionslabel

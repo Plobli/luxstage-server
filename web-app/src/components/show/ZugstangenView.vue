@@ -131,7 +131,7 @@
               :key="opt.value"
               type="button"
               class="flex-1 h-9 rounded-md border text-sm font-medium transition-colors"
-              :class="barForm.bar_type === opt.value ? 'bg-accent/25 border-accent/60 text-accent-foreground' : 'border-border/40 text-muted-foreground hover:bg-foreground/8'"
+              :class="barForm.bar_type === opt.value ? 'bg-accent/25 border-accent/60 text-foreground' : 'border-border/40 text-muted-foreground hover:bg-foreground/8'"
               @click="barForm.bar_type = opt.value"
             >{{ opt.label }}</button>
           </div>
@@ -156,6 +156,19 @@
             <div class="absolute top-0.5 left-0.5 size-4 rounded-full bg-white shadow transition-transform" :class="barForm.hide_scale ? 'translate-x-4' : 'translate-x-0'" />
           </div>
         </button>
+        <div v-if="barForm.bar_type !== 'punktzug' && !barForm.hide_scale" class="flex flex-col gap-1.5">
+          <label class="text-xs text-muted-foreground">{{ t('zugstange.scale.origin') }}</label>
+          <div class="flex gap-1.5">
+            <button
+              v-for="opt in scaleOriginOptions"
+              :key="opt.value"
+              type="button"
+              class="flex-1 h-9 rounded-md border text-sm font-medium transition-colors"
+              :class="barForm.scale_origin === opt.value ? 'bg-accent/25 border-accent/60 text-foreground' : 'border-border/40 text-muted-foreground hover:bg-foreground/8'"
+              @click="barForm.scale_origin = opt.value"
+            >{{ opt.label }}</button>
+          </div>
+        </div>
       </DialogBody>
       <DialogFooter>
         <Button v-if="!editingBar && props.fromTemplateFn" variant="ghost" class="mr-auto text-xs text-muted-foreground" @click="barDialogOpen = false; props.fromTemplateFn()">
@@ -380,6 +393,9 @@ const BAR_TYPES = ['zugstange', 'traverse', 'punktzug']
 function typeLabel(type) { return t(`zugstange.type.${type || 'zugstange'}`) }
 const barTypeOptions = computed(() => BAR_TYPES.map(value => ({ value, label: typeLabel(value) })))
 
+const SCALE_ORIGINS = ['left', 'center', 'right']
+const scaleOriginOptions = computed(() => SCALE_ORIGINS.map(value => ({ value, label: t(`zugstange.scale.origin.${value}`) })))
+
 const typeFilter = ref('all')
 const filteredBars = computed(() => typeFilter.value === 'all' ? props.bars : props.bars.filter(b => (b.bar_type || 'zugstange') === typeFilter.value))
 const typeFilterOptions = computed(() => [
@@ -432,7 +448,7 @@ function goToChannel(channelId) {
 // Bar Dialog
 const barDialogOpen = ref(false)
 const editingBar = ref(null)
-const barForm = ref({ name: '', zug_nr: '', length_cm: 1100, hide_scale: false, bar_type: 'zugstange' })
+const barForm = ref({ name: '', zug_nr: '', length_cm: 1100, hide_scale: false, bar_type: 'zugstange', scale_origin: 'center' })
 // Anzeige-Wert für length-Input (in gewählter Einheit)
 const barFormDisplay = computed({
   get: () => ({ length: cmToDisplay(barForm.value.length_cm) }),
@@ -441,12 +457,12 @@ const barFormDisplay = computed({
 
 function openNewBarDialog() {
   editingBar.value = null
-  barForm.value = { name: '', zug_nr: '', length_cm: 1100, bar_type: typeFilter.value !== 'all' ? typeFilter.value : 'zugstange' }
+  barForm.value = { name: '', zug_nr: '', length_cm: 1100, bar_type: typeFilter.value !== 'all' ? typeFilter.value : 'zugstange', scale_origin: 'center' }
   barDialogOpen.value = true
 }
 function openEditBarDialog(bar) {
   editingBar.value = bar
-  barForm.value = { name: bar.name, zug_nr: bar.zug_nr, length_cm: bar.length_cm, hide_scale: bar.hide_scale ?? false, bar_type: bar.bar_type || 'zugstange' }
+  barForm.value = { name: bar.name, zug_nr: bar.zug_nr, length_cm: bar.length_cm, hide_scale: bar.hide_scale ?? false, bar_type: bar.bar_type || 'zugstange', scale_origin: bar.scale_origin || 'center' }
   barDialogOpen.value = true
 }
 async function saveBarForm() {
@@ -455,6 +471,7 @@ async function saveBarForm() {
     await saveBar(editingBar.value.id, { ...barForm.value, height_cm: editingBar.value.height_cm ?? null, notes: editingBar.value.notes ?? '' })
     editingBar.value.hide_scale = barForm.value.hide_scale
     editingBar.value.bar_type = barForm.value.bar_type
+    editingBar.value.scale_origin = barForm.value.scale_origin
   } else {
     await addBar({ ...barForm.value })
   }
@@ -481,7 +498,7 @@ function doRemoveFixture() {
 }
 
 async function saveInlineField(bar, field, value) {
-  await saveBar(bar.id, { name: bar.name, zug_nr: bar.zug_nr, length_cm: bar.length_cm, height_cm: bar.height_cm, notes: bar.notes, hide_scale: bar.hide_scale ?? false, bar_type: bar.bar_type || 'zugstange', [field]: value })
+  await saveBar(bar.id, { name: bar.name, zug_nr: bar.zug_nr, length_cm: bar.length_cm, height_cm: bar.height_cm, notes: bar.notes, hide_scale: bar.hide_scale ?? false, bar_type: bar.bar_type || 'zugstange', scale_origin: bar.scale_origin || 'center', [field]: value })
   bar[field] = value
 }
 
