@@ -38,6 +38,7 @@ import { diagnosticsRoutes } from './routes/diagnostics.js'
 // nicht unabsichtlich dieselbe Ausnahme wie sein öffentlicher GET-Check erhält.
 export const PUBLIC_ROUTES = new Set([
   'POST /api/auth/login',
+  'POST /api/auth/validate',
   'GET /api/auth/capabilities',
   'POST /api/auth/forgot-password',
   'POST /api/auth/reset-password/confirm',

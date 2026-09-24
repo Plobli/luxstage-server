@@ -43,6 +43,26 @@ export async function authRoutes(req, res, pathname) {
     return json(res, 200, loginResult)
   }
 
+  // Interne Auth-Brücke für andere, am selben Host laufende Anwendungen
+  // (z.B. luxtest-server), die LuxStage-Zugangsdaten prüfen wollen, ohne
+  // Passwörter zu duplizieren. Gibt bewusst kein LuxStage-Token zurück —
+  // nur das Validierungsergebnis, damit das aufrufende System sein eigenes,
+  // unabhängiges Token mit eigenem Scope ausstellt.
+  if (method === 'POST' && pathname === '/api/auth/validate') {
+    const ip = clientIp(req)
+    if (isRateLimited(ip)) return json(res, 429, { error: 'Zu viele Versuche. Bitte warten.' })
+    const body = await readJsonBody(req, res); if (body === null) return
+    const { username, password } = body
+    const loginResult = await login(username, password)
+    if (!loginResult || loginResult.pending) {
+      recordFailedLogin(ip)
+      log.warn('Auth-Validierung fehlgeschlagen', { user: username, ip })
+      return json(res, 200, { valid: false })
+    }
+    log.info('Auth-Validierung erfolgreich', { user: username, ip })
+    return json(res, 200, { valid: true, username })
+  }
+
   if (method === 'POST' && pathname === '/api/auth/refresh') {
     const user = req.user
     return json(res, 200, { token: signToken(user.username) })

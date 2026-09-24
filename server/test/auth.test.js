@@ -187,4 +187,47 @@ test('11. reset-password/confirm-Versuch mit ungültigem Token derselben IP wird
   assert.equal(blocked.status, 429)
 })
 
+test('POST /api/auth/validate liefert valid:true bei korrekten Zugangsdaten, aber kein Token', async () => {
+  await createUser('greta', 'korrektes-passwort')
+  const res = createResponse()
+  await authRoutes(jsonRequest('POST', { username: 'greta', password: 'korrektes-passwort' }, { ip: '10.0.0.13' }), res, '/api/auth/validate')
+  assert.equal(res.status, 200)
+  assert.equal(res.body.valid, true)
+  assert.equal(res.body.username, 'greta')
+  assert.equal(res.body.token, undefined)
+})
+
+test('POST /api/auth/validate liefert valid:false bei falschem Passwort', async () => {
+  await createUser('hugo', 'richtiges-passwort')
+  const res = createResponse()
+  await authRoutes(jsonRequest('POST', { username: 'hugo', password: 'falsch' }, { ip: '10.0.0.14' }), res, '/api/auth/validate')
+  assert.equal(res.status, 200)
+  assert.equal(res.body.valid, false)
+})
+
+test('POST /api/auth/validate liefert valid:false bei unbekanntem Nutzernamen', async () => {
+  const res = createResponse()
+  await authRoutes(jsonRequest('POST', { username: 'gibt-es-nicht', password: 'egal' }, { ip: '10.0.0.15' }), res, '/api/auth/validate')
+  assert.equal(res.status, 200)
+  assert.equal(res.body.valid, false)
+})
+
+test('POST /api/auth/validate liefert valid:false für ein pending-Konto', async () => {
+  await createSelfRegisteredUser('pendinguser2', 'irgendeinpasswort', 'pending2@example.com')
+  const res = createResponse()
+  await authRoutes(jsonRequest('POST', { username: 'pendinguser2', password: 'irgendeinpasswort' }, { ip: '10.0.0.16' }), res, '/api/auth/validate')
+  assert.equal(res.status, 200)
+  assert.equal(res.body.valid, false)
+})
+
+test('11. Fehlversuch bei /api/auth/validate derselben IP wird ebenfalls mit 429 geblockt', async () => {
+  const ip = '10.0.0.17'
+  for (let i = 0; i < 10; i++) {
+    await authRoutes(jsonRequest('POST', { username: 'niemand', password: 'falsch' }, { ip }), createResponse(), '/api/auth/validate')
+  }
+  const res = createResponse()
+  await authRoutes(jsonRequest('POST', { username: 'niemand', password: 'falsch' }, { ip }), res, '/api/auth/validate')
+  assert.equal(res.status, 429)
+})
+
 after(cleanupDataPath)
