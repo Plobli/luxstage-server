@@ -73,12 +73,22 @@
                 </div>
                 <button
                   type="button"
-                  class="flex-1 flex items-center justify-center gap-1.5 py-3 pr-3 text-sm text-muted-foreground/70 hover:text-foreground hover:bg-accent/10 transition-colors rounded-r-lg"
+                  class="flex-1 flex items-center justify-center gap-1.5 py-3 text-sm text-muted-foreground/70 hover:text-foreground hover:bg-accent/10 transition-colors"
                   @click.stop="openSlotPicker(tower, slot)"
                 >
                   <Plus class="size-3.5" />
                   {{ t('gassenturm.slot.assign_button') }}
                 </button>
+                <div class="flex items-center pr-2">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    class="size-6 text-muted-foreground/40"
+                    @click.stop="removeEmptySlot(tower, slot)"
+                  >
+                    <X class="size-3" />
+                  </Button>
+                </div>
               </div>
             </template>
             <template v-else>
@@ -122,15 +132,17 @@
                   </div>
                 </div>
                 <!-- Notiz -->
-                <textarea
-                  :value="slot.notes"
-                  :placeholder="t('gassenturm.slot.notes.placeholder')"
-                  rows="1"
-                  class="mt-2 w-full text-xs text-foreground/80 bg-muted/40 border border-border/40 rounded px-2 py-1 outline-none resize-none placeholder:text-muted-foreground/50 focus:border-ring focus:ring-1 focus:ring-ring overflow-hidden"
-                  style="field-sizing: content; min-height: 1.5rem;"
-                  @click.stop
-                  @change="saveSlotNotes(tower.id, slot.slot_index, $event.target.value)"
-                />
+                <div class="mt-2 pt-2 pl-6 border-t border-border/40">
+                  <textarea
+                    :value="slot.notes"
+                    :placeholder="t('gassenturm.slot.notes.placeholder')"
+                    rows="1"
+                    class="w-full text-sm text-foreground/80 bg-transparent border-0 rounded px-0 py-0 outline-none resize-none placeholder:text-muted-foreground/50 overflow-hidden"
+                    style="field-sizing: content; min-height: 1.5rem;"
+                    @click.stop
+                    @change="saveSlotNotes(tower.id, slot.slot_index, $event.target.value)"
+                  />
+                </div>
               </div>
             </template>
           </div>
@@ -151,10 +163,11 @@
             :value="tower.notes"
             :placeholder="t('gassenturm.notes.placeholder')"
             rows="1"
-            class="w-full text-sm text-foreground/80 bg-transparent border border-border/40 rounded-lg px-3 py-2 resize-none outline-none placeholder:text-muted-foreground/60 focus:border-ring focus:ring-1 focus:ring-ring overflow-hidden"
-            style="field-sizing: content; min-height: 2.25rem;"
+            class="w-full text-sm text-foreground/80 bg-transparent border-0 rounded px-0 py-0 outline-none resize-none placeholder:text-muted-foreground/50 overflow-hidden"
+            style="field-sizing: content; min-height: 1.5rem;"
             @focus="editingNoteId = tower.id"
             @blur="editingNoteId = null"
+            @click.stop
             @change="saveNotes(tower, $event.target.value)"
           />
         </div>
@@ -567,6 +580,22 @@ onBeforeUnmount(() => {
 
 function clearSlot(towerId, slotIndex) {
   assignSlot(towerId, slotIndex, null)
+}
+
+// Löscht einen leeren Slot: rückt alle nachfolgenden Slots (Kanal + Notiz)
+// eine Position nach vorne und verkleinert den Turm um einen Slot — es gibt
+// keinen eigenen "Slot entfernen"-Endpoint, slot_count ist die einzige
+// serverseitige Stellschraube für die Slot-Anzahl (siehe ensureTowerSlots).
+async function removeEmptySlot(tower, slot) {
+  const slots = slotsFor(tower)
+  const following = slots.filter(s => s.slot_index > slot.slot_index)
+  for (const s of following) {
+    await Promise.all([
+      assignSlot(tower.id, s.slot_index - 1, s.channel_id ?? null),
+      saveSlotNotes(tower.id, s.slot_index - 1, s.notes ?? ''),
+    ])
+  }
+  await saveTower(tower.id, { slot_count: tower.slot_count - 1 })
 }
 </script>
 
