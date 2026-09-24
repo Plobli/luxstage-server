@@ -34,7 +34,8 @@
         :value="bar.notes ?? ''"
         :placeholder="t('zugstange.notes.placeholder')"
         class="w-full h-8 mt-1.5 rounded-md border border-transparent bg-foreground/5 px-2.5 text-sm text-foreground placeholder:text-muted-foreground/50 hover:bg-foreground/8 focus:outline-none focus:border-accent/60 focus:bg-foreground/8 transition-colors"
-        @change="$emit('saveInlineField', 'notes', $event.target.value)"
+        @input="onNotesInput($event.target.value)"
+        @blur="flushNotes"
       />
     </div>
   </div>
@@ -179,18 +180,23 @@
       </div>
     </div>
     <!-- Anmerkung (so breit wie die Stange) -->
-    <input
-      type="text"
-      :value="bar.notes ?? ''"
-      :placeholder="t('zugstange.notes.placeholder')"
-      class="w-full h-8 mt-5 rounded-md border border-transparent bg-foreground/5 px-2.5 text-sm text-foreground placeholder:text-muted-foreground/50 hover:bg-foreground/8 focus:outline-none focus:border-accent/60 focus:bg-foreground/8 transition-colors"
-      @change="$emit('saveInlineField', 'notes', $event.target.value)"
-    />
+    <div class="mt-5 pt-2 border-t border-border/30">
+      <textarea
+        :value="bar.notes ?? ''"
+        :placeholder="t('zugstange.notes.placeholder')"
+        rows="1"
+        class="w-full text-sm text-foreground/80 bg-transparent border-0 rounded px-0 py-0 outline-none resize-none placeholder:text-muted-foreground/50 overflow-hidden"
+        style="field-sizing: content; min-height: 1.5rem;"
+        @input="onNotesInput($event.target.value)"
+        @blur="flushNotes"
+      />
+    </div>
   </div>
 </template>
 
 <script setup>
 import { ref, computed, onBeforeUnmount } from 'vue'
+import { useDebounceFn } from '@vueuse/core'
 import { useLocale } from '@/composables/useLocale.js'
 import { useMeasureUnit } from '@/composables/useMeasureUnit'
 import { Plus } from 'lucide-vue-next'
@@ -207,6 +213,22 @@ const emit = defineEmits([
   'editFixture', 'removeFixture', 'punktzugAddClick', 'savePunktzugPositionText',
   'saveInlineField', 'lineClick', 'fixtureDragEnd',
 ])
+
+let pendingNotes = null
+const debouncedSaveNotes = useDebounceFn(() => {
+  if (pendingNotes === null) return
+  emit('saveInlineField', 'notes', pendingNotes)
+  pendingNotes = null
+}, 600)
+function onNotesInput(value) {
+  pendingNotes = value
+  debouncedSaveNotes()
+}
+function flushNotes() {
+  if (pendingNotes === null) return
+  emit('saveInlineField', 'notes', pendingNotes)
+  pendingNotes = null
+}
 
 const isPunktzug = computed(() => props.bar?.bar_type === 'punktzug')
 const isTraverse = computed(() => props.bar?.bar_type === 'traverse')
