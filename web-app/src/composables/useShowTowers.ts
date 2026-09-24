@@ -1,5 +1,5 @@
 import { ref, type Ref } from 'vue'
-import { fetchTowers, createTower, updateTower, deleteTower as apiDeleteTower, assignTowerSlot, type Tower } from '../api/towers'
+import { fetchTowers, createTower, updateTower, deleteTower as apiDeleteTower, assignTowerSlot, setTowerSlotNotes, type Tower } from '../api/towers'
 import type { Channel } from '../api/channels'
 import { withLockConflict } from './withLockConflict'
 
@@ -48,9 +48,18 @@ export function useShowTowers(showId: string, channels?: Ref<Channel[]>, externa
     await reloadChannels?.()
   })
 
+  const saveSlotNotes = withLockConflict(onLockConflict, async (towerId: string, slotIndex: number, notes: string) => {
+    await setTowerSlotNotes(showId, towerId, slotIndex, notes)
+    const tower = towers.value.find(t => t.id === towerId)
+    if (tower) {
+      const slot = tower.slots.find(s => s.slot_index === slotIndex)
+      if (slot) slot.notes = notes
+    }
+  })
+
   function handleTowersSse() {
     loadTowers()
   }
 
-  return { loading, loadTowers, addTower, saveTower, removeTower, assignSlot, handleTowersSse }
+  return { loading, loadTowers, addTower, saveTower, removeTower, assignSlot, saveSlotNotes, handleTowersSse }
 }

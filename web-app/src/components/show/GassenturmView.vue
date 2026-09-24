@@ -57,83 +57,80 @@
         <div
           :key="slotRenderKey"
           :ref="el => initSortable(el, tower)"
-          class="flex-1"
-          style="display: grid; grid-template-columns: auto 3.5rem 3rem auto 1fr auto; grid-auto-rows: 3.25rem;"
+          class="flex-1 flex flex-col gap-2 p-3"
         >
-          <!-- CSS-Subgrid: ein echter DOM-Knoten pro Slot mit eigener Box, damit
-               Sortable.js ihn als Drag-Ziel erkennt (display:contents hat keine
-               Box und macht den Handle unklickbar) — subgrid übernimmt trotzdem
-               die 6 Spalten des äußeren Grids, das Layout bleibt unverändert. -->
           <div
             v-for="slot in slotsFor(tower)"
             :key="slot.slot_index"
             :data-slot-index="slot.slot_index"
-            style="display: grid; grid-template-columns: subgrid; grid-column: 1 / -1;"
+            class="rounded-lg border border-border/50 bg-muted/20"
           >
             <template v-if="!slot.channel_id">
-              <!-- Drag handle + Slot-Nr (eigene Zelle, damit Sortable-Handle klickbar bleibt) -->
-              <div class="flex items-center gap-1 pl-4 pr-2 py-3.5 border-b border-border/60" @click.stop>
-                <GripVertical class="drag-handle size-3.5 text-muted-foreground/50 cursor-grab active:cursor-grabbing" />
-                <span class="w-4 text-xs text-muted-foreground/70 font-mono text-right">{{ slot.slot_index }}</span>
-              </div>
-              <!-- Leerer Slot: ganze restliche Zeile als ein Button -->
-              <button
-                type="button"
-                class="col-span-4 flex items-center justify-center gap-1.5 py-3.5 pr-2 border-b border-border/60 text-sm text-muted-foreground/70 hover:text-foreground hover:bg-accent/10 transition-colors"
-                @click.stop="openSlotPicker(tower, slot)"
-              >
-                <Plus class="size-3.5" />
-                {{ t('gassenturm.slot.assign_button') }}
-              </button>
-              <div class="pr-4 py-3.5 border-b border-border/60" />
-            </template>
-            <template v-else>
-              <!-- Drag handle + Slot-Nr -->
-              <div class="flex items-center gap-1 pl-4 pr-2 py-3.5 border-b border-border/60" @click.stop>
-                <GripVertical class="drag-handle size-3.5 text-muted-foreground/50 cursor-grab active:cursor-grabbing" />
-                <span class="w-4 text-xs text-muted-foreground/70 font-mono text-right">{{ slot.slot_index }}</span>
-              </div>
-              <!-- Kanalnummer -->
-              <div class="flex items-center pl-4 py-3.5 border-b border-border/60">
-                <span class="font-mono font-bold text-2xl text-foreground leading-none">{{ channelForId(slot.channel_id)?.channel }}</span>
-              </div>
-              <!-- Farb-Badge (immer gleich breit) -->
-              <div class="flex items-center justify-center py-3.5 border-b border-border/60">
-                <span
-                  v-if="channelForId(slot.channel_id)?.color"
-                  class="text-[11px] px-1.5 py-0.5 rounded font-medium"
-                  :style="filterBadgeStyle(channelForId(slot.channel_id)?.color) ?? { backgroundColor: 'hsl(var(--muted))', color: 'hsl(var(--muted-foreground))' }"
-                >{{ channelForId(slot.channel_id)?.color }}</span>
-              </div>
-              <!-- Separator -->
-              <div class="flex items-center py-3.5 border-b border-border/60">
-                <span v-if="channelForId(slot.channel_id)?.device" class="text-muted-foreground/50 px-1">·</span>
-              </div>
-              <!-- Device -->
-              <div class="flex items-center py-3.5 border-b border-border/60 min-w-0">
-                <span v-if="channelForId(slot.channel_id)?.device" class="text-sm text-foreground truncate flex items-baseline gap-1">
-                  <span v-if="showQuantity(slot.channel_id)">{{ channelForId(slot.channel_id)?.quantity }}</span>
-                  {{ channelForId(slot.channel_id)?.device }}
-                </span>
-              </div>
-              <!-- Aktionen -->
-              <div class="flex items-center gap-0.5 pr-4 py-3.5 border-b border-border/60 shrink-0">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  class="size-6 text-muted-foreground/40"
-                  @click.stop="clearSlot(tower.id, slot.slot_index)"
-                >
-                  <X class="size-3" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  class="size-6 text-muted-foreground/40"
+              <!-- Leerer Slot: Drag handle + ganze restliche Fläche als ein Button -->
+              <div class="flex items-stretch">
+                <div class="flex items-center pl-3 pr-1" @click.stop>
+                  <GripVertical class="drag-handle size-3.5 text-muted-foreground/50 cursor-grab active:cursor-grabbing" />
+                </div>
+                <button
+                  type="button"
+                  class="flex-1 flex items-center justify-center gap-1.5 py-3 pr-3 text-sm text-muted-foreground/70 hover:text-foreground hover:bg-accent/10 transition-colors rounded-r-lg"
                   @click.stop="openSlotPicker(tower, slot)"
                 >
-                  <Pencil class="size-3" />
-                </Button>
+                  <Plus class="size-3.5" />
+                  {{ t('gassenturm.slot.assign_button') }}
+                </button>
+              </div>
+            </template>
+            <template v-else>
+              <div class="px-3 py-2.5">
+                <div class="flex items-center gap-2.5">
+                  <!-- Drag handle -->
+                  <div class="flex items-center" @click.stop>
+                    <GripVertical class="drag-handle size-3.5 text-muted-foreground/50 cursor-grab active:cursor-grabbing" />
+                  </div>
+                  <!-- Kopfzeile -->
+                  <div class="flex-1 min-w-0 flex items-center gap-2 flex-wrap">
+                    <span class="font-mono font-bold text-2xl text-foreground leading-none">{{ channelForId(slot.channel_id)?.channel }}</span>
+                    <span
+                      v-if="channelForId(slot.channel_id)?.color"
+                      class="text-[11px] px-1.5 py-0.5 rounded font-medium"
+                      :style="filterBadgeStyle(channelForId(slot.channel_id)?.color) ?? { backgroundColor: 'hsl(var(--muted))', color: 'hsl(var(--muted-foreground))' }"
+                    >{{ channelForId(slot.channel_id)?.color }}</span>
+                    <span v-if="channelForId(slot.channel_id)?.device" class="text-xs text-muted-foreground truncate flex items-center gap-1 min-w-0">
+                      <span v-if="showQuantity(slot.channel_id)">{{ channelForId(slot.channel_id)?.quantity }}</span>
+                      {{ channelForId(slot.channel_id)?.device }}
+                    </span>
+                  </div>
+                  <!-- Aktionen -->
+                  <div class="flex items-center gap-0.5 shrink-0">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      class="size-6 text-muted-foreground/40"
+                      @click.stop="clearSlot(tower.id, slot.slot_index)"
+                    >
+                      <X class="size-3" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      class="size-6 text-muted-foreground/40"
+                      @click.stop="openSlotPicker(tower, slot)"
+                    >
+                      <Pencil class="size-3" />
+                    </Button>
+                  </div>
+                </div>
+                <!-- Notiz -->
+                <textarea
+                  :value="slot.notes"
+                  :placeholder="t('gassenturm.slot.notes.placeholder')"
+                  rows="1"
+                  class="mt-2 w-full text-xs text-foreground/80 bg-muted/40 border border-border/40 rounded px-2 py-1 outline-none resize-none placeholder:text-muted-foreground/50 focus:border-ring focus:ring-1 focus:ring-ring overflow-hidden"
+                  style="field-sizing: content; min-height: 1.5rem;"
+                  @click.stop
+                  @change="saveSlotNotes(tower.id, slot.slot_index, $event.target.value)"
+                />
               </div>
             </template>
           </div>
@@ -378,7 +375,7 @@ const emit = defineEmits(['assigned'])
 // von useShowTowers() (dieselben towers/loading-Refs wie z.B. die generierte
 // Beleuchtungsgestelle-Übersicht in ShowDetailView.vue) statt sie hier ein
 // zweites Mal zu erzeugen.
-const { addTower, saveTower, removeTower, assignSlot } = inject('showTowers')
+const { addTower, saveTower, removeTower, assignSlot, saveSlotNotes } = inject('showTowers')
 
 
 const channelById = computed(() => {

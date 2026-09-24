@@ -1,4 +1,4 @@
-import { clearTowerSlot, deleteTower, ensureTowerSlots, readTowers, restoreTowers, writeTower, writeTowerSlot } from '../db/towers.js'
+import { clearTowerSlot, deleteTower, ensureTowerSlots, readTowers, restoreTowers, writeTower, writeTowerSlot, writeTowerSlotNotes } from '../db/towers.js'
 import { readJsonBody, json, withShowMutation } from '../helpers.js'
 
 const SHOW_TOWERS         = /^\/api\/shows\/([^/]+)\/towers$/
@@ -63,8 +63,12 @@ export async function towerRoutes(req, res, pathname) {
     const slotIndex = parseInt(m[3])
     if (method === 'PATCH') {
       const body = await readJsonBody(req, res); if (body === null) return
-      const { channelId } = body
+      const { channelId, notes } = body
       return withShowMutation(req, res, slug, 'towers-updated', (show) => {
+        if (notes !== undefined) {
+          writeTowerSlotNotes(show.id, towerId, slotIndex, notes)
+          return
+        }
         if (channelId) {
           writeTowerSlot(show.id, towerId, slotIndex, channelId)
         } else {

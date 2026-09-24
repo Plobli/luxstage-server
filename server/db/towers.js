@@ -85,6 +85,14 @@ export function writeTowerSlot(showId, towerId, slotIndex, channelId) {
   }
 }
 
+// Auf show_id einschränken: sonst ließe sich ein Slot einer fremden tower-ID
+// (aus einer anderen Show) hier beschreiben.
+export function writeTowerSlotNotes(showId, towerId, slotIndex, notes) {
+  const tower = getDb().prepare('SELECT id FROM towers WHERE id = ? AND show_id = ?').get(towerId, showId)
+  if (!tower) throw new Error(`Turm nicht in dieser Show: ${towerId}`)
+  getDb().prepare('UPDATE tower_slots SET notes = ? WHERE tower_id = ? AND slot_index = ?').run(notes ?? '', towerId, slotIndex)
+}
+
 export function clearTowerSlot(showId, towerId, slotIndex) {
   const slot = getDb().prepare(`
     SELECT channel_id FROM tower_slots
@@ -116,9 +124,9 @@ export function restoreTowers(slug, towers) {
       `).run(tower.id, show.id, tower.name ?? '', tower.side ?? '', tower.stage_area ?? '', clampSlotCount(tower.slot_count), tower.sort_order ?? 0, tower.notes ?? '', tower.created_at ?? Date.now())
       for (const slot of (tower.slots ?? [])) {
         getDb().prepare(`
-          INSERT INTO tower_slots (id, tower_id, slot_index, channel_id)
-          VALUES (?, ?, ?, ?)
-        `).run(slot.id ?? randomUUID(), tower.id, slot.slot_index, slot.channel_id ?? null)
+          INSERT INTO tower_slots (id, tower_id, slot_index, channel_id, notes)
+          VALUES (?, ?, ?, ?, ?)
+        `).run(slot.id ?? randomUUID(), tower.id, slot.slot_index, slot.channel_id ?? null, slot.notes ?? '')
         if (slot.channel_id) {
           const mountRef = JSON.stringify({ type: 'tower', towerId: tower.id, towerName: tower.name ?? '', slotIndex: slot.slot_index })
           getDb().prepare('UPDATE channels SET mount_ref = ? WHERE id = ?').run(mountRef, slot.channel_id)

@@ -277,6 +277,7 @@
   "gassenturm.save_dialog.what.help": "Wähle, welche Daten aus diesem Gestell in der Vorlage gespeichert werden sollen. Die Grundstruktur wird immer übernommen.",
   "gassenturm.slot.assign": "Kreis hinzufügen — Slot {slot}",
   "gassenturm.slot.assign_button": "Kreis zuordnen",
+  "gassenturm.slot.notes.placeholder": "Notiz",
   "gassenturm.slot.help": "Ein Slot ist ein Platz am Gestell. Weise jedem Slot eine Kreisnummer zu – so siehst du auf einen Blick, welches Gerät wo eingebaut werden muss.",
   "gassenturm.slot.occupied": "Slot {slot} ist mit Kreis {channel} belegt – überschreiben?",
   "gassenturm.slot_empty": "leer",

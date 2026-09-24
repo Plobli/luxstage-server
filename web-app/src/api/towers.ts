@@ -5,6 +5,7 @@ export interface TowerSlot {
   tower_id: string
   slot_index: number
   channel_id: string | null
+  notes: string
 }
 
 export interface Tower {
@@ -37,4 +38,8 @@ export async function deleteTower(showId: string, towerId: string): Promise<void
 
 export async function assignTowerSlot(showId: string, towerId: string, slotIndex: number, channelId: string | null): Promise<void> {
   return api.patch(`/api/shows/${showId}/towers/${towerId}/slots/${slotIndex}`, { channelId })
+}
+
+export async function setTowerSlotNotes(showId: string, towerId: string, slotIndex: number, notes: string): Promise<void> {
+  return api.patch(`/api/shows/${showId}/towers/${towerId}/slots/${slotIndex}`, { notes })
 }
