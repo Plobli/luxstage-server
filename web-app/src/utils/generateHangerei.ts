@@ -45,7 +45,7 @@ function buildBarLineBody(
 
   const sorted = [...bar.fixtures].sort((a, b) => a.position - b.position)
   const parts = sorted.map(fx => {
-    const ch = channelById.get(fx.channel_id)
+    const ch = fx.channel_id ? channelById.get(fx.channel_id) : undefined
     const tokens = [
       `${prefix}${ch?.channel ?? '?'}`,
       ch?.device || undefined,
