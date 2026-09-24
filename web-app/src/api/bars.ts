@@ -6,11 +6,12 @@ export type FixtureSide = 'in' | 'out'
 export interface BarFixture {
   id: string
   bar_id: string
-  channel_id: string
+  channel_id: string | null
   position: number
   notes?: string
   side?: FixtureSide
   position_text?: string
+  label?: string
 }
 
 export interface Bar {
@@ -42,8 +43,18 @@ export async function deleteBar(showId: string, barId: string): Promise<void> {
   return api.delete(`/api/shows/${showId}/bars/${barId}`)
 }
 
-export async function addBarFixture(showId: string, barId: string, channelId: string, position: number, notes?: string, fixtureId?: string, side?: FixtureSide, positionText?: string): Promise<{ id: string }> {
-  return api.post(`/api/shows/${showId}/bars/${barId}/fixtures`, { channelId, position, notes: notes ?? '', fixtureId: fixtureId ?? null, side: side ?? 'out', positionText: positionText ?? '' })
+export interface AddBarFixtureOptions {
+  channelId?: string | null
+  label?: string
+  notes?: string
+  fixtureId?: string
+  side?: FixtureSide
+  positionText?: string
+}
+
+export async function addBarFixture(showId: string, barId: string, position: number, opts: AddBarFixtureOptions = {}): Promise<{ id: string }> {
+  const { channelId, label, notes, fixtureId, side, positionText } = opts
+  return api.post(`/api/shows/${showId}/bars/${barId}/fixtures`, { channelId: channelId ?? null, label: label ?? '', position, notes: notes ?? '', fixtureId: fixtureId ?? null, side: side ?? 'out', positionText: positionText ?? '' })
 }
 
 export async function patchBarFixtureNotes(showId: string, barId: string, fixtureId: string, notes: string): Promise<void> {

@@ -200,16 +200,21 @@
   <Dialog :open="fixtureEditOpen" @update:open="fixtureEditOpen = $event">
     <DialogContent class="sm:max-w-sm">
       <DialogHeader>
-        <DialogTitle>Kanal {{ channelNr(fixtureEditFx?.channel_id) }}{{ channelDevice(fixtureEditFx?.channel_id) ? ' · ' + channelDevice(fixtureEditFx?.channel_id) : '' }} — {{ fixtureEditBar?.name }}</DialogTitle>
+        <DialogTitle v-if="fixtureEditFx?.channel_id">Kanal {{ channelNr(fixtureEditFx?.channel_id) }}{{ channelDevice(fixtureEditFx?.channel_id) ? ' · ' + channelDevice(fixtureEditFx?.channel_id) : '' }} — {{ fixtureEditBar?.name }}</DialogTitle>
+        <DialogTitle v-else>{{ t('zugstange.fixture.generic.title') }} — {{ fixtureEditBar?.name }}</DialogTitle>
       </DialogHeader>
       <DialogBody>
+        <div v-if="!fixtureEditFx?.channel_id" class="flex flex-col gap-1.5">
+          <label class="text-xs text-muted-foreground">{{ t('zugstange.fixture.generic.label') }}</label>
+          <Input size="lg" v-model="fixtureEditLabel" :placeholder="t('zugstange.fixture.generic.label.placeholder')" autofocus @keydown.enter="saveFixtureEdit" />
+        </div>
         <div class="flex flex-col gap-1.5">
           <label class="text-xs text-muted-foreground">{{ t('zugstange.fixture.notes.label') }}</label>
-          <Input size="lg" v-model="fixtureEditNotes" :placeholder="t('zugstange.fixture.notes.placeholder')" autofocus @keydown.enter="saveFixtureEdit" />
+          <Input size="lg" v-model="fixtureEditNotes" :placeholder="t('zugstange.fixture.notes.placeholder')" :autofocus="!!fixtureEditFx?.channel_id" @keydown.enter="saveFixtureEdit" />
         </div>
       </DialogBody>
       <DialogFooter>
-        <Button variant="ghost" class="mr-auto text-xs text-muted-foreground" @click="goToChannel(fixtureEditFx?.channel_id); fixtureEditOpen = false">{{ t('zugstange.fixture.channel_link') }}</Button>
+        <Button v-if="fixtureEditFx?.channel_id" variant="ghost" class="mr-auto text-xs text-muted-foreground" @click="goToChannel(fixtureEditFx?.channel_id); fixtureEditOpen = false">{{ t('zugstange.fixture.channel_link') }}</Button>
         <Button variant="ghost" @click="fixtureEditOpen = false">{{ t('action.cancel') }}</Button>
         <Button @click="saveFixtureEdit">{{ t('action.save') }}</Button>
       </DialogFooter>
@@ -223,19 +228,28 @@
         <DialogTitle>{{ t('zugstange.fixture.add') }}</DialogTitle>
       </DialogHeader>
       <DialogBody>
-        <ChannelPickerGrid
-          v-if="!pickerChannel"
-          :channels="channels"
-          :model-value="[]"
-          :search-placeholder="t('zugstange.fixture.search.placeholder')"
-          @pick="ch => { pickerChannel = ch }"
-          @enter="ch => { pickerChannel = ch; confirmAddFixture() }"
-        />
-        <div v-if="pickerChannel" class="flex flex-col gap-3">
+        <div v-if="pickerMode === 'list'" class="flex flex-col gap-2">
+          <button
+            type="button"
+            class="flex items-center gap-2 px-3 py-2.5 rounded-lg border border-dashed border-border/50 text-sm text-muted-foreground hover:text-foreground hover:border-accent/50 hover:bg-accent/5 transition-colors self-start"
+            @click="pickerMode = 'generic'"
+          >
+            <Plus class="size-4" /> {{ t('zugstange.fixture.generic.add') }}
+          </button>
+          <ChannelPickerGrid
+            :channels="channels"
+            :model-value="[]"
+            :search-placeholder="t('zugstange.fixture.search.placeholder')"
+            :notes-filter="true"
+            @pick="ch => { pickerChannel = ch; pickerMode = 'channel' }"
+            @enter="ch => { pickerChannel = ch; pickerMode = 'channel'; confirmAddFixture() }"
+          />
+        </div>
+        <div v-if="pickerMode === 'channel'" class="flex flex-col gap-6">
           <button
             type="button"
             class="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors self-start"
-            @click="pickerChannel = null"
+            @click="pickerChannel = null; pickerMode = 'list'"
           >
             <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
             {{ t('zugstange.fixture.picker.back') }}
@@ -253,11 +267,33 @@
             <label class="text-xs text-muted-foreground">{{ t('zugstange.fixture.position') }} {{ unitLabel }}</label>
             <Input size="lg" autofocus :modelValue="cmToDisplay(pickerPosition)" type="number" :min="cmToDisplay(-(pickerBar?.length_cm || 600)/2)" :max="cmToDisplay((pickerBar?.length_cm || 600)/2)" :step="inputStep" @update:modelValue="pickerPosition = parseToCm(Number($event))" @keydown.enter="confirmAddFixture" />
           </div>
+          <div class="flex flex-col gap-1.5">
+            <label class="text-xs text-muted-foreground">{{ t('zugstange.fixture.notes.label') }}</label>
+            <Input size="lg" v-model="pickerNotes" :placeholder="t('zugstange.fixture.notes.placeholder')" @keydown.enter="confirmAddFixture" />
+          </div>
+        </div>
+        <div v-if="pickerMode === 'generic'" class="flex flex-col gap-6">
+          <button
+            type="button"
+            class="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors self-start"
+            @click="pickerMode = 'list'"
+          >
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+            {{ t('zugstange.fixture.picker.back') }}
+          </button>
+          <div class="flex flex-col gap-1.5">
+            <label class="text-xs text-muted-foreground">{{ t('zugstange.fixture.generic.label') }}</label>
+            <Input size="lg" v-model="pickerLabel" :placeholder="t('zugstange.fixture.generic.label.placeholder')" autofocus @keydown.enter="confirmAddFixture" />
+          </div>
+          <div v-if="!isPunktzug(pickerBar)" class="flex flex-col gap-1.5">
+            <label class="text-xs text-muted-foreground">{{ t('zugstange.fixture.position') }} {{ unitLabel }}</label>
+            <Input size="lg" :modelValue="cmToDisplay(pickerPosition)" type="number" :min="cmToDisplay(-(pickerBar?.length_cm || 600)/2)" :max="cmToDisplay((pickerBar?.length_cm || 600)/2)" :step="inputStep" @update:modelValue="pickerPosition = parseToCm(Number($event))" @keydown.enter="confirmAddFixture" />
+          </div>
         </div>
       </DialogBody>
       <DialogFooter>
         <Button variant="ghost" @click="fixturePickerOpen = false">{{ t('action.cancel') }}</Button>
-        <Button :disabled="!pickerChannel" @click="confirmAddFixture">{{ t('action.add') }}</Button>
+        <Button :disabled="pickerMode === 'channel' ? !pickerChannel : pickerMode === 'generic' ? !pickerLabel.trim() : true" @click="confirmAddFixture">{{ t('action.add') }}</Button>
       </DialogFooter>
     </DialogContent>
   </Dialog>
@@ -514,53 +550,78 @@ const fixtureEditOpen = ref(false)
 const fixtureEditFx = ref(null)
 const fixtureEditBar = ref(null)
 const fixtureEditNotes = ref('')
+const fixtureEditLabel = ref('')
 
 function openFixtureEditDialog(fx, bar) {
   fixtureEditFx.value = fx
   fixtureEditBar.value = bar
   fixtureEditNotes.value = fx.notes ?? ''
+  fixtureEditLabel.value = fx.label ?? ''
   fixtureEditOpen.value = true
 }
 
 async function saveFixtureEdit() {
   if (!fixtureEditFx.value || !fixtureEditBar.value) return
-  await updateFixtureNotes(fixtureEditBar.value.id, fixtureEditFx.value.id, fixtureEditNotes.value)
-  fixtureEditFx.value.notes = fixtureEditNotes.value
+  const fx = fixtureEditFx.value
+  if (!fx.channel_id) {
+    // Generisches Element: label ist Teil der Fixture selbst, nur über
+    // assignFixture (POST) statt der reinen Notes-PATCH-Route änderbar.
+    if (!fixtureEditLabel.value.trim()) return
+    await assignFixture(fixtureEditBar.value.id, fx.position, { label: fixtureEditLabel.value.trim(), notes: fixtureEditNotes.value, fixtureId: fx.id, side: fx.side || 'out', positionText: fx.position_text })
+    fx.label = fixtureEditLabel.value.trim()
+  } else {
+    await updateFixtureNotes(fixtureEditBar.value.id, fx.id, fixtureEditNotes.value)
+  }
+  fx.notes = fixtureEditNotes.value
   fixtureEditOpen.value = false
 }
 
 // Fixture Picker
 const fixturePickerOpen = ref(false)
+const pickerMode = ref('list') // 'list' | 'channel' | 'generic'
 const pickerChannel = ref(null)
+const pickerLabel = ref('')
+const pickerNotes = ref('')
 const pickerPosition = ref(0)
 const pickerBar = ref(null)
 const pickerSide = ref('out')
 
-function onBarPositionPick(bar, position, side = 'out') {
+function resetPicker(bar, position, side) {
   pickerBar.value = bar
   pickerChannel.value = null
+  pickerLabel.value = ''
+  pickerNotes.value = ''
+  pickerMode.value = 'list'
   pickerPosition.value = position
   pickerSide.value = side
   fixturePickerOpen.value = true
 }
 
+function onBarPositionPick(bar, position, side = 'out') {
+  resetPicker(bar, position, side)
+}
+
 function onPunktzugAddClick(bar) {
-  pickerBar.value = bar
-  pickerChannel.value = null
-  pickerPosition.value = 0
-  pickerSide.value = 'out'
-  fixturePickerOpen.value = true
+  resetPicker(bar, 0, 'out')
 }
 
 async function confirmAddFixture() {
-  if (!pickerChannel.value || !pickerBar.value) return
-  const qty = Math.max(1, pickerChannel.value.quantity ?? 1)
-  const spacing = qty > 1 ? 30 : 0
-  const startPos = pickerPosition.value - ((qty - 1) * spacing) / 2
-  for (let i = 0; i < qty; i++) {
-    const pos = Math.round((startPos + i * spacing) / 10) * 10
+  if (!pickerBar.value) return
+  if (pickerMode.value === 'generic') {
+    if (!pickerLabel.value.trim()) return
     const half = (pickerBar.value.length_cm ?? 600) / 2
-    await assignFixture(pickerBar.value.id, pickerChannel.value.id, Math.max(-half, Math.min(half, pos)), undefined, pickerSide.value)
+    const pos = Math.max(-half, Math.min(half, pickerPosition.value))
+    await assignFixture(pickerBar.value.id, pos, { label: pickerLabel.value.trim(), side: pickerSide.value })
+  } else {
+    if (!pickerChannel.value) return
+    const qty = Math.max(1, pickerChannel.value.quantity ?? 1)
+    const spacing = qty > 1 ? 30 : 0
+    const startPos = pickerPosition.value - ((qty - 1) * spacing) / 2
+    for (let i = 0; i < qty; i++) {
+      const pos = Math.round((startPos + i * spacing) / 10) * 10
+      const half = (pickerBar.value.length_cm ?? 600) / 2
+      await assignFixture(pickerBar.value.id, Math.max(-half, Math.min(half, pos)), { channelId: pickerChannel.value.id, side: pickerSide.value, notes: pickerNotes.value.trim() })
+    }
   }
   fixturePickerOpen.value = false
   pickerChannel.value = null
@@ -570,11 +631,11 @@ async function confirmAddFixture() {
 async function savePunktzugPositionText(bar, value) {
   const fx = bar.fixtures[0]
   if (!fx) return
-  await assignFixture(bar.id, fx.channel_id, 0, fx.id, fx.side || 'out', value)
+  await assignFixture(bar.id, 0, { channelId: fx.channel_id, label: fx.label, fixtureId: fx.id, side: fx.side || 'out', positionText: value })
   fx.position_text = value
 }
 
 async function onFixtureDragEnd(bar, fx) {
-  await assignFixture(bar.id, fx.channel_id, fx.position, fx.id, fx.side || 'out', fx.position_text)
+  await assignFixture(bar.id, fx.position, { channelId: fx.channel_id, label: fx.label, fixtureId: fx.id, side: fx.side || 'out', positionText: fx.position_text })
 }
 </script>

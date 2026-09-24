@@ -8,7 +8,8 @@
           :class="bar.fixtures[0].notes ? 'ring-2 ring-yellow-400/60' : ''"
           @click="$emit('editFixture', bar.fixtures[0])"
         >
-          <span class="text-base font-bold text-foreground tabular-nums drop-shadow-sm">{{ channelNr(bar.fixtures[0].channel_id) }}</span>
+          <span v-if="bar.fixtures[0].channel_id" class="text-base font-bold text-foreground tabular-nums drop-shadow-sm">{{ channelNr(bar.fixtures[0].channel_id) }}</span>
+          <span v-else class="text-[10px] font-bold text-foreground leading-tight text-center px-1 drop-shadow-sm line-clamp-2">{{ bar.fixtures[0].label }}</span>
         </button>
         <button
           class="absolute -top-0.5 -right-0.5 size-4 rounded-full bg-red-500/90 text-white items-center justify-center hidden group-hover/fx:flex z-20 hover:bg-red-500 transition-colors shadow"
@@ -98,11 +99,20 @@
           @mousedown.prevent.stop="onFixtureDragStart($event, fx)"
         >
           <button
+            v-if="fx.channel_id"
             class="size-8 rounded-full border-2 border-accent bg-accent/30 backdrop-blur-sm flex items-center justify-center hover:bg-accent/50 transition-all shadow-lg"
             :class="fx.notes ? 'ring-2 ring-yellow-400/60' : ''"
             @click.stop="onFixtureClick(fx)"
           >
             <span class="text-[10px] font-bold text-foreground tabular-nums drop-shadow-sm">{{ channelNr(fx.channel_id) }}</span>
+          </button>
+          <button
+            v-else
+            class="w-8 h-14 rounded-md border-2 border-foreground/40 bg-foreground/15 backdrop-blur-sm flex items-center justify-center hover:bg-foreground/25 transition-all shadow-lg"
+            :class="fx.notes ? 'ring-2 ring-yellow-400/60' : ''"
+            @click.stop="onFixtureClick(fx)"
+          >
+            <span class="text-[9px] font-bold text-foreground drop-shadow-sm whitespace-nowrap" style="writing-mode: vertical-rl; transform: rotate(180deg);">{{ fx.label }}</span>
           </button>
           <button
             class="absolute -top-0.5 -right-0.5 size-3.5 rounded-full bg-red-500/90 text-white items-center justify-center hidden group-hover/fx:flex z-20 hover:bg-red-500 transition-colors shadow"
@@ -168,11 +178,20 @@
           @mousedown.prevent.stop="onFixtureDragStart($event, fx)"
         >
           <button
+            v-if="fx.channel_id"
             class="rounded-full border-2 border-accent bg-accent/30 backdrop-blur-sm flex items-center justify-center hover:bg-accent/50 transition-all shadow-lg"
             :class="[fx.notes ? 'ring-2 ring-yellow-400/60' : '', isTraverse ? 'size-8' : 'size-10']"
             @click.stop="onFixtureClick(fx)"
           >
             <span class="font-bold text-foreground tabular-nums drop-shadow-sm" :class="isTraverse ? 'text-[10px]' : 'text-xs'">{{ channelNr(fx.channel_id) }}</span>
+          </button>
+          <button
+            v-else
+            class="rounded-md border-2 border-foreground/40 bg-foreground/15 backdrop-blur-sm flex items-center justify-center hover:bg-foreground/25 transition-all shadow-lg"
+            :class="[fx.notes ? 'ring-2 ring-yellow-400/60' : '', isTraverse ? 'w-8 h-14' : 'w-10 h-16']"
+            @click.stop="onFixtureClick(fx)"
+          >
+            <span class="font-bold text-foreground drop-shadow-sm whitespace-nowrap" :class="isTraverse ? 'text-[9px]' : 'text-[10px]'" style="writing-mode: vertical-rl; transform: rotate(180deg);">{{ fx.label }}</span>
           </button>
           <button
             class="absolute -top-0.5 -right-0.5 size-3.5 rounded-full bg-red-500/90 text-white items-center justify-center hidden group-hover/fx:flex z-20 hover:bg-red-500 transition-colors shadow"

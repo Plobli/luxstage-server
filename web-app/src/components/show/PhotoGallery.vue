@@ -95,6 +95,7 @@
           :search-placeholder="labels.channelSearchPlaceholder"
           :none-label="labels.channelNone"
           :hint="labels.channelPickMultiHint"
+          :notes-filter="true"
         />
       </DialogBody>
       <DialogFooter>

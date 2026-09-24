@@ -19,8 +19,11 @@ const props = defineProps({
 <style>
 /* Abstand Label → Input innerhalb jeder Feldgruppe — kleiner als der Abstand
    zwischen Feldgruppen (dialog-body gap-8 = 2rem), sonst wirkt die Gruppierung
-   invertiert (Label näher am Element der vorigen Gruppe als am eigenen Input). */
-.dialog-body > div,
+   invertiert (Label näher am Element der vorigen Gruppe als am eigenen Input).
+   :has(> label) grenzt das auf echte Label→Input-Wrapper ein (auf jeder
+   Verschachtelungstiefe), statt jedes beliebige div zu erfassen — eine reine
+   Info-Box ohne Label behält so ihre eigene flex/gap-Klasse. */
+.dialog-body div:has(> label),
 .dialog-body > label + * {
   display: flex;
   flex-direction: column;

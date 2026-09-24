@@ -63,10 +63,10 @@ export async function barRoutes(req, res, pathname) {
     const slug = m[1]; const barId = m[2]
     if (method === 'POST') {
       const body = await readJsonBody(req, res); if (body === null) return
-      const { channelId, position, notes, fixtureId, side, positionText } = body
-      if (!channelId) return json(res, 400, { error: 'channelId erforderlich' })
+      const { channelId, position, notes, fixtureId, side, positionText, label } = body
+      if (!channelId && !label) return json(res, 400, { error: 'channelId oder label erforderlich' })
       return withShowMutation(req, res, slug, 'bars-updated', (show) => {
-        return writeBarFixture(show.id, barId, channelId, { position, notes, fixtureId, side, positionText })
+        return writeBarFixture(show.id, barId, channelId ?? null, { position, notes, fixtureId, side, positionText, label })
       }, {
         responseBody: id => ({ ok: true, id }),
       })

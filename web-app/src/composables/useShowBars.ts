@@ -1,5 +1,5 @@
 import { ref, type Ref } from 'vue'
-import { fetchBars, createBar, updateBar, deleteBar as apiDeleteBar, addBarFixture, patchBarFixtureNotes, removeBarFixture, reorderBars as apiReorderBars, type Bar, type FixtureSide } from '../api/bars'
+import { fetchBars, createBar, updateBar, deleteBar as apiDeleteBar, addBarFixture, patchBarFixtureNotes, removeBarFixture, reorderBars as apiReorderBars, type Bar, type FixtureSide, type AddBarFixtureOptions } from '../api/bars'
 import type { Channel } from '../api/channels'
 import { withLockConflict } from './withLockConflict'
 
@@ -44,8 +44,9 @@ export function useShowBars(showId: string, channels?: Ref<Channel[]>, onLockCon
     if (fx) fx.notes = notes
   })
 
-  const assignFixture = withLockConflict(onLockConflict, async (barId: string, channelId: string, position: number, fixtureId?: string, side?: FixtureSide, positionText?: string) => {
-    const result = await addBarFixture(showId, barId, channelId, position, undefined, fixtureId, side, positionText)
+  const assignFixture = withLockConflict(onLockConflict, async (barId: string, position: number, opts: AddBarFixtureOptions = {}) => {
+    const { channelId, label, fixtureId, side, positionText, notes } = opts
+    const result = await addBarFixture(showId, barId, position, opts)
     const bar = bars.value.find(b => b.id === barId)
     if (!bar) return
 
@@ -55,14 +56,17 @@ export function useShowBars(showId: string, channels?: Ref<Channel[]>, onLockCon
         existing.position = position
         if (side !== undefined) existing.side = side
         if (positionText !== undefined) existing.position_text = positionText
+        if (label !== undefined) existing.label = label
+        if (notes !== undefined) existing.notes = notes
       }
     } else {
-      bar.fixtures.push({ id: result.id, bar_id: barId, channel_id: channelId, position, notes: '', side, position_text: positionText })
+      bar.fixtures.push({ id: result.id, bar_id: barId, channel_id: channelId ?? null, position, notes: notes ?? '', side, position_text: positionText, label })
       bar.fixtures.sort((a, b) => a.position - b.position)
     }
 
     // channels.mount_ref hat sich serverseitig geändert (siehe writeBarFixture)
-    // — neu laden statt lokal nachzubilden.
+    // — neu laden statt lokal nachzubilden. Bei generischen Elementen (kein
+    // channelId) ist mount_ref unverändert, der Reload schadet aber nicht.
     await reloadChannels?.()
   })
 

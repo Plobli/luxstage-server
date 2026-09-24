@@ -69,7 +69,10 @@ export function reorderBars(slug, orderedIds) {
   tx()
 }
 
-export function writeBarFixture(showId, barId, channelId, { position = 0, notes = '', fixtureId = null, side = 'out', positionText = '' } = {}) {
+// channelId ist null bei generischen Elementen (kein Kanalbezug) — dann ist
+// label Pflicht statt Kanalzuordnung. mount_ref auf channels wird nur bei
+// vorhandener channelId gepflegt.
+export function writeBarFixture(showId, barId, channelId, { position = 0, notes = '', fixtureId = null, side = 'out', positionText = '', label = '' } = {}) {
   // Auf show_id einschränken: sonst ließe sich eine Fixture auf eine bar-ID
   // einer fremden Show anlegen/verschieben.
   const bar = getDb().prepare('SELECT * FROM bars WHERE id = ? AND show_id = ?').get(barId, showId)
@@ -79,17 +82,19 @@ export function writeBarFixture(showId, barId, channelId, { position = 0, notes 
   const existing = fixtureId ? getDb().prepare('SELECT bf.id FROM bar_fixtures bf WHERE bf.id = ? AND bf.bar_id = ?').get(id, barId) : null
   if (existing) {
     getDb().prepare(
-      'UPDATE bar_fixtures SET position = ?, notes = ?, side = ?, position_text = ? WHERE id = ?'
-    ).run(position ?? 0, notes ?? '', side ?? 'out', positionText ?? '', id)
+      'UPDATE bar_fixtures SET position = ?, notes = ?, side = ?, position_text = ?, label = ? WHERE id = ?'
+    ).run(position ?? 0, notes ?? '', side ?? 'out', positionText ?? '', label ?? '', id)
   } else {
     getDb().prepare(`
-      INSERT INTO bar_fixtures (id, bar_id, channel_id, position, notes, side, position_text)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
-    `).run(id, barId, channelId, position ?? 0, notes ?? '', side ?? 'out', positionText ?? '')
+      INSERT INTO bar_fixtures (id, bar_id, channel_id, position, notes, side, position_text, label)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(id, barId, channelId ?? null, position ?? 0, notes ?? '', side ?? 'out', positionText ?? '', label ?? '')
   }
 
-  const mountRef = JSON.stringify({ type: 'bar', barId, barName: bar.name, zugNr: bar.zug_nr, barType: bar.bar_type, position: position ?? 0 })
-  getDb().prepare('UPDATE channels SET mount_ref = ? WHERE id = ?').run(mountRef, channelId)
+  if (channelId) {
+    const mountRef = JSON.stringify({ type: 'bar', barId, barName: bar.name, zugNr: bar.zug_nr, barType: bar.bar_type, position: position ?? 0 })
+    getDb().prepare('UPDATE channels SET mount_ref = ? WHERE id = ?').run(mountRef, channelId)
+  }
   return id
 }
 
@@ -131,9 +136,9 @@ export function restoreBars(slug, bars) {
       `).run(bar.id, show.id, bar.name ?? '', bar.zug_nr ?? '', bar.length_cm ?? 600, bar.height_cm ?? null, bar.notes ?? '', bar.sort_order ?? 0, bar.bar_type ?? 'zugstange', bar.hide_scale ? 1 : 0, bar.scale_origin ?? 'center', bar.created_at ?? Date.now())
       for (const fixture of (bar.fixtures ?? [])) {
         getDb().prepare(`
-          INSERT INTO bar_fixtures (id, bar_id, channel_id, position, notes, side, position_text)
-          VALUES (?, ?, ?, ?, ?, ?, ?)
-        `).run(fixture.id ?? randomUUID(), bar.id, fixture.channel_id, fixture.position ?? 0, fixture.notes ?? '', fixture.side ?? 'out', fixture.position_text ?? '')
+          INSERT INTO bar_fixtures (id, bar_id, channel_id, position, notes, side, position_text, label)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        `).run(fixture.id ?? randomUUID(), bar.id, fixture.channel_id ?? null, fixture.position ?? 0, fixture.notes ?? '', fixture.side ?? 'out', fixture.position_text ?? '', fixture.label ?? '')
         if (fixture.channel_id) {
           const mountRef = JSON.stringify({ type: 'bar', barId: bar.id, barName: bar.name ?? '', zugNr: bar.zug_nr ?? '', barType: bar.bar_type ?? 'zugstange', position: fixture.position ?? 0 })
           getDb().prepare('UPDATE channels SET mount_ref = ? WHERE id = ?').run(mountRef, fixture.channel_id)

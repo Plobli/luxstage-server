@@ -259,6 +259,7 @@
           v-model:search="channelPickerSearch"
           :search-placeholder="t('gassenturm.channel_picker.search.placeholder')"
           :none-label="t('gassenturm.channel.none')"
+          :notes-filter="true"
           @pick="pickChannel"
           @enter="pickChannel"
         />

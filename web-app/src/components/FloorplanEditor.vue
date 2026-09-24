@@ -640,7 +640,7 @@
       <DialogContent class="sm:max-w-2xl flex flex-col max-h-[80vh]">
         <DialogHeader><DialogTitle>{{ t('floorplan.channel.title') }}</DialogTitle></DialogHeader>
         <DialogBody class="flex-1 overflow-y-auto">
-          <ChannelPickerGrid :channels="props.channels" :model-value="[]" v-model:search="channelSearch" :search-placeholder="t('action.search')" @pick="placeChannelCircle" @enter="placeChannelCircle" />
+          <ChannelPickerGrid :channels="props.channels" :model-value="[]" v-model:search="channelSearch" :search-placeholder="t('action.search')" :notes-filter="true" @pick="placeChannelCircle" @enter="placeChannelCircle" />
         </DialogBody>
         <DialogFooter><Button variant="outline" @click="showChannelPicker = false">{{ t('action.cancel') }}</Button></DialogFooter>
       </DialogContent>

@@ -22,6 +22,26 @@ export function renderHangereiBars(doc, bars, channels, margin, usableW, startY,
 
     const fixSorted = [...fixtures].sort((a, b) => a.position - b.position)
     const parts = fixSorted.map(fx => {
+      if (!fx.channel_id) {
+        const tokens = [fx.label || '?', fx.notes || undefined]
+        if (!bar.hide_scale) {
+          const cm = fx.position
+          const origin = bar.scale_origin || 'center'
+          const half = (bar.length_cm || 600) / 2
+          let posStr
+          if (origin === 'left' || origin === 'right') {
+            const val = (origin === 'left' ? cm + half : half - cm) / 100
+            posStr = `${Number.isInteger(val) ? val : parseFloat(val.toFixed(2))}m`
+          } else if (cm === 0) posStr = 'Mitte'
+          else {
+            const val = Math.abs(cm) / 100
+            const valStr = Number.isInteger(val) ? val : parseFloat(val.toFixed(2))
+            posStr = `${valStr}m ${cm < 0 ? 'Links' : 'Rechts'}`
+          }
+          tokens.push(posStr)
+        }
+        return tokens.filter(Boolean).join(' ')
+      }
       const ch = channels.find(c => c.id === fx.channel_id)
       const tokens = [`V.${ch?.channel ?? '?'}`, ch?.device, ch?.address ? `#${ch.address}` : undefined, fmtColor(ch?.color), fx.notes || undefined]
       if (!bar.hide_scale) {
@@ -214,42 +234,60 @@ export function drawBarRows(doc, bars, channels, margin, usableW, startY, bottom
     for (const fx of fixtures) {
       const posFrac = (fx.position + barLenCm / 2) / barLenCm
       const cx = lineLeft + posFrac * linePx
+      const isGeneric = !fx.channel_id
       const ch = channels.find(c => c.id === fx.channel_id)
       const nr = ch?.channel ?? '?'
       const device = ch?.device ?? ''
 
-      // Kreis mit Schatten-Effekt (leichter Rand)
-      doc.circle(cx, lineY, CIRCLE_R + 0.5).fill('rgba(220,55,64,0.18)')
-      doc.circle(cx, lineY, CIRCLE_R).fill('#dc3740')
+      let markerHalfH = CIRCLE_R
+      if (isGeneric) {
+        // Generisches Element (kein Kanal): schmales, hohes Rechteck statt
+        // Kreis, damit es Nachbar-Marker horizontal nicht verdeckt.
+        const RECT_W = CIRCLE_R * 1.3
+        const RECT_H = CIRCLE_R * 3.2
+        markerHalfH = RECT_H / 2
+        doc.roundedRect(cx - RECT_W, lineY - RECT_H / 2, RECT_W * 2, RECT_H, mm(0.6))
+          .fillAndStroke('#3b3f46', '#6b7280')
+        doc.font(FONT_BOLD).fontSize(6).fillColor('white')
+        doc.save()
+        doc.rotate(-90, { origin: [cx, lineY] })
+        doc.text(fx.label || '', cx - RECT_H / 2, lineY - RECT_W / 2 - 1, { width: RECT_H, height: RECT_W * 2, align: 'center', lineBreak: false, ellipsis: true })
+        doc.restore()
+        doc.fillColor('black')
+      } else {
+        // Kreis mit Schatten-Effekt (leichter Rand)
+        doc.circle(cx, lineY, CIRCLE_R + 0.5).fill('rgba(220,55,64,0.18)')
+        doc.circle(cx, lineY, CIRCLE_R).fill('#dc3740')
 
-      // Kanalnummer zentriert im Kreis
-      doc.font(FONT_BOLD).fontSize(7.5).fillColor('white')
-      const textH = doc.currentLineHeight()
-      doc.text(String(nr), cx - CIRCLE_R, lineY - textH / 2, { width: CIRCLE_R * 2, align: 'center', lineBreak: false })
-      doc.fillColor('black')
-
-      // Positionslabel unterhalb Kreis (nur wenn Skala nicht ausgeblendet)
-      const deviceY = bar.hide_scale ? lineY + CIRCLE_R + mm(1.5) : lineY + CIRCLE_R + mm(5.5)
-      if (!bar.hide_scale) {
-        doc.font(FONT_NORMAL).fontSize(6).fillColor('#555555')
-          .text(posLabel(fx.position, unit, bar.scale_origin, barLenCm / 2), cx - mm(7), lineY + CIRCLE_R + mm(1.5), { width: mm(14), align: 'center', lineBreak: false })
+        // Kanalnummer zentriert im Kreis
+        doc.font(FONT_BOLD).fontSize(7.5).fillColor('white')
+        const textH = doc.currentLineHeight()
+        doc.text(String(nr), cx - CIRCLE_R, lineY - textH / 2, { width: CIRCLE_R * 2, align: 'center', lineBreak: false })
+        doc.fillColor('black')
       }
 
-      // Gerätename unter Positionslabel
+      // Positionslabel unterhalb Marker (nur wenn Skala nicht ausgeblendet)
+      const deviceY = bar.hide_scale ? lineY + markerHalfH + mm(1.5) : lineY + markerHalfH + mm(5.5)
+      if (!bar.hide_scale) {
+        doc.font(FONT_NORMAL).fontSize(6).fillColor('#555555')
+          .text(posLabel(fx.position, unit, bar.scale_origin, barLenCm / 2), cx - mm(7), lineY + markerHalfH + mm(1.5), { width: mm(14), align: 'center', lineBreak: false })
+      }
+
+      // Gerätename unter Positionslabel (nur bei Kanal-Fixtures)
       if (device) {
         doc.font(FONT_NORMAL).fontSize(5.5).fillColor('#999999')
           .text(device, cx - mm(10), deviceY, { width: mm(20), align: 'center', lineBreak: false, ellipsis: true })
       }
 
       // Anmerkungs-Marker (kleiner Punkt oben rechts am Kreis, wie gelber Ring in WebApp)
-      if (fx.notes) {
+      if (fx.notes && !isGeneric) {
         doc.circle(cx + CIRCLE_R * 0.7, lineY - CIRCLE_R * 0.7, mm(1.2)).fill('#f59e0b')
       }
 
       // Innen/Außen-Kennzeichnung bei Traversen
       if (bar.bar_type === 'traverse') {
         doc.font(FONT_BOLD).fontSize(5).fillColor('#666666')
-          .text(fx.side === 'in' ? 'I' : 'A', cx - CIRCLE_R, lineY - CIRCLE_R - mm(3.5), { width: CIRCLE_R * 2, align: 'center', lineBreak: false })
+          .text(fx.side === 'in' ? 'I' : 'A', cx - CIRCLE_R, lineY - markerHalfH - mm(3.5), { width: CIRCLE_R * 2, align: 'center', lineBreak: false })
         doc.fillColor('black')
       }
     }
