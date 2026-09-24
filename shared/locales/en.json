@@ -42,6 +42,7 @@
   "channel.help.status": "White circle number: No note available\nGreen circle number: Note available\nYellow circle number: Appears in the show according to the ETC import, but the note is missing",
   "channel.help.view": "Here you create your circuits (channels) and maintain the device, color, note and DMX address for each one. Use \"+\" to add new circuits, and use \"Position\" to assign a circuit to a location on your stage. An ETC import automatically marks circuits used in the show; yellow means imported but missing a note. Elements are included in the PDF export.",
   "channel.hide_eos_inactive": "Hide circles that haven't been imported",
+  "channel.hide_empty_notes": "Hide circles without a note",
   "channel.import": "Import CSV",
   "channel.legend.active": "Green circle number: Note present",
   "channel.legend.default": "White Circle Number: No note available",

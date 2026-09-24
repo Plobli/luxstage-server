@@ -261,6 +261,7 @@ export function useShowChannels({
 
   const dupFilter = ref<'address' | 'channel' | null>(null)
   const hideEosInactive = ref(false)
+  const hideEmptyNotes = ref(false)
 
   watch([dupAddressChannelNrs, dupChannelNrs], ([addrDups, chDups]) => {
     if (dupFilter.value === 'address' && addrDups.size === 0) dupFilter.value = null
@@ -300,6 +301,9 @@ export function useShowChannels({
     }
     if (hideEosInactive.value && eosActiveChannels.value) {
       chs = chs.filter(ch => channelStatus(ch) !== 'default')
+    }
+    if (hideEmptyNotes.value) {
+      chs = chs.filter(ch => (ch.notes ?? '').trim().length > 0)
     }
     const map = new Map<string, Channel[]>()
     for (const ch of chs) {
@@ -656,6 +660,7 @@ export function useShowChannels({
     dupFilter,
     dupChannelNrs,
     hideEosInactive,
+    hideEmptyNotes,
     groupedChannels,
     scheduleChannelsSave,
     flushChannelsSave,

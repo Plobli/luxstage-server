@@ -125,6 +125,22 @@
         <TooltipContent side="bottom"><p>{{ labels.hideEosInactive }}</p></TooltipContent>
       </Tooltip>
 
+      <!-- Kreise ohne Notiz ausblenden -->
+      <Tooltip v-if="activeTab === 'channels'">
+        <TooltipTrigger asChild>
+          <Button
+            variant="ghost"
+            size="icon"
+            :class="{ 'text-amber-400 bg-amber-500/10 hover:bg-amber-500/20': hideEmptyNotes }"
+            class="hidden lg:flex h-8 w-8 text-muted-foreground"
+            @click="emit('update:hideEmptyNotes', !hideEmptyNotes)"
+          >
+            <component :is="hideEmptyNotes ? EyeOff : Eye" class="size-4" /><span class="sr-only">{{ labels.hideEmptyNotes }}</span>
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="bottom"><p>{{ labels.hideEmptyNotes }}</p></TooltipContent>
+      </Tooltip>
+
       <button
         v-if="helpText"
         type="button"
@@ -165,6 +181,7 @@ defineProps({
   healthLabels: { type: Object, default: null },
   hasEosImport: { type: Boolean, default: false },
   hideEosInactive: { type: Boolean, default: false },
+  hideEmptyNotes: { type: Boolean, default: false },
   helpText: { type: String, default: '' },
   helpCollapsed: { type: Boolean, default: false },
   labels: { type: Object, required: true },
@@ -178,7 +195,7 @@ function initials(username) {
   return (parts.slice(0, 2).map(p => p[0]).join('') || '?').toUpperCase()
 }
 
-const emit = defineEmits(['update:search', 'update:hideEosInactive', 'update:helpCollapsed', 'undo', 'redo', 'healthFilter', 'filterDup', 'requestTakeover', 'forceTakeover'])
+const emit = defineEmits(['update:search', 'update:hideEosInactive', 'update:hideEmptyNotes', 'update:helpCollapsed', 'undo', 'redo', 'healthFilter', 'filterDup', 'requestTakeover', 'forceTakeover'])
 
 
 </script>

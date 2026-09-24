@@ -64,6 +64,7 @@
         :healthLabels="healthLabels"
         :hasEosImport="!!eosActiveChannels"
         v-model:hideEosInactive="hideEosInactive"
+        v-model:hideEmptyNotes="hideEmptyNotes"
         :helpText="viewHelp?.text"
         v-model:helpCollapsed="helpCollapsed"
         :labels="{
@@ -78,6 +79,7 @@
           legendActive: t('channel.legend.active'),
           legendEos: t('channel.legend.eos'),
           hideEosInactive: t('channel.hide_eos_inactive'),
+          hideEmptyNotes: t('channel.hide_empty_notes'),
           lockedBy: lock?.user ? t('lock.lockedBy', { user: lock.user }) : '',
           forceTakeoverIn: (s) => t('lock.forceTakeoverIn', { seconds: s }),
           forceTakeoverNow: t('lock.forceTakeoverNow'),
@@ -534,7 +536,7 @@ let afterUndoRedoImpl = null
 
 const {
   channels, channelsSaving, channelsSaveError, search, healthFilter, activateHealthFilter, eosActiveChannels, eosExcludedChannels, eosMergePreview,
-  dupWarning, dupChannelWarning, dupChannelNrs, dupFilter, hideEosInactive, groupedChannels,
+  dupWarning, dupChannelWarning, dupChannelNrs, dupFilter, hideEosInactive, hideEmptyNotes, groupedChannels,
   scheduleChannelsSave, persistChannels, deleteChannel, clearChannel, flushChannelsSave,
   onCsvImportSelected, onCircuitScanFileSelected, circuitScanUploading, circuitScanStatus, circuitScanPreview, resolveCircuitScanPreview, onEosFileSelected, resolveEosMergePreview,
   onPlanScanFileSelected, planScanUploading, planScanStatus, planScanPreview, resolvePlanScanPreview,

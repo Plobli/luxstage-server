@@ -42,6 +42,7 @@
   "channel.help.status": "Weiße Kreisnummer: Keine Notiz vorhanden\nGrüne Kreisnummer: Notiz vorhanden\nGelbe Kreisnummer: Spielt laut ETC-Import in der Show mit, aber die Notiz fehlt",
   "channel.help.view": "Hier legst du deine Kreise (Kanäle) an und pflegst zu jedem Kreis Gerät, Farbe, Notiz und DMX-Adresse. Mit „+“ fügst du neue Kreise hinzu und über „Position“ kannst du einen Kreis einem Ort auf deiner Bühne zuordnen. Ein ETC-Import markiert benutzte Kreise aus der Show automatisch, gelb markiert bedeutet: importiert, aber ohne Notiz. Die Elemente werden im PDF ausgegeben.",
   "channel.hide_eos_inactive": "Nicht importierte Kreise ausblenden",
+  "channel.hide_empty_notes": "Kreise ohne Notiz ausblenden",
   "channel.import": "CSV importieren",
   "channel.legend.active": "Grüne Kreisnummer: Notiz vorhanden",
   "channel.legend.default": "Weiße Kreisnummer: Keine Notiz vorhanden",
