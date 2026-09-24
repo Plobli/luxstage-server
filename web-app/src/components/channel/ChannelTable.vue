@@ -2,7 +2,7 @@
   <div ref="rootEl" class="h-full overflow-x-auto overflow-y-auto bg-card channel-list" style="scrollbar-width: thin;">
     <div class="min-w-230">
     <div class="sticky top-0 z-20 border-b border-border/90 bg-muted shadow-[0_1px_0_rgba(255,255,255,0.04),0_4px_8px_rgba(0,0,0,0.10)]">
-      <div v-if="!isMobile" class="grid min-h-8 grid-cols-[2rem_6rem_5rem_7rem_6rem_minmax(14rem,22%)_1fr_7rem_2.5rem] items-center border-b border-border/60 text-[10px] font-semibold uppercase tracking-[0.22em] text-foreground/90">
+      <div v-if="!isMobile" class="grid min-h-8 grid-cols-[2rem_6rem_5rem_7rem_6rem_minmax(14rem,22%)_1fr_5rem_7rem_2.5rem] items-center border-b border-border/60 text-[10px] font-semibold uppercase tracking-[0.22em] text-foreground/90">
         <div></div>
         <div class="px-3 flex items-center gap-1">{{ labels.channel }}<HelpIcon v-if="labels.channelHelp" :text="labels.channelHelp" /></div>
         <div class="px-3 flex items-center gap-1">{{ labels.dmx }}</div>
@@ -10,6 +10,7 @@
         <div class="px-3 flex items-center gap-1">{{ labels.quantity }}<HelpIcon v-if="labels.quantityHelp" :text="labels.quantityHelp" /></div>
         <div class="px-3 flex items-center gap-1">{{ labels.device }}<HelpIcon v-if="labels.deviceHelp" :text="labels.deviceHelp" /></div>
         <div class="px-3 flex items-center gap-1">{{ labels.notes }}<HelpIcon v-if="labels.notesHelp" :text="labels.notesHelp" /></div>
+        <div class="px-3 flex items-center gap-1">{{ labels.sequenceOrder }}<HelpIcon v-if="labels.sequenceOrderHelp" :text="labels.sequenceOrderHelp" /></div>
         <div class="px-3 flex items-center gap-1">{{ labels.assign }}<HelpIcon v-if="labels.assignHelp" :text="labels.assignHelp" /></div>
         <div></div>
       </div>
@@ -81,6 +82,7 @@
             :dupChannelNrs="dupChannelNrs"
             :channelStatus="channelStatus(item.ch)"
             :colorPlaceholder="labels.color"
+            :sequenceOrderPlaceholder="labels.sequenceOrder"
             :deleteTitle="labels.delete"
             :onKeydownFn="onKeydownFn"
             :flushChannelsSave="flushChannelsSave"
@@ -164,7 +166,7 @@
             </div>
           </div>
           <!-- Desktop add form -->
-          <div v-else class="grid grid-cols-[2rem_6rem_5rem_7rem_6rem_minmax(14rem,22%)_minmax(16rem,1fr)_4.5rem] items-center gap-0">
+          <div v-else class="grid grid-cols-[2rem_6rem_5rem_7rem_6rem_minmax(14rem,22%)_minmax(16rem,1fr)_5rem_4.5rem] items-center gap-0">
             <div></div>
             <div class="px-3">
               <Input
@@ -207,6 +209,9 @@
                 rows="1"
                 class="h-8 min-h-8 w-full resize-none border-0 bg-transparent px-2 py-1.5 text-sm leading-none text-foreground shadow-none transition-colors placeholder:text-muted-foreground/60 hover:bg-muted/10 focus-visible:bg-muted/20 focus-visible:outline-none focus-visible:ring-0"
               />
+            </div>
+            <div class="px-2">
+              <NumberSelect v-model="addForm.sequence_order" />
             </div>
             <div class="flex items-center justify-center gap-1">
               <Button
@@ -279,6 +284,7 @@ import { Check, X } from 'lucide-vue-next'
 import HelpIcon from '@/components/ui/HelpIcon.vue'
 import Sortable from 'sortablejs'
 import ChannelRow from './ChannelRow.vue'
+import NumberSelect from './NumberSelect.vue'
 import ColorAutocomplete from '../ColorAutocomplete.vue'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -453,7 +459,7 @@ function savePosition() {
 // ── Add channel ────────────────────────────────────────────────────────────
 function startAdd(position) {
   addingPosition.value = position
-  addForm.value = { channel: '', address: '', device: '', position, color: '', notes: '', quantity: 1 }
+  addForm.value = { channel: '', address: '', device: '', position, color: '', notes: '', quantity: 1, sequence_order: null }
   nextTick(() => {
     rootEl.value?.querySelector('[data-channel-nr-input]')?.focus()
   })

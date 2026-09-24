@@ -47,6 +47,7 @@ import * as m046 from './046-diagnostics.js'
 import * as m047 from './047-tower-slots-notes.js'
 import * as m048 from './048-bars-scale-origin.js'
 import * as m049 from './049-bar-fixtures-label.js'
+import * as m050 from './050-channels-sequence-order.js'
 
 // Reihenfolge ist bindend — manche Migrationen setzen das Ergebnis vorheriger
 // voraus (z.B. 024 liest Titel, die erst durch 023 umbenannt wurden).
@@ -55,5 +56,5 @@ export const migrations = [
   m011, m012, m013, m014, m015, m016, m017, m018, m019, m020,
   m021, m022, m023, m024, m025, m026, m027, m028, m029, m030,
   m031, m032, m033, m034, m035, m036, m037, m038, m039, m040,
-  m041, m042, m043, m044, m045, m046, m047, m048, m049,
+  m041, m042, m043, m044, m045, m046, m047, m048, m049, m050,
 ]

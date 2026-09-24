@@ -7,7 +7,7 @@
         :class="isMobile
           ? `border-t border-border/60 ${rowIndex % 2 === 0 ? 'bg-card' : 'bg-muted/40'}`
           : 'group/row grid border-t border-border/60 bg-card transition-colors'
-              + ' grid-cols-[2rem_6rem_5rem_7rem_6rem_minmax(14rem,22%)_1fr_7rem_2.5rem] items-center'"
+              + ' grid-cols-[2rem_6rem_5rem_7rem_6rem_minmax(14rem,22%)_1fr_5rem_7rem_2.5rem] items-center'"
       >
         <!-- Desktop: Drag handle -->
         <div v-if="!isMobile" class="flex py-0 pl-1 pr-0 align-middle">
@@ -93,6 +93,14 @@
               <Layers class="size-2.5 shrink-0" />{{ mountRefLabel }}
             </span>
           </div>
+        </div>
+
+        <!-- Desktop: Reihenfolge -->
+        <div v-if="!isMobile" class="px-1 py-0 align-middle border-l border-border/40 h-full flex items-center">
+          <NumberSelect
+            :modelValue="ch.sequence_order"
+            @update:modelValue="ch.sequence_order = $event; emit('change')"
+          />
         </div>
 
         <!-- Desktop: Assign dropdown -->
@@ -185,6 +193,13 @@
                 @keydown="onKeydownCol1"
               />
             </div>
+            <div class="h-8 w-14 shrink-0 rounded border border-border/40">
+              <NumberSelect
+                :modelValue="ch.sequence_order"
+                :placeholder="sequenceOrderPlaceholder"
+                @update:modelValue="ch.sequence_order = $event; emit('change')"
+              />
+            </div>
           </div>
           <!-- Row 2: Device -->
           <div class="text-xs px-3 py-1.5 border-t border-t-border/30 border-l-2 border-l-border/40 flex items-center">
@@ -223,6 +238,7 @@ import { Input } from '@/components/ui/input'
 import ColorAutocomplete from '../ColorAutocomplete.vue'
 import ChannelTextarea from './ChannelTextarea.vue'
 import QuantitySelect from './QuantitySelect.vue'
+import NumberSelect from './NumberSelect.vue'
 import { useIsMobile } from '@/composables/useBreakpoint.js'
 import { normalizeDmxAddress } from '@/utils/dmxAddress'
 import { parseMountRef } from '@/utils/mountRef'
@@ -233,6 +249,7 @@ const props = defineProps({
   dupChannelNrs: { type: Set, default: () => new Set() },
   channelStatus: { type: String, default: 'default' },
   colorPlaceholder: { type: String, default: '' },
+  sequenceOrderPlaceholder: { type: String, default: '' },
   deleteTitle: { type: String, default: '' },
   onKeydownFn: { type: Function, default: null },
   flushChannelsSave: { type: Function, default: null },
