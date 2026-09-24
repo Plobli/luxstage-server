@@ -45,10 +45,13 @@ describe('getElementCenter', () => {
     expect(getElementCenter({ type: 'ellipse', x: 7, y: 9, rx: 3, ry: 3 })).toEqual({ x: 7, y: 9 })
     expect(getElementCenter({ type: 'text', x: 7, y: 9 })).toEqual({ x: 7, y: 9 })
   })
-  it('tower/bar/channel: kein Eintrag, Fallback auf x/y (wie Lasso-Auswahl im Original)', () => {
+  it('tower/channel: kein Eintrag, Fallback auf x/y (wie Lasso-Auswahl im Original)', () => {
     expect(getElementCenter({ type: 'tower', x: 3, y: 4 })).toEqual({ x: 3, y: 4 })
-    expect(getElementCenter({ type: 'bar', x: 3, y: 4 })).toEqual({ x: 3, y: 4 })
     expect(getElementCenter({ type: 'channel', x: 3, y: 4 })).toEqual({ x: 3, y: 4 })
+  })
+  it('bar: Mittelpunkt aus x/y + Breite/Höhe (für Rotationsgriff)', () => {
+    expect(getElementCenter({ type: 'bar', x: 3, y: 4 })).toEqual({ x: 83, y: 18 })
+    expect(getElementCenter({ type: 'bar', x: 0, y: 0, w: 100, h: 40 })).toEqual({ x: 50, y: 20 })
   })
 })
 
