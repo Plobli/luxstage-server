@@ -8,10 +8,8 @@
     @update:model-value="handleInput"
     @blur="handleBlur"
     :class="[
-      'block min-h-10 w-full resize-none overflow-hidden rounded border-0 px-3 py-3 text-sm leading-4 text-foreground shadow-none transition-colors placeholder:text-muted-foreground/60 focus-visible:outline-none focus-visible:ring-0',
-      isFocused
-        ? 'bg-primary/10 ring-1 ring-primary/60 cursor-text'
-        : 'bg-transparent cursor-text hover:bg-muted/40 hover:ring-1 hover:ring-border',
+      'block min-h-10 w-full resize-none overflow-hidden rounded-none border-0 bg-transparent px-3 py-3 text-sm leading-4 text-foreground shadow-none transition-colors placeholder:text-muted-foreground/60 cursor-text focus-visible:outline-none focus-visible:ring-0',
+      isFocused ? 'bg-primary/5' : '',
     ]"
   />
 </template>
@@ -39,7 +37,9 @@ function getNativeTextarea() {
 function autoResize() {
   const el = getNativeTextarea()
   if (!el) return
-  // Beide Reads vor dem Write — kein Reflow-Thrashing
+  // Beide Reads vor dem Write — kein Reflow-Thrashing. Höhe folgt nur dem
+  // Inhalt (min-h-10); die vertikale Zentrierung übernimmt der Flex-Wrapper
+  // (items-center) per CSS, wenn die Nachbarspalte höher ist.
   const minHeight = 40
   el.style.height = '0'
   const next = Math.max(minHeight, el.scrollHeight)
