@@ -195,7 +195,7 @@
                 @keydown="onKeydownCol1"
               />
             </div>
-            <div class="w-14 shrink-0">
+            <div class="w-14 shrink-0 border-l border-border/40 pl-1.5">
               <PrioAutocomplete
                 :modelValue="ch.sequence_order"
                 :existingValues="sequenceOrderOptions"

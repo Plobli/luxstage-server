@@ -15,7 +15,7 @@
       @click.stop
       :placeholder="placeholder"
       autocomplete="off"
-      class="h-8 w-full rounded border border-border/40 bg-transparent px-1 py-0 text-center text-sm text-foreground shadow-none focus-visible:outline-none"
+      class="h-full w-full border-0 bg-transparent px-1 py-0 text-center text-sm text-foreground shadow-none placeholder:text-muted-foreground/40 focus-visible:outline-none"
     />
     <ul
       v-if="open && (options.length > 0 || canCreate)"
