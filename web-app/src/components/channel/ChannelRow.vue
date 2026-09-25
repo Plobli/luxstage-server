@@ -95,10 +95,12 @@
           </div>
         </div>
 
-        <!-- Desktop: Reihenfolge -->
+        <!-- Desktop: Prio -->
         <div v-if="!isMobile" class="px-1 py-0 align-middle border-l border-border/40 h-full flex items-center">
-          <NumberSelect
+          <PrioAutocomplete
             :modelValue="ch.sequence_order"
+            :existingValues="sequenceOrderOptions"
+            :placeholder="sequenceOrderPlaceholder"
             @update:modelValue="ch.sequence_order = $event; emit('change')"
           />
         </div>
@@ -193,9 +195,10 @@
                 @keydown="onKeydownCol1"
               />
             </div>
-            <div class="h-8 w-14 shrink-0 rounded border border-border/40">
-              <NumberSelect
+            <div class="w-14 shrink-0">
+              <PrioAutocomplete
                 :modelValue="ch.sequence_order"
+                :existingValues="sequenceOrderOptions"
                 :placeholder="sequenceOrderPlaceholder"
                 @update:modelValue="ch.sequence_order = $event; emit('change')"
               />
@@ -238,7 +241,7 @@ import { Input } from '@/components/ui/input'
 import ColorAutocomplete from '../ColorAutocomplete.vue'
 import ChannelTextarea from './ChannelTextarea.vue'
 import QuantitySelect from './QuantitySelect.vue'
-import NumberSelect from './NumberSelect.vue'
+import PrioAutocomplete from './PrioAutocomplete.vue'
 import { useIsMobile } from '@/composables/useBreakpoint.js'
 import { normalizeDmxAddress } from '@/utils/dmxAddress'
 import { parseMountRef } from '@/utils/mountRef'
@@ -250,6 +253,7 @@ const props = defineProps({
   channelStatus: { type: String, default: 'default' },
   colorPlaceholder: { type: String, default: '' },
   sequenceOrderPlaceholder: { type: String, default: '' },
+  sequenceOrderOptions: { type: Array, default: () => [] },
   deleteTitle: { type: String, default: '' },
   onKeydownFn: { type: Function, default: null },
   flushChannelsSave: { type: Function, default: null },

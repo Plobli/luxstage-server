@@ -6,6 +6,7 @@ export const COL = {
   color:    mm(20),
   address:  mm(16),
   device:   mm(35),
+  prio:     mm(12),
   notes:    0, // Rest (gesamte verbleibende Breite), wird in generatePDF gesetzt
 }
 export const ROW_MIN_H = mm(6)

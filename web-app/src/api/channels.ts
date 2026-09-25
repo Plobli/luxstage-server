@@ -14,7 +14,7 @@ export interface Channel {
   /** JSON-String `{ type, towerId, slotIndex }` oder null — Rückverweis Kanal→Turm-Slot. */
   mount_ref?: string | null;
   quantity?: number;
-  sequence_order?: number | null;
+  sequence_order?: string | null;
 }
 
 export async function fetchChannels(showId: string): Promise<Channel[]> {

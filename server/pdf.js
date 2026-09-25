@@ -67,7 +67,7 @@ export async function generatePDF(data, stream, opts = {}) {
   const pageW = doc.page.width
   const pageH = doc.page.height
   const usableW = pageW - PAGE_MARGIN * 2
-  COL.notes = usableW - COL.channel - COL.color - COL.address - COL.device
+  COL.notes = usableW - COL.channel - COL.color - COL.address - COL.device - COL.prio
 
   const FOOTER_H = mm(8)
   const printableBottom = pageH - PAGE_MARGIN - FOOTER_H
@@ -144,6 +144,7 @@ export async function generatePDF(data, stream, opts = {}) {
     { text: 'Adresse', w: COL.address },
     { text: 'Gerät',   w: COL.device },
     { text: 'Notizen', w: COL.notes },
+    { text: 'Prio',    w: COL.prio },
   ]
 
   let y = PAGE_MARGIN
@@ -182,6 +183,7 @@ export async function generatePDF(data, stream, opts = {}) {
             { text: row.address, w: COL.address, wrap: true },
             { text: row.device,  w: COL.device,  wrap: true },
             { text: '',          w: COL.notes, wrap: true },
+            { text: '',          w: COL.prio },
           ]
         : [
             { text: row.channel, w: COL.channel, bold: true },
@@ -189,6 +191,7 @@ export async function generatePDF(data, stream, opts = {}) {
             { text: row.address, w: COL.address, wrap: true },
             { text: row.device,  w: COL.device,  wrap: true },
             { text: row.notes,   w: COL.notes,   wrap: true },
+            { text: row.sequence_order, w: COL.prio },
           ]
       const rowH = calcRowHeight(doc, rowCols, blank ? mm(9) : ROW_MIN_H)
       if (y + rowH > printableBottom) {
@@ -230,6 +233,7 @@ export async function generatePDF(data, stream, opts = {}) {
       { text: '', w: COL.address, wrap: true },
       { text: '', w: COL.device, wrap: true },
       { text: '', w: COL.notes, wrap: true },
+      { text: '', w: COL.prio },
     ]
     for (let i = 0; i < (opts.newCircuitRows ?? 15); i++) {
       if (y + mm(9) > printableBottom) {

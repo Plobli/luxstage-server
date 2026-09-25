@@ -83,6 +83,7 @@
             :channelStatus="channelStatus(item.ch)"
             :colorPlaceholder="labels.color"
             :sequenceOrderPlaceholder="labels.sequenceOrder"
+            :sequenceOrderOptions="existingSequenceOrders"
             :deleteTitle="labels.delete"
             :onKeydownFn="onKeydownFn"
             :flushChannelsSave="flushChannelsSave"
@@ -211,7 +212,7 @@
               />
             </div>
             <div class="px-2">
-              <NumberSelect v-model="addForm.sequence_order" />
+              <PrioAutocomplete v-model="addForm.sequence_order" :existingValues="existingSequenceOrders" />
             </div>
             <div class="flex items-center justify-center gap-1">
               <Button
@@ -284,7 +285,7 @@ import { Check, X } from 'lucide-vue-next'
 import HelpIcon from '@/components/ui/HelpIcon.vue'
 import Sortable from 'sortablejs'
 import ChannelRow from './ChannelRow.vue'
-import NumberSelect from './NumberSelect.vue'
+import PrioAutocomplete from './PrioAutocomplete.vue'
 import ColorAutocomplete from '../ColorAutocomplete.vue'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -305,6 +306,11 @@ const props = defineProps({
 const rootEl = ref(null)
 const sortableEl = ref(null)
 const isMobile = useContainerIsMobile(rootEl)
+
+const existingSequenceOrders = computed(() => {
+  const values = props.channels.map(c => (c.sequence_order ?? '').toString().trim()).filter(Boolean)
+  return [...new Set(values)].sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
+})
 
 const emit = defineEmits([
   'change',
@@ -459,7 +465,7 @@ function savePosition() {
 // ── Add channel ────────────────────────────────────────────────────────────
 function startAdd(position) {
   addingPosition.value = position
-  addForm.value = { channel: '', address: '', device: '', position, color: '', notes: '', quantity: 1, sequence_order: null }
+  addForm.value = { channel: '', address: '', device: '', position, color: '', notes: '', quantity: 1, sequence_order: '' }
   nextTick(() => {
     rootEl.value?.querySelector('[data-channel-nr-input]')?.focus()
   })
