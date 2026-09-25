@@ -2,14 +2,18 @@
   <div ref="rootEl" class="h-full overflow-x-auto overflow-y-auto bg-card channel-list" style="scrollbar-width: thin;">
     <div class="min-w-230">
     <div class="sticky top-0 z-20 border-b border-border/90 bg-muted shadow-[0_1px_0_rgba(255,255,255,0.04),0_4px_8px_rgba(0,0,0,0.10)]">
-      <div v-if="!isMobile" class="grid min-h-8 grid-cols-[2rem_6rem_5rem_7rem_6rem_minmax(14rem,22%)_1fr_5rem_7rem_2.5rem] items-center border-b border-border/60 text-[10px] font-semibold uppercase tracking-[0.22em] text-foreground/90">
+      <div v-if="!isMobile" class="grid min-h-8 items-center border-b border-border/60 text-[10px] font-semibold uppercase tracking-[0.22em] text-foreground/90" :style="channelGridStyle">
         <div></div>
         <div class="px-3 flex items-center gap-1">{{ labels.channel }}<HelpIcon v-if="labels.channelHelp" :text="labels.channelHelp" /></div>
         <div class="px-3 flex items-center gap-1">{{ labels.dmx }}</div>
         <div class="px-3 flex items-center gap-1">{{ labels.color }}<HelpIcon v-if="labels.colorHelp" :text="labels.colorHelp" /></div>
         <div class="px-3 flex items-center gap-1">{{ labels.quantity }}<HelpIcon v-if="labels.quantityHelp" :text="labels.quantityHelp" /></div>
-        <div class="px-3 flex items-center gap-1">{{ labels.device }}<HelpIcon v-if="labels.deviceHelp" :text="labels.deviceHelp" /></div>
-        <div class="px-3 flex items-center gap-1">{{ labels.notes }}<HelpIcon v-if="labels.notesHelp" :text="labels.notesHelp" /></div>
+        <div class="relative px-3 flex items-center gap-1">{{ labels.device }}<HelpIcon v-if="labels.deviceHelp" :text="labels.deviceHelp" />
+          <div class="col-resize-handle" @mousedown="startResize('device', $event)"></div>
+        </div>
+        <div class="relative px-3 flex items-center gap-1">{{ labels.notes }}<HelpIcon v-if="labels.notesHelp" :text="labels.notesHelp" />
+          <div class="col-resize-handle" @mousedown="startResize('notes', $event)"></div>
+        </div>
         <div class="px-3 flex items-center gap-1">{{ labels.sequenceOrder }}<HelpIcon v-if="labels.sequenceOrderHelp" :text="labels.sequenceOrderHelp" /></div>
         <div class="px-3 flex items-center gap-1">{{ labels.assign }}<HelpIcon v-if="labels.assignHelp" :text="labels.assignHelp" /></div>
         <div></div>
@@ -89,6 +93,7 @@
             :flushChannelsSave="flushChannelsSave"
             :onAddRow="() => startAdd(item.group.position)"
             :isMobileProp="isMobile"
+            :gridStyle="channelGridStyle"
             @change="emit('change')"
             @toggleStatus="toggleChannelStatus(item.ch)"
             @delete="emit('deleteChannel', item.ch)"
@@ -306,6 +311,50 @@ const props = defineProps({
 const rootEl = ref(null)
 const sortableEl = ref(null)
 const isMobile = useContainerIsMobile(rootEl)
+
+// ── Resizable Spalten (Gerät/Notiz) ───────────────────────────────────────
+const DEVICE_WIDTH_KEY = 'channelTable.colWidth.device'
+const NOTES_WIDTH_KEY = 'channelTable.colWidth.notes'
+const deviceWidth = ref(parseInt(localStorage.getItem(DEVICE_WIDTH_KEY)) || 224)
+const notesWidth = ref(parseInt(localStorage.getItem(NOTES_WIDTH_KEY)) || 320)
+
+const channelGridStyle = computed(() => ({
+  gridTemplateColumns: `2rem 6rem 5rem 7rem 6rem ${deviceWidth.value}px ${notesWidth.value}px 5rem 7rem 2.5rem`,
+}))
+
+let resizing = null
+function startResize(col, e) {
+  e.preventDefault()
+  resizing = {
+    col,
+    startX: e.clientX,
+    startWidth: col === 'device' ? deviceWidth.value : notesWidth.value,
+  }
+  window.addEventListener('mousemove', onResizeMove)
+  window.addEventListener('mouseup', stopResize)
+}
+
+function onResizeMove(e) {
+  if (!resizing) return
+  const delta = e.clientX - resizing.startX
+  const width = Math.max(80, resizing.startWidth + delta)
+  if (resizing.col === 'device') deviceWidth.value = width
+  else notesWidth.value = width
+}
+
+function stopResize() {
+  if (!resizing) return
+  localStorage.setItem(DEVICE_WIDTH_KEY, String(deviceWidth.value))
+  localStorage.setItem(NOTES_WIDTH_KEY, String(notesWidth.value))
+  resizing = null
+  window.removeEventListener('mousemove', onResizeMove)
+  window.removeEventListener('mouseup', stopResize)
+}
+
+onBeforeUnmount(() => {
+  window.removeEventListener('mousemove', onResizeMove)
+  window.removeEventListener('mouseup', stopResize)
+})
 
 const existingSequenceOrders = computed(() => {
   const values = props.channels.map(c => (c.sequence_order ?? '').toString().trim()).filter(Boolean)
@@ -548,3 +597,18 @@ watch(() => props.channels.length, () => {
 
 onBeforeUnmount(() => { sortableInstance?.destroy() })
 </script>
+
+<style scoped>
+.col-resize-handle {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 6px;
+  cursor: col-resize;
+  z-index: 10;
+}
+.col-resize-handle:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+</style>

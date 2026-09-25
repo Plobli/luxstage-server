@@ -6,8 +6,8 @@
         :data-nav-row="rowIndex"
         :class="isMobile
           ? `border-t border-border/60 ${rowIndex % 2 === 0 ? 'bg-card' : 'bg-muted/40'}`
-          : 'group/row grid border-t border-border/60 bg-card transition-colors'
-              + ' grid-cols-[2rem_6rem_5rem_7rem_6rem_minmax(14rem,22%)_1fr_5rem_7rem_2.5rem] items-center'"
+          : 'group/row grid border-t border-border/60 bg-card transition-colors items-center'"
+        :style="isMobile ? null : gridStyle"
       >
         <!-- Desktop: Drag handle -->
         <div v-if="!isMobile" class="flex py-0 pl-1 pr-0 align-middle">
@@ -259,6 +259,7 @@ const props = defineProps({
   flushChannelsSave: { type: Function, default: null },
   onAddRow: { type: Function, default: null },
   isMobileProp: { type: Boolean, default: null },
+  gridStyle: { type: Object, default: null },
 })
 
 const emit = defineEmits([
