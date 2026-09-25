@@ -35,7 +35,7 @@
       </template>
     </div>
 
-    <div class="flex items-center gap-x-3 shrink-0 pr-4 sm:pr-6 lg:pr-8">
+    <div class="flex items-center gap-x-1 shrink-0 pr-4 sm:pr-6 lg:pr-8">
       <!-- Mitleser: wer die Show gerade offen hat (rein informativ, keine Sperre) -->
       <div v-if="presentUsers.length" class="hidden sm:flex items-center -space-x-1.5">
         <Tooltip v-for="u in presentUsers" :key="u.username">
@@ -105,22 +105,6 @@
         </DropdownMenuContent>
       </DropdownMenu>
 
-      <!-- Nur weiße (nicht importierte) Kreise ausblenden -->
-      <Tooltip v-if="activeTab === 'channels' && hasEosImport">
-        <TooltipTrigger asChild>
-          <Button
-            variant="ghost"
-            size="icon"
-            :class="{ 'text-amber-400 bg-amber-500/10 hover:bg-amber-500/20': hideEosInactive }"
-            class="hidden lg:flex h-8 w-8 text-muted-foreground"
-            @click="emit('update:hideEosInactive', !hideEosInactive)"
-          >
-            <component :is="hideEosInactive ? EyeOff : Eye" class="size-4" /><span class="sr-only">{{ labels.hideEosInactive }}</span>
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent side="bottom"><p>{{ labels.hideEosInactive }}</p></TooltipContent>
-      </Tooltip>
-
       <!-- Kreise ohne Notiz ausblenden -->
       <Tooltip v-if="activeTab === 'channels'">
         <TooltipTrigger asChild>
@@ -175,8 +159,6 @@ defineProps({
   search: { type: String, default: '' },
   healthStats: { type: Object, default: () => ({ noNotes: 0, noDevice: 0, noAddress: 0, incomplete: 0 }) },
   healthLabels: { type: Object, default: null },
-  hasEosImport: { type: Boolean, default: false },
-  hideEosInactive: { type: Boolean, default: false },
   hideEmptyNotes: { type: Boolean, default: false },
   helpText: { type: String, default: '' },
   helpCollapsed: { type: Boolean, default: false },
@@ -191,7 +173,7 @@ function initials(username) {
   return (parts.slice(0, 2).map(p => p[0]).join('') || '?').toUpperCase()
 }
 
-const emit = defineEmits(['update:search', 'update:hideEosInactive', 'update:hideEmptyNotes', 'update:helpCollapsed', 'undo', 'redo', 'healthFilter', 'filterDup', 'requestTakeover', 'forceTakeover'])
+const emit = defineEmits(['update:search', 'update:hideEmptyNotes', 'update:helpCollapsed', 'undo', 'redo', 'healthFilter', 'filterDup', 'requestTakeover', 'forceTakeover'])
 
 
 </script>

@@ -62,8 +62,6 @@
         :dupChannelWarning="dupChannelWarning"
         :healthStats="healthStats"
         :healthLabels="healthLabels"
-        :hasEosImport="!!eosActiveChannels"
-        v-model:hideEosInactive="hideEosInactive"
         v-model:hideEmptyNotes="hideEmptyNotes"
         :helpText="viewHelp?.text"
         v-model:helpCollapsed="helpCollapsed"
@@ -78,7 +76,6 @@
           legendDefault: t('channel.legend.default'),
           legendActive: t('channel.legend.active'),
           legendEos: t('channel.legend.eos'),
-          hideEosInactive: t('channel.hide_eos_inactive'),
           hideEmptyNotes: t('channel.hide_empty_notes'),
           lockedBy: lock?.user ? t('lock.lockedBy', { user: lock.user }) : '',
           forceTakeoverIn: (s) => t('lock.forceTakeoverIn', { seconds: s }),
@@ -538,7 +535,7 @@ let afterUndoRedoImpl = null
 
 const {
   channels, channelsSaving, channelsSaveError, search, healthFilter, activateHealthFilter, eosActiveChannels, eosExcludedChannels, eosMergePreview,
-  dupWarning, dupChannelWarning, dupChannelNrs, dupFilter, hideEosInactive, hideEmptyNotes, groupedChannels,
+  dupWarning, dupChannelWarning, dupChannelNrs, dupFilter, hideEmptyNotes, groupedChannels,
   scheduleChannelsSave, persistChannels, deleteChannel, clearChannel, flushChannelsSave,
   onCsvImportSelected, onCircuitScanFileSelected, circuitScanUploading, circuitScanStatus, circuitScanPreview, resolveCircuitScanPreview, onEosFileSelected, resolveEosMergePreview,
   onPlanScanFileSelected, planScanUploading, planScanStatus, planScanPreview, resolvePlanScanPreview,
@@ -678,9 +675,9 @@ const viewHelp = computed(() => {
   return null
 })
 
-const helpCollapsed = ref(false)
+const helpCollapsed = ref(true)
 watch(() => viewHelp.value?.key, (key) => {
-  helpCollapsed.value = key ? localStorage.getItem(`viewHelp.collapsed.${key}`) === '1' : false
+  helpCollapsed.value = key ? localStorage.getItem(`viewHelp.collapsed.${key}`) !== '0' : true
 }, { immediate: true })
 
 const { unit, cmToDisplay, formatLength } = useMeasureUnit()
