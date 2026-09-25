@@ -9,12 +9,16 @@ export function drawTowerCards(doc, towers, channels, margin, usableW, startY, b
   const CARD_PAD = mm(3)
   const CARD_HEADER_H = mm(10)
   const SLOT_H = mm(6.5)
+  const SLOT_NOTE_H = mm(3.5)
   const CIRCLE_R = mm(2.8)
+  const TOWER_NOTE_H = mm(6)
 
-  // Kartenhöhe berechnen
+  // Kartenhöhe berechnen — inkl. Extra-Zeile je Slot mit Notiz und Turm-Notiz
   function cardHeight(tower) {
-    const slotCount = (tower.slots ?? []).length
-    return CARD_HEADER_H + slotCount * SLOT_H + mm(2)
+    const slots = tower.slots ?? []
+    const noteRows = slots.filter(s => s.channel_id && s.notes?.trim()).length
+    const towerNoteH = tower.notes?.trim() ? TOWER_NOTE_H : 0
+    return CARD_HEADER_H + slots.length * SLOT_H + noteRows * SLOT_NOTE_H + towerNoteH + mm(2)
   }
 
   let col = 0
@@ -75,24 +79,19 @@ export function drawTowerCards(doc, towers, channels, margin, usableW, startY, b
       // Slot-Trennlinie
       doc.moveTo(cx + mm(1), sy).lineTo(cx + cardW - mm(1), sy).lineWidth(0.3).stroke('#dddddd').lineWidth(1)
 
-      // Slot-Index
-      doc.font(FONT_NORMAL).fontSize(6).fillColor('#aaaaaa')
-        .text(String(slot.slot_index), cx + mm(2), sy + (SLOT_H - mm(2.5)) / 2, { width: mm(4), align: 'right', lineBreak: false })
-
       if (ch) {
         // Kanal-Kreis
-        const circleCx = cx + mm(9)
+        const circleCx = cx + mm(6)
         const circleCy = sy + SLOT_H / 2
         doc.circle(circleCx, circleCy, CIRCLE_R).fill('#dc3740')
         doc.font(FONT_BOLD).fontSize(6)
-        const textH = doc.currentLineHeight()
-        doc.fillColor('white').text(String(ch.channel), circleCx - CIRCLE_R, circleCy - textH / 2 - mm(0.3), { width: CIRCLE_R * 2, align: 'center', lineBreak: false })
+        doc.fillColor('white').text(String(ch.channel), circleCx - CIRCLE_R, circleCy - mm(1.05), { width: CIRCLE_R * 2, align: 'center', lineBreak: false })
         doc.fillColor('black')
 
         // Farbcode-Badge
         if (ch.color) {
           const hex = leeHex(ch.color)
-          const badgeX = cx + mm(14)
+          const badgeX = cx + mm(11)
           const badgeW = mm(12)
           const badgeH = mm(4)
           const badgeY = sy + (SLOT_H - badgeH) / 2
@@ -110,18 +109,32 @@ export function drawTowerCards(doc, towers, channels, margin, usableW, startY, b
         }
 
         // Gerätename
-        const deviceX = cx + mm(28)
-        const deviceW = cardW - mm(28) - CARD_PAD
+        const deviceX = cx + mm(25)
+        const deviceW = cardW - mm(25) - CARD_PAD
         if (ch.device && deviceW > mm(5)) {
           doc.font(FONT_NORMAL).fontSize(6.5).fillColor('#333333')
             .text(ch.device, deviceX, sy + (SLOT_H - mm(2.5)) / 2, { width: deviceW, lineBreak: false, ellipsis: true })
         }
       } else {
         doc.font(FONT_NORMAL).fontSize(6.5).fillColor('#cccccc')
-          .text('—', cx + mm(9), sy + (SLOT_H - mm(2.5)) / 2, { width: cardW - mm(12), lineBreak: false })
+          .text('—', cx + mm(6), sy + (SLOT_H - mm(2.5)) / 2, { width: cardW - mm(9), lineBreak: false })
       }
 
       sy += SLOT_H
+
+      // Slot-Notiz als eigene Zeile darunter
+      if (ch && slot.notes?.trim()) {
+        doc.font(FONT_NORMAL).fontSize(6).fillColor('#666666')
+          .text(slot.notes, cx + mm(6), sy + mm(0.3), { width: cardW - mm(6) - CARD_PAD, lineBreak: false, ellipsis: true })
+        sy += SLOT_NOTE_H
+      }
+    }
+
+    // Turm-Notiz am unteren Kartenrand
+    if (tower.notes?.trim()) {
+      doc.moveTo(cx + mm(1), sy).lineTo(cx + cardW - mm(1), sy).lineWidth(0.3).stroke('#dddddd').lineWidth(1)
+      doc.font(FONT_NORMAL).fontSize(6.5).fillColor('#555555')
+        .text(tower.notes, cx + mm(2), sy + mm(1.3), { width: cardW - mm(4), lineBreak: false, ellipsis: true })
     }
 
     rowCards.push({ h: cardH })
@@ -144,9 +157,10 @@ export function renderGassenturmText(doc, towers, channels, margin, usableW, sta
     const header = [tower.name, tower.stage_area, tower.side].filter(Boolean).join(' ')
     const parts = filled.map(slot => {
       const ch = channels.find(c => c.id === slot.channel_id)
-      return [`V.${ch?.channel ?? '?'}`, ch?.device, fmtColor(ch?.color)].filter(Boolean).join(' ')
+      return [`V.${ch?.channel ?? '?'}`, ch?.device, fmtColor(ch?.color), slot.notes?.trim() || undefined].filter(Boolean).join(' ')
     })
-    const line = `${header}: ${parts.join(', ')}`
+    let line = `${header}: ${parts.join(', ')}`
+    if (tower.notes?.trim()) line += ` • ${tower.notes}`
 
     const lineH = doc.font(FONT_NORMAL).fontSize(8.5).heightOfString(line, { width: usableW }) + mm(1)
     if (ty + lineH > bottomLimit) { doc.addPage(); addFooter(); ty = PAGE_MARGIN }
