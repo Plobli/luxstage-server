@@ -19,7 +19,7 @@
     />
     <ul
       v-if="open && (options.length > 0 || canCreate)"
-      class="absolute left-0 z-50 w-40 max-h-56 overflow-y-auto rounded-md bg-popover text-popover-foreground border border-border shadow-xl text-sm"
+      class="absolute left-0 z-50 min-w-full w-max max-w-28 max-h-56 overflow-y-auto rounded-md bg-popover text-popover-foreground border border-border shadow-xl text-sm"
       :class="openUpward ? 'bottom-full mb-1' : 'top-full mt-1'"
     >
       <li
