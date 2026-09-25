@@ -725,13 +725,12 @@ const healthStats = computed(() => {
   const chs = channels.value
   return {
     noNotes:    chs.filter(c => !(c.notes ?? '').trim()).length,
-    noDevice:   chs.filter(c => !(c.device ?? '').trim()).length,
-    noPosition: chs.filter(c => !(c.position ?? '').trim()).length,
-    noAddress:  chs.filter(c => !(c.address ?? '').trim()).length,
-    // Kanäle mit mindestens einer Lücke — keine Summe der Einzelwerte,
-    // sonst würde ein Kanal mit mehreren fehlenden Angaben mehrfach zählen.
+    // Nur Kanäle mit Notizen zählen als unvollständig — Bühnenposition
+    // wird nicht mehr bewarnt.
+    noDevice:   chs.filter(c => (c.notes ?? '').trim() && !(c.device ?? '').trim()).length,
+    noAddress:  chs.filter(c => (c.notes ?? '').trim() && !(c.address ?? '').trim()).length,
     incomplete: chs.filter(c =>
-      !(c.device ?? '').trim() || !(c.position ?? '').trim() || !(c.address ?? '').trim()
+      (c.notes ?? '').trim() && (!(c.device ?? '').trim() || !(c.address ?? '').trim())
     ).length,
   }
 })
@@ -742,7 +741,6 @@ const healthLabels = computed(() => ({
   incomplete: t('health.incomplete'),
   noNotes:    t('health.noNotes'),
   noDevice:   t('health.noDevice'),
-  noPosition: t('health.noPosition'),
   noAddress:  t('health.noAddress'),
 }))
 

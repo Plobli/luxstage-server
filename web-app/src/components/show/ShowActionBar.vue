@@ -82,10 +82,6 @@
             <span class="text-muted-foreground">{{ healthLabels?.noDevice }}</span>
             <span class="tabular-nums font-semibold text-yellow-400 shrink-0">{{ healthStats.noDevice }}</span>
           </DropdownMenuItem>
-          <DropdownMenuItem v-if="healthStats.noPosition > 0" class="cursor-pointer flex items-center justify-between gap-2 text-xs focus:bg-accent focus:[&>span]:!text-accent-foreground" @click="emit('healthFilter', 'noPosition')">
-            <span class="text-muted-foreground">{{ healthLabels?.noPosition }}</span>
-            <span class="tabular-nums font-semibold text-yellow-400 shrink-0">{{ healthStats.noPosition }}</span>
-          </DropdownMenuItem>
           <DropdownMenuItem v-if="healthStats.noAddress > 0" class="cursor-pointer flex items-center justify-between gap-2 text-xs focus:bg-accent focus:[&>span]:!text-accent-foreground" @click="emit('healthFilter', 'noAddress')">
             <span class="text-muted-foreground">{{ healthLabels?.noAddress }}</span>
             <span class="tabular-nums font-semibold text-yellow-400 shrink-0">{{ healthStats.noAddress }}</span>
@@ -177,7 +173,7 @@ defineProps({
   dupAddressWarning: { type: Boolean, default: false },
   dupChannelWarning: { type: Boolean, default: false },
   search: { type: String, default: '' },
-  healthStats: { type: Object, default: () => ({ noNotes: 0, noDevice: 0, noPosition: 0, noAddress: 0, incomplete: 0 }) },
+  healthStats: { type: Object, default: () => ({ noNotes: 0, noDevice: 0, noAddress: 0, incomplete: 0 }) },
   healthLabels: { type: Object, default: null },
   hasEosImport: { type: Boolean, default: false },
   hideEosInactive: { type: Boolean, default: false },

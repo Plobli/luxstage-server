@@ -141,7 +141,7 @@ export function useShowChannels({
   }
 
   const search = ref('')
-  const healthFilter = ref<'noDevice' | 'noPosition' | 'noAddress' | 'incomplete' | null>(null)
+  const healthFilter = ref<'noDevice' | 'noAddress' | 'incomplete' | null>(null)
   // Eingefrorene Kanal-IDs beim Aktivieren des Filters — reagiert nicht auf Tipp-Änderungen
   const healthFilterSnapshot = ref<Set<string> | null>(null)
   
@@ -242,13 +242,12 @@ export function useShowChannels({
   const dupChannelWarning = computed(() => dupChannelNrs.value.size > 0)
 
   const healthFilterFns: Record<string, (ch: Channel) => boolean> = {
-    noDevice:   ch => !(ch.device ?? '').trim(),
-    noPosition: ch => !(ch.position ?? '').trim(),
-    noAddress:  ch => !(ch.address ?? '').trim(),
-    incomplete: ch => !(ch.device ?? '').trim() || !(ch.position ?? '').trim() || !(ch.address ?? '').trim(),
+    noDevice:   ch => !!(ch.notes ?? '').trim() && !(ch.device ?? '').trim(),
+    noAddress:  ch => !!(ch.notes ?? '').trim() && !(ch.address ?? '').trim(),
+    incomplete: ch => !!(ch.notes ?? '').trim() && (!(ch.device ?? '').trim() || !(ch.address ?? '').trim()),
   }
 
-  function activateHealthFilter(type: 'noDevice' | 'noPosition' | 'noAddress' | 'incomplete' | null): void {
+  function activateHealthFilter(type: 'noDevice' | 'noAddress' | 'incomplete' | null): void {
     healthFilter.value = type
     if (type && healthFilterFns[type]) {
       healthFilterSnapshot.value = new Set(
