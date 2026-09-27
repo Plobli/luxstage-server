@@ -9,8 +9,13 @@
           : 'group/row grid border-t border-border/60 bg-card transition-colors items-center'"
         :style="isMobile ? null : gridStyle"
       >
-        <!-- Desktop: Drag handle -->
-        <div v-if="!isMobile" class="flex py-0 pl-1 pr-0 align-middle">
+        <!-- Desktop: Checkbox + Drag handle -->
+        <div v-if="!isMobile" class="flex items-center py-0 pl-2.5 pr-0 align-middle gap-0.5">
+          <Checkbox
+            :modelValue="selected"
+            class="no-print border-border!"
+            @update:modelValue="emit('update:selected', $event)"
+          />
           <div class="drag-handle no-print flex size-6 cursor-grab items-center justify-center rounded-sm text-muted-foreground/70 opacity-0 transition-all active:cursor-grabbing group-hover/row:opacity-100 hover:bg-muted/40">
             <GripVertical class="size-3.5" />
           </div>
@@ -164,6 +169,11 @@
         <div v-if="isMobile" class="flex flex-col gap-0 py-0 px-0 w-full">
           <!-- Row 1: Channel / Address | Color -->
           <div class="flex gap-2 items-center px-3 py-1.5 border-l-2 border-l-border/40">
+            <Checkbox
+              :modelValue="selected"
+              class="no-print border-border!"
+              @update:modelValue="emit('update:selected', $event)"
+            />
             <div class="flex items-center gap-0.5 flex-1">
               <Input
                 v-model="ch.channel"
@@ -235,6 +245,7 @@ import { useLocale } from '@/composables/useLocale.js'
 const { t } = useLocale()
 import { GripVertical, X, Layers, MapPin, AlignJustify, TowerControl } from 'lucide-vue-next'
 import { Button } from '@/components/ui/button'
+import Checkbox from '@/components/ui/checkbox/Checkbox.vue'
 import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from '@/components/ui/alert-dialog'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { Input } from '@/components/ui/input'
@@ -260,12 +271,14 @@ const props = defineProps({
   onAddRow: { type: Function, default: null },
   isMobileProp: { type: Boolean, default: null },
   gridStyle: { type: Object, default: null },
+  selected: { type: Boolean, default: false },
 })
 
 const emit = defineEmits([
   'change',
   'toggleStatus', 'delete', 'clear',
   'placeInFloorplan', 'assignTower', 'assignBar',
+  'update:selected',
 ])
 
 const deleteDialogOpen = ref(false)

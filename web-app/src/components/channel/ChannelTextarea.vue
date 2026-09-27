@@ -15,7 +15,7 @@
 </template>
 
 <script setup>
-import { nextTick, onMounted, ref, onBeforeUnmount } from 'vue'
+import { nextTick, onMounted, ref, onBeforeUnmount, watch } from 'vue'
 import { Textarea } from '@/components/ui/textarea'
 
 defineOptions({ inheritAttrs: false })
@@ -79,6 +79,10 @@ onMounted(() => {
 
   nextTick(autoResize)
 })
+
+// Externe Änderungen (z.B. Bulk-Edit über Auswahl) lösen kein input-Event
+// aus, also muss die Höhe hier nachgezogen werden.
+watch(() => props.modelValue, () => nextTick(autoResize))
 
 onBeforeUnmount(() => {
   resizeObserver?.disconnect()
