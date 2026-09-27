@@ -135,4 +135,8 @@ function moveDown() {
 function moveUp() {
   activeIdx.value = Math.max(activeIdx.value - 1, 0)
 }
+
+defineExpose({
+  focus: () => inputRef.value?.focus(),
+})
 </script>

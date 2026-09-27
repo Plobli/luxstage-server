@@ -2,58 +2,6 @@
   <div ref="rootEl" class="h-full overflow-x-auto overflow-y-auto bg-card channel-list" style="scrollbar-width: thin;">
     <div class="min-w-230">
     <div class="sticky top-0 z-20 border-b border-border/90 bg-muted shadow-[0_1px_0_rgba(255,255,255,0.04),0_4px_8px_rgba(0,0,0,0.10)]">
-      <div v-if="selectedKeys.size > 0" class="flex flex-nowrap items-center gap-1.5 border-b border-border/60 bg-muted px-3 py-1">
-        <span class="shrink-0 text-[11px] font-medium text-muted-foreground whitespace-nowrap">{{ t('channel.bulk.selected_count', { count: selectedKeys.size }) }}</span>
-        <input
-          v-model="bulkNotes"
-          type="text"
-          :placeholder="t('channel.bulk.notes_placeholder')"
-          class="h-7 w-72 shrink-0 rounded-sm border-0 bg-card px-2 text-xs leading-7 text-foreground shadow-none placeholder:text-muted-foreground/60 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-border"
-        />
-        <Button variant="ghost" size="sm" class="h-7 shrink-0 rounded-sm px-2 text-[11px] text-muted-foreground hover:text-accent-foreground" :disabled="!bulkNotes" :title="t('channel.bulk.notes_append_help')" @click="applyBulkNotes(true)">{{ t('channel.bulk.notes_append') }}</Button>
-        <Button variant="ghost" size="sm" class="h-7 shrink-0 rounded-sm px-2 text-[11px] text-muted-foreground hover:text-accent-foreground" :disabled="!bulkNotes" :title="t('channel.bulk.notes_replace_help')" @click="applyBulkNotes(false)">{{ t('channel.bulk.notes_replace') }}</Button>
-        <input
-          v-model="bulkPrio"
-          type="text"
-          list="bulk-prio-options"
-          :placeholder="t('channel.bulk.prio_placeholder')"
-          class="h-7 w-16 shrink-0 rounded-sm border-0 bg-card px-2 text-center text-xs leading-7 text-foreground shadow-none placeholder:text-muted-foreground/60 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-border"
-          @change="applyBulkPrio(bulkPrio)"
-        />
-        <datalist id="bulk-prio-options">
-          <option v-for="opt in existingSequenceOrders" :key="opt" :value="opt" />
-        </datalist>
-        <Button variant="ghost" size="sm" class="h-7 shrink-0 rounded-sm px-2 text-[11px] text-muted-foreground hover:text-accent-foreground" @click="bulkClearDialogOpen = true">{{ t('channel.row.clear') }}</Button>
-        <Button variant="ghost" size="sm" class="h-7 shrink-0 rounded-sm px-2 text-[11px] text-muted-foreground hover:text-destructive" @click="bulkDeleteDialogOpen = true">{{ t('channel.row.delete_row') }}</Button>
-        <div class="flex-1"></div>
-        <Button variant="ghost" size="sm" class="h-7 shrink-0 rounded-sm px-2 text-[11px] text-muted-foreground hover:text-accent-foreground" @click="clearSelection">{{ t('channel.bulk.clear_selection') }}</Button>
-      </div>
-
-      <AlertDialog :open="bulkClearDialogOpen" @update:open="val => { if (!val) bulkClearDialogOpen = false }">
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>{{ t('channel.bulk.clear_confirm_title') }}</AlertDialogTitle>
-            <AlertDialogDescription>{{ t('channel.bulk.clear_confirm_desc', { count: selectedKeys.size }) }}</AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter class="flex-col sm:flex-row gap-2">
-            <AlertDialogCancel @click="bulkClearDialogOpen = false">{{ t('action.cancel') }}</AlertDialogCancel>
-            <AlertDialogAction @click="() => { bulkClearDialogOpen = false; applyBulkClear() }">{{ t('channel.row.clear') }}</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      <AlertDialog :open="bulkDeleteDialogOpen" @update:open="val => { if (!val) bulkDeleteDialogOpen = false }">
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>{{ t('channel.bulk.delete_confirm_title') }}</AlertDialogTitle>
-            <AlertDialogDescription>{{ t('channel.bulk.delete_confirm_desc', { count: selectedKeys.size }) }}</AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter class="flex-col sm:flex-row gap-2">
-            <AlertDialogCancel @click="bulkDeleteDialogOpen = false">{{ t('action.cancel') }}</AlertDialogCancel>
-            <AlertDialogAction class="bg-destructive text-destructive-foreground hover:bg-destructive/90" @click="() => { bulkDeleteDialogOpen = false; applyBulkDelete() }">{{ t('channel.row.delete_row') }}</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
       <div v-if="!isMobile" class="grid min-h-8 items-center border-b border-border/60 text-[10px] font-semibold uppercase tracking-[0.22em] text-foreground/90" :style="channelGridStyle">
         <div class="flex items-center pl-2.5">
           <Checkbox
@@ -67,11 +15,9 @@
         <div class="px-3 flex items-center gap-1">{{ labels.color }}<HelpIcon v-if="labels.colorHelp" :text="labels.colorHelp" /></div>
         <div class="px-3 flex items-center gap-1">{{ labels.quantity }}<HelpIcon v-if="labels.quantityHelp" :text="labels.quantityHelp" /></div>
         <div class="relative px-3 flex items-center gap-1">{{ labels.device }}<HelpIcon v-if="labels.deviceHelp" :text="labels.deviceHelp" />
-          <div class="col-resize-handle" @mousedown="startResize('device', $event)"></div>
+          <div class="col-resize-handle" @mousedown="startResize"></div>
         </div>
-        <div class="relative px-3 flex items-center gap-1">{{ labels.notes }}<HelpIcon v-if="labels.notesHelp" :text="labels.notesHelp" />
-          <div class="col-resize-handle" @mousedown="startResize('notes', $event)"></div>
-        </div>
+        <div class="px-3 flex items-center gap-1">{{ labels.notes }}<HelpIcon v-if="labels.notesHelp" :text="labels.notesHelp" /></div>
         <div class="px-3 flex items-center gap-1">{{ labels.sequenceOrder }}<HelpIcon v-if="labels.sequenceOrderHelp" :text="labels.sequenceOrderHelp" /></div>
         <div class="px-3 flex items-center gap-1">{{ labels.assign }}<HelpIcon v-if="labels.assignHelp" :text="labels.assignHelp" /></div>
         <div></div>
@@ -340,24 +286,34 @@
         </DialogFooter>
       </DialogContent>
     </Dialog>
+
+    <ChannelBulkBar
+      :channels="channels"
+      :selectedKeys="selectedKeys"
+      :keyFn="ensureStableChannelKey"
+      :flushChannelsSave="flushChannelsSave"
+      @update:selectedKeys="selectedKeys = $event"
+      @change="emit('change')"
+      @deleteChannel="emit('deleteChannel', $event)"
+      @clearChannel="emit('clearChannel', $event)"
+    />
   </div>
 </template>
 
 <script setup>
 import { ref, computed, watch, nextTick, onMounted, onBeforeUnmount } from 'vue'
-import { useLocale } from '@/composables/useLocale.js'
 import { useContainerIsMobile } from '@/composables/useContainerIsMobile'
 import { Check, X } from 'lucide-vue-next'
 import HelpIcon from '@/components/ui/HelpIcon.vue'
 import Sortable from 'sortablejs'
 import ChannelRow from './ChannelRow.vue'
+import ChannelBulkBar from './ChannelBulkBar.vue'
 import PrioAutocomplete from './PrioAutocomplete.vue'
 import ColorAutocomplete from '../ColorAutocomplete.vue'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogBody } from '@/components/ui/dialog'
-import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from '@/components/ui/alert-dialog'
 import Checkbox from '@/components/ui/checkbox/Checkbox.vue'
 
 const props = defineProps({
@@ -371,29 +327,22 @@ const props = defineProps({
   labels: { type: Object, required: true },
 })
 
-const { t } = useLocale()
 const rootEl = ref(null)
 const sortableEl = ref(null)
 const isMobile = useContainerIsMobile(rootEl)
 
-// ── Resizable Spalten (Gerät/Notiz) ───────────────────────────────────────
+// ── Resizable Spalte (nur Gerät) ──────────────────────────────────────────
 const DEVICE_WIDTH_KEY = 'channelTable.colWidth.device'
-const NOTES_WIDTH_KEY = 'channelTable.colWidth.notes'
 const deviceWidth = ref(parseInt(localStorage.getItem(DEVICE_WIDTH_KEY)) || 224)
-const notesWidth = ref(parseInt(localStorage.getItem(NOTES_WIDTH_KEY)) || 320)
 
 const channelGridStyle = computed(() => ({
-  gridTemplateColumns: `2.75rem 6rem 5rem 7rem 6rem ${deviceWidth.value}px ${notesWidth.value}px 5rem 7rem 2.5rem`,
+  gridTemplateColumns: `2.75rem 6rem 5rem 7rem 6rem ${deviceWidth.value}px minmax(16rem, 1fr) 5rem 7rem 2.5rem`,
 }))
 
 let resizing = null
-function startResize(col, e) {
+function startResize(e) {
   e.preventDefault()
-  resizing = {
-    col,
-    startX: e.clientX,
-    startWidth: col === 'device' ? deviceWidth.value : notesWidth.value,
-  }
+  resizing = { startX: e.clientX, startWidth: deviceWidth.value }
   window.addEventListener('mousemove', onResizeMove)
   window.addEventListener('mouseup', stopResize)
 }
@@ -401,15 +350,12 @@ function startResize(col, e) {
 function onResizeMove(e) {
   if (!resizing) return
   const delta = e.clientX - resizing.startX
-  const width = Math.max(80, resizing.startWidth + delta)
-  if (resizing.col === 'device') deviceWidth.value = width
-  else notesWidth.value = width
+  deviceWidth.value = Math.max(80, resizing.startWidth + delta)
 }
 
 function stopResize() {
   if (!resizing) return
   localStorage.setItem(DEVICE_WIDTH_KEY, String(deviceWidth.value))
-  localStorage.setItem(NOTES_WIDTH_KEY, String(notesWidth.value))
   resizing = null
   window.removeEventListener('mousemove', onResizeMove)
   window.removeEventListener('mouseup', stopResize)
@@ -425,12 +371,9 @@ const existingSequenceOrders = computed(() => {
   return [...new Set(values)].sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
 })
 
+
 // ── Bulk-Auswahl ───────────────────────────────────────────────────────────
 const selectedKeys = ref(new Set())
-const bulkNotes = ref('')
-const bulkPrio = ref('')
-const bulkClearDialogOpen = ref(false)
-const bulkDeleteDialogOpen = ref(false)
 
 const allSelected = computed(() => props.channels.length > 0 && selectedKeys.value.size === props.channels.length)
 
@@ -446,53 +389,6 @@ function toggleSelectAll(checked) {
   selectedKeys.value = checked
     ? new Set(props.channels.map(ensureStableChannelKey))
     : new Set()
-}
-
-function clearSelection() {
-  selectedKeys.value = new Set()
-  bulkNotes.value = ''
-  bulkPrio.value = ''
-}
-
-function selectedChannels() {
-  return props.channels.filter(c => selectedKeys.value.has(ensureStableChannelKey(c)))
-}
-
-function applyBulkNotes(append) {
-  const text = bulkNotes.value.trim()
-  if (!text) return
-  for (const ch of selectedChannels()) {
-    if (append) {
-      const existing = (ch.notes ?? '').trim()
-      ch.notes = existing ? `${existing} ${text}` : text
-    } else {
-      ch.notes = text
-    }
-  }
-  bulkNotes.value = ''
-  emit('change')
-  props.flushChannelsSave?.()
-}
-
-function applyBulkPrio(value) {
-  const prio = (value ?? '').trim()
-  if (!prio) return
-  for (const ch of selectedChannels()) {
-    ch.sequence_order = prio
-  }
-  emit('change')
-}
-
-function applyBulkClear() {
-  const chs = selectedChannels()
-  for (const ch of chs) emit('clearChannel', ch)
-  clearSelection()
-}
-
-function applyBulkDelete() {
-  const chs = selectedChannels()
-  for (const ch of chs) emit('deleteChannel', ch)
-  clearSelection()
 }
 
 const emit = defineEmits([

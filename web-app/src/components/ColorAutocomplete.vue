@@ -238,4 +238,8 @@ function selectActive() {
   if (activeIdx.value === -1 && showNcOption.value) { selectNc(); return }
   if (filtered.value[activeIdx.value]) select(filtered.value[activeIdx.value])
 }
+
+defineExpose({
+  focus: () => rootEl.value?.querySelector('input')?.focus(),
+})
 </script>
