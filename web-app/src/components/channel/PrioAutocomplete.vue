@@ -15,7 +15,8 @@
       @click.stop
       :placeholder="placeholder"
       autocomplete="off"
-      class="h-full w-full border-0 bg-transparent px-1 py-0 text-center text-sm text-foreground shadow-none placeholder:text-muted-foreground/40 focus-visible:outline-none"
+      :style="badgeStyle"
+      class="h-full w-full rounded border-0 px-1 py-0 text-center text-sm font-medium shadow-none placeholder:text-muted-foreground/40 focus-visible:outline-none"
     />
     <ul
       v-if="open && (options.length > 0 || canCreate)"
@@ -45,6 +46,7 @@
 
 <script setup>
 import { ref, computed, watch } from 'vue'
+import { sequenceOrderColor, contrastColor } from '@shared/color.js'
 
 const props = defineProps({
   modelValue: { type: String, default: '' },
@@ -64,6 +66,13 @@ const DROPDOWN_MAX_HEIGHT = 224 // max-h-56
 const localInput = ref('')
 
 const displayValue = computed(() => isEditing.value ? localInput.value : (props.modelValue || ''))
+
+const badgeStyle = computed(() => {
+  if (isEditing.value) return {}
+  const bg = sequenceOrderColor(props.modelValue)
+  if (!bg) return {}
+  return { backgroundColor: bg, color: contrastColor(bg) }
+})
 
 const options = computed(() => {
   const q = localInput.value.trim().toLowerCase()

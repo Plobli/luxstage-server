@@ -191,7 +191,7 @@ export async function generatePDF(data, stream, opts = {}) {
             { text: row.address, w: COL.address, wrap: true },
             { text: row.device,  w: COL.device,  wrap: true },
             { text: row.notes,   w: COL.notes,   wrap: true },
-            { text: row.sequence_order, w: COL.prio },
+            { text: row.sequence_order, w: COL.prio, badge: true },
           ]
       const rowH = calcRowHeight(doc, rowCols, blank ? mm(9) : ROW_MIN_H)
       if (y + rowH > printableBottom) {

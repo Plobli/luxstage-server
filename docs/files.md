@@ -52,6 +52,7 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 | `./shared/locales/en.json` | Übersetzungen für englische Oberfläche. |
 | `./shared/filters.json` | Farbfilter-Datenbank (Lee, Rosco etc.) mit Hex-Codes. |
 | `./shared/constants.js` | Gemeinsame Konstanten und Prüffunktionen für Server und Web-App: `PASSWORD_MIN_LENGTH`, `isValidEmail`, Section-Typen (`sectionTypeHasRows`, `isSectionTableType`). |
+| `./shared/color.js` | Gemeinsame Farblogik für Server (PDF) und Web-App: `contrastColor` (Schwarz/Weiß-Text auf Hintergrund), `sequenceOrderColor` (Prio/Reihenfolge-Wert → feste Badge-Farbe aus Palette). |
 
 ## operator-panel/ (Betreiber-Panel, eigenständiger Service)
 
@@ -88,7 +89,7 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 | `./server/pdf.js` | PDF-Export für Einleuchtpläne: Orchestrierung (Titel, Sections, Kanalliste, Grundriss, Fotos). `generatePDF(data, stream, opts)` rendert in einen beliebigen Writable-Stream und kennt kein HTTP — Response-Header setzt der Aufrufer, Dateiname über `pdfFilename()`. Optionaler Vordruck-Modus (`opts.blank`) für handschriftlich auszufüllende Kreislisten (Filter/Notizen leer, Leerzeilen je Position, Block „Neue Kreise”); Rendering-Details in `pdf/`. |
 | `./server/pdf/constants.js` | Gemeinsame Layout-Konstanten (Maße, Farben, Fonts) für den PDF-Export. |
 | `./server/pdf/filter-colors.js` | Lee/Rosco-Filter-Code zu Hex-Farbe, Kontrastfarben-Berechnung. |
-| `./server/pdf/layout-primitives.js` | Low-Level-Zeichenhelfer für Tabellenzeilen und Key-Value-Sections; `drawRow`/`calcRowHeight` nehmen optionale `minRowH` für höhere Zeilen im Vordruck-Modus. |
+| `./server/pdf/layout-primitives.js` | Low-Level-Zeichenhelfer für Tabellenzeilen und Key-Value-Sections; `drawRow`/`calcRowHeight` nehmen optionale `minRowH` für höhere Zeilen im Vordruck-Modus; Spaltentyp `badge` rendert Prio/Reihenfolge als farbiges Badge (Farbe aus `shared/color.js`). |
 | `./server/pdf/tiptap-parse.js` | Parsen von Tiptap-JSON/Markdown-Setup-Text in Render-Blöcke, inkl. Zeichnen. |
 | `./server/pdf/towers.js` | Rendering von Beleuchtungsgestellen (Karten-Grid und Textliste). |
 | `./server/pdf/bars.js` | Rendering von Zugstangen/Traversen/Punktzug (Skala, Fixture-Kreise, Textliste); generische Elemente (kein channel_id) als schmales gedrehtes Label-Rechteck statt Kreis. |

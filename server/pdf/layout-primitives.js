@@ -1,5 +1,6 @@
 import { mm, PAGE_MARGIN, FONT_NORMAL, FONT_BOLD, COLOR_SWATCH_R, MAX_ROW_H, ROW_MIN_H } from './constants.js'
 import { leeHex } from './filter-colors.js'
+import { sequenceOrderColor, contrastColor } from '../../shared/color.js'
 
 export function calcRowHeight(doc, cols, minH = ROW_MIN_H) {
   doc.font(FONT_NORMAL).fontSize(8)
@@ -79,6 +80,28 @@ export function drawRow(doc, y, usableW, cols, { isHeader = false, minRowH = ROW
       const textY = y + mm(1.5)
       doc.fillColor('black')
         .text(col.text || '', textX, textY, { width: textW, lineBreak: true })
+    } else if (col.badge) {
+      // Prio/Reihenfolge: farbiges Badge statt reinem Text
+      const bg = sequenceOrderColor(col.text)
+      if (bg) {
+        const padX = mm(1)
+        const badgeH = mm(4.5)
+        const textForWidth = String(col.text)
+        const badgeW = Math.min(doc.font(FONT_BOLD).fontSize(FONT_SIZE).widthOfString(textForWidth) + padX * 2, col.w - mm(1))
+        const badgeY = y + (rowH - badgeH) / 2
+        doc.roundedRect(x + mm(0.5), badgeY, badgeW, badgeH, mm(1)).fill(bg)
+        const fg = contrastColor(bg)
+        const textH = doc.currentLineHeight()
+        const textY2 = badgeY + (badgeH - textH) / 2
+        doc.fillColor(fg)
+          .text(textForWidth, x + mm(0.5), textY2, { width: badgeW, align: 'center', lineBreak: false })
+        doc.fillColor('black')
+      } else if (col.text) {
+        const textH = doc.currentLineHeight()
+        const textY = y + (rowH - textH) / 2
+        doc.fillColor('black')
+          .text(col.text, textX, textY, { width: textW, lineBreak: false, ellipsis: true })
+      }
     } else {
       // Standard: vertikal zentriert
       const textH = doc.currentLineHeight()
