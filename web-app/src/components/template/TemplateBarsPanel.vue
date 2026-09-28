@@ -10,6 +10,7 @@
         <Plus class="size-3.5" /> {{ t('zugstange.add') }}
       </Button>
     </div>
+    <TransitionGroup name="reorder" tag="div" class="space-y-3">
     <div
       v-for="(bar, idx) in bars" :key="bar.id"
       class="rounded-md border bg-card transition-colors"
@@ -58,6 +59,7 @@
         </Button>
       </div>
     </div>
+    </TransitionGroup>
     <Button v-if="bars.length > 0" variant="outline" size="sm" class="w-full border-dashed" @click="openNew">
       <Plus class="size-3 mr-1.5" /> {{ t('zugstange.add') }}
     </Button>
@@ -162,3 +164,9 @@ onMounted(loadBars)
 
 defineExpose({ loadBars, bars })
 </script>
+
+<style scoped>
+.reorder-move {
+  transition: transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+</style>
