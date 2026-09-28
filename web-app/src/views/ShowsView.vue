@@ -175,6 +175,7 @@ import { templateDisplayName } from '../utils/templateName.js'
 import { formatDatum, currentSpielzeit, generateShowId as generateId } from '../utils/index.ts'
 
 import { useConfirm } from '../composables/useConfirm.js'
+import { useToast } from '../composables/useToast.ts'
 import Checkbox from '@/components/ui/checkbox/Checkbox.vue'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogBody } from '@/components/ui/dialog'
@@ -194,6 +195,7 @@ import ShowWizardDialog from '@/components/show/ShowWizardDialog.vue'
 const router = useRouter()
 const { t } = useLocale()
 const { confirm } = useConfirm()
+const toast = useToast()
 
 const shows = ref([])
 const templates = ref([])
@@ -305,6 +307,10 @@ async function archive(showId) {
   } catch (e) {
     console.error('Failed to archive show:', e)
     shows.value.splice(idx, 0, removed)
+    toast.error(t('error.show_archive_failed', { name: removed.name || removed.id }), {
+      retryLabel: t('action.retry'),
+      onRetry: () => archive(showId),
+    })
   }
 }
 </script>
