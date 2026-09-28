@@ -16,40 +16,59 @@
       class="h-7 w-full rounded-full border border-border/30 px-2 py-0 text-center text-[11px] shadow-none focus-visible:bg-muted/60 focus-visible:border-border/50 focus-visible:ring-0"
       v-bind="inputAttrs"
     />
-    <ul
+    <div
       v-if="open && (showNcOption || filtered.length > 0)"
       class="absolute left-0 z-50 w-72 max-h-96 overflow-y-auto rounded-md bg-popover text-popover-foreground border border-border shadow-xl text-sm"
       :class="openUpward ? 'bottom-full mb-1' : 'top-full mt-1'"
     >
-      <li
-        v-if="showNcOption"
-        @mousedown.prevent="selectNc"
-        :class="[
-          'flex items-center gap-2 px-3 py-1.5 cursor-pointer border-b border-border/40',
-          activeIdx === -1 ? 'bg-muted' : 'hover:bg-muted/50'
-        ]"
-      >
-        <span class="size-4 rounded-full shrink-0 border border-border/50 bg-muted" />
-        <span class="font-mono text-xs font-semibold" style="color: #b5896a">NC</span>
-        <span class="text-muted-foreground text-xs">{{ t('color.no_color') }}</span>
-      </li>
-      <li
-        v-for="(f, idx) in filtered"
-        :key="f.code"
-        @mousedown.prevent="select(f)"
-        :class="[
-          'flex items-center gap-2 px-3 py-1.5 cursor-pointer',
-          idx === activeIdx ? 'bg-muted' : 'hover:bg-muted/50'
-        ]"
-      >
-        <span
-          class="size-4 rounded-full shrink-0 border border-border/50"
-          :style="f.hex ? { backgroundColor: f.hex } : { backgroundColor: '#555' }"
-        />
-        <span class="text-foreground font-mono text-xs">{{ f.displayCode }}</span>
-        <span class="text-muted-foreground text-xs truncate">{{ f.name }}</span>
-      </li>
-    </ul>
+      <div v-if="topUsed.length > 0" class="p-2 border-b border-border/40">
+        <p class="px-1 pb-1.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/70">{{ t('color.frequently_used') }}</p>
+        <div class="grid grid-cols-6 gap-1.5">
+          <button
+            v-for="f in topUsed"
+            :key="f.code"
+            type="button"
+            class="aspect-square rounded-md border-2 flex items-end justify-center pb-0.5 transition-colors"
+            :class="f.code === (modelValue || '').toUpperCase() ? 'border-primary' : 'border-transparent hover:border-border'"
+            :style="{ backgroundColor: f.hex || '#555' }"
+            :title="`${f.displayCode} · ${f.name}`"
+            @mousedown.prevent="select(f)"
+          >
+            <span class="text-[9px] font-bold" :style="{ color: readableTextColor(f.hex) }">{{ f.displayCode.replace(/^[LR]/, '') }}</span>
+          </button>
+        </div>
+      </div>
+      <ul>
+        <li
+          v-if="showNcOption"
+          @mousedown.prevent="selectNc"
+          :class="[
+            'flex items-center gap-2 px-3 py-1.5 cursor-pointer border-b border-border/40',
+            activeIdx === -1 ? 'bg-muted' : 'hover:bg-muted/50'
+          ]"
+        >
+          <span class="size-4 rounded-full shrink-0 border border-border/50 bg-muted" />
+          <span class="font-mono text-xs font-semibold" style="color: #b5896a">NC</span>
+          <span class="text-muted-foreground text-xs">{{ t('color.no_color') }}</span>
+        </li>
+        <li
+          v-for="(f, idx) in filtered"
+          :key="f.code"
+          @mousedown.prevent="select(f)"
+          :class="[
+            'flex items-center gap-2 px-3 py-1.5 cursor-pointer',
+            idx === activeIdx ? 'bg-muted' : 'hover:bg-muted/50'
+          ]"
+        >
+          <span
+            class="size-4 rounded-full shrink-0 border border-border/50"
+            :style="f.hex ? { backgroundColor: f.hex } : { backgroundColor: '#555' }"
+          />
+          <span class="text-foreground font-mono text-xs">{{ f.displayCode }}</span>
+          <span class="text-muted-foreground text-xs truncate">{{ f.name }}</span>
+        </li>
+      </ul>
+    </div>
   </div>
 </template>
 
@@ -132,6 +151,30 @@ function usageRank(f) {
   return ranks.length ? Math.min(...ranks) : Infinity
 }
 
+// Textfarbe für ein Swatch anhand der wahrgenommenen Helligkeit seiner
+// Hintergrundfarbe wählen — ein fixes Weiß ist auf hellen Farbfolien (z.B.
+// Frost/Pastell) unlesbar.
+function readableTextColor(hex) {
+  if (!hex) return '#fff'
+  const c = hex.replace('#', '')
+  const r = parseInt(c.slice(0, 2), 16)
+  const g = parseInt(c.slice(2, 4), 16)
+  const b = parseInt(c.slice(4, 6), 16)
+  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255
+  return luminance > 0.6 ? '#1a1a1a' : '#ffffff'
+}
+
+// Häufig genutzte Farben als Swatch-Grid oberhalb der Liste — nur wenn der
+// Nutzer noch nicht tippt (sonst würde das Grid gegen die Sucheingabe
+// konkurrieren) und mindestens eine Farbe bereits verwendet wurde.
+const topUsed = computed(() => {
+  if (hasTyped.value) return []
+  return [...ALL_FILTERS]
+    .filter(f => usageRank(f) !== Infinity)
+    .sort((a, b) => usageRank(a) - usageRank(b))
+    .slice(0, 12)
+})
+
 const filtered = computed(() => {
   // Solange der Nutzer nicht tatsächlich tippt, zeigt das Dropdown die volle
   // Liste (nach Häufigkeit sortiert) statt gegen den evtl. schon gesetzten
@@ -139,7 +182,9 @@ const filtered = computed(() => {
   // bereits befüllten Felds fast alle Farben aus der Trefferliste.
   const q = hasTyped.value ? (props.modelValue || '').toUpperCase() : ''
   if (!q) {
-    return [...ALL_FILTERS].sort((a, b) => usageRank(a) - usageRank(b))
+    // Bereits im Swatch-Grid oben gezeigte Farben nicht doppelt auflisten.
+    const topCodes = new Set(topUsed.value.map(f => f.code))
+    return [...ALL_FILTERS].filter(f => !topCodes.has(f.code)).sort((a, b) => usageRank(a) - usageRank(b))
   }
 
   const results = ALL_FILTERS.filter(f =>

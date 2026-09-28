@@ -176,7 +176,7 @@ export function takeSnapshotNow(slug, includeArchived = false) {
 export function listHistory(slug) {
   const show = getDb().prepare('SELECT id FROM shows WHERE slug = ?').get(slug)
   if (!show) return []
-  return getDb().prepare('SELECT id, created_at FROM history WHERE show_id = ? ORDER BY created_at DESC').all(show.id)
+  return getDb().prepare('SELECT id, created_at, json_array_length(channels) AS channel_count FROM history WHERE show_id = ? ORDER BY created_at DESC').all(show.id)
 }
 
 export function getHistoryEntry(slug, historyId) {

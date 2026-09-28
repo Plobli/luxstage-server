@@ -26,21 +26,28 @@
       </div>
 
       <!-- Snapshot list -->
-      <div v-else-if="!currentEntry" class="flex-1 overflow-y-auto">
-        <p v-if="error" class="px-4 py-6 text-sm text-destructive">{{ error }}</p>
-        <p v-else-if="entries.length === 0" class="px-4 py-6 text-sm text-muted-foreground">{{ labels.empty }}</p>
-        <Button
-          v-for="entry in entries"
+      <div v-else-if="!currentEntry" class="flex-1 overflow-y-auto px-2 py-2">
+        <p v-if="error" class="px-2 py-6 text-sm text-destructive">{{ error }}</p>
+        <p v-else-if="entries.length === 0" class="px-2 py-6 text-sm text-muted-foreground">{{ labels.empty }}</p>
+        <button
+          v-for="(entry, idx) in entries"
           :key="entry.id"
-          variant="ghost"
-          class="w-full justify-start rounded-none px-4 py-6 border-b border-border/50 h-auto text-sm text-foreground font-normal hover:bg-muted/50"
+          type="button"
+          class="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-left hover:bg-muted/50 transition-colors"
           @click="emit('select', entry.id)"
         >
-          {{ new Date(entry.created_at).toLocaleString() }}
-        </Button>
+          <span class="size-2 rounded-full shrink-0" :class="idx === 0 ? 'bg-accent' : 'bg-muted-foreground/30'" />
+          <span class="flex-1 min-w-0">
+            <span class="block text-sm font-medium text-foreground truncate">{{ relativeTime(entry.created_at) }}</span>
+            <span class="block text-[11px] text-muted-foreground/70">{{ new Date(entry.created_at).toLocaleString() }}</span>
+          </span>
+          <span class="shrink-0 text-[11px] font-semibold text-muted-foreground bg-muted rounded-full px-2 py-0.5">
+            {{ labels.channelCount(entry.channel_count ?? 0) }}
+          </span>
+        </button>
         <!-- Der Verlauf läuft automatisch und ist begrenzt — ohne diesen Hinweis
              wirkt das Verschwinden alter Einträge wie Datenverlust. -->
-        <p class="px-4 py-3 text-xs text-muted-foreground/70">{{ labels.limit }}</p>
+        <p class="px-2.5 py-3 text-xs text-muted-foreground/70">{{ labels.limit }}</p>
       </div>
 
       <!-- Snapshot detail -->
@@ -94,6 +101,9 @@ import { Button } from '@/components/ui/button'
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet'
 import Spinner from '@/components/Spinner.vue'
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
+import { useLocale } from '@/composables/useLocale.js'
+
+const { t } = useLocale()
 
 // Reine Darstellung: Daten kommen über Props herein, Aktionen gehen als Events
 // hinaus. Der Datenzugriff liegt in useShowHistory.js.
@@ -105,6 +115,18 @@ const props = defineProps({
   error: { type: String, default: '' },
   labels: { type: Object, required: true },
 })
+
+function relativeTime(timestamp) {
+  const diffMs = Date.now() - timestamp
+  const minutes = Math.floor(diffMs / 60000)
+  if (minutes < 1) return t('history.time.just_now')
+  if (minutes < 60) return t('history.time.minutes_ago', { n: minutes })
+  const hours = Math.floor(minutes / 60)
+  if (hours < 24) return t('history.time.hours_ago', { n: hours })
+  const days = Math.floor(hours / 24)
+  if (days === 1) return t('history.time.yesterday')
+  return t('history.time.days_ago', { n: days })
+}
 
 const emit = defineEmits(['close', 'restore', 'select', 'back'])
 

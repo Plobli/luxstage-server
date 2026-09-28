@@ -9,6 +9,7 @@ import { restoreHistory, fetchHistory, fetchHistoryEntry } from '../api/shows.js
 export interface HistoryEntry {
   id: string;
   created_at?: number;
+  channel_count?: number;
   channels?: Array<Record<string, any>>;
 }
 
