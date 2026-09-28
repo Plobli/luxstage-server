@@ -25,7 +25,7 @@
         </div>
       </div>
 
-      <div v-if="loading" class="text-sm text-muted-foreground">…</div>
+      <ListSkeleton v-if="loading" :meta-cols="2" />
       <div v-else-if="templates.length === 0" class="flex flex-col items-center justify-center py-24 gap-4 text-center">
         <p class="text-muted-foreground text-sm">{{ t('template.list.empty') }}</p>
         <Button variant="accent" @click="openUpload" class="flex items-center gap-2">
@@ -113,6 +113,7 @@ import TemplateDetailPanel from '../components/template/TemplateDetailPanel.vue'
 import TemplateUploadDialog from '../components/template/TemplateUploadDialog.vue'
 
 import { Button } from '@/components/ui/button'
+import ListSkeleton from '@/components/ListSkeleton.vue'
 import { Label } from '@/components/ui/label'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogBody } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'

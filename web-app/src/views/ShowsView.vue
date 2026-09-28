@@ -8,7 +8,7 @@
     </div>
 
     <!-- Loading -->
-    <div v-if="loading" class="text-sm text-muted-foreground">…</div>
+    <ListSkeleton v-if="loading" :meta-cols="3" />
 
     <!-- Leerer Zustand -->
     <div v-else-if="shows.length === 0" class="flex flex-col items-center justify-center py-24 gap-4 text-center">
@@ -191,6 +191,7 @@ import {
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/components/ui/dropdown-menu'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import ShowWizardDialog from '@/components/show/ShowWizardDialog.vue'
+import ListSkeleton from '@/components/ListSkeleton.vue'
 
 const router = useRouter()
 const { t } = useLocale()

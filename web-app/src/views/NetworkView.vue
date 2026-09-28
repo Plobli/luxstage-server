@@ -21,7 +21,10 @@
       </div>
     </div>
 
-    <div v-if="loading" class="text-sm text-muted-foreground">…</div>
+    <div v-if="loading" class="flex flex-col gap-6" aria-hidden="true">
+      <div class="h-150 rounded-lg bg-muted/40 animate-pulse" />
+      <ListSkeleton :rows="4" :meta-cols="2" />
+    </div>
 
     <template v-else>
       <!-- Topologie (automatisch aus den Tabellen generiert, frei verschiebbar) -->
@@ -129,6 +132,7 @@ import { useNetworkCanvas } from '../composables/useNetworkCanvas.js'
 import { isValidConnectionPair } from '@shared/constants.js'
 
 import { Button } from '@/components/ui/button'
+import ListSkeleton from '@/components/ListSkeleton.vue'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import SwitchNode from '@/components/network/SwitchNode.vue'
 import DeviceNode from '@/components/network/DeviceNode.vue'

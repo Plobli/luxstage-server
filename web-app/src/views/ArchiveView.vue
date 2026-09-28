@@ -28,7 +28,7 @@
       </DialogContent>
     </Dialog>
 
-    <div v-if="loading" class="text-sm text-muted-foreground">…</div>
+    <ListSkeleton v-if="loading" :meta-cols="3" />
 
     <div v-else-if="shows.length === 0" class="flex flex-col items-center justify-center py-24 gap-2 text-center">
       <p class="text-muted-foreground text-sm">{{ t('show.archive.empty') }}</p>
@@ -81,6 +81,7 @@ import { formatDatum } from '../utils/index.ts'
 
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogBody } from '@/components/ui/dialog'
+import ListSkeleton from '@/components/ListSkeleton.vue'
 
 const { t } = useLocale()
 
