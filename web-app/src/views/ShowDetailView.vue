@@ -401,6 +401,7 @@
       @cancel="resolvePlanScanPreview(false)"
     />
 
+    <ShortcutsOverlay />
   </div>
 </template>
 
@@ -433,6 +434,7 @@ import { useShowSidebarNav } from '../composables/useShowSidebarNav.js'
 import ShowAufbauTab from '../components/show/ShowAufbauTab.vue'
 import { Button } from '@/components/ui/button'
 import ViewHelpBanner from '@/components/ui/ViewHelpBanner.vue'
+import ShortcutsOverlay from '@/components/ShortcutsOverlay.vue'
 import { fetchShow, updateMeta, createSnapshot } from '../api/shows.js'
 import { uuid } from '../utils/uuid.js'
 import { downloadChannelsCsv } from '../api/channels.js'
