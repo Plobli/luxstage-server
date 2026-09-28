@@ -51,8 +51,10 @@
             <span v-else class="text-sm font-medium text-destructive">✗ {{ t('settings.update.failed') }}</span>
           </div>
 
-          <!-- Fortschrittsbalken -->
-          <Progress v-if="updating" class="h-0.5 rounded-none" :model-value="undefined" />
+          <!-- Fortschrittsbalken (indeterminate, da die Update-Dauer nicht vorhersagbar ist) -->
+          <div v-if="updating" class="h-0.5 w-full bg-muted overflow-hidden">
+            <div class="h-full w-1/3 bg-primary indeterminate-bar" />
+          </div>
 
           <!-- Terminal-Output -->
           <div ref="logEl" class="px-4 py-3 max-h-72 overflow-y-auto">
@@ -74,7 +76,6 @@ import { Loader2 } from 'lucide-vue-next'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { Progress } from '@/components/ui/progress'
 import {
   Select,
   SelectContent,
@@ -200,3 +201,13 @@ async function doUpdate() {
 
 onMounted(() => loadBranches())
 </script>
+
+<style scoped>
+.indeterminate-bar {
+  animation: indeterminate-slide 1.2s ease-in-out infinite;
+}
+@keyframes indeterminate-slide {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(300%); }
+}
+</style>

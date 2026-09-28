@@ -356,13 +356,15 @@
     <Transition enter-active-class="transition-all duration-200" enter-from-class="opacity-0 translate-y-2" leave-active-class="transition-all duration-150" leave-to-class="opacity-0">
       <div
         v-if="circuitScanUploading || circuitScanStatus"
-        class="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 rounded-lg border px-4 py-2.5 text-sm shadow-lg"
+        class="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 flex flex-col gap-1.5 rounded-lg border px-4 py-2.5 text-sm shadow-lg min-w-52"
         :class="circuitScanStatus?.type === 'error'
           ? 'border-destructive/30 bg-destructive/10 text-destructive'
           : 'border-border bg-surface-raised text-foreground'"
       >
-        <span v-if="circuitScanUploading" class="size-3.5 shrink-0 animate-spin rounded-full border-2 border-current border-t-transparent" />
         <span>{{ circuitScanUploading ? t('import.modal.scan.status.loading') : circuitScanStatus?.message }}</span>
+        <div v-if="circuitScanUploading" class="h-1 w-full rounded-full bg-muted overflow-hidden">
+          <div class="h-full w-1/3 rounded-full bg-primary indeterminate-bar" />
+        </div>
       </div>
     </Transition>
 
@@ -370,13 +372,15 @@
     <Transition enter-active-class="transition-all duration-200" enter-from-class="opacity-0 translate-y-2" leave-active-class="transition-all duration-150" leave-to-class="opacity-0">
       <div
         v-if="planScanUploading || planScanStatus"
-        class="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 rounded-lg border px-4 py-2.5 text-sm shadow-lg"
+        class="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 flex flex-col gap-1.5 rounded-lg border px-4 py-2.5 text-sm shadow-lg min-w-52"
         :class="planScanStatus?.type === 'error'
           ? 'border-destructive/30 bg-destructive/10 text-destructive'
           : 'border-border bg-surface-raised text-foreground'"
       >
-        <span v-if="planScanUploading" class="size-3.5 shrink-0 animate-spin rounded-full border-2 border-current border-t-transparent" />
         <span>{{ planScanUploading ? t('import.modal.planScan.status.loading') : planScanStatus?.message }}</span>
+        <div v-if="planScanUploading" class="h-1 w-full rounded-full bg-muted overflow-hidden">
+          <div class="h-full w-1/3 rounded-full bg-primary indeterminate-bar" />
+        </div>
       </div>
     </Transition>
 
@@ -935,3 +939,17 @@ onBeforeUnmount(() => {
   flushSectionsSave()
 })
 </script>
+
+<style scoped>
+/* Läuft endlos hin und her, da die Gesamtdauer (Upload + serverseitiger
+   KI-Scan) nicht vorhersagbar ist — ein echter Prozentwert wäre hier
+   irreführend, da der Upload-Anteil meist winzig gegenüber der
+   Scan-Verarbeitung ist. */
+.indeterminate-bar {
+  animation: indeterminate-slide 1.2s ease-in-out infinite;
+}
+@keyframes indeterminate-slide {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(300%); }
+}
+</style>
