@@ -127,6 +127,7 @@
             :existingValues="sequenceOrderOptions"
             :placeholder="sequenceOrderPlaceholder"
             @update:modelValue="ch.sequence_order = $event; emit('change')"
+            @blur="onPrioBlur"
           />
         </div>
 
@@ -231,6 +232,7 @@
                 :existingValues="sequenceOrderOptions"
                 :placeholder="sequenceOrderPlaceholder"
                 @update:modelValue="ch.sequence_order = $event; emit('change')"
+                @blur="onPrioBlur"
               />
             </div>
           </div>
@@ -365,6 +367,10 @@ function onNotesInput() {
 
 function onNotesBlur() {
   notesFocused.value = false
+  props.flushChannelsSave?.()
+}
+
+function onPrioBlur() {
   props.flushChannelsSave?.()
 }
 const notesFocused = ref(false)

@@ -53,7 +53,7 @@ const props = defineProps({
   existingValues: { type: Array, default: () => [] },
   placeholder: { type: String, default: '' },
 })
-const emit = defineEmits(['update:modelValue', 'change', 'keydown'])
+const emit = defineEmits(['update:modelValue', 'change', 'keydown', 'blur'])
 
 const open = ref(false)
 const activeIdx = ref(0)
@@ -87,7 +87,11 @@ const canCreate = computed(() => {
 })
 
 watch(() => props.modelValue, (val) => {
-  if (!isEditing.value) localInput.value = val || ''
+  // Auch während der Bearbeitung übernehmen, wenn der neue Wert von außen kommt
+  // (z.B. Undo/Redo lädt die Kanäle neu) — sonst sendet ein späterer Blur noch
+  // den alten, vor dem Undo eingegebenen Wert und überschreibt das Undo/Redo-
+  // Ergebnis wieder (siehe flushAllPendingSaves-Kommentar in ShowDetailView.vue).
+  localInput.value = val || ''
 })
 
 function onFocus() {
@@ -119,6 +123,7 @@ function onBlur() {
     emit('update:modelValue', localInput.value.trim())
     emit('change')
   }
+  emit('blur')
 }
 
 function select(value) {
