@@ -78,24 +78,36 @@
         </div>
 
         <!-- Desktop: Gerät -->
-        <div v-if="!isMobile" class="px-0 py-0 align-middle border-l border-border/40 h-full flex items-center">
+        <div
+          v-if="!isMobile"
+          class="px-0 py-0 align-middle border-l border-border/40 h-full flex items-center"
+          :class="isRangeSelected('device') ? 'bg-primary/10 ring-1 ring-primary/30' : ''"
+          @mousedown="onCellMouseDown('device')"
+          @mouseenter="onCellMouseEnter('device', $event)"
+        >
           <ChannelTextarea
             v-model="ch.device"
             :data-nav-row="rowIndex"
             data-nav-col="2"
-            @input="emit('change')"
+            @input="onDeviceInput"
             @blur="onDeviceBlur"
             @keydown="onKeydownCol2"
           />
         </div>
 
         <!-- Desktop: Notizen -->
-        <div v-if="!isMobile" class="px-0 py-0 align-middle border-l border-border/40 h-full flex flex-col items-start justify-center">
+        <div
+          v-if="!isMobile"
+          class="px-0 py-0 align-middle border-l border-border/40 h-full flex flex-col items-start justify-center"
+          :class="isRangeSelected('notes') ? 'bg-primary/10 ring-1 ring-primary/30' : ''"
+          @mousedown="onCellMouseDown('notes')"
+          @mouseenter="onCellMouseEnter('notes', $event)"
+        >
           <ChannelTextarea
             v-model="ch.notes"
             :data-nav-row="rowIndex"
             data-nav-col="3"
-            @input="emit('change')"
+            @input="onNotesInput"
             @blur="onNotesBlur"
             @keydown="onKeydownCol3"
           />
@@ -278,6 +290,7 @@ const props = defineProps({
   isMobileProp: { type: Boolean, default: null },
   gridStyle: { type: Object, default: null },
   selected: { type: Boolean, default: false },
+  cellRange: { type: Object, default: null }, // { column, keys: Set<rowKey> }
 })
 
 const emit = defineEmits([
@@ -286,7 +299,23 @@ const emit = defineEmits([
   'placeInFloorplan', 'assignTower', 'assignBar',
   'update:selected',
   'selectDragStart', 'selectDragEnter',
+  'cellDragStart', 'cellDragEnter', 'cellSync',
 ])
+
+function isRangeSelected(column) {
+  const range = props.cellRange
+  if (!range || range.column !== column) return false
+  return range.keys.has(stableRowKey.value)
+}
+
+function onCellMouseDown(column) {
+  emit('cellDragStart', { ch: props.ch, column })
+}
+
+function onCellMouseEnter(column, e) {
+  if (e.buttons !== 1) return
+  emit('cellDragEnter', { ch: props.ch, column })
+}
 
 const deleteDialogOpen = ref(false)
 const quantityFlash = ref(false)
@@ -297,6 +326,11 @@ function onChannelBlur() {
     ch.color = 'NC'
     emit('change')
   }
+}
+
+function onDeviceInput() {
+  emit('cellSync', { ch: props.ch, column: 'device', value: props.ch.device })
+  emit('change')
 }
 
 function onDeviceBlur() {
@@ -319,6 +353,11 @@ function onAddressBlur() {
     ch.address = normalized
     emit('change')
   }
+}
+
+function onNotesInput() {
+  emit('cellSync', { ch: props.ch, column: 'notes', value: props.ch.notes })
+  emit('change')
 }
 
 function onNotesBlur() {

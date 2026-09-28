@@ -99,6 +99,7 @@
             :isMobileProp="isMobile"
             :gridStyle="channelGridStyle"
             :selected="selectedKeys.has(ensureStableChannelKey(item.ch))"
+            :cellRange="cellRange"
             @update:selected="setSelected(item.ch, $event)"
             @change="emit('change')"
             @toggleStatus="toggleChannelStatus(item.ch)"
@@ -110,6 +111,9 @@
             @assignBar="emit('assignBar', item.ch)"
             @selectDragStart="onSelectDragStart"
             @selectDragEnter="onSelectDragEnter"
+            @cellDragStart="onCellDragStart"
+            @cellDragEnter="onCellDragEnter"
+            @cellSync="({ ch, column, value }) => syncCellRangeValue(ch, column, value)"
           />
         </template>
 
@@ -413,6 +417,66 @@ function stopSelectDrag() {
   window.removeEventListener('mouseup', stopSelectDrag)
 }
 
+// ── Zell-Range-Auswahl (Gerät/Notizen) ──────────────────────────────────────
+// Klick auf eine Zelle fokussiert wie bisher normal das Textfeld. Erst ein
+// mouseenter auf einer ANDEREN Zelle (= tatsächliches Ziehen) startet die
+// Mehrfachauswahl; ein reiner Klick löst also keine Range aus.
+const cellRange = ref(null) // { column: 'device'|'notes', keys: Set<rowKey> }
+let cellDragAnchorIndex = null
+let cellDragColumn = null
+
+function onCellDragStart({ ch, column }) {
+  cellDragAnchorIndex = props.channels.indexOf(ch)
+  cellDragColumn = column
+  cellRange.value = null
+  window.addEventListener('mouseup', stopCellDrag)
+}
+
+// Range wird bei jedem mouseenter komplett neu aus Anker- und aktuellem
+// Index berechnet (statt einzeln gesammelt) — sonst fehlen bei schnellem
+// Ziehen Zeilen, deren mouseenter der Browser nicht feuert.
+function onCellDragEnter({ ch, column }) {
+  if (cellDragAnchorIndex === null || column !== cellDragColumn) return
+  const currentIndex = props.channels.indexOf(ch)
+  if (currentIndex === -1) return
+  const from = Math.min(cellDragAnchorIndex, currentIndex)
+  const to = Math.max(cellDragAnchorIndex, currentIndex)
+  const keys = new Set(props.channels.slice(from, to + 1).map(ensureStableChannelKey))
+  cellRange.value = { column: cellDragColumn, keys }
+}
+
+function stopCellDrag() {
+  cellDragAnchorIndex = null
+  cellDragColumn = null
+  window.removeEventListener('mouseup', stopCellDrag)
+}
+
+// Bei jeder Eingabe in einer Zelle innerhalb der Range: neuen Wert sofort auf
+// alle anderen markierten Zeilen derselben Spalte spiegeln (auch Löschen).
+// emit('change') kommt bereits pro Zeile aus ChannelRow und landet dank
+// debounced Save im selben Undo-Schritt (siehe useShowChannels SAVE_DEBOUNCE_MS).
+function syncCellRangeValue(ch, column, value) {
+  const range = cellRange.value
+  if (!range || range.column !== column) return
+  if (!range.keys.has(ensureStableChannelKey(ch))) return
+  for (const c of props.channels) {
+    if (range.keys.has(ensureStableChannelKey(c)) && c !== ch) {
+      c[column] = value
+    }
+  }
+}
+
+function clearCellRange() {
+  cellRange.value = null
+}
+
+function onCellRangeKeydown(e) {
+  if (e.key === 'Escape' && cellRange.value) clearCellRange()
+}
+
+onMounted(() => window.addEventListener('keydown', onCellRangeKeydown))
+onBeforeUnmount(() => window.removeEventListener('keydown', onCellRangeKeydown))
+
 const emit = defineEmits([
   'change',
   'deleteChannel',
@@ -650,6 +714,7 @@ watch(() => props.channels.length, () => {
 onBeforeUnmount(() => {
   sortableInstance?.destroy()
   window.removeEventListener('mouseup', stopSelectDrag)
+  window.removeEventListener('mouseup', stopCellDrag)
 })
 </script>
 
