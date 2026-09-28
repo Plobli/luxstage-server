@@ -286,12 +286,14 @@ export function useShowChannels({
       ? [...channels.value].sort((a, b) => parseInt(a.channel) - parseInt(b.channel))
       : [...channels.value]
     if (q) {
-      chs = chs.filter(ch =>
-        ch.channel?.includes(q) ||
-        ch.device?.toLowerCase().includes(q) ||
-        ch.notes?.toLowerCase().includes(q) ||
-        ch.position?.toLowerCase().includes(q)
-      )
+      // Token-basiert statt exaktem Substring: Suchbegriffe können in
+      // beliebiger Reihenfolge über die Felder verteilt sein (z.B. "1kw fresnel"
+      // findet ein Gerät namens "Fresnel 1kW"), jedes Wort muss irgendwo vorkommen.
+      const tokens = q.split(/\s+/).filter(Boolean)
+      chs = chs.filter(ch => {
+        const haystack = [ch.channel, ch.device, ch.notes, ch.position].join(' ').toLowerCase()
+        return tokens.every(tok => haystack.includes(tok))
+      })
     }
     if (snap) {
       chs = chs.filter(ch => snap.has(ch.channel))
