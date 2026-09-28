@@ -18,11 +18,11 @@
             class="flex items-center"
             @mousedown.prevent="emit('selectDragStart', { ch, selected })"
             @mouseenter="emit('selectDragEnter', { ch })"
+            @click.stop
           >
             <Checkbox
               :modelValue="selected"
               class="no-print border-border! shrink-0"
-              @update:modelValue="emit('update:selected', $event)"
             />
           </div>
         </div>
