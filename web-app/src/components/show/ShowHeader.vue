@@ -2,7 +2,24 @@
   <div class="shrink-0 border-b border-border bg-surface-raised">
     <div class="flex min-h-12 shrink-0 items-center gap-x-3 px-4 sm:px-6 lg:px-7 py-2">
       <div class="flex flex-col sm:flex-row sm:items-baseline gap-x-3 gap-y-0.5 min-w-0 flex-1">
-        <h1 class="text-2xl font-semibold text-foreground truncate">{{ showName }}</h1>
+        <input
+          v-if="editingName"
+          ref="nameInput"
+          v-model="nameDraft"
+          class="text-2xl font-semibold text-foreground bg-transparent border-0 border-b-2 border-primary outline-none min-w-0 flex-1 max-w-full"
+          @keydown.enter="commitName"
+          @keydown.escape="cancelNameEdit"
+          @blur="commitName"
+        />
+        <button
+          v-else
+          type="button"
+          class="text-2xl font-semibold text-foreground truncate hover:text-foreground/80 transition-colors flex items-center gap-1.5 group min-w-0"
+          @click="startNameEdit"
+        >
+          <span class="truncate">{{ showName }}</span>
+          <Pencil class="size-3.5 opacity-0 group-hover:opacity-40 shrink-0 transition-opacity" />
+        </button>
         <button
           v-if="showDate"
           class="text-sm text-muted-foreground shrink-0 hover:text-foreground transition-colors flex items-center gap-1 min-h-11 sm:min-h-0"
@@ -114,7 +131,7 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, nextTick } from 'vue'
 import { useLocale } from '@/composables/useLocale.js'
 import { History, ChevronDown, MoreVertical, Pencil } from 'lucide-vue-next'
 import { Button } from '@/components/ui/button'
@@ -153,6 +170,29 @@ const planScanInput = ref(null)
 const metaDialogOpen = ref(false)
 const importModalOpen = ref(false)
 const editMeta = ref({ name: '', datum: '', spielzeit: '', use_bars: true, use_towers: true })
+
+const editingName = ref(false)
+const nameDraft = ref('')
+const nameInput = ref(null)
+
+async function startNameEdit() {
+  nameDraft.value = props.showName
+  editingName.value = true
+  await nextTick()
+  nameInput.value?.focus()
+  nameInput.value?.select()
+}
+
+function commitName() {
+  if (!editingName.value) return
+  editingName.value = false
+  const trimmed = nameDraft.value.trim()
+  if (trimmed && trimmed !== props.showName) emit('update:showName', trimmed)
+}
+
+function cancelNameEdit() {
+  editingName.value = false
+}
 
 function openMetaDialog() {
   editMeta.value = {
