@@ -293,6 +293,8 @@
       @confirm="resolveConfirm(true)"
       @cancel="resolveConfirm(false)"
     />
+    <!-- Global Toasts -->
+    <ToastContainer />
   </div>
   </TooltipProvider>
   </TolgeeProvider>
@@ -324,6 +326,7 @@ import { releaseShowLock } from './api/shows.js'
 import { useTokenRefresh } from './composables/useTokenRefresh.js'
 import { updateAvailable } from './composables/useUpdateCheck.js'
 import ConfirmDialog from './components/ConfirmDialog.vue'
+import ToastContainer from './components/ToastContainer.vue'
 import { useConfirmDialog, resolveConfirm } from './composables/useConfirm.js'
 import { useShowNav } from './composables/useShowNav.js'
 
