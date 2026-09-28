@@ -10,14 +10,20 @@
         :style="isMobile ? null : gridStyle"
       >
         <!-- Desktop: Checkbox + Drag handle -->
-        <div v-if="!isMobile" class="flex items-center py-0 pl-2.5 pr-0 align-middle gap-0.5">
-          <Checkbox
-            :modelValue="selected"
-            class="no-print border-border!"
-            @update:modelValue="emit('update:selected', $event)"
-          />
-          <div class="drag-handle no-print flex size-6 cursor-grab items-center justify-center rounded-sm text-muted-foreground/70 opacity-0 transition-all active:cursor-grabbing group-hover/row:opacity-100 hover:bg-muted/40">
-            <GripVertical class="size-3.5" />
+        <div v-if="!isMobile" class="flex items-center py-0 pl-1 pr-0 align-middle gap-0">
+          <div class="drag-handle no-print flex size-4 shrink-0 cursor-grab items-center justify-center rounded-sm text-muted-foreground/30 active:cursor-grabbing hover:bg-muted/40">
+            <GripVertical class="size-3" />
+          </div>
+          <div
+            class="flex items-center"
+            @mousedown.prevent="emit('selectDragStart', { ch, selected })"
+            @mouseenter="emit('selectDragEnter', { ch })"
+          >
+            <Checkbox
+              :modelValue="selected"
+              class="no-print border-border! shrink-0"
+              @update:modelValue="emit('update:selected', $event)"
+            />
           </div>
         </div>
 
@@ -279,6 +285,7 @@ const emit = defineEmits([
   'toggleStatus', 'delete', 'clear',
   'placeInFloorplan', 'assignTower', 'assignBar',
   'update:selected',
+  'selectDragStart', 'selectDragEnter',
 ])
 
 const deleteDialogOpen = ref(false)

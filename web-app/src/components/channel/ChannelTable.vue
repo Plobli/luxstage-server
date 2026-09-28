@@ -108,6 +108,8 @@
             @placeInFloorplan="emit('placeInFloorplan', item.ch)"
             @assignTower="emit('assignTower', item.ch)"
             @assignBar="emit('assignBar', item.ch)"
+            @selectDragStart="onSelectDragStart"
+            @selectDragEnter="onSelectDragEnter"
           />
         </template>
 
@@ -392,6 +394,25 @@ function toggleSelectAll(checked) {
     : new Set()
 }
 
+// ── Drag-Select (Checkbox-Spalte per Maus-Drag markieren) ──────────────────
+let dragSelectTarget = null // true = anwählen, false = abwählen
+
+function onSelectDragStart({ ch, selected }) {
+  dragSelectTarget = !selected
+  setSelected(ch, dragSelectTarget)
+  window.addEventListener('mouseup', stopSelectDrag)
+}
+
+function onSelectDragEnter({ ch }) {
+  if (dragSelectTarget === null) return
+  setSelected(ch, dragSelectTarget)
+}
+
+function stopSelectDrag() {
+  dragSelectTarget = null
+  window.removeEventListener('mouseup', stopSelectDrag)
+}
+
 const emit = defineEmits([
   'change',
   'deleteChannel',
@@ -626,7 +647,10 @@ watch(() => props.channels.length, () => {
   nextTick(initSortable)
 })
 
-onBeforeUnmount(() => { sortableInstance?.destroy() })
+onBeforeUnmount(() => {
+  sortableInstance?.destroy()
+  window.removeEventListener('mouseup', stopSelectDrag)
+})
 </script>
 
 <style scoped>
