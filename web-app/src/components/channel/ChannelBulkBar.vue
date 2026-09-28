@@ -52,43 +52,117 @@
                 <span class="hidden sm:inline">{{ t('channel.bulk.device_action') }}</span>
               </button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="center" side="top" :sideOffset="14" :class="popoverClass + ' w-72'">
-              <fieldset :class="notchFieldsetClass">
-                <legend :class="notchLegendClass">{{ t('channel.bulk.device_action') }}</legend>
-                <input
-                  v-model="bulkDevice"
-                  type="text"
-                  :class="notchInputClass"
-                  autofocus
-                  @keydown.enter="submitDevice"
-                />
-              </fieldset>
-              <div class="mt-3 flex justify-end">
-                <button type="button" :class="primaryBtnClass" :disabled="!bulkDevice" @click="submitDevice">{{ t('channel.bulk.device_apply') }}</button>
-              </div>
+            <DropdownMenuContent align="center" side="top" :sideOffset="10" :class="popoverClass + ' w-64 p-1.5'">
+              <input
+                v-model="bulkDevice"
+                type="text"
+                :placeholder="t('channel.bulk.device_action')"
+                class="w-full rounded-lg border-0 bg-muted/50 px-2.5 py-1.5 text-sm text-foreground shadow-none placeholder:text-muted-foreground/50 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary/50"
+                autocomplete="off"
+                autofocus
+                @keydown.enter="submitDevice"
+              />
+              <ul v-if="filteredDevices.length" class="mt-1 max-h-40 overflow-y-auto">
+                <li
+                  v-for="d in filteredDevices"
+                  :key="d"
+                  class="cursor-pointer truncate rounded-md px-2.5 py-1.5 text-sm text-foreground hover:bg-muted"
+                  @mousedown.prevent="() => { bulkDevice = d; submitDevice() }"
+                >{{ d }}</li>
+              </ul>
             </DropdownMenuContent>
           </DropdownMenu>
 
-          <!-- Farbe: direkt eingebettet, Klick öffnet sofort das Farb-Dropdown -->
-          <div class="flex h-8 shrink-0 items-center gap-1.5 rounded-full px-3 transition-colors hover:bg-muted" :title="t('channel.bulk.color_action')">
-            <Palette class="size-4 shrink-0 text-foreground/90" />
-            <div class="bulk-color-field flex h-8 w-24 shrink-0 items-center">
-              <ColorAutocomplete v-model="bulkColor" :placeholder="t('channel.bulk.color_action')" @update:modelValue="submitColor" />
-            </div>
-          </div>
-
-          <!-- Prio: direkt eingebettet, Klick öffnet sofort das Prio-Dropdown -->
-          <div class="flex h-8 shrink-0 items-center gap-1.5 rounded-full px-3 transition-colors hover:bg-muted" :title="t('channel.bulk.prio_action')">
-            <ListOrdered class="size-4 shrink-0 text-foreground/90" />
-            <div class="bulk-prio-field flex h-8 w-16 shrink-0 items-center">
-              <PrioAutocomplete
-                v-model="bulkPrio"
-                :existingValues="existingSequenceOrders"
-                :placeholder="t('channel.bulk.prio_action')"
-                @update:modelValue="submitPrio"
+          <!-- Bühnenposition -->
+          <DropdownMenu v-model:open="positionOpen">
+            <DropdownMenuTrigger as-child>
+              <button type="button" :class="actionBtnClass" :title="t('channel.bulk.position_action')">
+                <MapPin class="size-4" />
+                <span class="hidden sm:inline">{{ t('channel.bulk.position_action') }}</span>
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="center" side="top" :sideOffset="10" :class="popoverClass + ' w-64 p-1.5'">
+              <input
+                v-model="bulkPosition"
+                type="text"
+                :placeholder="t('channel.bulk.position_action')"
+                class="w-full rounded-lg border-0 bg-muted/50 px-2.5 py-1.5 text-sm text-foreground shadow-none placeholder:text-muted-foreground/50 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary/50"
+                autocomplete="off"
+                autofocus
+                @keydown.enter="submitPosition"
               />
-            </div>
-          </div>
+              <ul v-if="filteredPositions.length" class="mt-1 max-h-40 overflow-y-auto">
+                <li
+                  v-for="p in filteredPositions"
+                  :key="p"
+                  class="cursor-pointer truncate rounded-md px-2.5 py-1.5 text-sm text-foreground hover:bg-muted"
+                  @mousedown.prevent="() => { bulkPosition = p; submitPosition() }"
+                >{{ p }}</li>
+              </ul>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          <!-- Farbe -->
+          <DropdownMenu v-model:open="colorOpen">
+            <DropdownMenuTrigger as-child>
+              <button type="button" :class="actionBtnClass" :title="t('channel.bulk.color_action')">
+                <Palette class="size-4" />
+                <span class="hidden sm:inline">{{ t('channel.bulk.color_action') }}</span>
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="center" side="top" :sideOffset="10" :class="popoverClass + ' w-64 p-1.5'">
+              <input
+                v-model="bulkColor"
+                type="text"
+                :placeholder="t('channel.bulk.color_action')"
+                class="w-full rounded-lg border-0 bg-muted/50 px-2.5 py-1.5 text-sm text-foreground shadow-none placeholder:text-muted-foreground/50 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary/50"
+                autocomplete="off"
+                autofocus
+                @keydown.enter="submitColor(bulkColor)"
+              />
+              <ul v-if="filteredColors.length" class="mt-1 max-h-56 overflow-y-auto">
+                <li
+                  v-for="f in filteredColors"
+                  :key="f.code"
+                  class="flex cursor-pointer items-center gap-2 truncate rounded-md px-2.5 py-1.5 text-sm hover:bg-muted"
+                  @mousedown.prevent="submitColor(f.code)"
+                >
+                  <span class="size-3.5 shrink-0 rounded-full border border-border/50" :style="f.hex ? { backgroundColor: f.hex } : { backgroundColor: '#555' }" />
+                  <span class="font-mono text-xs text-foreground">{{ f.displayCode }}</span>
+                  <span class="truncate text-xs text-muted-foreground">{{ f.name }}</span>
+                </li>
+              </ul>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          <!-- Prio -->
+          <DropdownMenu v-model:open="prioOpen">
+            <DropdownMenuTrigger as-child>
+              <button type="button" :class="actionBtnClass" :title="t('channel.bulk.prio_action')">
+                <ListOrdered class="size-4" />
+                <span class="hidden sm:inline">{{ t('channel.bulk.prio_action') }}</span>
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="center" side="top" :sideOffset="10" :class="popoverClass + ' w-64 p-1.5'">
+              <input
+                v-model="bulkPrio"
+                type="text"
+                :placeholder="t('channel.bulk.prio_action')"
+                class="w-full rounded-lg border-0 bg-muted/50 px-2.5 py-1.5 text-sm text-foreground shadow-none placeholder:text-muted-foreground/50 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary/50"
+                autocomplete="off"
+                autofocus
+                @keydown.enter="submitPrio(bulkPrio)"
+              />
+              <ul v-if="filteredPrios.length" class="mt-1 max-h-40 overflow-y-auto">
+                <li
+                  v-for="p in filteredPrios"
+                  :key="p"
+                  class="cursor-pointer truncate rounded-md px-2.5 py-1.5 text-sm text-foreground hover:bg-muted"
+                  @mousedown.prevent="submitPrio(p)"
+                >{{ p }}</li>
+              </ul>
+            </DropdownMenuContent>
+          </DropdownMenu>
 
           <div class="mx-0.5 h-6 w-px shrink-0 bg-border/60"></div>
 
@@ -144,17 +218,17 @@
 <script setup>
 import { ref, computed } from 'vue'
 import { useLocale } from '@/composables/useLocale.js'
-import { NotebookPen, Lightbulb, Palette, ListOrdered, Eraser, Trash2, X } from 'lucide-vue-next'
+import { NotebookPen, Lightbulb, Palette, ListOrdered, MapPin, Eraser, Trash2, X } from 'lucide-vue-next'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from '@/components/ui/alert-dialog'
-import ColorAutocomplete from '../ColorAutocomplete.vue'
-import PrioAutocomplete from './PrioAutocomplete.vue'
+import { ALL_FILTERS } from '@/utils/filterColors'
 
 const props = defineProps({
   channels: { type: Array, required: true },
   selectedKeys: { type: Set, required: true },
   keyFn: { type: Function, required: true },
   flushChannelsSave: { type: Function, default: null },
+  groupedChannels: { type: Array, default: () => [] },
 })
 
 const emit = defineEmits(['change', 'deleteChannel', 'clearChannel', 'update:selectedKeys'])
@@ -165,7 +239,6 @@ const actionBtnClass = 'flex h-8 shrink-0 items-center gap-1.5 rounded-full px-3
 const dangerBtnClass = 'flex size-8 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive'
 
 const popoverClass = 'rounded-2xl border border-border/50 bg-popover/98 p-4 shadow-[0_16px_40px_-8px_rgba(0,0,0,0.45)] backdrop-blur-xl'
-const plainLabelClass = 'mb-2 flex items-center gap-1.5 text-xs font-medium text-muted-foreground'
 
 // Notched-Label-Feld (Rand bricht für die Beschriftung auf) — natives
 // <fieldset>/<legend>-Verhalten, kein CSS-Hack nötig.
@@ -178,6 +251,9 @@ const linkBtnClass = 'h-8 shrink-0 text-xs font-medium text-muted-foreground tra
 
 const notesOpen = ref(false)
 const deviceOpen = ref(false)
+const positionOpen = ref(false)
+const colorOpen = ref(false)
+const prioOpen = ref(false)
 const clearDialogOpen = ref(false)
 const deleteDialogOpen = ref(false)
 
@@ -185,10 +261,44 @@ const bulkNotes = ref('')
 const bulkDevice = ref('')
 const bulkColor = ref('')
 const bulkPrio = ref('')
+const bulkPosition = ref('')
 
 const existingSequenceOrders = computed(() => {
   const values = props.channels.map(c => (c.sequence_order ?? '').toString().trim()).filter(Boolean)
   return [...new Set(values)].sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
+})
+
+const existingPositions = computed(() => props.groupedChannels.map(g => g.position).filter(Boolean))
+const filteredPositions = computed(() => {
+  const q = bulkPosition.value.trim().toLowerCase()
+  const all = existingPositions.value
+  return q ? all.filter(p => p.toLowerCase().includes(q) && p.toLowerCase() !== q) : all
+})
+
+const filteredColors = computed(() => {
+  const q = bulkColor.value.trim().toUpperCase()
+  if (!q) return ALL_FILTERS
+  return ALL_FILTERS.filter(f =>
+    f.code.includes(q) ||
+    (f.altCode && f.altCode.includes(q)) ||
+    f.name.toUpperCase().includes(q)
+  )
+})
+
+const existingDevices = computed(() => {
+  const values = props.channels.map(c => (c.device ?? '').trim()).filter(Boolean)
+  return [...new Set(values)].sort((a, b) => a.localeCompare(b))
+})
+const filteredDevices = computed(() => {
+  const q = bulkDevice.value.trim().toLowerCase()
+  const all = existingDevices.value
+  return q ? all.filter(d => d.toLowerCase().includes(q) && d.toLowerCase() !== q) : all
+})
+
+const filteredPrios = computed(() => {
+  const q = bulkPrio.value.trim().toLowerCase()
+  const all = existingSequenceOrders.value
+  return q ? all.filter(p => p.toLowerCase().includes(q) && p.toLowerCase() !== q) : all
 })
 
 function selectedChannels() {
@@ -214,7 +324,6 @@ function submitNotes(append) {
 
 function submitDevice() {
   const text = bulkDevice.value.trim()
-  if (!text) return
   for (const ch of selectedChannels()) ch.device = text
   bulkDevice.value = ''
   deviceOpen.value = false
@@ -222,18 +331,32 @@ function submitDevice() {
   props.flushChannelsSave?.()
 }
 
+function submitPosition() {
+  const text = bulkPosition.value.trim()
+  for (const ch of selectedChannels()) ch.position = text
+  bulkPosition.value = ''
+  positionOpen.value = false
+  emit('change')
+  props.flushChannelsSave?.()
+}
+
 function submitColor(value) {
-  const color = (value ?? '').trim()
+  const color = (value ?? '').trim().toUpperCase()
   if (!color) return
   for (const ch of selectedChannels()) ch.color = color
+  bulkColor.value = ''
+  colorOpen.value = false
   emit('change')
+  props.flushChannelsSave?.()
 }
 
 function submitPrio(value) {
   const prio = (value ?? '').trim()
-  if (!prio) return
   for (const ch of selectedChannels()) ch.sequence_order = prio
+  bulkPrio.value = ''
+  prioOpen.value = false
   emit('change')
+  props.flushChannelsSave?.()
 }
 
 function submitClear() {
@@ -246,20 +369,3 @@ function submitDelete() {
   emit('update:selectedKeys', new Set())
 }
 </script>
-
-<style scoped>
-/* Farb-/Prio-Feld auf die Button-Höhe der Bar bringen und die Schrift an
-   die anderen Aktions-Labels (text-xs) angleichen — die Autocomplete-
-   Komponenten sind für die volle Kreisliste dimensioniert, hier sitzen sie
-   aber in einer kompakten Pille. */
-.bulk-color-field :deep(> div),
-.bulk-prio-field :deep(> div) {
-  min-height: 0 !important;
-  height: 100% !important;
-}
-.bulk-color-field :deep(input),
-.bulk-prio-field :deep(input) {
-  font-size: 0.75rem !important;
-  line-height: 1rem !important;
-}
-</style>

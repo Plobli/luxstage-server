@@ -292,6 +292,7 @@
       :selectedKeys="selectedKeys"
       :keyFn="ensureStableChannelKey"
       :flushChannelsSave="flushChannelsSave"
+      :groupedChannels="groupedChannels"
       @update:selectedKeys="selectedKeys = $event"
       @change="emit('change')"
       @deleteChannel="emit('deleteChannel', $event)"
