@@ -77,6 +77,8 @@
   "channel.row.delete_row": "Delete row",
   "channel.row.place_floorplan": "Place in the drawing",
   "channel.search": "Search channels …",
+  "channel.sort.reset": "Reset",
+  "channel.sort.sorted_by": "Sorted by:",
   "color.no_color": "No Color",
   "color.picker.custom": "Custom",
   "color.picker.label": "Color / Filter",

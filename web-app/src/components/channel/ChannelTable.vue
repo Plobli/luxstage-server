@@ -2,6 +2,18 @@
   <div ref="rootEl" class="h-full overflow-x-auto overflow-y-auto bg-card channel-list" style="scrollbar-width: thin;">
     <div class="min-w-230">
     <div class="sticky top-0 z-20 border-b border-border/90 bg-muted shadow-[0_1px_0_rgba(255,255,255,0.04),0_4px_8px_rgba(0,0,0,0.10)]">
+      <div
+        class="flex items-center justify-between gap-2 overflow-hidden px-3 text-[11px] text-muted-foreground transition-[max-height] duration-150 ease-out"
+        :class="sortColumn ? 'max-h-8 border-b border-border/60 bg-accent/10 py-1' : 'max-h-0 py-0'"
+      >
+        <span>{{ labels.sortedBy }} {{ sortColumnLabel }}</span>
+        <Button
+          variant="ghost"
+          size="sm"
+          class="h-6 shrink-0 rounded-sm px-2 text-[11px] text-muted-foreground hover:text-accent-foreground"
+          @click="resetSort"
+        >{{ labels.sortReset }}</Button>
+      </div>
       <div v-if="!isMobile" class="grid min-h-8 items-center border-b border-border/60 text-[10px] font-semibold uppercase tracking-[0.22em] text-foreground/90" :style="channelGridStyle">
         <div class="flex items-center pl-2.5">
           <Checkbox
@@ -10,15 +22,15 @@
             @update:modelValue="toggleSelectAll"
           />
         </div>
-        <div class="px-3 flex items-center gap-1">{{ labels.channel }}<HelpIcon v-if="labels.channelHelp" :text="labels.channelHelp" /></div>
-        <div class="px-3 flex items-center gap-1">{{ labels.dmx }}</div>
-        <div class="px-3 flex items-center gap-1">{{ labels.color }}<HelpIcon v-if="labels.colorHelp" :text="labels.colorHelp" /></div>
-        <div class="px-3 flex items-center gap-1">{{ labels.quantity }}<HelpIcon v-if="labels.quantityHelp" :text="labels.quantityHelp" /></div>
-        <div class="relative px-3 flex items-center gap-1">{{ labels.device }}<HelpIcon v-if="labels.deviceHelp" :text="labels.deviceHelp" />
+        <div class="px-3 flex items-center gap-1 cursor-pointer select-none" @click="toggleSort('channel')">{{ labels.channel }}<HelpIcon v-if="labels.channelHelp" :text="labels.channelHelp" /><SortIcon :dir="sortDirFor('channel')" /></div>
+        <div class="px-3 flex items-center gap-1 cursor-pointer select-none" @click="toggleSort('address')">{{ labels.dmx }}<SortIcon :dir="sortDirFor('address')" /></div>
+        <div class="px-3 flex items-center gap-1 cursor-pointer select-none" @click="toggleSort('color')">{{ labels.color }}<HelpIcon v-if="labels.colorHelp" :text="labels.colorHelp" /><SortIcon :dir="sortDirFor('color')" /></div>
+        <div class="px-3 flex items-center gap-1 cursor-pointer select-none" @click="toggleSort('quantity')">{{ labels.quantity }}<HelpIcon v-if="labels.quantityHelp" :text="labels.quantityHelp" /><SortIcon :dir="sortDirFor('quantity')" /></div>
+        <div class="relative px-3 flex items-center gap-1 cursor-pointer select-none" @click="toggleSort('device')">{{ labels.device }}<HelpIcon v-if="labels.deviceHelp" :text="labels.deviceHelp" /><SortIcon :dir="sortDirFor('device')" />
           <div class="col-resize-handle" @mousedown="startResize"></div>
         </div>
-        <div class="px-3 flex items-center gap-1">{{ labels.notes }}<HelpIcon v-if="labels.notesHelp" :text="labels.notesHelp" /></div>
-        <div class="px-3 flex items-center gap-1">{{ labels.sequenceOrder }}<HelpIcon v-if="labels.sequenceOrderHelp" :text="labels.sequenceOrderHelp" /></div>
+        <div class="px-3 flex items-center gap-1 cursor-pointer select-none" @click="toggleSort('notes')">{{ labels.notes }}<HelpIcon v-if="labels.notesHelp" :text="labels.notesHelp" /><SortIcon :dir="sortDirFor('notes')" /></div>
+        <div class="px-3 flex items-center gap-1 cursor-pointer select-none" @click="toggleSort('sequence_order')">{{ labels.sequenceOrder }}<HelpIcon v-if="labels.sequenceOrderHelp" :text="labels.sequenceOrderHelp" /><SortIcon :dir="sortDirFor('sequence_order')" /></div>
         <div class="px-3 flex items-center gap-1">{{ labels.assign }}<HelpIcon v-if="labels.assignHelp" :text="labels.assignHelp" /></div>
         <div></div>
       </div>
@@ -308,9 +320,9 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, nextTick, onMounted, onBeforeUnmount } from 'vue'
+import { ref, computed, watch, nextTick, onMounted, onBeforeUnmount, h } from 'vue'
 import { useContainerIsMobile } from '@/composables/useContainerIsMobile'
-import { Check, X } from 'lucide-vue-next'
+import { Check, X, ArrowUp, ArrowDown } from 'lucide-vue-next'
 import HelpIcon from '@/components/ui/HelpIcon.vue'
 import Sortable from 'sortablejs'
 import ChannelRow from './ChannelRow.vue'
@@ -338,12 +350,94 @@ const rootEl = ref(null)
 const sortableEl = ref(null)
 const isMobile = useContainerIsMobile(rootEl)
 
+// ── Spaltensortierung ────────────────────────────────────────────────────
+// Sortiert nur innerhalb jeder Positions-Gruppe (Gruppierung bleibt erhalten).
+// Bei aktiver Sortierung wird Drag&Drop deaktiviert, da eine manuelle
+// Reihenfolge sonst sofort durch die Sortierung überschrieben würde.
+const SORT_KEY = 'channelTable.sort'
+let initialSort = { column: null, dir: 'asc' }
+try {
+  const saved = JSON.parse(localStorage.getItem(SORT_KEY) || 'null')
+  if (saved?.column) initialSort = saved
+} catch { /* ignore */ }
+const sortColumn = ref(initialSort.column)
+const sortDirection = ref(initialSort.dir)
+
+function toggleSort(column) {
+  if (sortColumn.value === column) {
+    if (sortDirection.value === 'asc') {
+      sortDirection.value = 'desc'
+    } else {
+      sortColumn.value = null
+      sortDirection.value = 'asc'
+    }
+  } else {
+    sortColumn.value = column
+    sortDirection.value = 'asc'
+  }
+  localStorage.setItem(SORT_KEY, JSON.stringify({ column: sortColumn.value, dir: sortDirection.value }))
+}
+
+function sortDirFor(column) {
+  return sortColumn.value === column ? sortDirection.value : null
+}
+
+function resetSort() {
+  sortColumn.value = null
+  sortDirection.value = 'asc'
+  localStorage.setItem(SORT_KEY, JSON.stringify({ column: null, dir: 'asc' }))
+}
+
+const SORT_COLUMN_LABELS = {
+  channel: () => props.labels.channel,
+  address: () => props.labels.dmx,
+  color: () => props.labels.color,
+  quantity: () => props.labels.quantity,
+  device: () => props.labels.device,
+  notes: () => props.labels.notes,
+  sequence_order: () => props.labels.sequenceOrder,
+}
+const sortColumnLabel = computed(() => SORT_COLUMN_LABELS[sortColumn.value]?.() ?? sortColumn.value)
+
+const SortIcon = (props) => props.dir
+  ? h(props.dir === 'asc' ? ArrowUp : ArrowDown, { class: 'size-3' })
+  : null
+
+function compareChannels(a, b, column) {
+  if (column === 'channel' || column === 'quantity') {
+    const diff = (parseFloat(a[column]) || 0) - (parseFloat(b[column]) || 0)
+    if (diff !== 0) return diff
+  } else {
+    const diff = String(a[column] ?? '').localeCompare(String(b[column] ?? ''), undefined, { numeric: true, sensitivity: 'base' })
+    if (diff !== 0) return diff
+  }
+  return parseInt(a.channel) - parseInt(b.channel)
+}
+
+// Bei aktiver Sortierung wird die Gruppierung nach Bühnenposition aufgehoben —
+// eine Sortierung nur innerhalb jeder Position wäre für den Nutzer verwirrend,
+// da er eine durchgehend sortierte Liste über alle Positionen hinweg erwartet.
+const sortedGroupedChannels = computed(() => {
+  if (!sortColumn.value) return props.groupedChannels
+  const column = sortColumn.value
+  const dir = sortDirection.value === 'desc' ? -1 : 1
+  const allChannels = props.groupedChannels.flatMap(g => g.channels)
+  return [{
+    position: null,
+    channels: [...allChannels].sort((a, b) => dir * compareChannels(a, b, column)),
+  }]
+})
+
 // ── Resizable Spalte (nur Gerät) ──────────────────────────────────────────
 const DEVICE_WIDTH_KEY = 'channelTable.colWidth.device'
 const deviceWidth = ref(parseInt(localStorage.getItem(DEVICE_WIDTH_KEY)) || 224)
 
+// Zentrale Zeilenhöhe: alle Zell-Komponenten referenzieren var(--channel-row-min-h)
+const CHANNEL_ROW_MIN_H = '3rem'
+
 const channelGridStyle = computed(() => ({
   gridTemplateColumns: `2.75rem 6rem 5rem 7rem 6rem ${deviceWidth.value}px minmax(16rem, 1fr) 5rem 7rem 2.5rem`,
+  '--channel-row-min-h': CHANNEL_ROW_MIN_H,
 }))
 
 let resizing = null
@@ -575,24 +669,26 @@ const progressivelyRenderedItems = computed(() => {
   let channelsSeen = 0
   const limit = renderedCount.value
   const allGroups = [
-    ...props.groupedChannels,
+    ...sortedGroupedChannels.value,
     ...emptyPositions.value
       .filter(p => !props.groupedChannels.some(g => g.position === p))
       .map(p => ({ position: p, channels: [] })),
   ]
   for (const group of allGroups) {
-    items.push({ id: `header-${group.position}`, type: 'header', group })
+    if (!sortColumn.value) items.push({ id: `header-${group.position}`, type: 'header', group })
     for (const ch of group.channels) {
       if (channelsSeen < limit) {
         items.push({ id: ensureStableChannelKey(ch), type: 'channel', ch, group, rowIndex: channelsSeen })
       }
       channelsSeen++
     }
-    const isLast = group === allGroups[allGroups.length - 1]
-    if (addingPosition.value === group.position) {
-      items.push({ id: `add-form-${group.position}`, type: 'add-form', group })
-    } else {
-      items.push({ id: `add-btn-${group.position}`, type: 'add-btn', group, isLast })
+    if (!sortColumn.value) {
+      const isLast = group === allGroups[allGroups.length - 1]
+      if (addingPosition.value === group.position) {
+        items.push({ id: `add-form-${group.position}`, type: 'add-form', group })
+      } else {
+        items.push({ id: `add-btn-${group.position}`, type: 'add-btn', group, isLast })
+      }
     }
   }
   return items
@@ -678,6 +774,7 @@ function initSortable() {
     filter: '[data-no-drag]',
     preventOnFilter: false,
     animation: 150,
+    disabled: !!sortColumn.value,
     onEnd() {
       const keyToChannel = new Map(props.channels.map(c => [ensureStableChannelKey(c), c]))
       const reordered = []
@@ -709,6 +806,10 @@ function initSortable() {
 
 watch(() => props.channels.length, () => {
   nextTick(initSortable)
+})
+
+watch(sortColumn, (col) => {
+  sortableInstance?.option('disabled', !!col)
 })
 
 onBeforeUnmount(() => {

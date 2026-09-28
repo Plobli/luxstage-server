@@ -39,7 +39,7 @@
             @click.stop="emit('toggleStatus', ch)"
             :title="ch.channel ? 'Status' : ''"
             :class="[dupChannelNrs.has(ch.channel) ? 'ring-1 ring-yellow-400/60' : '', channelStatusClass]"
-            class="h-full min-h-14 w-full self-stretch cursor-text rounded-none border-0 bg-transparent px-1 py-0 text-center font-mono text-xl font-semibold shadow-none transition-colors placeholder:text-muted-foreground/60 focus-visible:ring-0"
+            class="h-full min-h-(--channel-row-min-h) w-full self-stretch cursor-text rounded-none border-0 bg-transparent px-1 py-0 text-center font-mono text-lg leading-none font-semibold shadow-none transition-colors placeholder:text-muted-foreground/60 focus-visible:ring-0 focus-visible:bg-primary/5"
           />
         </div>
 
@@ -50,7 +50,7 @@
             @input="emit('change')"
             @blur="onAddressBlur"
             @click.stop
-            class="h-full min-h-14 w-full self-stretch rounded-none border-0 bg-transparent px-1 py-0 text-center text-xs text-muted-foreground shadow-none placeholder:text-muted-foreground/60 focus-visible:ring-0"
+            class="h-full min-h-(--channel-row-min-h) w-full self-stretch rounded-none border-0 bg-transparent px-1 py-0 text-center text-xs text-muted-foreground shadow-none placeholder:text-muted-foreground/60 focus-visible:ring-0 focus-visible:bg-primary/5"
           />
         </div>
 
@@ -81,7 +81,7 @@
         <div
           v-if="!isMobile"
           class="px-0 py-0 align-middle border-l border-border/40 h-full flex items-center"
-          :class="isRangeSelected('device') ? 'bg-primary/10 ring-1 ring-primary/30' : ''"
+          :class="[isRangeSelected('device') ? 'bg-primary/10 ring-1 ring-primary/30' : '', deviceFocused ? 'bg-primary/5' : '']"
           @mousedown="onCellMouseDown('device')"
           @mouseenter="onCellMouseEnter('device', $event)"
         >
@@ -90,6 +90,7 @@
             :data-nav-row="rowIndex"
             data-nav-col="2"
             @input="onDeviceInput"
+            @focus="deviceFocused = true"
             @blur="onDeviceBlur"
             @keydown="onKeydownCol2"
           />
@@ -99,7 +100,7 @@
         <div
           v-if="!isMobile"
           class="px-0 py-0 align-middle border-l border-border/40 h-full flex flex-col items-start justify-center"
-          :class="isRangeSelected('notes') ? 'bg-primary/10 ring-1 ring-primary/30' : ''"
+          :class="[isRangeSelected('notes') ? 'bg-primary/10 ring-1 ring-primary/30' : '', notesFocused ? 'bg-primary/5' : '']"
           @mousedown="onCellMouseDown('notes')"
           @mouseenter="onCellMouseEnter('notes', $event)"
         >
@@ -108,6 +109,7 @@
             :data-nav-row="rowIndex"
             data-nav-col="3"
             @input="onNotesInput"
+            @focus="notesFocused = true"
             @blur="onNotesBlur"
             @keydown="onKeydownCol3"
           />
@@ -334,6 +336,7 @@ function onDeviceInput() {
 }
 
 function onDeviceBlur() {
+  deviceFocused.value = false
   const ch = props.ch
   const match = (ch.device ?? '').match(/^(\d+)\s*x\s*/i)
   if (match) {
@@ -361,8 +364,11 @@ function onNotesInput() {
 }
 
 function onNotesBlur() {
+  notesFocused.value = false
   props.flushChannelsSave?.()
 }
+const notesFocused = ref(false)
+const deviceFocused = ref(false)
 
 const _isMobileViewport = useIsMobile()
 const isMobile = computed(() => props.isMobileProp !== null ? props.isMobileProp : _isMobileViewport.value)

@@ -1,5 +1,5 @@
 <template>
-  <div ref="rootEl" class="relative h-full min-h-10 w-full flex items-center px-1.5">
+  <div ref="rootEl" class="relative h-full min-h-(--channel-row-min-h) w-full flex items-center px-1.5">
     <Input
       :model-value="displayValue"
       @input="onInput"

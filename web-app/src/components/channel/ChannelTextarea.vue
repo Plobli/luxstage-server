@@ -7,10 +7,7 @@
     @focus="handleFocus"
     @update:model-value="handleInput"
     @blur="handleBlur"
-    :class="[
-      'block min-h-10 w-full resize-none overflow-hidden rounded-none border-0 bg-transparent px-3 py-3 text-sm leading-4 text-foreground shadow-none transition-colors placeholder:text-muted-foreground/60 cursor-text focus-visible:outline-none focus-visible:ring-0',
-      isFocused ? 'bg-primary/5' : '',
-    ]"
+    class="block min-h-7 w-full resize-none overflow-hidden rounded-none border-0 bg-transparent px-3 py-1 text-sm leading-4 text-foreground shadow-none transition-colors placeholder:text-muted-foreground/60 cursor-text focus-visible:outline-none focus-visible:ring-0"
   />
 </template>
 
@@ -40,7 +37,7 @@ function autoResize() {
   // Beide Reads vor dem Write — kein Reflow-Thrashing. Höhe folgt nur dem
   // Inhalt (min-h-10); die vertikale Zentrierung übernimmt der Flex-Wrapper
   // (items-center) per CSS, wenn die Nachbarspalte höher ist.
-  const minHeight = 40
+  const minHeight = 28
   el.style.height = '0'
   const next = Math.max(minHeight, el.scrollHeight)
   el.style.height = `${next}px`

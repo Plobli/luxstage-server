@@ -95,6 +95,8 @@
                 device: t('field.device'),
                 quantity: t('field.quantity'),
                 notes: t('field.notes'),
+                sortedBy: t('channel.sort.sorted_by'),
+                sortReset: t('channel.sort.reset'),
                 editPosition: t('channel.position.edit'),
                 noPosition: t('channel.no_position'),
                 add: t('channel.add'),

@@ -77,6 +77,8 @@
   "channel.row.delete_row": "Zeile löschen",
   "channel.row.place_floorplan": "In der Zeichnung platzieren",
   "channel.search": "In Kreisen suchen …",
+  "channel.sort.reset": "Zurücksetzen",
+  "channel.sort.sorted_by": "Sortiert nach:",
   "color.no_color": "No Color",
   "color.picker.custom": "Freitext",
   "color.picker.label": "Color / Filter",

@@ -22,7 +22,7 @@
         @keydown="onKeydown"
         @focus="onFocus($event)"
         autocomplete="off"
-        class="h-full min-h-14 w-full rounded-none border-0 bg-transparent pl-1 pr-3 py-0 text-center text-sm text-foreground shadow-none focus-visible:ring-0"
+        class="h-full min-h-(--channel-row-min-h) w-full rounded-none border-0 bg-transparent pl-1 pr-3 py-0 text-center text-sm text-foreground shadow-none focus-visible:ring-0"
       />
       <button
         type="button"

@@ -335,7 +335,7 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 | `./web-app/src/components/show/SectionEditor.vue` | Bearbeitbare Markdown- oder Tabellen-Abschnitte mit Drag-Drop, komponentenlokalen KV-Table-Refs und Migrations-Fallback. |
 | `./web-app/src/components/show/GassenturmView.vue` | Beleuchtungsgestelle mit Slots und Kanalbelegung, Vorlagen und Drag-Drop; vertikal zentrierter Empty-State mit Hinzufügen-Button, FAB nur bei vorhandenen Einträgen. |
 | `./web-app/src/components/show/GeneratedTextAccordion.vue` | Read-only-Bereich mit automatisch generierten Zusammenfassungen zu Beleuchtungsgestellen und Obermaschinerie; Höhe per Drag anpassbar, pro User gespeichert (`generatedHeight`). |
-| `./web-app/src/components/channel/ChannelTable.vue` | Virtuelle Kanaltabelle mit Suche, Gruppierung, Drag-Drop-Sortierung und Inline-Bearbeitung. |
+| `./web-app/src/components/channel/ChannelTable.vue` | Virtuelle Kanaltabelle mit Suche, Gruppierung, Spaltensortierung (↑↓ pro Spalte, Reset-Leiste), Drag-Drop-Sortierung (nur bei manueller Reihenfolge) und Inline-Bearbeitung. |
 | `./web-app/src/components/channel/ChannelRow.vue` | Einzelne Kanalzeile mit Nummer, Farbe, Gerät, Notizen, Montage-Referenz und Assign-Menü. |
 | `./web-app/src/components/channel/ChannelTextarea.vue` | Auto-wachsendes Textfeld für Geräte- und Notizenspalten mit Fokus-Styling. |
 | `./web-app/src/components/channel/QuantitySelect.vue` | Combobox-Auswahl für Gerätemengen (1–10) mit Dropdown oder direkter Eingabe. |

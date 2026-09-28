@@ -1,5 +1,5 @@
 <template>
-  <div ref="rootEl" class="relative h-full min-h-8 w-full flex items-center">
+  <div ref="rootEl" class="relative h-full min-h-(--channel-row-min-h) w-full flex items-center">
     <input
       ref="inputRef"
       type="text"
