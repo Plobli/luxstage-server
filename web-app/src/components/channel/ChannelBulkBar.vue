@@ -12,7 +12,7 @@
         v-if="selectedKeys.size > 0"
         class="fixed inset-x-0 bottom-5 z-40 flex justify-center px-4 no-print"
       >
-        <div class="flex items-center gap-1 rounded-full border border-border/60 bg-popover/95 px-2 py-1.5 text-popover-foreground shadow-2xl backdrop-blur-md">
+        <div class="flex items-center gap-1 rounded-full border border-border bg-popover px-2 py-1.5 text-popover-foreground shadow-[0_12px_36px_-6px_rgba(0,0,0,0.6)] ring-1 ring-black/10">
           <span class="shrink-0 whitespace-nowrap rounded-full bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground">
             {{ t('channel.bulk.selected_count', { count: selectedKeys.size }) }}
           </span>
@@ -189,7 +189,7 @@
   </Teleport>
 
   <AlertDialog :open="clearDialogOpen" @update:open="val => { if (!val) clearDialogOpen = false }">
-    <AlertDialogContent>
+    <AlertDialogContent accent="warning">
       <AlertDialogHeader>
         <AlertDialogTitle>{{ t('channel.bulk.clear_confirm_title') }}</AlertDialogTitle>
         <AlertDialogDescription>{{ t('channel.bulk.clear_confirm_desc', { count: selectedKeys.size }) }}</AlertDialogDescription>
@@ -202,7 +202,7 @@
   </AlertDialog>
 
   <AlertDialog :open="deleteDialogOpen" @update:open="val => { if (!val) deleteDialogOpen = false }">
-    <AlertDialogContent>
+    <AlertDialogContent accent="destructive">
       <AlertDialogHeader>
         <AlertDialogTitle>{{ t('channel.bulk.delete_confirm_title') }}</AlertDialogTitle>
         <AlertDialogDescription>{{ t('channel.bulk.delete_confirm_desc', { count: selectedKeys.size }) }}</AlertDialogDescription>
@@ -238,11 +238,11 @@ const { t } = useLocale()
 const actionBtnClass = 'flex h-8 shrink-0 items-center gap-1.5 rounded-full px-3 text-xs font-medium text-foreground/90 transition-colors hover:bg-muted data-[state=open]:bg-muted'
 const dangerBtnClass = 'flex size-8 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive'
 
-const popoverClass = 'rounded-2xl border border-border/50 bg-popover/98 p-4 shadow-[0_16px_40px_-8px_rgba(0,0,0,0.45)] backdrop-blur-xl'
+const popoverClass = 'rounded-2xl border border-border bg-popover p-4 shadow-[0_16px_40px_-8px_rgba(0,0,0,0.6)] ring-1 ring-black/10'
 
 // Notched-Label-Feld (Rand bricht für die Beschriftung auf) — natives
 // <fieldset>/<legend>-Verhalten, kein CSS-Hack nötig.
-const notchFieldsetClass = 'rounded-lg border border-border/50 px-3 pb-2.5 transition-colors focus-within:border-primary/50'
+const notchFieldsetClass = 'rounded-lg border border-border px-3 pb-2.5 transition-colors focus-within:border-primary/50'
 const notchLegendClass = 'flex items-center gap-1.5 px-1 text-xs font-medium text-muted-foreground'
 const notchInputClass = 'w-full border-0 bg-transparent p-0 text-sm text-foreground shadow-none placeholder:text-muted-foreground/40 focus-visible:outline-none focus-visible:ring-0'
 

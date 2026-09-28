@@ -173,15 +173,17 @@
 
         <!-- Delete confirm dialog -->
         <AlertDialog :open="deleteDialogOpen" @update:open="val => { if (!val) deleteDialogOpen = false }">
-          <AlertDialogContent>
+          <AlertDialogContent accent="destructive">
             <AlertDialogHeader>
               <AlertDialogTitle>{{ t('channel.row.delete.title') }}</AlertDialogTitle>
               <AlertDialogDescription>{{ t('channel.row.delete.desc') }}</AlertDialogDescription>
             </AlertDialogHeader>
-            <AlertDialogFooter class="flex-col sm:flex-row gap-2">
-              <AlertDialogCancel @click="deleteDialogOpen = false">{{ t('action.cancel') }}</AlertDialogCancel>
-              <Button variant="outline" @click="() => { deleteDialogOpen = false; emit('clear', ch) }">{{ t('channel.row.clear') }}</Button>
-              <AlertDialogAction data-testid="channel-row-delete-confirm" class="bg-destructive text-destructive-foreground hover:bg-destructive/90" @click="() => { deleteDialogOpen = false; emit('delete', ch) }">{{ t('channel.row.delete_row') }}</AlertDialogAction>
+            <AlertDialogFooter class="sm:justify-between">
+              <Button variant="ghost" class="order-1 sm:order-0" @click="() => { deleteDialogOpen = false; emit('clear', ch) }">{{ t('channel.row.clear') }}</Button>
+              <div class="flex flex-col sm:flex-row gap-2">
+                <AlertDialogCancel @click="deleteDialogOpen = false">{{ t('action.cancel') }}</AlertDialogCancel>
+                <AlertDialogAction data-testid="channel-row-delete-confirm" class="bg-destructive text-destructive-foreground hover:bg-destructive/90" @click="() => { deleteDialogOpen = false; emit('delete', ch) }">{{ t('channel.row.delete_row') }}</AlertDialogAction>
+              </div>
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>

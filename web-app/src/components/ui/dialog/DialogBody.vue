@@ -11,14 +11,14 @@ const props = defineProps({
 </script>
 
 <template>
-  <div :class="cn('dialog-body flex flex-col gap-8 px-6 py-4 overflow-y-auto', props.class)">
+  <div :class="cn('dialog-body flex flex-col gap-6 px-5 py-4 overflow-y-auto', props.class)">
     <slot />
   </div>
 </template>
 
 <style>
 /* Abstand Label → Input innerhalb jeder Feldgruppe — kleiner als der Abstand
-   zwischen Feldgruppen (dialog-body gap-8 = 2rem), sonst wirkt die Gruppierung
+   zwischen Feldgruppen (dialog-body gap-6 = 1.5rem), sonst wirkt die Gruppierung
    invertiert (Label näher am Element der vorigen Gruppe als am eigenen Input).
    :has(> label) grenzt das auf echte Label→Input-Wrapper ein (auf jeder
    Verschachtelungstiefe), statt jedes beliebige div zu erfassen — eine reine
@@ -34,7 +34,7 @@ const props = defineProps({
 .dialog-body label {
   font-size: 0.9375rem; /* 15px */
   font-weight: 600;
-  color: white;
+  color: hsl(var(--foreground));
   line-height: 1;
 }
 </style>

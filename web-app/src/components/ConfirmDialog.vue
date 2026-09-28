@@ -1,14 +1,9 @@
 <template>
   <AlertDialog :open="open">
-    <AlertDialogContent class="sm:max-w-lg">
+    <AlertDialogContent class="sm:max-w-lg" accent="destructive">
       <AlertDialogHeader>
-        <div class="flex size-9 shrink-0 items-center justify-center rounded-full bg-red-500/10">
-          <AlertTriangle class="size-4 text-red-400" aria-hidden="true" />
-        </div>
-        <div class="flex flex-col gap-0.5">
-          <AlertDialogTitle>{{ title }}</AlertDialogTitle>
-          <AlertDialogDescription>{{ message }}</AlertDialogDescription>
-        </div>
+        <AlertDialogTitle>{{ title }}</AlertDialogTitle>
+        <AlertDialogDescription>{{ message }}</AlertDialogDescription>
       </AlertDialogHeader>
       <AlertDialogFooter>
         <AlertDialogCancel @click="cancel">
@@ -38,7 +33,6 @@ import {
   AlertDialogAction,
 } from '@/components/ui/alert-dialog'
 import { buttonVariants } from '@/components/ui/button'
-import { AlertTriangle } from 'lucide-vue-next'
 
 const props = defineProps({
   open: { type: Boolean, required: true },

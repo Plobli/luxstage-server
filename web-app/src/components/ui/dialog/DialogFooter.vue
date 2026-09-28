@@ -11,7 +11,7 @@ const props = defineProps({
 </script>
 
 <template>
-  <div :class="cn('flex items-center justify-end gap-3 px-6 py-5', props.class)">
+  <div :class="cn('flex items-center justify-end gap-2 px-5 pb-5 pt-2', props.class)">
     <slot />
   </div>
 </template>

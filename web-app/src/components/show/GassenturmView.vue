@@ -190,7 +190,15 @@
   <!-- Tower Dialog -->
   <Dialog :open="towerDialogOpen" @update:open="towerDialogOpen = $event">
     <DialogContent class="sm:max-w-lg">
-      <DialogHeader>
+      <div v-if="!editingTower && props.fromTemplateFn" class="flex gap-1 p-1.5 bg-muted/50">
+        <button type="button" class="flex-1 h-9 rounded-lg text-xs font-semibold bg-popover text-foreground shadow-sm">
+          {{ t('gassenturm.dialog.new') }}
+        </button>
+        <button type="button" class="flex-1 h-9 rounded-lg text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors" @click="towerDialogOpen = false; props.fromTemplateFn()">
+          {{ t('gassenturm.dialog.from_template') }}
+        </button>
+      </div>
+      <DialogHeader v-else>
         <DialogTitle>{{ editingTower ? t('gassenturm.dialog.edit') : t('gassenturm.dialog.new') }}</DialogTitle>
       </DialogHeader>
 
@@ -200,19 +208,16 @@
           <label class="text-xs text-muted-foreground">{{ t('gassenturm.field.name') }}</label>
           <Input size="lg" v-model="towerForm.name" :placeholder="t('gassenturm.field.name.placeholder')" autofocus />
         </div>
-        <div class="flex flex-col gap-1.5">
-          <label class="flex items-center gap-1.5 text-xs text-muted-foreground">
-            {{ t('gassenturm.field.side') }}
-            <HelpIcon :text="t('gassenturm.field.side.help')" side="right" />
-          </label>
-          <Input size="lg" v-model="towerForm.side" :placeholder="t('gassenturm.field.side.placeholder')" class="w-full" />
-        </div>
-        <div class="flex flex-col gap-1.5">
-          <label class="flex items-center gap-1.5 text-xs text-muted-foreground">
+        <div style="display: flex; flex-direction: row;" class="items-center justify-between gap-3">
+          <span class="flex items-center gap-1.5 text-xs text-muted-foreground font-semibold">
             {{ t('gassenturm.field.slot_count') }}
             <HelpIcon :text="t('gassenturm.field.slot_count.help')" side="right" />
-          </label>
-          <Input size="lg" v-model.number="towerForm.slot_count" type="number" min="1" max="20" />
+          </span>
+          <div class="flex items-center rounded-lg border border-border overflow-hidden shrink-0">
+            <button type="button" class="size-9 flex items-center justify-center text-lg text-foreground hover:bg-accent/20 disabled:opacity-30 disabled:pointer-events-none" :disabled="towerForm.slot_count <= 1" @click="towerForm.slot_count--">−</button>
+            <span class="w-11 text-center text-sm font-semibold tabular-nums">{{ towerForm.slot_count }}</span>
+            <button type="button" class="size-9 flex items-center justify-center text-lg text-foreground hover:bg-accent/20 disabled:opacity-30 disabled:pointer-events-none" :disabled="towerForm.slot_count >= 20" @click="towerForm.slot_count++">+</button>
+          </div>
         </div>
 
         <!-- Warnbereich bei Slot-Reduktion -->
@@ -231,9 +236,6 @@
         </div>
       </DialogBody>
       <DialogFooter>
-        <Button v-if="!editingTower && props.fromTemplateFn && !slotReduceConfirm" variant="ghost" class="mr-auto text-xs text-muted-foreground" @click="towerDialogOpen = false; props.fromTemplateFn()">
-          {{ t('gassenturm.dialog.from_template') }}
-        </Button>
         <Button variant="ghost" @click="towerDialogOpen = false">{{ t('action.cancel') }}</Button>
         <template v-if="slotReduceConfirm">
           <Button variant="ghost" @click="slotReduceConfirm = null">{{ t('action.back') }}</Button>
