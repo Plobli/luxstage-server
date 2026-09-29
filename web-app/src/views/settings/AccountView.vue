@@ -53,24 +53,113 @@
       </div>
     </div>
 
+    <!-- Team löschen (nur SaaS) -->
+    <div v-if="saasMode" class="grid max-w-7xl grid-cols-1 gap-x-8 gap-y-10 px-4 py-16 sm:px-6 md:grid-cols-3 lg:px-8">
+      <div>
+        <h2 class="text-base/7 font-semibold text-destructive">{{ t('settings.account.delete_team') }}</h2>
+        <p class="mt-1 text-sm/6 text-muted-foreground">{{ t('settings.account.delete_team.hint') }}</p>
+      </div>
+      <div class="md:col-span-2 flex items-start">
+        <Button variant="destructive" type="button" @click="openDeleteDialog">
+          {{ t('settings.account.delete_team') }}
+        </Button>
+      </div>
+    </div>
+
   </div>
+
+  <Dialog :open="deleteDialogOpen" @update:open="deleteDialogOpen = $event">
+    <DialogContent class="sm:max-w-sm">
+      <DialogHeader>
+        <DialogTitle>{{ t('settings.account.delete_team.dialog.title') }}</DialogTitle>
+      </DialogHeader>
+      <DialogBody class="space-y-4">
+        <Alert variant="destructive">
+          <AlertDescription>{{ t('settings.account.delete_team.dialog.warning') }}</AlertDescription>
+        </Alert>
+        <div v-if="!deleteRequested" class="space-y-2">
+          <Label for="delete-password">{{ t('settings.account.delete_team.dialog.password_label') }}</Label>
+          <Input
+            id="delete-password"
+            v-model="deletePassword"
+            type="password"
+            autocomplete="current-password"
+            autofocus
+            @keydown.enter.prevent="confirmDeleteRequest"
+            @keydown.esc.prevent="deleteDialogOpen = false"
+          />
+        </div>
+        <p v-else class="text-sm text-muted-foreground">{{ t('settings.account.delete_team.dialog.sent') }}</p>
+        <Alert v-if="deleteMsg" variant="destructive"><AlertDescription>{{ deleteMsg }}</AlertDescription></Alert>
+      </DialogBody>
+      <DialogFooter>
+        <Button variant="outline" type="button" @click="deleteDialogOpen = false">{{ t('action.cancel') }}</Button>
+        <Button v-if="!deleteRequested" variant="destructive" type="button" :disabled="deleteLoading || !deletePassword" @click="confirmDeleteRequest">
+          {{ deleteLoading ? '…' : t('settings.account.delete_team.dialog.submit') }}
+        </Button>
+      </DialogFooter>
+    </DialogContent>
+  </Dialog>
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useLocale } from '../../composables/useLocale.js'
 import { logout, changePassword } from '../../api/auth.js'
+import { requestTenantDelete } from '../../api/account'
+import { api } from '../../api/client.js'
 import { PASSWORD_MIN_LENGTH } from '@shared/constants.js'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogBody } from '@/components/ui/dialog'
 
 const { t } = useLocale()
 const router = useRouter()
 const route = useRoute()
 const forceChange = computed(() => route.query.forceChange === '1')
+
+const saasMode = ref(false)
+onMounted(async () => {
+  try {
+    const status = await api.get('/api/status')
+    saasMode.value = !!status.saasEnabled
+  } catch {
+    saasMode.value = false
+  }
+})
+
+const deleteDialogOpen = ref(false)
+const deletePassword = ref('')
+const deleteLoading = ref(false)
+const deleteRequested = ref(false)
+const deleteMsg = ref('')
+
+function openDeleteDialog() {
+  deletePassword.value = ''
+  deleteRequested.value = false
+  deleteMsg.value = ''
+  deleteDialogOpen.value = true
+}
+
+async function confirmDeleteRequest() {
+  if (!deletePassword.value) return
+  deleteMsg.value = ''
+  deleteLoading.value = true
+  try {
+    await requestTenantDelete(deletePassword.value)
+    deleteRequested.value = true
+  } catch (e) {
+    deleteMsg.value = e.message.includes('401') || e.message.toLowerCase().includes('falsch')
+      ? t('settings.account.change_password.error.wrong')
+      : e.message
+  } finally {
+    deleteLoading.value = false
+    deletePassword.value = ''
+  }
+}
 
 const pwCurrent = ref('')
 const pwNew = ref('')

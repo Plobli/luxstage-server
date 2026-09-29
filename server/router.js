@@ -261,6 +261,10 @@ async function dispatchApi(req, res, pathname, params) {
     return dispatchRoute(getSaas().registerRoutes, req, res, pathname, params)
   }
 
+  if (saasEnabled && pathname.startsWith('/api/tenant/')) {
+    return dispatchRoute(getSaas().tenantDeleteRoutes, req, res, pathname, params)
+  }
+
   if (WRITE_METHODS.has(req.method)) {
     if (!LOCK_CHECK_EXEMPT.test(pathname)) {
       const m = SHOW_WRITE_PATH.exec(pathname)

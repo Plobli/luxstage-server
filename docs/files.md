@@ -68,11 +68,12 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 | Datei | Beschreibung |
 |---|---|
 | `./server/index.js` | HTTP-Server-Einstieg mit CORS, Security-Headern und Job-Starter. |
-| `./server/router.js` | HTTP-Router für API-Endpunkte und Datei-Serving; öffentliche API-Ausnahmen sind an Methode und Pfad gebunden, API- und Show-Unterressourcen laufen über geordnete Handler-Listen. Globales IP-Rate-Limiting greift vor jedem API-Request. Fehler in Route-Handlern werden abgefangen (500 statt Prozessabsturz). Liefert hostunabhängig `/.well-known/apple-app-site-association` für Apple Universal Links (Passwort-Reset → App-Login). |
+| `./server/router.js` | HTTP-Router für API-Endpunkte und Datei-Serving; öffentliche API-Ausnahmen sind an Methode und Pfad gebunden, API- und Show-Unterressourcen laufen über geordnete Handler-Listen. Globales IP-Rate-Limiting greift vor jedem API-Request. Fehler in Route-Handlern werden abgefangen (500 statt Prozessabsturz). Liefert hostunabhängig `/.well-known/apple-app-site-association` für Apple Universal Links (Passwort-Reset → App-Login). `/api/tenant/*` (Mandanten-Löschanfrage) läuft nur im SaaS-Modus über `saas.tenantDeleteRoutes`. |
 | `./server/brevo.js` | Startet Newsletter-Double-Opt-in bei Brevo (eigener Bestätigungs-Flow, getrennt von der Registrierungs-Bestätigung) für Mandanten mit Newsletter-Consent. |
 | `./server/config.js` | Lädt Umgebungsvariablen und Konfigurationsdefaults, einschließlich explizitem Reverse-Proxy-Vertrauen und Brevo-Newsletter-Konfiguration. |
 | `./server/bootstrap.js` | Einmaliges Setup-Skript; legt den ersten Admin an (Login = `ADMIN_EMAIL`). |
 | `./server/db.js` | Re-Export der Datenbank-Funktionen aus `db/index.js`. |
+| `./server/route-table.js` | Deklarative Route-Tabelle (öffentliche Endpunkte, globale API-Gruppen, Show-Unterressourcen); zentralisiert, was vorher direkt in router.js stand. |
 | `./server/db-init.js` | Datenbankverbindung, Basis-Schema und Migrations-Runner (führt `db/migrations/*` einmalig aus, getrackt in `schema_migrations`). |
 | `./server/db-context.js` | Request-gebundener DB-Kontext für Multi-Tenancy (AsyncLocalStorage). |
 | `./server/auth.js` | JWT-Token, Passwort-Hashing und kurzlebige Download-Token-Verwaltung; Cleanup-Timer blockiert keine Einmalprozesse. |
@@ -98,13 +99,14 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 | `./server/pdf/section-renderers.js` | Registry der Section-Typen für den PDF-Export (`kv-table`, `fields`, Default für Setup-Text); je Typ Content-Prüfung und Render-Funktion. Ein neuer Typ ist ein Eintrag hier, `pdf.js` bleibt unverändert. |
 | `./server/pdf/utils.js` | Kanalgruppierung, Datumsformat, Bildgrößen-Ermittlung aus PNG/JPEG-Buffer. |
 | `./server/sse.js` | Server-Sent Events für Echtzeit-Kanal-Updates und Präsenz, pro Mandant gescopt; Heartbeat blockiert keine Einmalprozesse; sendToUser() für gezielte Zustellung an einen User (z.B. Lock-Übernahme-Anfrage). |
-| `./server/email.js` | SMTP-Konfiguration und Email-Versand mit Fallback-Support (u.a. Willkommens-, Bestätigungs- und Freischalt-Anfrage-Mails). |
+| `./server/email.js` | SMTP-Konfiguration und Email-Versand mit Fallback-Support (u.a. Willkommens-, Bestätigungs-, Freischalt-Anfrage- und Mandanten-Löschanfrage-Mails an den Betreiber). |
 | `./server/package.json` | NPM-Abhängigkeiten (sqlite, pdfkit, sharp, bcrypt, jwt). |
 | `./server/test/helpers/test-env.js` | Isolierte Testumgebung mit temporärem Datenpfad und HTTP-Response-Stub für Backend-Tests. |
 | `./server/test/register.test.js` | Regressionstests für atomare SaaS-Registrierungsbestätigung und Cleanup bei Registry-Konflikten. |
 | `./server/test/router.test.js` | Regressionstests für öffentliche API-Methoden und Authentifizierungsgrenzen des HTTP-Routers. |
 | `./server/test/photos.test.js` | Regressionstest für gestreamtes Multipart-Staging und garantiertes Cleanup temporärer Foto-Uploads. |
 | `./server/test/tenant-backup.test.js` | Regressionstests für Tenant-Snapshot-Restore, Rollback bei fehlgeschlagener Aktivierung und Snapshot-Verifikation (verifySnapshot). |
+| `./server/test/tenant-delete.test.js` | Regressionstests für die Mandanten-Löschanfrage: falsches Passwort liefert 401 ohne jede Löschung, korrektes Passwort liefert 202 — der Mandant bleibt in beiden Fällen bestehen (Löschung passiert ausschließlich manuell durch den Betreiber). |
 | `./server/test/tenant-health.test.js` | Regressionstests für Mandanten-Health-Check (Erreichbarkeit, Schema-Migrationen, Snapshot-Alter, mandantenweite letzte Aktivität) und On-Demand-Konsistenzcheck. |
 | `./server/test/secrets.test.js` | Regressionstests für AES-256-GCM-Verschlüsselung der SMTP-Settings und SHA-256-Hashing der Passwort-Reset-Token (inkl. Ablauf, Einmal-Einlösung). |
 | `./server/test/network-undo.test.js` | Tests für den globalen Netzwerk-Undo-Stack: Snapshot vor der Änderung, Transaktions-Rollback, Redo-Reihenfolge, Hash-Integrität, Stack-Begrenzung. |
@@ -119,8 +121,9 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 | `./server/test/plan-scan.test.js` | Tests für `plan-scan.js`: PDF-Magic-Byte-Validierung (`isPdfBuffer`), korrekte Durchreichung eines injizierten Fake-Clients, Fehlerfälle bei fehlendem `parsed_output` und bei leerem Seiten-Array. Kein Kanal-Extraktions-/Freitexterkennungs-Test — LLM-Output ist nicht sinnvoll automatisiert testbar. |
 | `./server/test/plan-scan-route.test.js` | Test für die Pfad-Zuständigkeit der `plan-scan`-Route (gibt `null` für nicht-passende Pfade zurück); der volle Upload-Pfad ist über `plan-scan.js`-Unit-Tests und den manuellen End-to-End-Test abgedeckt. |
 | `./server/.env` | Server-Development-Umgebungsvariablen. |
-| `./server/saas.js` | Kapsel für SaaS-Funktionalität, lädt Module nur im SaaS-Modus. |
+| `./server/saas.js` | Kapsel für SaaS-Funktionalität, lädt Module nur im SaaS-Modus; stellt u.a. `tenantDeleteRoutes` für die Mandanten-Löschanfrage bereit. |
 | `./server/registry.js` | Zentrale Registrierung für Mandantenverzeichnis und Doppel-Opt-In; aktiviert Tenant-Eintrag (inkl. Newsletter-Consent) und verbraucht Bestätigungslink atomar. |
+| `./server/routes/tenant-delete.js` | Self-Service-Löschanfrage für den eigenen Mandanten (nur SaaS): `POST /api/tenant/delete-request` prüft das Passwort des anfragenden Nutzers und benachrichtigt den Betreiber per Mail (`OPERATOR_NOTIFY_EMAIL`); keine automatisierte Löschung — der Betreiber löscht manuell über das Betreiber-Panel (`DELETE /api/operator/tenants/:id`). |
 | `./server/tenants.js` | Mandantenverzeichnis mit separaten SQLite-DBs pro Kunde und Kompensation fehlgeschlagener Registrierungen. |
 | `./server/tenant-resolve.js` | Host-Header-Parsing für Subdomain-basierte Mandantenauflösung, plus `tenantBaseUrl()` für Mandanten-URLs in E-Mail-Links. |
 | `./server/tenant-backup.js` | Tägliche Snapshots pro Mandant (tar.gz mit DB + Datei-Ordnern photos/floorplans) mit Retention-Policy; sichert vor Restore den Ist-Zustand, aktiviert Snapshots per rückrollbarem DB-/Ordner-Swap und verifiziert Snapshot-Konsistenz (quick_check). Legacy-reine-.db-Snapshots bleiben lesbar. |
@@ -285,6 +288,7 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 | `./web-app/src/api/templateBars.ts` | CRUD-API für Bars in Vorlagen. |
 | `./web-app/src/api/templateTowers.ts` | CRUD-API für Towers in Vorlagen mit Slot-Verwaltung. |
 | `./web-app/src/api/backup.ts` | Backup-Download und Restore-Upload mit ZIP-Format. |
+| `./web-app/src/api/account.ts` | `requestTenantDelete`: Mandanten-Löschanfrage (Passwort-Prüfung, benachrichtigt den Betreiber per Mail — keine automatisierte Löschung). |
 
 ### web-app/src/views/ (Seiten/Routen)
 
@@ -304,7 +308,7 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 | `./web-app/src/components/network/DeviceNode.vue` | Vue-Flow-Knotenkomponente für Dose/Gerät: einfache Box mit einem Handle je Seite, Hintergrundfarbe je nach Typ (Dose bläulich, Gerät bernsteinfarben) zur Unterscheidung auf einen Blick. |
 | `./web-app/src/views/TemplatesView.vue` | Vorlagenliste, Neu-Anlegen, Löschen, Download des Kreislisten-Vordrucks (PDF); Detail-Bearbeitung an TemplateDetailPanel, Upload an TemplateUploadDialog delegiert. |
 | `./web-app/src/views/SettingsView.vue` | Sub-Navigation zu verschiedenen Einstellungsbereichen. |
-| `./web-app/src/views/settings/AccountView.vue` | Passwort-Änderung, Druckeinstellungen, Abmelden. |
+| `./web-app/src/views/settings/AccountView.vue` | Passwort-Änderung, Druckeinstellungen, Abmelden; im SaaS-Betrieb zusätzlich Team-Löschanfrage (Passwort-Bestätigung im Dialog, danach Benachrichtigung des Betreibers — keine automatisierte Löschung). |
 | `./web-app/src/views/settings/UsersView.vue` | Benutzerverwaltung: Anlegen, Löschen, Freischalten selbst-registrierter Nutzer, Passwort-Reset. |
 | `./web-app/src/views/settings/DisplayView.vue` | Sprach- und Maßeinheit-Einstellungen (Deutsch/Englisch). |
 | `./web-app/src/views/settings/ServerView.vue` | Server-URL, Versionsinformationen und Speicherstatus. |

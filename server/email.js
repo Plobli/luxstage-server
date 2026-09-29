@@ -119,6 +119,17 @@ export async function sendApprovalRequestEmail(toEmails, newUserEmail) {
   )))
 }
 
+// Geht an den Betreiber (config.operator.notifyEmail), NICHT an den anfragenden
+// Mandanten-Nutzer: die Löschung passiert bewusst nicht automatisiert, sondern
+// manuell über das Betreiber-Panel nach dieser Anfrage.
+export async function sendTenantDeleteRequestEmail(notifyEmail, tenantId, requestedByEmail) {
+  await sendMail(
+    notifyEmail,
+    `LuxStage – Löschanfrage für Team "${tenantId}"`,
+    `Hallo,\n\n${requestedByEmail} hat über die WebApp die Löschung des Teams "${tenantId}" beantragt (Passwort wurde geprüft).\n\nBitte im Betreiber-Panel prüfen und bei Bedarf manuell löschen.\n\nLuxStage`
+  )
+}
+
 export async function sendTestEmail(to, cfg) {
   const transport = createTransport(cfg)
   if (!transport) throw new Error('SMTP nicht konfiguriert')

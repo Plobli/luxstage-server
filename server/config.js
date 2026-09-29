@@ -29,6 +29,10 @@ export const config = {
   operator: {
     user: process.env.OPERATOR_USER || 'operator',
     password: process.env.OPERATOR_PASSWORD || '',
+    // Empfänger für Mandanten-Löschanfragen (Self-Service-Antrag, manuelle
+    // Ausführung durch den Betreiber über das Betreiber-Panel) — kein
+    // automatisierter Löschvorgang.
+    notifyEmail: process.env.OPERATOR_NOTIFY_EMAIL || '',
   },
   lockTimeout: 10 * 60 * 1000, // 10 Minuten in ms
   photoMaxWidth: 1500,

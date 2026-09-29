@@ -12,13 +12,14 @@ let mod = null
 // Lädt die SaaS-Module einmalig. Nur aufrufen, wenn saasEnabled true ist.
 async function load() {
   if (mod) return mod
-  const [tenantResolve, tenants, registry, dbContext, operatorRoutes, registerRoutes] = await Promise.all([
+  const [tenantResolve, tenants, registry, dbContext, operatorRoutes, registerRoutes, tenantDeleteRoutes] = await Promise.all([
     import('./tenant-resolve.js'),
     import('./tenants.js'),
     import('./registry.js'),
     import('./db-context.js'),
     import('./routes/operator.js'),
     import('./routes/register.js'),
+    import('./routes/tenant-delete.js'),
   ])
   mod = {
     resolveTenantId: tenantResolve.resolveTenantId,
@@ -34,6 +35,7 @@ async function load() {
     runWithDb: dbContext.runWithDb,
     operatorRoutes: operatorRoutes.operatorRoutes,
     registerRoutes: registerRoutes.registerRoutes,
+    tenantDeleteRoutes: tenantDeleteRoutes.tenantDeleteRoutes,
   }
   return mod
 }
