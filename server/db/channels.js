@@ -7,7 +7,14 @@ function now() { return Date.now() }
 export function readChannels(slug) {
   const show = readShow(slug)
   if (!show) return []
-  return getDb().prepare('SELECT * FROM channels WHERE show_id = ? ORDER BY sort_order').all(show.id)
+  const rows = getDb().prepare('SELECT * FROM channels WHERE show_id = ? ORDER BY sort_order').all(show.id)
+  // sequence_order ist INTEGER-Spalte, kann aber Text enthalten (z.B. "1+2+Pause");
+  // SQLite/better-sqlite3 liefert rein numerische Werte als JS-Zahl zurück, was das
+  // client-seitige String-Decoding bricht. Immer als String ausliefern.
+  for (const row of rows) {
+    if (row.sequence_order != null) row.sequence_order = String(row.sequence_order)
+  }
+  return rows
 }
 
 // Häufigkeit verwendeter Farbcodes über alle Shows des Mandanten hinweg,

@@ -13,7 +13,7 @@ if (!isRelease) {
     const buildNum = execSync('git rev-list --count HEAD', { stdio: 'pipe' }).toString().trim()
     version = `${version} Build ${buildNum}`
   } catch (e) {
-    version = `${version} Build dev`
+    version = `${version}`
   }
 }
 
