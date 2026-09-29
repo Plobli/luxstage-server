@@ -1,5 +1,5 @@
 import { ref, type Ref } from 'vue'
-import { ELEMENT_TYPES, elementHasEndpoints } from '../../utils/floorplanElementTypes'
+import { ELEMENT_TYPES, elementHasEndpoints, getElementCenter } from '../../utils/floorplanElementTypes'
 
 // Drag/Resize/Rotate-Zustand und -Mausbehandlung für ausgewählte Elemente in
 // FloorplanEditor.vue. Bewusst NICHT hier: das zentrale Maus-Dispatching selbst
@@ -101,12 +101,11 @@ export function useElementDragResize(
   function startRotationDrag(el: DragResizeElement, event: PointerEvent) {
     event.preventDefault()
     event.stopPropagation()
-    const rect = (event.currentTarget as HTMLElement).getBoundingClientRect()
-    const cx = rect.left + rect.width / 2
-    const cy = rect.top + rect.height / 2
+    const { x: cx, y: cy } = getElementCenter(el)
     function onMove(e: PointerEvent) {
-      const angle = Math.atan2(e.clientY - cy, e.clientX - cx) * 180 / Math.PI + 90
-      updateRotation(el.id, Math.round(angle))
+      const pos = getPointerPos(e)
+      const angle = Math.atan2(pos.y - cy, pos.x - cx) * 180 / Math.PI + 90
+      updateRotation(el.id, Math.round(angle / 5) * 5)
     }
     function onUp() {
       window.removeEventListener('pointermove', onMove)

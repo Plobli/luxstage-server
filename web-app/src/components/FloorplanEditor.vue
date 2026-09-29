@@ -249,8 +249,8 @@
               <!-- Rotation handle -->
               <circle
                 v-if="hoveredId === el.id || selectedIds.has(el.id)"
-                :cx="(el.w || 160) / 2"
-                :cy="-16"
+                :cx="el.x + (el.w || 160) / 2"
+                :cy="el.y - 16"
                 r="7"
                 fill="white"
                 stroke="#f59e0b"
@@ -526,6 +526,17 @@
             <Button size="sm" variant="outline" class="h-7 px-2 text-xs" @click="emit('open-bar', selectedElement.barId)">→ Zugstange</Button>
           </template>
 
+          <!-- Drehen -->
+          <template v-if="['bar','rect','ellipse','text'].includes(selectedElement.type)">
+            <div class="w-px h-8 bg-border shrink-0"></div>
+            <div class="flex items-center gap-0.5">
+              <Button size="sm" variant="ghost" class="h-7 px-1.5 text-xs" title="90° links" @click="rotateSelectedBy(-90)"><RotateCcw class="size-3.5" />90</Button>
+              <Button size="sm" variant="ghost" class="h-7 px-1.5 text-xs" title="45° links" @click="rotateSelectedBy(-45)"><RotateCcw class="size-3.5" />45</Button>
+              <Button size="sm" variant="ghost" class="h-7 px-1.5 text-xs" title="45° rechts" @click="rotateSelectedBy(45)">45<RotateCw class="size-3.5" /></Button>
+              <Button size="sm" variant="ghost" class="h-7 px-1.5 text-xs" title="90° rechts" @click="rotateSelectedBy(90)">90<RotateCw class="size-3.5" /></Button>
+            </div>
+          </template>
+
           <!-- Notiz (für alle außer Text und Tower) -->
           <template v-if="!['text','tower'].includes(selectedElement.type)">
             <div class="w-px h-8 bg-border shrink-0"></div>
@@ -671,7 +682,7 @@ import { PDF_PRINT_AREA_RATIO } from '@shared/constants.js'
 import {
   Copy, MousePointer2, Hand, Minus, Square, Circle, Type, CircleDot,
   Upload, ImageOff, Download, Trash2, Layers, AlignJustify, Ruler,
-  X
+  X, RotateCw, RotateCcw
 } from 'lucide-vue-next'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -1098,6 +1109,13 @@ function parseData(str) {
 // Undo/Redo läuft über den serverseitigen Show-Undo-Stack (Strg+Z/Strg+Y werden
 // global in ShowDetailView.vue behandelt, canvas_data ist Teil von
 // server/db/full-state.js) — hier nur noch speichern, keine eigene History.
+function rotateSelectedBy(deg) {
+  const el = selectedElement.value
+  if (!el) return
+  el.rotation = (((el.rotation || 0) + deg) % 360 + 360) % 360
+  emitChange()
+}
+
 function emitChange() {
   emit('change', exportData())
 }
