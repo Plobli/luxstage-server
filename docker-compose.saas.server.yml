@@ -37,6 +37,7 @@ services:
       SMTP_FROM: ${SMTP_FROM:-LuxStage <noreply@luxstage.app>}
       OPERATOR_USER: ${OPERATOR_USER:-operator}
       OPERATOR_PASSWORD: ${OPERATOR_PASSWORD}
+      OPERATOR_NOTIFY_EMAIL: ${OPERATOR_NOTIFY_EMAIL:-}
     # Ressourcen-Deckel: LuxStage kann den knappen Host-RAM nicht leerräumen.
     deploy:
       resources:

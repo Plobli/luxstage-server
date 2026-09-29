@@ -62,7 +62,7 @@
                       {{ t('nav.logout') }}
                     </Button>
                     <div class="px-6 mt-2 text-xs text-muted-foreground/80">
-                      Web {{ appVersion }}<span v-if="serverVersion"> · Srv {{ serverVersion }}</span>
+                      {{ appVersion }}
                     </div>
                   </div>
                 </div>
@@ -256,7 +256,7 @@
           </Tooltip>
 
           <div v-if="!sidebarCollapsed" class="px-3 pt-2 text-[11px] text-muted-foreground/60">
-            Web {{ appVersion }}<span v-if="serverVersion"> · Srv {{ serverVersion }}</span>
+            {{ appVersion }}
           </div>
         </div>
       </div>
@@ -356,14 +356,12 @@ useTokenRefresh()
 
 const { t } = useLocale()
 const appVersion = __APP_VERSION__
-const serverVersion = ref(null)
 const saasMode = ref(null)
 
 async function pingServer() {
   try {
     const status = await api.get('/api/status')
     isOnline.value = true
-    serverVersion.value = status.version
     saasMode.value = !!status.saasEnabled
   } catch {
     isOnline.value = false
