@@ -53,6 +53,36 @@
       </div>
     </div>
 
+    <!-- Feedback (nur SaaS) -->
+    <div v-if="saasMode" class="grid max-w-7xl grid-cols-1 gap-x-8 gap-y-10 px-4 py-16 sm:px-6 md:grid-cols-3 lg:px-8">
+      <div>
+        <h2 class="text-base/7 font-semibold text-foreground">{{ t('settings.account.feedback') }}</h2>
+        <p class="mt-1 text-sm/6 text-muted-foreground">{{ t('settings.account.feedback.hint') }}</p>
+      </div>
+      <form class="md:col-span-2" @submit.prevent="doSendFeedback">
+        <div class="grid grid-cols-1 gap-y-6 sm:max-w-xl">
+          <div class="space-y-2">
+            <Label for="feedback-text">{{ t('settings.account.feedback.label') }}</Label>
+            <textarea
+              id="feedback-text"
+              v-model="feedbackText"
+              rows="5"
+              :maxlength="FEEDBACK_MAX_LENGTH"
+              class="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+            />
+          </div>
+          <Alert v-if="feedbackMsg" :variant="feedbackOk ? 'default' : 'destructive'">
+            <AlertDescription>{{ feedbackMsg }}</AlertDescription>
+          </Alert>
+        </div>
+        <div class="mt-8">
+          <Button type="submit" :disabled="feedbackLoading || !feedbackText.trim()">
+            {{ feedbackLoading ? '…' : t('settings.account.feedback.submit') }}
+          </Button>
+        </div>
+      </form>
+    </div>
+
     <!-- Team löschen (nur SaaS) -->
     <div v-if="saasMode" class="grid max-w-7xl grid-cols-1 gap-x-8 gap-y-10 px-4 py-16 sm:px-6 md:grid-cols-3 lg:px-8">
       <div>
@@ -107,7 +137,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useLocale } from '../../composables/useLocale.js'
 import { logout, changePassword } from '../../api/auth.js'
-import { requestTenantDelete } from '../../api/account'
+import { requestTenantDelete, sendFeedback } from '../../api/account'
 import { api } from '../../api/client.js'
 import { PASSWORD_MIN_LENGTH } from '@shared/constants.js'
 import { Input } from '@/components/ui/input'
@@ -130,6 +160,28 @@ onMounted(async () => {
     saasMode.value = false
   }
 })
+
+const FEEDBACK_MAX_LENGTH = 4000
+const feedbackText = ref('')
+const feedbackMsg = ref('')
+const feedbackOk = ref(false)
+const feedbackLoading = ref(false)
+
+async function doSendFeedback() {
+  feedbackMsg.value = ''
+  feedbackLoading.value = true
+  try {
+    await sendFeedback(feedbackText.value)
+    feedbackOk.value = true
+    feedbackMsg.value = t('settings.account.feedback.sent')
+    feedbackText.value = ''
+  } catch (e) {
+    feedbackOk.value = false
+    feedbackMsg.value = e.message.includes('429') ? t('settings.account.feedback.error.limit') : e.message
+  } finally {
+    feedbackLoading.value = false
+  }
+}
 
 const deleteDialogOpen = ref(false)
 const deletePassword = ref('')

@@ -261,6 +261,10 @@ async function dispatchApi(req, res, pathname, params) {
     return dispatchRoute(getSaas().registerRoutes, req, res, pathname, params)
   }
 
+  if (saasEnabled && pathname === '/api/feedback') {
+    return dispatchRoute(getSaas().feedbackRoutes, req, res, pathname, params)
+  }
+
   if (saasEnabled && pathname.startsWith('/api/tenant/')) {
     return dispatchRoute(getSaas().tenantDeleteRoutes, req, res, pathname, params)
   }

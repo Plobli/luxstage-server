@@ -38,6 +38,15 @@ export function getRegistry() {
       newsletter_consent INTEGER NOT NULL DEFAULT 0
     );
     CREATE UNIQUE INDEX IF NOT EXISTS idx_tenants_email ON tenants(email);
+
+    CREATE TABLE IF NOT EXISTS feedback (
+      id          INTEGER PRIMARY KEY AUTOINCREMENT,
+      tenant_id   TEXT NOT NULL,
+      username    TEXT NOT NULL,
+      text        TEXT NOT NULL,
+      created_at  INTEGER NOT NULL,
+      imported_at INTEGER
+    );
   `)
   // Migration: suspended-/newsletter_consent-Spalten für bestehende Registry-DBs.
   const cols = db.pragma('table_info(tenants)').map(c => c.name)
@@ -103,6 +112,27 @@ export function listPending() {
   return getRegistry().prepare(
     'SELECT tenant_id, email, created_at, expires_at FROM pending_registrations ORDER BY created_at DESC'
   ).all()
+}
+
+// ── Feedback aus der WebApp ──────────────────────────────────────────────────
+export function addFeedback({ tenantId, username, text }) {
+  return Number(getRegistry().prepare(
+    'INSERT INTO feedback (tenant_id, username, text, created_at) VALUES (?, ?, ?, ?)'
+  ).run(tenantId, username, text, now()).lastInsertRowid)
+}
+
+// onlyNew: nur noch nicht ins Cockpit übernommene Einträge.
+export function listFeedback({ onlyNew = false } = {}) {
+  return getRegistry().prepare(
+    `SELECT id, tenant_id, username, text, created_at, imported_at FROM feedback
+     ${onlyNew ? 'WHERE imported_at IS NULL' : ''} ORDER BY id`
+  ).all()
+}
+
+export function markFeedbackImported(id) {
+  return getRegistry().prepare(
+    'UPDATE feedback SET imported_at = ? WHERE id = ? AND imported_at IS NULL'
+  ).run(now(), id).changes
 }
 
 // ── Pending Registrations (Doppel-Opt-In) ────────────────────────────────────

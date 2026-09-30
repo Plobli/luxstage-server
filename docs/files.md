@@ -32,6 +32,8 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 | `./.code-review-graph/.gitignore` | Ignoriert die Code-Review-Graph-Datenbankdatei. |
 | `./.code-review-graph/graph.db` | Code-Review-Graph-Datenbank (Metadaten, Struktur). |
 | `./.github/workflows/release.yml` | GitHub Action: prüft Qualität und Release-Version, baut das SaaS-Image und erstellt GitHub-Release-Notes bei passenden `v*`-Tags (kein Self-Hosted-ZIP mehr). |
+| `./.github/dependabot.yml` | Dependabot-Konfiguration: wöchentliche npm-Updates (Patch-Updates gebündelt als Gruppe `npm-patch`), monatliche GitHub-Actions-Updates. |
+| `./.github/workflows/dependabot-automerge.yml` | GitHub Action: mergt Dependabot-PRs automatisch nach grünem Test-Workflow, aber nur reine Patch-Updates; Minor/Major bleiben offen. |
 | `./.github/workflows/test.yml` | GitHub Action: prüft Audit, Docker-Compose-Konfigurationen, Server- und Web-App-Tests sowie Web-App-Typprüfung bei Pushes, Pull Requests und manuellem Start; kann als Release-Qualitätsgate aufgerufen werden. |
 | `./docs/testing.md` | Teststrategie, Testgruppen, Laufzeitprofil und Regeln für neue oder redundante Tests. |
 | `./.github/workflows/saas-image.yml` | Wiederverwendbare GitHub Action: baut das SaaS-Image mit Versions-, `latest`- und Short-SHA-Tags nach GHCR. |
@@ -50,7 +52,7 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 | `./shared/locales/en.json` | Übersetzungen für englische Oberfläche. |
 | `./shared/filters.json` | Farbfilter-Datenbank (Lee, Rosco etc.) mit Hex-Codes. |
 | `./shared/constants.js` | Gemeinsame Konstanten und Prüffunktionen für Server und Web-App: `PASSWORD_MIN_LENGTH`, `isValidEmail`, Section-Typen (`sectionTypeHasRows`, `isSectionTableType`). |
-| `./shared/color.js` | Gemeinsame Farblogik für Server (PDF) und Web-App: `contrastColor` (Schwarz/Weiß-Text auf Hintergrund), `sequenceOrderColor` (Prio/Reihenfolge-Wert → feste Badge-Farbe aus Palette). |
+| `./shared/color.js` | Gemeinsame Farblogik für Server (PDF) und Web-App: `contrastColor` (Schwarz/Weiß-Text auf Hintergrund), `sequenceOrderColor` (Prio/Reihenfolge-Wert → Badge-Farbe: reine Zahlen 1–10 aus Palette, sonst Hash-Farbe über den ganzen Text). |
 
 ## operator-panel/ (Betreiber-Panel, eigenständiger Service)
 
@@ -122,7 +124,9 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 | `./server/test/plan-scan-route.test.js` | Test für die Pfad-Zuständigkeit der `plan-scan`-Route (gibt `null` für nicht-passende Pfade zurück); der volle Upload-Pfad ist über `plan-scan.js`-Unit-Tests und den manuellen End-to-End-Test abgedeckt. |
 | `./server/.env` | Server-Development-Umgebungsvariablen. |
 | `./server/saas.js` | Kapsel für SaaS-Funktionalität, lädt Module nur im SaaS-Modus; stellt u.a. `tenantDeleteRoutes` für die Mandanten-Löschanfrage bereit. |
-| `./server/registry.js` | Zentrale Registrierung für Mandantenverzeichnis und Doppel-Opt-In; aktiviert Tenant-Eintrag (inkl. Newsletter-Consent) und verbraucht Bestätigungslink atomar. |
+| `./server/registry.js` | Zentrale Registrierung für Mandantenverzeichnis und Doppel-Opt-In; aktiviert Tenant-Eintrag (inkl. Newsletter-Consent) und verbraucht Bestätigungslink atomar; hält außerdem die Feedback-Tabelle der WebApp. |
+| `./server/routes/feedback.js` | Feedback-Knopf der WebApp (nur SaaS): `POST /api/feedback` (angemeldet, max. 4000 Zeichen, 5 pro Stunde und Nutzer) speichert in der Registry und mailt optional an `OPERATOR_NOTIFY_EMAIL`. |
+| `./server/test/feedback.test.js` | Tests: Feedback speichern, Längen-/Rate-Limit, Operator-Abruf nur mit Betreiber-Token, Importiert-Markierung. |
 | `./server/routes/tenant-delete.js` | Self-Service-Löschanfrage für den eigenen Mandanten (nur SaaS): `POST /api/tenant/delete-request` prüft das Passwort des anfragenden Nutzers und benachrichtigt den Betreiber per Mail (`OPERATOR_NOTIFY_EMAIL`); keine automatisierte Löschung — der Betreiber löscht manuell über das Betreiber-Panel (`DELETE /api/operator/tenants/:id`). |
 | `./server/tenants.js` | Mandantenverzeichnis mit separaten SQLite-DBs pro Kunde und Kompensation fehlgeschlagener Registrierungen. |
 | `./server/tenant-resolve.js` | Host-Header-Parsing für Subdomain-basierte Mandantenauflösung, plus `tenantBaseUrl()` für Mandanten-URLs in E-Mail-Links. |
@@ -183,7 +187,7 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 | `./server/routes/display.js` | API-Routen für Anzeige-Einstellungen (Maßeinheiten). |
 | `./server/routes/system.js` | API-Routen für System-Status, Health-Check, Backup, Restore. |
 | `./server/routes/smtp.js` | API-Routen für SMTP-Konfiguration und Test-E-Mails. |
-| `./server/routes/operator.js` | API-Routen für Betreiber-Panel (Mandanten-Verwaltung, Server-Version, Health-Status, Snapshot-Verifikation, Konsistenzcheck). |
+| `./server/routes/operator.js` | API-Routen für Betreiber-Panel (Mandanten-Verwaltung, Server-Version, Health-Status, Snapshot-Verifikation, Konsistenzcheck, Feedback-Abruf `GET /api/operator/feedback?neu=1` und `POST …/:id/importiert`). |
 | `./server/routes/network.js` | API-Routen für die gebäudeweite Netzwerk-Übersicht (Elemente wie Dose/Switch/Gerät und deren Verbindungen), unabhängig von einzelnen Shows; validiert, dass Netzwerkdose↔Netzwerkdose und Gerät↔Gerät nicht direkt verbunden werden (nur über einen Switch) und dass Dose max. zwei Verbindungen (Durchschleifung rein/raus), Gerät max. eine hat (Switch-Ausnahme); jede Mutation läuft über `withNetworkUndoSnapshot()`, dazu `POST /api/network/undo`/`redo`; inkl. PDF-Export (`GET /api/network/pdf`, siehe `pdf/network.js`). |
 | `./server/routes/diagnostics.js` | API-Routen für Crash-/Error-Diagnostik von mobilen Apps ohne Auth-Requirement: `POST /api/diagnostics` (öffentlich, Rate-Limited auf 50 Req/Min pro IP) akzeptiert Diagnosedaten (platform, app_version, build_number, os_version, device_model, report_type, payload als JSON), validiert platform-Wert und Pflichtfelder; `GET /api/diagnostics` (authentifiziert) listet Reports mit optionalen Filtern (platform, report_type, since-Timestamp), Standard-Limit 100, Max. 1000. |
 
@@ -306,7 +310,7 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 | `./web-app/src/components/network/DeviceNode.vue` | Vue-Flow-Knotenkomponente für Dose/Gerät: einfache Box mit einem Handle je Seite, Hintergrundfarbe je nach Typ (Dose bläulich, Gerät bernsteinfarben) zur Unterscheidung auf einen Blick. |
 | `./web-app/src/views/TemplatesView.vue` | Vorlagenliste, Neu-Anlegen, Löschen, Download des Kreislisten-Vordrucks (PDF); Detail-Bearbeitung an TemplateDetailPanel, Upload an TemplateUploadDialog delegiert. |
 | `./web-app/src/views/SettingsView.vue` | Sub-Navigation zu verschiedenen Einstellungsbereichen. |
-| `./web-app/src/views/settings/AccountView.vue` | Passwort-Änderung, Druckeinstellungen, Abmelden; im SaaS-Betrieb zusätzlich Team-Löschanfrage (Passwort-Bestätigung im Dialog, danach Benachrichtigung des Betreibers — keine automatisierte Löschung). |
+| `./web-app/src/views/settings/AccountView.vue` | Passwort-Änderung, Druckeinstellungen, Abmelden; im SaaS-Betrieb zusätzlich Feedback-Formular und Team-Löschanfrage (Passwort-Bestätigung im Dialog, danach Benachrichtigung des Betreibers — keine automatisierte Löschung). |
 | `./web-app/src/views/settings/UsersView.vue` | Benutzerverwaltung: Anlegen, Löschen, Freischalten selbst-registrierter Nutzer, Passwort-Reset. |
 | `./web-app/src/views/settings/DisplayView.vue` | Sprach- und Maßeinheit-Einstellungen (Deutsch/Englisch). |
 | `./web-app/src/views/settings/ServerView.vue` | Server-URL, Versionsinformationen und Speicherstatus. |

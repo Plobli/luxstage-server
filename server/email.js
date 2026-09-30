@@ -130,6 +130,14 @@ export async function sendTenantDeleteRequestEmail(notifyEmail, tenantId, reques
   )
 }
 
+export async function sendFeedbackEmail(notifyEmail, tenantId, username, text) {
+  await sendMail(
+    notifyEmail,
+    `LuxStage – Feedback von Team "${tenantId}"`,
+    `Hallo,\n\n${username} (Team "${tenantId}") hat Feedback gesendet:\n\n${text}\n\nLuxStage`
+  )
+}
+
 export async function sendTestEmail(to, cfg) {
   const transport = createTransport(cfg)
   if (!transport) throw new Error('SMTP nicht konfiguriert')

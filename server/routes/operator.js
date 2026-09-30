@@ -8,6 +8,8 @@
 //   GET    /api/operator/pending            -> offene Registrierungen
 //   POST   /api/operator/pending/:id/resend -> Bestätigungsmail erneut senden
 //   DELETE /api/operator/pending/:id        -> offene Registrierung verwerfen
+//   GET    /api/operator/feedback?neu=1     -> Feedback der Mandanten (neu = noch nicht importiert)
+//   POST   /api/operator/feedback/:id/importiert -> als ins Cockpit übernommen markieren
 import { json, readJsonBody, clientIp } from '../helpers.js'
 import { operatorLogin, requireOperator, operatorEnabled } from '../operator.js'
 import { createLoginRateLimiter } from '../login-rate-limit.js'
@@ -16,6 +18,7 @@ import { runWithDb } from '../db-context.js'
 import {
   listTenants, getTenant, setSuspended, removeTenant, listPending,
   getPendingByTenant, refreshPendingToken, removePendingByTenant,
+  listFeedback, markFeedbackImported,
 } from '../registry.js'
 import {
   createSnapshot, listSnapshots, restoreSnapshot, snapshotPath, deleteBackups, verifySnapshot,
@@ -236,6 +239,22 @@ export async function operatorRoutes(req, res, pathname) {
     const changed = removePendingByTenant(id)
     if (!changed) return json(res, 404, { error: 'Offene Registrierung nicht gefunden' })
     console.log(`[operator] Offene Registrierung gelöscht: ${id}`)
+    return json(res, 200, { ok: true })
+  }
+
+  if (method === 'GET' && pathname === '/api/operator/feedback') {
+    const onlyNew = new URL(req.url, 'http://x').searchParams.get('neu') === '1'
+    const feedback = listFeedback({ onlyNew }).map(f => ({
+      id: f.id, tenantId: f.tenant_id, username: f.username, text: f.text,
+      createdAt: f.created_at, importedAt: f.imported_at,
+    }))
+    return json(res, 200, { feedback })
+  }
+
+  const fbImported = pathname.match(/^\/api\/operator\/feedback\/(\d+)\/importiert$/)
+  if (fbImported && method === 'POST') {
+    const changed = markFeedbackImported(Number(fbImported[1]))
+    if (!changed) return json(res, 404, { error: 'Feedback nicht gefunden oder bereits importiert' })
     return json(res, 200, { ok: true })
   }
 

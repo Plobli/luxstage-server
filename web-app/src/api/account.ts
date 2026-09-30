@@ -4,3 +4,8 @@ import { api } from './client'
 export async function requestTenantDelete(password: string): Promise<void> {
   await api.post('/api/tenant/delete-request', { password })
 }
+
+/** Sendet Feedback an den Betreiber (nur SaaS). */
+export async function sendFeedback(text: string): Promise<void> {
+  await api.post('/api/feedback', { text })
+}
