@@ -1,0 +1,24 @@
+# Dependabot: wöchentliche Abhängigkeits-Updates.
+# Patch-Updates werden gebündelt und nach grünen Tests automatisch gemergt
+# (siehe .github/workflows/dependabot-automerge.yml). Minor/Major-Updates bleiben
+# als Pull Request liegen und brauchen eine Entscheidung.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+      time: "05:00"
+      timezone: Europe/Berlin
+    open-pull-requests-limit: 5
+    groups:
+      npm-patch:
+        update-types: ["patch"]
+    labels: ["dependencies"]
+
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: monthly
+    labels: ["dependencies"]

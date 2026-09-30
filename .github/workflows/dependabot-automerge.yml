@@ -1,0 +1,51 @@
+name: Dependabot Auto-Merge
+
+# Mergt Dependabot-Pull-Requests automatisch, wenn
+#  - die Tests für den PR grün sind und
+#  - es sich um reine Patch-Updates handelt (x.y.Z) – einzeln oder als Gruppe "npm-patch".
+# Alles andere (Minor, Major) bleibt als PR offen.
+# Läuft über workflow_run, damit wirklich erst NACH erfolgreichen Tests gemergt wird –
+# unabhängig davon, ob Branch-Protection eingerichtet ist.
+on:
+  workflow_run:
+    workflows: [Tests]
+    types: [completed]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  automerge:
+    if: >
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'pull_request' &&
+      github.event.workflow_run.actor.login == 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Patch-Update prüfen und mergen
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          BRANCH: ${{ github.event.workflow_run.head_branch }}
+          SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          set -euo pipefail
+          case "$BRANCH" in dependabot/*) ;; *) echo "Kein Dependabot-Branch"; exit 0 ;; esac
+          PR=$(gh pr list -R "$REPO" --head "$BRANCH" --state open --json number,title,author,headRefOid \
+                 -q '.[] | select(.author.login=="app/dependabot" or .author.login=="dependabot[bot]") | "\(.number)\t\(.headRefOid)\t\(.title)"' | head -1)
+          [ -n "$PR" ] || { echo "Kein offener Dependabot-PR für $BRANCH"; exit 0; }
+          NUM=$(echo "$PR" | cut -f1); HEAD=$(echo "$PR" | cut -f2); TITLE=$(echo "$PR" | cut -f3-)
+          [ "$HEAD" = "$SHA" ] || { echo "PR wurde seit dem Testlauf geändert – übersprungen"; exit 0; }
+          echo "PR #$NUM: $TITLE"
+          ok=no
+          if echo "$TITLE" | grep -q "the npm-patch group"; then ok=yes; fi
+          # Einzel-Update: "Bump foo from 1.2.3 to 1.2.4" -> nur Patch zulassen
+          if echo "$TITLE" | grep -Eq "from [0-9]+\.[0-9]+\.[0-9]+ to [0-9]+\.[0-9]+\.[0-9]+"; then
+            FROM=$(echo "$TITLE" | sed -E 's/.*from ([0-9]+\.[0-9]+)\.[0-9]+ to .*/\1/')
+            TO=$(echo "$TITLE" | sed -E 's/.* to ([0-9]+\.[0-9]+)\.[0-9]+.*/\1/')
+            [ "$FROM" = "$TO" ] && ok=yes
+          fi
+          if [ "$ok" != yes ]; then echo "Kein reines Patch-Update – bleibt zur Prüfung offen."; exit 0; fi
+          gh pr merge "$NUM" -R "$REPO" --squash --delete-branch --match-head-commit "$SHA"
+          echo "Gemergt."
