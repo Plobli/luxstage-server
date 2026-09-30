@@ -17,7 +17,7 @@
     "nodemailer": "^10.0.0",
     "pdf-to-img": "^7.0.0",
     "pdfkit": "^0.17.2",
-    "sharp": "^0.35.4",
-    "unzipper": "^0.12.3"
+    "sharp": "^0.35.5",
+    "unzipper": "^0.12.5"
   }
 }
