@@ -1,4 +1,4 @@
-name: Tests
+name: "Server · Tests & Sicherheitsprüfung"  # Name wird in dependabot-automerge.yml referenziert
 
 # Führt die Backend- und Frontend-Testsuite bei jedem Push/PR gegen main aus.
 on:

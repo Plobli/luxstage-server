@@ -1,4 +1,4 @@
-name: SaaS-Image bauen
+name: "Server · SaaS-Image bauen (Teil des Release)"
 
 # Baut das SaaS-Docker-Image bei jedem Version-Tag und pusht es nach GHCR.
 # Privat (Repo-Sichtbarkeit). Server zieht das Image via docker compose pull.

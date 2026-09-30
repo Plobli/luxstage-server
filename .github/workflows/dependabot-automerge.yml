@@ -1,4 +1,4 @@
-name: Dependabot Auto-Merge
+name: "Server · Dependabot-Patches automatisch mergen"
 
 # Mergt Dependabot-Pull-Requests automatisch, wenn
 #  - die Tests für den PR grün sind und
@@ -8,7 +8,7 @@ name: Dependabot Auto-Merge
 # unabhängig davon, ob Branch-Protection eingerichtet ist.
 on:
   workflow_run:
-    workflows: [Tests]
+    workflows: ["Server · Tests & Sicherheitsprüfung"]  # muss exakt dem name: in test.yml entsprechen
     types: [completed]
 
 permissions:

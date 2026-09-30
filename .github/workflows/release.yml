@@ -1,4 +1,4 @@
-name: Release LuxStage
+name: "Server · Release (bei Tag v*)"
 
 on:
   push:
