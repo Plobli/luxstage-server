@@ -16,7 +16,6 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-      packages: write
     steps:
       - name: Checkout Code
         uses: actions/checkout@v5
@@ -37,23 +36,6 @@ jobs:
             exit 1
           fi
 
-      - name: Build Web-App
-        run: |
-          npm ci
-          npm run build -w web-app
-
-      - name: Create Release Archive
-        run: |
-          # Wir zippen den Server-Quellcode (ohne node_modules wegen nativer Bindings)
-          # und das fertig gebaute Web-App Dist-Verzeichnis.
-          # SaaS-Module werden ausgeschlossen — das Self-Hosted-ZIP enthält keinen
-          # SaaS-Code (der Kern lädt sie bedingt via saas.js, ohne BASE_DOMAIN inaktiv).
-          zip -r luxstage-release.zip server web-app/dist shared package.json package-lock.json \
-            -x "server/node_modules/*" "*/.DS_Store" \
-               "server/tenants.js" "server/registry.js" "server/operator.js" \
-               "server/tenant-resolve.js" "server/tenant-backup.js" \
-               "server/routes/operator.js" "server/routes/register.js"
-
       - name: Generate Release Notes
         id: notes
         run: |
@@ -67,15 +49,9 @@ jobs:
           echo "$NOTES" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
 
-      - name: Release-Prüfsumme erzeugen
-        run: sha256sum luxstage-release.zip > luxstage-release.zip.sha256
-
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: |
-            luxstage-release.zip
-            luxstage-release.zip.sha256
           body: ${{ steps.notes.outputs.notes }}
 
   saas-image:

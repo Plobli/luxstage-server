@@ -32,7 +32,7 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 | `./.claude/launch.json` | Debug-Konfiguration für Web-App und Backend. |
 | `./.code-review-graph/.gitignore` | Ignoriert die Code-Review-Graph-Datenbankdatei. |
 | `./.code-review-graph/graph.db` | Code-Review-Graph-Datenbank (Metadaten, Struktur). |
-| `./.github/workflows/release.yml` | GitHub Action: prüft Qualität und Release-Version, erzeugt ZIP-Prüfsumme und baut Release-ZIP sowie das SaaS-Image bei passenden `v*`-Tags. |
+| `./.github/workflows/release.yml` | GitHub Action: prüft Qualität und Release-Version, baut das SaaS-Image und erstellt GitHub-Release-Notes bei passenden `v*`-Tags (kein Self-Hosted-ZIP mehr). |
 | `./.github/workflows/test.yml` | GitHub Action: prüft Audit, Docker-Compose-Konfigurationen, Server- und Web-App-Tests sowie Web-App-Typprüfung bei Pushes, Pull Requests und manuellem Start; kann als Release-Qualitätsgate aufgerufen werden. |
 | `./docs/testing.md` | Teststrategie, Testgruppen, Laufzeitprofil und Regeln für neue oder redundante Tests. |
 | `./.github/workflows/saas-image.yml` | Wiederverwendbare GitHub Action: baut das SaaS-Image mit Versions-, `latest`- und Short-SHA-Tags nach GHCR. |
