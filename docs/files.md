@@ -17,8 +17,7 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 | `./Dockerfile.saas` | Multi-Stage Build für SaaS-Image (baut Web-App, Module separat). |
 | `./entrypoint.sh` | Self-Hosted-Startskript; Bootstrap-Nutzer falls `.bootstrap-done` fehlt. |
 | `./entrypoint.saas.sh` | SaaS-Startskript; lädt Server ohne Bootstrap. |
-| `./install.sh` | Bash-Installer für Bare-Metal; richtet nvm, PM2, Caddy und Benutzer ein; übergibt Bootstrap-Secrets nur über kurzlebige, restriktiv berechtigte Umgebungsdatei. |
-| `./README.md` | Projekt-Übersicht, Features und Installation (Bare-Metal/Docker) mit E-Mail-basiertem Admin-Login. |
+| `./README.md` | Projekt-Übersicht, Features und Hinweis auf gehosteten Betrieb (keine Selbstinstallation mehr). |
 | `./DEV-SERVER.md` | Anleitung für lokalen Dev-Server: Start via LuxStage-Dev-App (empfohlen) oder manuell, Login, Konfiguration, Warnung vor Doppelstart (SQLite-Korruptionsrisiko). |
 | `./package.json` | Monorepo-Root; Workspaces, better-sqlite3-Dependency, Versionsstand. |
 | `./package-lock.json` | Lock-Datei für Monorepo-Dependencies (server, web-app). |
@@ -183,7 +182,6 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 | `./server/routes/pdf.js` | API-Route für PDF-Export von Shows; löst Grundriss-Bildpfad (Show- oder Template-Fallback) für den Vektor-Export auf; `?blank=1` liefert Kreislisten-Vordruck zum handschriftlichen Ausfüllen. |
 | `./server/routes/display.js` | API-Routen für Anzeige-Einstellungen (Maßeinheiten). |
 | `./server/routes/system.js` | API-Routen für System-Status, Health-Check, Backup, Restore. |
-| `./server/routes/update.js` | API-Routen für Versions-Check und Server-Update; entpackt Release-ZIP streamend, spart Infrastruktur-Dateien aus, sichert den Stand vorher und macht bei Fehlschlag (npm install, Modul-Rauchtest) automatisch ein Rollback. |
 | `./server/routes/smtp.js` | API-Routen für SMTP-Konfiguration und Test-E-Mails. |
 | `./server/routes/operator.js` | API-Routen für Betreiber-Panel (Mandanten-Verwaltung, Server-Version, Health-Status, Snapshot-Verifikation, Konsistenzcheck). |
 | `./server/routes/network.js` | API-Routen für die gebäudeweite Netzwerk-Übersicht (Elemente wie Dose/Switch/Gerät und deren Verbindungen), unabhängig von einzelnen Shows; validiert, dass Netzwerkdose↔Netzwerkdose und Gerät↔Gerät nicht direkt verbunden werden (nur über einen Switch) und dass Dose max. zwei Verbindungen (Durchschleifung rein/raus), Gerät max. eine hat (Switch-Ausnahme); jede Mutation läuft über `withNetworkUndoSnapshot()`, dazu `POST /api/network/undo`/`redo`; inkl. PDF-Export (`GET /api/network/pdf`, siehe `pdf/network.js`). |
@@ -229,7 +227,6 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 | `./web-app/src/composables/useDragReorder.ts` | Ermöglicht Drag-and-Drop-Sortierung von Listen-Items. |
 | `./web-app/src/composables/useMeasureUnit.ts` | Konvertiert zwischen Maßeinheiten (m, cm, mm) mit Speicherung. |
 | `./web-app/src/composables/useKeyboardNav.ts` | Navigiert Tabellen mit Tab, Enter und Pfeiltasten. |
-| `./web-app/src/composables/useUpdateCheck.ts` | Speichert globalen Zustand der Verfügbarkeit von Updates. |
 | `./web-app/src/composables/useShowFloorplan.ts` | Lädt und speichert Grundriss-Daten und Bilder pro Show. |
 | `./web-app/src/composables/useTokenRefresh.ts` | Erneuert JWT-Token automatisch vor Ablauf. |
 | `./web-app/src/composables/useShowChannels.ts` | Verwaltet Kanäle mit Suche, Filter, EOS-Import und Kreisliste-Scan-Import (inkl. Diff-Vorschau vor Übernahme, Lade-/Erfolg-/Fehler-Status); Undo/Redo läuft serverseitig über useUndoRedo.ts, das nach erfolgreichem Undo/Redo über `onAfter` die betroffenen Show-Daten neu lädt. |
@@ -315,7 +312,6 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 | `./web-app/src/views/settings/ServerView.vue` | Server-URL, Versionsinformationen und Speicherstatus. |
 | `./web-app/src/views/settings/BackupView.vue` | Datenbank-Backup-Download und Wiederherstellung, beides Admin-only. |
 | `./web-app/src/views/settings/SmtpView.vue` | Konfiguration von SMTP-Einstellungen und Test-E-Mails. |
-| `./web-app/src/views/settings/UpdateView.vue` | Software-Update-Check und -Durchführung mit Live-Log. |
 | `./web-app/src/views/NotFoundView.vue` | 404-Fehlerseite mit Navigation zur Startseite. |
 
 ### web-app/src/components/ (Fachliche Komponenten)

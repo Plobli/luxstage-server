@@ -11,7 +11,6 @@ import { historyRoutes } from './routes/history.js'
 import { systemRoutes } from './routes/system.js'
 import { smtpRoutes } from './routes/smtp.js'
 import { displayRoutes } from './routes/display.js'
-import { updateRoutes } from './routes/update.js'
 import { pdfRoutes } from './routes/pdf.js'
 import { towerRoutes } from './routes/towers.js'
 import { barRoutes } from './routes/bars.js'
@@ -55,7 +54,6 @@ export const API_ROUTE_HANDLERS = [
   { matches: pathname => pathname.startsWith('/api/me/') || pathname.startsWith('/api/users') || pathname === '/api/self-register', handler: userRoutes },
   { matches: pathname => pathname.startsWith('/api/smtp'), handler: smtpRoutes },
   { matches: pathname => pathname.startsWith('/api/settings/'), handler: displayRoutes },
-  { matches: pathname => pathname.startsWith('/api/update'), handler: updateRoutes },
   { matches: pathname => pathname.startsWith('/api/floorplans/'), handler: floorplanRoutes },
   { matches: pathname => pathname.startsWith('/api/templates'), handler: templateRoutes },
   { matches: pathname => pathname.startsWith('/api/channels/color-usage'), handler: channelStatsRoutes },

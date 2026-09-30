@@ -218,7 +218,6 @@
                 <div class="shrink-0 rounded-md p-1">
                   <Settings class="size-4" aria-hidden="true" />
                 </div>
-                <span v-if="updateAvailable" class="absolute top-1 right-1 size-2 rounded-full bg-accent" />
                 <span v-if="!sidebarCollapsed" class="text-sm" :class="isSettingsDetail ? 'font-semibold' : 'font-medium'">{{ t('nav.settings') }}</span>
               </RouterLink>
             </TooltipTrigger>
@@ -324,7 +323,6 @@ import { api, isOnline } from './api/client.js'
 import { logout } from './api/auth.js'
 import { releaseShowLock } from './api/shows.js'
 import { useTokenRefresh } from './composables/useTokenRefresh.js'
-import { updateAvailable } from './composables/useUpdateCheck.js'
 import ConfirmDialog from './components/ConfirmDialog.vue'
 import ToastContainer from './components/ToastContainer.vue'
 import { useConfirmDialog, resolveConfirm } from './composables/useConfirm.js'
@@ -368,29 +366,15 @@ async function pingServer() {
   }
 }
 
-async function checkForUpdate() {
-  try {
-    const check = await api.get('/api/update/check')
-    if (check?.available) updateAvailable.value = true
-  } catch (e) {
-    console.warn('[LuxStage] Update-Check fehlgeschlagen:', e)
-  }
-}
-
-let updateCheckInterval = null
 let pingInterval = null
 
 onUnmounted(() => {
-  clearInterval(updateCheckInterval)
   clearInterval(pingInterval)
 })
 
 onMounted(async () => {
   void pingServer()
   pingInterval = setInterval(pingServer, 30_000)
-
-  void checkForUpdate()
-  updateCheckInterval = setInterval(checkForUpdate, 60 * 60 * 1000)
 })
 
 const route = useRoute()
@@ -453,14 +437,13 @@ const settingsNavItems = computed(() => [
   { to: '/settings/account', label: t('settings.account') },
   { to: '/settings/display', label: t('settings.display') },
   { to: '/settings/users', label: t('settings.users') },
-  // Backup/Server/SMTP/Update sind Self-Hosted-Einstellungen: im SaaS-Modus laufen
-  // Backups zentral automatisch, Server-Betrieb/SMTP/Updates liegen beim Betreiber.
+  // Backup/Server/SMTP sind Self-Hosted-Einstellungen: im SaaS-Modus laufen
+  // Backups zentral automatisch, Server-Betrieb/SMTP liegen beim Betreiber.
   // saasMode ist bis zur ersten /api/status-Antwort null, damit diese Items nicht
   // kurz aufblitzen, wenn die WebApp eigentlich im SaaS-Modus läuft.
   ...(saasMode.value === false ? [{ to: '/settings/backup', label: t('settings.backup') }] : []),
   ...(saasMode.value === false ? [{ to: '/settings/server', label: t('settings.server') }] : []),
   ...(saasMode.value === false ? [{ to: '/settings/smtp', label: t('settings.smtp') }] : []),
-  ...(saasMode.value === false ? [{ to: '/settings/update', label: t('settings.update') }] : []),
 ])
 
 function isSettingsItemActive(path) {

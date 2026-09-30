@@ -75,7 +75,6 @@ const routes: RouteRecordRaw[] = [
       { path: 'backup', name: 'settings-backup', component: () => import('../views/settings/BackupView.vue') },
       { path: 'users', name: 'settings-users', component: () => import('../views/settings/UsersView.vue') },
       { path: 'smtp', name: 'settings-smtp', component: () => import('../views/settings/SmtpView.vue') },
-      { path: 'update', name: 'settings-update', component: () => import('../views/settings/UpdateView.vue') },
     ],
   },
   {
