@@ -59,7 +59,7 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, useId } from 'vue'
 
 const props = defineProps({
   modelValue: { type: Number, default: 1 },
@@ -67,7 +67,7 @@ const props = defineProps({
 
 const emit = defineEmits(['update:modelValue'])
 
-const uid = Math.random().toString(36).slice(2, 7)
+const uid = useId()
 const inputId = `qty-input-${uid}`
 const listboxId = `qty-list-${uid}`
 
