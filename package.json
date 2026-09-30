@@ -9,7 +9,8 @@
   "scripts": {
     "audit:structure": "eslint -c eslint.audit.config.mjs server web-app/src shared",
     "audit:duplication": "jscpd",
-    "audit": "node -e \"const {execSync}=require('child_process'); for (const s of ['audit:structure','audit:duplication']) { try { execSync('npm run '+s, {stdio:'inherit'}) } catch {} }\""
+    "audit": "node -e \"const {execSync}=require('child_process'); for (const s of ['audit:structure','audit:duplication']) { try { execSync('npm run '+s, {stdio:'inherit'}) } catch {} }\"",
+    "api-contract:update": "UPDATE_API_CONTRACT=1 node --test server/test/api-contract.test.js"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.122.0",

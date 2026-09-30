@@ -1,0 +1,236 @@
+{
+  "hinweis": "Automatisch erzeugt von server/test/api-contract.test.js – nicht von Hand bearbeiten.",
+  "endpoints": {
+    "GET /api/health": {
+      "status": 200,
+      "shape": {
+        "ok": "boolean"
+      }
+    },
+    "POST /api/auth/login": {
+      "status": 200,
+      "shape": {
+        "requiresPasswordChange": "boolean",
+        "token": "string"
+      }
+    },
+    "POST /api/shows/:id/lock": {
+      "status": 200,
+      "shape": {
+        "ok": "boolean"
+      }
+    },
+    "GET /api/shows": {
+      "status": 200,
+      "shape": [
+        {
+          "archived": "number",
+          "channels_version": "number",
+          "created_at": "number",
+          "datum": "string",
+          "eos_active_channels": "null",
+          "eos_excluded_channels": "null",
+          "id": "string",
+          "last_edited_at": "number",
+          "last_edited_by": "string",
+          "lock": {
+            "since": "number",
+            "user": "string"
+          },
+          "name": "string",
+          "section_contents_version": "number",
+          "section_defs_version": "number",
+          "setup_markdown": "null",
+          "slug": "string",
+          "spielzeit": "string",
+          "template": "null",
+          "updated_at": "number",
+          "use_bars": "number",
+          "use_towers": "number"
+        }
+      ]
+    },
+    "GET /api/shows/:id": {
+      "status": 200,
+      "shape": {
+        "channels": [
+          {
+            "address": "string",
+            "channel": "string",
+            "color": "string",
+            "device": "string",
+            "id": "string",
+            "mount_ref": "null",
+            "notes": "string",
+            "position": "string",
+            "quantity": "number",
+            "sequence_order": "string"
+          }
+        ],
+        "datum": "string",
+        "eosActiveChannels": "null",
+        "eosExcludedChannels": "null",
+        "id": "string",
+        "lock": {
+          "since": "number",
+          "user": "string"
+        },
+        "name": "string",
+        "setupMarkdown": "string",
+        "spielzeit": "string",
+        "template": "null",
+        "use_bars": "boolean",
+        "use_towers": "boolean"
+      }
+    },
+    "GET /api/shows/:id/channels": {
+      "status": 200,
+      "shape": [
+        {
+          "address": "string",
+          "channel": "string",
+          "color": "string",
+          "device": "string",
+          "id": "string",
+          "mount_ref": "null",
+          "notes": "string",
+          "position": "string",
+          "quantity": "number",
+          "sequence_order": "string"
+        }
+      ]
+    },
+    "GET /api/shows/:id/checks": {
+      "status": 200,
+      "shape": {
+        "checks": [
+          "leer"
+        ]
+      }
+    },
+    "GET /api/shows/:id/sections": {
+      "status": 200,
+      "shape": [
+        {
+          "content": "string",
+          "id": "string"
+        }
+      ]
+    },
+    "GET /api/shows/:id/section-defs": {
+      "status": 200,
+      "shape": [
+        {
+          "fields": [
+            "leer"
+          ],
+          "icon": "string",
+          "id": "string",
+          "order": "number",
+          "rows": [
+            {
+              "id": "string",
+              "label": "string",
+              "sort_order": "number",
+              "value": "string"
+            }
+          ],
+          "title": "string",
+          "type": "string"
+        }
+      ]
+    },
+    "GET /api/shows/:id/photos": {
+      "status": 200,
+      "shape": [
+        "leer"
+      ]
+    },
+    "GET /api/shows/:id/photo-captions": {
+      "status": 200,
+      "shape": {}
+    },
+    "GET /api/shows/:id/bars": {
+      "status": 200,
+      "shape": [
+        {
+          "bar_type": "string",
+          "created_at": "number",
+          "fixtures": [
+            "leer"
+          ],
+          "height_cm": "null",
+          "hide_scale": "number",
+          "id": "string",
+          "length_cm": "number",
+          "name": "string",
+          "notes": "string",
+          "scale_origin": "string",
+          "show_id": "string",
+          "sort_order": "number",
+          "zug_nr": "string"
+        }
+      ]
+    },
+    "GET /api/shows/:id/towers": {
+      "status": 200,
+      "shape": [
+        {
+          "created_at": "number",
+          "id": "string",
+          "name": "string",
+          "notes": "string",
+          "show_id": "string",
+          "side": "string",
+          "slot_count": "number",
+          "slots": [
+            {
+              "channel_id": "null",
+              "id": "string",
+              "notes": "string",
+              "slot_index": "number",
+              "tower_id": "string"
+            }
+          ],
+          "sort_order": "number",
+          "stage_area": "string"
+        }
+      ]
+    },
+    "GET /api/shows/:id/floorplan": {
+      "status": 200,
+      "shape": {
+        "canvas_data": "null",
+        "image_url": "null"
+      }
+    },
+    "GET /api/templates": {
+      "status": 200,
+      "shape": [
+        "leer"
+      ]
+    },
+    "GET /api/me/griddeck": {
+      "status": 200,
+      "shape": {}
+    },
+    "GET /api/diagnostics": {
+      "status": 200,
+      "shape": {
+        "reports": [
+          "leer"
+        ]
+      }
+    }
+  },
+  "sseEvents": [
+    "bars-updated",
+    "channels-updated",
+    "checks-updated",
+    "floorplan-updated",
+    "lock-status-updated",
+    "presence-updated",
+    "sections-updated",
+    "towers-updated"
+  ]
+}

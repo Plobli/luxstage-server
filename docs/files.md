@@ -33,7 +33,6 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 | `./.code-review-graph/.gitignore` | Ignoriert die Code-Review-Graph-Datenbankdatei. |
 | `./.code-review-graph/graph.db` | Code-Review-Graph-Datenbank (Metadaten, Struktur). |
 | `./.github/workflows/release.yml` | GitHub Action: prüft Qualität und Release-Version, erzeugt ZIP-Prüfsumme und baut Release-ZIP sowie das SaaS-Image bei passenden `v*`-Tags. |
-| `./.github/workflows/codeql.yml` | GitHub Action: CodeQL-Sicherheitsanalyse. |
 | `./.github/workflows/test.yml` | GitHub Action: prüft Audit, Docker-Compose-Konfigurationen, Server- und Web-App-Tests sowie Web-App-Typprüfung bei Pushes, Pull Requests und manuellem Start; kann als Release-Qualitätsgate aufgerufen werden. |
 | `./docs/testing.md` | Teststrategie, Testgruppen, Laufzeitprofil und Regeln für neue oder redundante Tests. |
 | `./.github/workflows/saas-image.yml` | Wiederverwendbare GitHub Action: baut das SaaS-Image mit Versions-, `latest`- und Short-SHA-Tags nach GHCR. |
@@ -104,6 +103,8 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 | `./server/test/helpers/test-env.js` | Isolierte Testumgebung mit temporärem Datenpfad und HTTP-Response-Stub für Backend-Tests. |
 | `./server/test/register.test.js` | Regressionstests für atomare SaaS-Registrierungsbestätigung und Cleanup bei Registry-Konflikten. |
 | `./server/test/router.test.js` | Regressionstests für öffentliche API-Methoden und Authentifizierungsgrenzen des HTTP-Routers. |
+| `./server/test/api-contract.test.js` | API-Vertragstest: prüft Antwortstruktur (Felder + Typen) aller von iOS/Android genutzten Endpunkte und SSE-Ereignisnamen gegen Snapshot. |
+| `./server/test/api-contract.json` | Snapshot des API-Vertrags (automatisch erzeugt, Update per `npm run api-contract:update`). |
 | `./server/test/photos.test.js` | Regressionstest für gestreamtes Multipart-Staging und garantiertes Cleanup temporärer Foto-Uploads. |
 | `./server/test/tenant-backup.test.js` | Regressionstests für Tenant-Snapshot-Restore, Rollback bei fehlgeschlagener Aktivierung und Snapshot-Verifikation (verifySnapshot). |
 | `./server/test/tenant-delete.test.js` | Regressionstests für die Mandanten-Löschanfrage: falsches Passwort liefert 401 ohne jede Löschung, korrektes Passwort liefert 202 — der Mandant bleibt in beiden Fällen bestehen (Löschung passiert ausschließlich manuell durch den Betreiber). |
