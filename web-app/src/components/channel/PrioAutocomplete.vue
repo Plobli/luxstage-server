@@ -46,7 +46,7 @@
 
 <script setup>
 import { ref, computed, watch } from 'vue'
-import { sequenceOrderColor, contrastColor } from '@shared/color.js'
+import { buildSequenceColorMap, sequenceOrderColor, contrastColor } from '@shared/color.js'
 
 const props = defineProps({
   modelValue: { type: String, default: '' },
@@ -67,9 +67,11 @@ const localInput = ref('')
 
 const displayValue = computed(() => isEditing.value ? localInput.value : (props.modelValue || ''))
 
+const colorMap = computed(() => buildSequenceColorMap([...props.existingValues, props.modelValue]))
+
 const badgeStyle = computed(() => {
   if (isEditing.value) return {}
-  const bg = sequenceOrderColor(props.modelValue)
+  const bg = sequenceOrderColor(props.modelValue, colorMap.value)
   if (!bg) return {}
   return { backgroundColor: bg, color: contrastColor(bg) }
 })

@@ -17,21 +17,69 @@ const SEQUENCE_PALETTE = [
   '#2f97a1', '#b3963c', '#bd5c4d', '#3a9d81', '#666cc4',
 ]
 
-/**
- * Leitet aus einem Prio/Reihenfolge-Wert (z.B. "1", "2a", "Akt 2") eine stabile
- * Badge-Farbe ab. Führende Zahl bestimmt die Palettenfarbe (1-indiziert, damit
- * "1" immer dieselbe Farbe hat); reiner Text bekommt eine Hash-basierte Farbe.
- * Leer/null → null (kein Badge).
- */
-export function sequenceOrderColor(value) {
-  const v = (value ?? '').trim()
-  if (!v) return null
-  const leadingNumber = v.match(/^\d+/)
-  if (leadingNumber) {
-    const n = parseInt(leadingNumber[0], 10)
-    return SEQUENCE_PALETTE[(n - 1) % SEQUENCE_PALETTE.length]
+function hslToHex(h, s, l) {
+  const a = s * Math.min(l, 1 - l)
+  const f = (n) => {
+    const k = (n + h / 30) % 12
+    const c = l - a * Math.max(-1, Math.min(k - 3, 9 - k, 1))
+    return Math.round(c * 255).toString(16).padStart(2, '0')
   }
-  let hash = 0
-  for (let i = 0; i < v.length; i++) hash = (hash * 31 + v.charCodeAt(i)) | 0
-  return SEQUENCE_PALETTE[Math.abs(hash) % SEQUENCE_PALETTE.length]
+  return `#${f(0)}${f(8)}${f(4)}`
+}
+
+function rgbDistance(a, b) {
+  let d = 0
+  for (const i of [1, 3, 5]) d += (parseInt(a.slice(i, i + 2), 16) - parseInt(b.slice(i, i + 2), 16)) ** 2
+  return Math.sqrt(d)
+}
+
+const MIN_DISTANCE = 45
+
+/**
+ * Weist jedem unterschiedlichen Prio/Reihenfolge-Wert eine eigene Badge-Farbe zu
+ * (Map Wert → #rrggbb). Garantiert: verschiedene Werte bekommen nie dieselbe (und
+ * keine fast gleiche) Farbe. Reine Zahlen 1–10 nutzen die feste Palette; alle
+ * übrigen Werte (natürlich sortiert) bekommen der Reihe nach generierte Farben,
+ * die zu allen bisher vergebenen genug Abstand haben. Die Farbe hängt damit vom
+ * Wertebestand ab — immer alle Werte des Kontexts übergeben.
+ */
+export function buildSequenceColorMap(values) {
+  const distinct = [...new Set((values ?? []).map(v => String(v ?? '').trim()).filter(Boolean))]
+  distinct.sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
+  const map = new Map()
+  const used = []
+  const rest = []
+  for (const v of distinct) {
+    const n = /^\d+$/.test(v) ? parseInt(v, 10) : 0
+    if (n >= 1 && n <= SEQUENCE_PALETTE.length) {
+      map.set(v, SEQUENCE_PALETTE[n - 1])
+      used.push(SEQUENCE_PALETTE[n - 1])
+    } else rest.push(v)
+  }
+  // Palettenfarben immer sperren, damit generierte nicht daran erinnern
+  for (const c of SEQUENCE_PALETTE) if (!used.includes(c)) used.push(c)
+  let step = 0
+  let minDist = MIN_DISTANCE
+  for (const v of rest) {
+    let color
+    let tries = 0
+    do {
+      const hue = (step * 137.508) % 360
+      const light = [0.5, 0.42, 0.6][Math.floor(step / 24) % 3]
+      color = hslToHex(hue, 0.5, light)
+      step++
+      tries++
+      if (tries > 400) { minDist = Math.max(1, minDist - 5); tries = 0 }
+    } while (used.some(u => rgbDistance(u, color) < minDist))
+    map.set(v, color)
+    used.push(color)
+  }
+  return map
+}
+
+/** Badge-Farbe für einen Wert aus einer Karte von buildSequenceColorMap; leer → null. */
+export function sequenceOrderColor(value, colorMap) {
+  const v = (value ?? '').toString().trim()
+  if (!v) return null
+  return colorMap?.get(v) ?? null
 }

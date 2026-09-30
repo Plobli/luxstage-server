@@ -11,6 +11,7 @@ import { parseSetupSection, renderSetupBlocks } from './pdf/tiptap-parse.js'
 import { rendererFor } from './pdf/section-renderers.js'
 import { drawTowerCards, renderGassenturmText } from './pdf/towers.js'
 import { renderHangereiBars, drawBarRows } from './pdf/bars.js'
+import { buildSequenceColorMap } from '../shared/color.js'
 import { groupByPosition, fmt } from './pdf/utils.js'
 import { drawFloorplanVector } from './pdf/floorplan-vector.js'
 
@@ -54,6 +55,7 @@ export async function generatePDF(data, stream, opts = {}) {
   const { unit = 'm', photosPerPage = 4, blank = false, blankExtraRows = 4 } = opts
   const fm = { name: show.name, datum: show.datum, venue: show.template }
   const grouped = groupByPosition(channels)
+  const prioColors = buildSequenceColorMap(channels.map(c => c.sequence_order))
 
   const hasSections = Array.isArray(templateSections) && templateSections.length > 0
   const sectionContents = hasSections ? sectionsMap : null
@@ -191,7 +193,7 @@ export async function generatePDF(data, stream, opts = {}) {
             { text: row.address, w: COL.address, wrap: true },
             { text: row.device,  w: COL.device,  wrap: true },
             { text: row.notes,   w: COL.notes,   wrap: true },
-            { text: row.sequence_order, w: COL.prio, badge: true },
+            { text: row.sequence_order, w: COL.prio, badge: true, colorMap: prioColors },
           ]
       const rowH = calcRowHeight(doc, rowCols, blank ? mm(9) : ROW_MIN_H)
       if (y + rowH > printableBottom) {

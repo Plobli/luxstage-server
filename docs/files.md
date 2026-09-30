@@ -52,7 +52,7 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 | `./shared/locales/en.json` | Übersetzungen für englische Oberfläche. |
 | `./shared/filters.json` | Farbfilter-Datenbank (Lee, Rosco etc.) mit Hex-Codes. |
 | `./shared/constants.js` | Gemeinsame Konstanten und Prüffunktionen für Server und Web-App: `PASSWORD_MIN_LENGTH`, `isValidEmail`, Section-Typen (`sectionTypeHasRows`, `isSectionTableType`). |
-| `./shared/color.js` | Gemeinsame Farblogik für Server (PDF) und Web-App: `contrastColor` (Schwarz/Weiß-Text auf Hintergrund), `sequenceOrderColor` (Prio/Reihenfolge-Wert → Badge-Farbe: reine Zahlen 1–10 aus Palette, sonst Hash-Farbe über den ganzen Text). |
+| `./shared/color.js` | Gemeinsame Farblogik für Server (PDF) und Web-App: `contrastColor` (Schwarz/Weiß-Text auf Hintergrund), `buildSequenceColorMap` (weist jedem verschiedenen Prio/Reihenfolge-Wert eine eigene Badge-Farbe zu, nie doppelt; Zahlen 1–10 aus Palette) und `sequenceOrderColor` (Lookup in dieser Karte). |
 
 ## operator-panel/ (Betreiber-Panel, eigenständiger Service)
 

@@ -82,7 +82,7 @@ export function drawRow(doc, y, usableW, cols, { isHeader = false, minRowH = ROW
         .text(col.text || '', textX, textY, { width: textW, lineBreak: true })
     } else if (col.badge) {
       // Prio/Reihenfolge: farbiges Badge statt reinem Text
-      const bg = sequenceOrderColor(col.text)
+      const bg = sequenceOrderColor(col.text, col.colorMap)
       if (bg) {
         const padX = mm(1)
         const badgeH = mm(4.5)
