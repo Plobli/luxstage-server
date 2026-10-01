@@ -13,6 +13,11 @@
 
     <!-- Zugstangen-Liste -->
     <div class="flex-1 overflow-y-auto pb-14 md:pb-0">
+      <div v-if="bars.length > 0" class="flex justify-end px-4 pt-3">
+        <Button variant="ghost" size="sm" class="text-muted-foreground hover:text-destructive" @click="confirmDeleteAllBars">
+          <Trash2 class="size-3.5 mr-1.5" /> {{ t('zugstange.delete_all') }}
+        </Button>
+      </div>
       <div v-if="bars.length === 0" class="flex flex-col items-center justify-center gap-3 h-full text-center px-8 -mt-5">
         <AlignJustify class="size-8 text-muted-foreground/70" />
         <div class="max-w-150">
@@ -422,7 +427,7 @@ const emit = defineEmits(['assigned', 'navigate-to-channel', 'reordered'])
 // von useShowBars() (dieselben bars/loading-Refs wie z.B. die generierte
 // Obermaschinerie-Übersicht in ShowDetailView.vue) statt sie hier ein
 // zweites Mal zu erzeugen.
-const { addBar, saveBar, removeBar, assignFixture, updateFixtureNotes, unassignFixture, reorderBars } = inject('showBars')
+const { addBar, saveBar, removeBar, removeAllBars, assignFixture, updateFixtureNotes, unassignFixture, reorderBars } = inject('showBars')
 
 // Typ (Zugstange / Traverse / Punktzug)
 const BAR_TYPES = ['zugstange', 'traverse', 'punktzug']
@@ -543,6 +548,12 @@ async function saveInlineField(bar, field, value) {
 async function confirmDeleteBar(bar) {
   const ok = await confirm({ t, titleKey: 'zugstange.delete.confirm', titleParams: { name: bar.name }, confirmKey: 'action.delete', cancelKey: 'action.cancel' })
   if (ok) removeBar(bar.id)
+}
+
+async function confirmDeleteAllBars() {
+  const ok = await confirm({ t, titleKey: 'zugstange.delete_all.confirm', titleParams: { count: props.bars.length }, confirmKey: 'action.delete_all', cancelKey: 'action.cancel' })
+  if (!ok) return
+  await removeAllBars()
 }
 
 // Fixture Edit Dialog

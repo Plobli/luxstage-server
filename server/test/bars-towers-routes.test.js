@@ -133,3 +133,16 @@ test('nicht-numerischer length_cm-String wirft nicht (fällt auf bisherigen Wert
 })
 
 after(cleanupDataPath)
+
+test('DELETE auf Sammelroute löscht alle Bars/Türme in einem Schritt (ein Undo)', async () => {
+  createShow('show-all', { name: 'Show All', use_bars: 1, use_towers: 1 })
+  await call(barRoutes, 'POST', '/api/shows/show-all/bars', { label: 'B1', position: 0 })
+  await call(barRoutes, 'POST', '/api/shows/show-all/bars', { label: 'B2', position: 1 })
+  await call(towerRoutes, 'POST', '/api/shows/show-all/towers', { label: 'T1', position: 0, slot_count: 2 })
+  assert.equal((await call(barRoutes, 'DELETE', '/api/shows/show-all/bars')).status, 200)
+  assert.equal((await call(towerRoutes, 'DELETE', '/api/shows/show-all/towers')).status, 200)
+  assert.equal(readBars('show-all').length, 0)
+  assert.equal(readTowers('show-all').length, 0)
+  assert.equal(readBars('show-a').length > 0, true)
+  assert.equal((await call(barRoutes, 'DELETE', '/api/shows/gibt-es-nicht/bars')).status, 404)
+})

@@ -1,6 +1,6 @@
 import { ref, type Ref } from 'vue'
 import {
-  uploadPhoto, deletePhoto, fetchPhotos, fetchPhotoCaptions, savePhotoCaption,
+  uploadPhoto, deletePhoto, deleteAllPhotos, fetchPhotos, fetchPhotoCaptions, savePhotoCaption,
   fetchAllPhotoChannels, savePhotoChannels, getPhotoUrl,
 } from '../api/photos'
 
@@ -93,9 +93,16 @@ export function usePhotoGallery(showId: string, photos: Ref<string[]>) {
     delete photoChannels.value[filename]
   }
 
+  async function removeAllPhotos() {
+    await deleteAllPhotos(showId)
+    photos.value = []
+    photoCaptions.value = {}
+    photoChannels.value = {}
+  }
+
   return {
     photoCaptions, photoChannels, uploadQueue,
     loadCaptionsAndChannels, saveCaption, saveChannelsForPhoto,
-    photoUrl, uploadFiles, removePhoto,
+    photoUrl, uploadFiles, removePhoto, removeAllPhotos,
   }
 }

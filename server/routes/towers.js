@@ -1,4 +1,4 @@
-import { clearTowerSlot, deleteTower, ensureTowerSlots, readTowers, restoreTowers, writeTower, writeTowerSlot, writeTowerSlotNotes } from '../db/towers.js'
+import { clearTowerSlot, deleteAllTowers, deleteTower, ensureTowerSlots, readTowers, restoreTowers, writeTower, writeTowerSlot, writeTowerSlotNotes } from '../db/towers.js'
 import { readJsonBody, json, withShowMutation } from '../helpers.js'
 
 const SHOW_TOWERS         = /^\/api\/shows\/([^/]+)\/towers$/
@@ -26,6 +26,11 @@ export async function towerRoutes(req, res, pathname) {
       const towers = readTowers(slug)
       for (const tower of towers) ensureTowerSlots(tower.id, tower.slot_count)
       return json(res, 200, readTowers(slug))
+    }
+    if (method === 'DELETE') {
+      return withShowMutation(req, res, slug, 'towers-updated', (show) => {
+        deleteAllTowers(show.id)
+      })
     }
     if (method === 'POST') {
       const body = await readJsonBody(req, res); if (body === null) return

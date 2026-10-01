@@ -1,5 +1,5 @@
 import { ref, type Ref } from 'vue'
-import { fetchBars, createBar, updateBar, deleteBar as apiDeleteBar, addBarFixture, patchBarFixtureNotes, removeBarFixture, reorderBars as apiReorderBars, type Bar, type FixtureSide, type AddBarFixtureOptions } from '../api/bars'
+import { fetchBars, createBar, updateBar, deleteBar as apiDeleteBar, deleteAllBars as apiDeleteAllBars, addBarFixture, patchBarFixtureNotes, removeBarFixture, reorderBars as apiReorderBars, type Bar, type FixtureSide, type AddBarFixtureOptions } from '../api/bars'
 import type { Channel } from '../api/channels'
 import { withLockConflict } from './withLockConflict'
 
@@ -34,6 +34,11 @@ export function useShowBars(showId: string, channels?: Ref<Channel[]>, onLockCon
   const removeBar = withLockConflict(onLockConflict, async (barId: string) => {
     await apiDeleteBar(showId, barId)
     bars.value = bars.value.filter(b => b.id !== barId)
+  })
+
+  const removeAllBars = withLockConflict(onLockConflict, async () => {
+    await apiDeleteAllBars(showId)
+    bars.value = []
   })
 
   const updateFixtureNotes = withLockConflict(onLockConflict, async (barId: string, fixtureId: string, notes: string) => {
@@ -82,5 +87,5 @@ export function useShowBars(showId: string, channels?: Ref<Channel[]>, onLockCon
     bars.value = orderedIds.map(id => bars.value.find(b => b.id === id)!).filter(Boolean)
   })
 
-  return { bars, loading, loadBars, addBar, saveBar, removeBar, assignFixture, updateFixtureNotes, unassignFixture, reorderBars }
+  return { bars, loading, loadBars, addBar, saveBar, removeBar, removeAllBars, assignFixture, updateFixtureNotes, unassignFixture, reorderBars }
 }

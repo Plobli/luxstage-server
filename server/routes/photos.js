@@ -26,6 +26,17 @@ export async function photoRoutes(req, res, pathname, params) {
     if (method === 'GET') {
       return json(res, 200, await photosLib.listPhotos(id))
     }
+    if (method === 'DELETE') {
+      const user = requireAuth(req, res); if (!user) return
+      const show = requireShow(id, res); if (!show) return
+      const filenames = await photosLib.listPhotos(id)
+      for (const filename of filenames) {
+        await photosLib.deletePhoto(id, filename)
+        deletePhotoDescription(id, filename)
+        deletePhotoChannels(id, filename)
+      }
+      return json(res, 200, { ok: true, deleted: filenames.length })
+    }
     if (method === 'POST') {
       const ct = req.headers['content-type'] || ''
       if (!ct.startsWith('multipart/form-data')) return json(res, 400, { error: 'Ungültiger Upload' })

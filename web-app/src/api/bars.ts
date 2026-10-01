@@ -43,6 +43,10 @@ export async function deleteBar(showId: string, barId: string): Promise<void> {
   return api.delete(`/api/shows/${showId}/bars/${barId}`)
 }
 
+export async function deleteAllBars(showId: string): Promise<void> {
+  return api.delete(`/api/shows/${showId}/bars`)
+}
+
 export interface AddBarFixtureOptions {
   channelId?: string | null
   label?: string

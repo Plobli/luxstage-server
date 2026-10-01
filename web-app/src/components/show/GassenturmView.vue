@@ -12,6 +12,11 @@
       </Button>
     </div>
 
+    <div v-if="towers.length > 0" class="flex justify-end px-4 pt-3 -mb-1">
+      <Button variant="ghost" size="sm" class="text-muted-foreground hover:text-destructive" @click="confirmDeleteAllTowers">
+        <Trash2 class="size-3.5 mr-1.5" /> {{ t('gassenturm.delete_all') }}
+      </Button>
+    </div>
     <div class="flex flex-wrap gap-3 p-4">
       <div
         v-for="tower in towers"
@@ -391,7 +396,7 @@ const emit = defineEmits(['assigned'])
 // von useShowTowers() (dieselben towers/loading-Refs wie z.B. die generierte
 // Beleuchtungsgestelle-Übersicht in ShowDetailView.vue) statt sie hier ein
 // zweites Mal zu erzeugen.
-const { addTower, saveTower, removeTower, assignSlot, saveSlotNotes } = inject('showTowers')
+const { addTower, saveTower, removeTower, removeAllTowers, assignSlot, saveSlotNotes } = inject('showTowers')
 
 
 const channelById = computed(() => {
@@ -487,6 +492,12 @@ async function confirmDeleteTower(tower) {
   if (ok) {
     removeTower(tower.id)
   }
+}
+
+async function confirmDeleteAllTowers() {
+  const ok = await confirm({ t, titleKey: 'gassenturm.delete_all.confirm', titleParams: { count: props.towers.length }, confirmKey: 'action.delete_all', cancelKey: 'action.cancel' })
+  if (!ok) return
+  await removeAllTowers()
 }
 
 async function addSlot(tower) {

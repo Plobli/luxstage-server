@@ -56,6 +56,10 @@ export function deleteTower(showId, towerId) {
   getDb().prepare('DELETE FROM towers WHERE id = ? AND show_id = ?').run(towerId, showId)
 }
 
+export function deleteAllTowers(showId) {
+  getDb().prepare('DELETE FROM towers WHERE show_id = ?').run(showId)
+}
+
 // Auf show_id einschränken: sonst ließe sich ein Slot einer fremden tower-ID
 // (aus einer anderen Show) hier beschreiben.
 //

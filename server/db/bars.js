@@ -59,6 +59,10 @@ export function deleteBar(showId, barId) {
   getDb().prepare('DELETE FROM bars WHERE id = ? AND show_id = ?').run(barId, showId)
 }
 
+export function deleteAllBars(showId) {
+  getDb().prepare('DELETE FROM bars WHERE show_id = ?').run(showId)
+}
+
 export function reorderBars(slug, orderedIds) {
   const show = readShow(slug)
   if (!show) return

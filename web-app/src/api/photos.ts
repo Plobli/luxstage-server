@@ -37,6 +37,10 @@ export async function deletePhoto(showId: string, filename: string): Promise<{ o
   return api.delete(`/api/shows/${showId}/photos/${filename}`)
 }
 
+export async function deleteAllPhotos(showId: string): Promise<{ ok: true, deleted: number }> {
+  return api.delete(`/api/shows/${showId}/photos`)
+}
+
 /** GET .../photo-captions (server/db/photos.js readPhotoDescriptions()) —
  *  Map von Dateiname auf Beschriftung. */
 export type PhotoCaptions = Record<string, { caption: string }>

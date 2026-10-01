@@ -201,6 +201,7 @@
               :saveChannelsFn="savePhotoChannelsForPhoto"
               :uploadFilesFn="uploadPhotoFiles"
               :deletePhotoFn="removeShowPhoto"
+              :deleteAllPhotosFn="removeAllShowPhotos"
               :labels="{
                 add: t('photo.add'),
                 empty: t('photo.empty'),
@@ -486,7 +487,7 @@ const {
   photoCaptions, photoChannels, uploadQueue: photoUploadQueue,
   loadCaptionsAndChannels: loadPhotoCaptionsAndChannels,
   saveCaption: savePhotoCaption, saveChannelsForPhoto: savePhotoChannelsForPhoto,
-  photoUrl, uploadFiles: uploadPhotoFiles, removePhoto: removeShowPhoto,
+  photoUrl, uploadFiles: uploadPhotoFiles, removePhoto: removeShowPhoto, removeAllPhotos: removeAllShowPhotos,
 } = usePhotoGallery(props.id, photos)
 const { floorplan, floorplanSaveError, loadFloorplan, onFloorplanChange, onFloorplanImageUpload, onFloorplanImageDelete } = useShowFloorplan(props.id, onLockConflict)
 
@@ -617,15 +618,15 @@ function onUndoRedoKeydownFlushed(e) {
   }
 }
 
-const { loadTowers, addTower, saveTower, removeTower, assignSlot, saveSlotNotes } = useShowTowers(props.id, channels, towers, onLockConflict, loadChannels)
-const { bars, loadBars, addBar, saveBar, removeBar, assignFixture, updateFixtureNotes, unassignFixture, reorderBars } = useShowBars(props.id, channels, onLockConflict, loadChannels)
+const { loadTowers, addTower, saveTower, removeTower, removeAllTowers, assignSlot, saveSlotNotes } = useShowTowers(props.id, channels, towers, onLockConflict, loadChannels)
+const { bars, loadBars, addBar, saveBar, removeBar, removeAllBars, assignFixture, updateFixtureNotes, unassignFixture, reorderBars } = useShowBars(props.id, channels, onLockConflict, loadChannels)
 
 // GassenturmView/ZugstangenView holen sich CRUD per inject() statt über
 // je 4-7 einzelne Function-Props — teilt dieselbe useShowTowers/useShowBars-
 // Instanz (dieselben towers/bars-Refs wie z.B. die generierten Übersichten
 // unten), statt sie im Kind ein zweites Mal zu erzeugen.
-provide('showTowers', { addTower, saveTower, removeTower, assignSlot, saveSlotNotes })
-provide('showBars', { addBar, saveBar, removeBar, assignFixture, updateFixtureNotes, unassignFixture, reorderBars })
+provide('showTowers', { addTower, saveTower, removeTower, removeAllTowers, assignSlot, saveSlotNotes })
+provide('showBars', { addBar, saveBar, removeBar, removeAllBars, assignFixture, updateFixtureNotes, unassignFixture, reorderBars })
 
 afterUndoRedoImpl = async () => {
   await Promise.all([loadChannels(), loadSections(), loadTowers(), loadBars(), loadFloorplan()])

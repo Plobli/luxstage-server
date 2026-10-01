@@ -36,6 +36,10 @@ export async function deleteTower(showId: string, towerId: string): Promise<void
   return api.delete(`/api/shows/${showId}/towers/${towerId}`)
 }
 
+export async function deleteAllTowers(showId: string): Promise<void> {
+  return api.delete(`/api/shows/${showId}/towers`)
+}
+
 export async function assignTowerSlot(showId: string, towerId: string, slotIndex: number, channelId: string | null): Promise<void> {
   return api.patch(`/api/shows/${showId}/towers/${towerId}/slots/${slotIndex}`, { channelId })
 }

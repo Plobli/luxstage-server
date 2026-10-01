@@ -1,4 +1,4 @@
-import { deleteBar, readBars, removeBarFixture, reorderBars, restoreBars, updateBarFixtureNotes, writeBar, writeBarFixture } from '../db/bars.js'
+import { deleteAllBars, deleteBar, readBars, removeBarFixture, reorderBars, restoreBars, updateBarFixtureNotes, writeBar, writeBarFixture } from '../db/bars.js'
 import { readJsonBody, json, withShowMutation } from '../helpers.js'
 
 const SHOW_BARS         = /^\/api\/shows\/([^/]+)\/bars$/
@@ -25,6 +25,11 @@ export async function barRoutes(req, res, pathname) {
   if (m = SHOW_BARS.exec(pathname)) {
     const slug = m[1]
     if (method === 'GET') return json(res, 200, readBars(slug))
+    if (method === 'DELETE') {
+      return withShowMutation(req, res, slug, 'bars-updated', (show) => {
+        deleteAllBars(show.id)
+      })
+    }
     if (method === 'POST') {
       const body = await readJsonBody(req, res); if (body === null) return
       return withShowMutation(req, res, slug, 'bars-updated', () => writeBar(slug, body), {

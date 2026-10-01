@@ -32,6 +32,11 @@
           <input type="file" accept="image/*" multiple class="sr-only" @change="onFileInput" />
         </label>
       </div>
+      <div v-if="photos.length > 0" class="flex justify-end mb-2">
+        <Button variant="ghost" size="sm" class="text-muted-foreground hover:text-destructive" @click="onDeleteAllPhotos">
+          <Trash2 class="size-3.5 mr-1.5" /> {{ t('show.photo.delete_all') }}
+        </Button>
+      </div>
       <ul role="list" class="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3">
         <li v-for="filename in photos" :key="filename" class="relative group flex flex-col gap-2 rounded-xl border border-border bg-card p-2">
           <div class="aspect-[4/3] block w-full overflow-hidden rounded-lg bg-muted cursor-pointer" @click="openLightbox(filename)">
@@ -171,7 +176,7 @@
 
 <script setup>
 import { ref, computed, onBeforeUnmount, onMounted, watch } from 'vue'
-import { ChevronLeft, ChevronRight, X, Plus, Search, Image as ImageIcon } from 'lucide-vue-next'
+import { ChevronLeft, ChevronRight, X, Plus, Search, Trash2, Image as ImageIcon } from 'lucide-vue-next'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogBody } from '@/components/ui/dialog'
@@ -197,6 +202,7 @@ const props = defineProps({
   saveChannelsFn: { type: Function, required: true },
   uploadFilesFn: { type: Function, required: true },
   deletePhotoFn: { type: Function, required: true },
+  deleteAllPhotosFn: { type: Function, required: true },
 })
 
 const { confirm } = useConfirm()
@@ -332,6 +338,12 @@ async function onDeletePhoto(filename) {
   const ok = await confirm({ t, titleKey: 'show.photo.delete.confirm', confirmKey: 'action.delete', cancelKey: 'action.cancel' })
   if (!ok) return
   await props.deletePhotoFn(filename)
+}
+
+async function onDeleteAllPhotos() {
+  const ok = await confirm({ t, titleKey: 'show.photo.delete_all.confirm', titleParams: { count: props.photos.length }, confirmKey: 'action.delete_all', cancelKey: 'action.cancel' })
+  if (!ok) return
+  await props.deleteAllPhotosFn()
 }
 
 const lightboxIndex = computed(() => props.photos.indexOf(lightboxPhoto.value))
