@@ -75,7 +75,7 @@ export function writeChannels(slug, channels, editedBy = null) {
   tx()
 }
 
-const PATCHABLE_CHANNEL_FIELDS = ['channel', 'address', 'device', 'position', 'color', 'notes']
+const PATCHABLE_CHANNEL_FIELDS = ['channel', 'address', 'device', 'position', 'color', 'notes', 'sequence_order']
 
 /** Ändert einzelne Textfelder eines Kanals. Liefert false, wenn der Kanal nicht
  *  zur Show gehört. Unbekannte Felder werden ignoriert, Nicht-Strings abgelehnt. */
@@ -93,6 +93,55 @@ export function patchChannel(slug, channelId, fields, editedBy = null) {
       const sets = entries.map(([f]) => `${f} = ?`).join(', ')
       getDb().prepare(`UPDATE channels SET ${sets} WHERE id = ?`).run(...entries.map(([, v]) => v), channelId)
     }
+    getDb().prepare('UPDATE shows SET updated_at = ? WHERE id = ?').run(now(), show.id)
+    if (editedBy) touchLastEdited(show.id, editedBy)
+    return true
+  })
+  return tx()
+}
+
+/** Legt einen Kanal am Listenende an und liefert ihn zurück. */
+export function createChannel(slug, fields = {}, editedBy = null) {
+  const show = readShow(slug)
+  if (!show) throw new Error(`Show not found: ${slug}`)
+  const id = randomUUID()
+  const tx = getDb().transaction(() => {
+    const max = getDb().prepare('SELECT MAX(sort_order) AS m FROM channels WHERE show_id = ?').get(show.id).m
+    const s = k => (typeof fields[k] === 'string' ? fields[k] : '')
+    getDb().prepare(`
+      INSERT INTO channels (id, show_id, channel, address, device, position, color, notes, quantity, sequence_order, sort_order)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)
+    `).run(id, show.id, s('channel'), s('address'), s('device'), s('position'), s('color'), s('notes'), s('sequence_order') || null, (max ?? -1) + 1)
+    getDb().prepare('UPDATE shows SET updated_at = ? WHERE id = ?').run(now(), show.id)
+    if (editedBy) touchLastEdited(show.id, editedBy)
+  })
+  tx()
+  return id
+}
+
+/** Löscht einen Kanal der Show. Liefert false, wenn er nicht existiert. */
+export function deleteChannel(slug, channelId, editedBy = null) {
+  const show = readShow(slug)
+  if (!show) throw new Error(`Show not found: ${slug}`)
+  const tx = getDb().transaction(() => {
+    const info = getDb().prepare('DELETE FROM channels WHERE id = ? AND show_id = ?').run(channelId, show.id)
+    if (!info.changes) return false
+    getDb().prepare('UPDATE shows SET updated_at = ? WHERE id = ?').run(now(), show.id)
+    if (editedBy) touchLastEdited(show.id, editedBy)
+    return true
+  })
+  return tx()
+}
+
+/** Setzt die Reihenfolge anhand einer ID-Liste. Muss exakt die Kanal-IDs der Show enthalten. */
+export function reorderChannels(slug, ids, editedBy = null) {
+  const show = readShow(slug)
+  if (!show) throw new Error(`Show not found: ${slug}`)
+  const tx = getDb().transaction(() => {
+    const existing = getDb().prepare('SELECT id FROM channels WHERE show_id = ?').all(show.id).map(r => r.id)
+    if (ids.length !== existing.length || new Set(ids).size !== ids.length || !ids.every(id => existing.includes(id))) return false
+    const upd = getDb().prepare('UPDATE channels SET sort_order = ? WHERE id = ?')
+    ids.forEach((id, i) => upd.run(i, id))
     getDb().prepare('UPDATE shows SET updated_at = ? WHERE id = ?').run(now(), show.id)
     if (editedBy) touchLastEdited(show.id, editedBy)
     return true

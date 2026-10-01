@@ -1,5 +1,5 @@
 import fs from 'node:fs'
-import { clearChecks, getChecks, getColorUsage, patchChannel, readChannels, setCheck, writeChannels } from '../db/channels.js'
+import { clearChecks, createChannel, deleteChannel, getChecks, getColorUsage, patchChannel, reorderChannels, readChannels, setCheck, writeChannels } from '../db/channels.js'
 import * as photosLib from '../photos.js'
 import { readJsonBody, json, uploadErrorStatus, isRoute, withShowMutation } from '../helpers.js'
 import { broadcast } from '../sse.js'
@@ -7,6 +7,7 @@ import { requireAuth } from '../auth.js'
 import { analyzeCircuitScan } from '../circuit-scan.js'
 
 const SHOW_CHANNELS     = /^\/api\/shows\/([^/]+)\/channels$/
+const SHOW_CHANNEL_ORDER = /^\/api\/shows\/([^/]+)\/channels\/order$/
 const SHOW_CHANNEL      = /^\/api\/shows\/([^/]+)\/channels\/([^/]+)$/
 const SHOW_CHECKS       = /^\/api\/shows\/([^/]+)\/checks$/
 const SHOW_CIRCUIT_SCAN = /^\/api\/shows\/([^/]+)\/circuit-scan$/
@@ -39,10 +40,48 @@ export async function channelRoutes(req, res, pathname) {
         broadcastPayload: user => ({ updatedBy: user.username }),
       })
     }
+    if (method === 'POST') {
+      const body = await readJsonBody(req, res); if (body === null) return
+      if (typeof body !== 'object' || Array.isArray(body)) return json(res, 400, { error: 'Objekt mit Feldern erwartet' })
+      if (Object.values(body).some(v => typeof v !== 'string')) return json(res, 400, { error: 'Felder müssen Strings sein' })
+      return withShowMutation(req, res, slug, 'channels-updated', () => createChannel(slug, body, req.user.username), {
+        status: 201,
+        responseBody: id => ({ id }),
+        broadcastPayload: user => ({ updatedBy: user.username }),
+      })
+    }
+  }
+
+  if (m = SHOW_CHANNEL_ORDER.exec(pathname)) {
+    const slug = m[1]
+    if (method === 'PUT') {
+      const body = await readJsonBody(req, res); if (body === null) return
+      if (!Array.isArray(body.ids) || body.ids.some(i => typeof i !== 'string')) return json(res, 400, { error: 'ids muss ein String-Array sein' })
+      return withShowMutation(req, res, slug, 'channels-updated', () => {
+        if (!reorderChannels(slug, body.ids, req.user.username)) {
+          throw Object.assign(new Error('ids passen nicht zu den Kanälen der Show'), { badOrder: true })
+        }
+      }, {
+        broadcastPayload: user => ({ updatedBy: user.username }),
+      }).catch(err => {
+        if (err.badOrder) return json(res, 400, { error: err.message })
+        throw err
+      })
+    }
   }
 
   if (m = SHOW_CHANNEL.exec(pathname)) {
     const [, slug, channelId] = m
+    if (method === 'DELETE') {
+      return withShowMutation(req, res, slug, 'channels-updated', () => {
+        if (!deleteChannel(slug, channelId, req.user.username)) throw Object.assign(new Error('Kanal nicht gefunden'), { notFound: true })
+      }, {
+        broadcastPayload: user => ({ updatedBy: user.username }),
+      }).catch(err => {
+        if (err.notFound) return json(res, 404, { error: err.message })
+        throw err
+      })
+    }
     if (method === 'PATCH') {
       const body = await readJsonBody(req, res); if (body === null) return
       if (typeof body !== 'object' || Array.isArray(body)) return json(res, 400, { error: 'Objekt mit Feldern erwartet' })

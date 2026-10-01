@@ -102,6 +102,7 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 | `./server/email.js` | SMTP-Konfiguration und Email-Versand mit Fallback-Support (u.a. Willkommens-, Bestätigungs-, Freischalt-Anfrage- und Mandanten-Löschanfrage-Mails an den Betreiber). |
 | `./server/package.json` | NPM-Abhängigkeiten (sqlite, pdfkit, sharp, bcrypt, jwt). |
 | `./server/test/helpers/test-env.js` | Isolierte Testumgebung mit temporärem Datenpfad und HTTP-Response-Stub für Backend-Tests. |
+| `./server/test/channel-crud.test.js` | Tests für `POST .../channels`, `DELETE .../channels/:chId`, `PUT .../channels/order` und Kanalnummer-/Prio-Änderung per PATCH. |
 | `./server/test/channel-patch.test.js` | Tests für `PATCH /api/shows/:id/channels/:chId`: Teilfelder, Undo-Eintrag, 404 bei fremdem/unbekanntem Kanal, Typprüfung. |
 | `./server/test/register.test.js` | Regressionstests für atomare SaaS-Registrierungsbestätigung und Cleanup bei Registry-Konflikten. |
 | `./server/test/router.test.js` | Regressionstests für öffentliche API-Methoden und Authentifizierungsgrenzen des HTTP-Routers. |
@@ -142,7 +143,7 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 | `./server/db/index.js` | Barrel-Export aller DB-Module. |
 | `./server/db/shows.js` | DB-Zugriff für Shows-Tabelle (Erstellen, Lesen, Archivieren, Löschen). |
 | `./server/db/users.js` | DB-Zugriff für Benutzer, Passwort-Reset-Tokens (SHA-256-gehasht gespeichert) und Freischaltung selbst-registrierter (pending) Nutzer. |
-| `./server/db/channels.js` | DB-Zugriff für Kanäle-Tabelle (inkl. `patchChannel` für Teilfeld-Updates), Beleuchtungs-Checks und mandantenweite Farbnutzungsstatistik. |
+| `./server/db/channels.js` | DB-Zugriff für Kanäle-Tabelle (inkl. `patchChannel`, `createChannel`, `deleteChannel`, `reorderChannels`), Beleuchtungs-Checks und mandantenweite Farbnutzungsstatistik. |
 | `./server/db/bars.js` | DB-Zugriff für Obermaschinerie-Elemente (Zugstange/Traverse/Punktzug via bar_type) und deren Befestigungen (Fixtures, optional ohne Kanalbezug via channel_id=NULL + label für generische Elemente); restoreBars() ersetzt den kompletten Bars-Zustand einer Show (für Undo/Redo). |
 | `./server/db/towers.js` | DB-Zugriff für Show-Türme und deren Slots. |
 | `./server/db/sections.js` | DB-Zugriff für Show-Sections und deren Definitionen. |
@@ -175,7 +176,7 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 | `./server/routes/auth.js` | API-Routen für Login, Token-Refresh, Passwort-Änderung, Passwort-Reset sowie begrenztes IP-Rate-Limiting. |
 | `./server/routes/users.js` | API-Routen für Benutzer-Verwaltung, Preferences, Selbst-Registrierung (`/api/self-register`) und Freischaltung pending Nutzer. |
 | `./server/routes/register.js` | API-Routen für Self-Service-Registrierung (Double Opt-In); stößt bei Newsletter-Consent zusätzlich den Brevo-DOI-Flow an. |
-| `./server/routes/channels.js` | API-Routen für Kanäle, Beleuchtungs-Checks und mandantenweite Farbnutzungsstatistik (`/api/channels/color-usage`); zeichnet Undo-Operation pro Save auf; `PATCH .../channels/:chId` ändert einzelne Textfelder eines Kanals (Diktat/App-Edit); `POST .../circuit-scan` wertet Foto eines ausgefüllten Kreislisten-Vordrucks per Claude Vision aus (liefert vollständige Zeilen als Vorschlag, kein DB-Write). |
+| `./server/routes/channels.js` | API-Routen für Kanäle, Beleuchtungs-Checks und mandantenweite Farbnutzungsstatistik (`/api/channels/color-usage`); zeichnet Undo-Operation pro Save auf; `PATCH .../channels/:chId` ändert einzelne Textfelder eines Kanals (Diktat/App-Edit); `POST .../channels` legt an, `DELETE .../channels/:chId` löscht, `PUT .../channels/order` sortiert um; `POST .../circuit-scan` wertet Foto eines ausgefüllten Kreislisten-Vordrucks per Claude Vision aus (liefert vollständige Zeilen als Vorschlag, kein DB-Write). |
 | `./server/routes/plan-scan.js` | API-Route `POST /api/shows/:slug/plan-scan` für PDF-Einleuchtplan-Upload: rendert Seiten zu PNG, wertet sie per Claude Vision aus, liefert Kanalzeilen + Freitext als Vorschlag (kein DB-Write) — Diff gegen bestehende Kanäle bildet das Frontend. |
 | `./server/routes/bars.js` | API-Routen für Obermaschinerie-Elemente, Fixtures (inkl. side/positionText), Reordering; jede Aktion zeichnet den kompletten Bars-Zustand als Undo-Operation auf. |
 | `./server/routes/towers.js` | API-Routen für Show-Türme, Slots, Restore; jede Aktion zeichnet den kompletten Towers-Zustand als Undo-Operation auf. |
