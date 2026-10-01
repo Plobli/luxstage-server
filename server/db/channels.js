@@ -75,6 +75,31 @@ export function writeChannels(slug, channels, editedBy = null) {
   tx()
 }
 
+const PATCHABLE_CHANNEL_FIELDS = ['channel', 'address', 'device', 'position', 'color', 'notes']
+
+/** Ändert einzelne Textfelder eines Kanals. Liefert false, wenn der Kanal nicht
+ *  zur Show gehört. Unbekannte Felder werden ignoriert, Nicht-Strings abgelehnt. */
+export function patchChannel(slug, channelId, fields, editedBy = null) {
+  const show = readShow(slug)
+  if (!show) throw new Error(`Show not found: ${slug}`)
+
+  const entries = PATCHABLE_CHANNEL_FIELDS.filter(f => f in fields).map(f => [f, fields[f]])
+  if (entries.some(([, v]) => typeof v !== 'string')) throw new TypeError('Felder müssen Strings sein')
+
+  const tx = getDb().transaction(() => {
+    const row = getDb().prepare('SELECT id FROM channels WHERE id = ? AND show_id = ?').get(channelId, show.id)
+    if (!row) return false
+    if (entries.length) {
+      const sets = entries.map(([f]) => `${f} = ?`).join(', ')
+      getDb().prepare(`UPDATE channels SET ${sets} WHERE id = ?`).run(...entries.map(([, v]) => v), channelId)
+    }
+    getDb().prepare('UPDATE shows SET updated_at = ? WHERE id = ?').run(now(), show.id)
+    if (editedBy) touchLastEdited(show.id, editedBy)
+    return true
+  })
+  return tx()
+}
+
 /** Wie writeChannels, aber für Undo/Redo-Restore: übernimmt die Snapshot-`id`
  *  jeder Kanal-Zeile 1:1 statt sie per Kanalnummer gegen die aktuelle DB neu
  *  zuzuordnen. writeChannels' Nummer-Mapping ist für reguläre Importe (CSV/EOS)

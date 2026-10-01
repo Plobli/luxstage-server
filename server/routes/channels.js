@@ -1,5 +1,5 @@
 import fs from 'node:fs'
-import { clearChecks, getChecks, getColorUsage, readChannels, setCheck, writeChannels } from '../db/channels.js'
+import { clearChecks, getChecks, getColorUsage, patchChannel, readChannels, setCheck, writeChannels } from '../db/channels.js'
 import * as photosLib from '../photos.js'
 import { readJsonBody, json, uploadErrorStatus, isRoute, withShowMutation } from '../helpers.js'
 import { broadcast } from '../sse.js'
@@ -7,6 +7,7 @@ import { requireAuth } from '../auth.js'
 import { analyzeCircuitScan } from '../circuit-scan.js'
 
 const SHOW_CHANNELS     = /^\/api\/shows\/([^/]+)\/channels$/
+const SHOW_CHANNEL      = /^\/api\/shows\/([^/]+)\/channels\/([^/]+)$/
 const SHOW_CHECKS       = /^\/api\/shows\/([^/]+)\/checks$/
 const SHOW_CIRCUIT_SCAN = /^\/api\/shows\/([^/]+)\/circuit-scan$/
 const COLOR_USAGE       = /^\/api\/channels\/color-usage$/
@@ -37,6 +38,27 @@ export async function channelRoutes(req, res, pathname) {
       }, {
         broadcastPayload: user => ({ updatedBy: user.username }),
       })
+    }
+  }
+
+  if (m = SHOW_CHANNEL.exec(pathname)) {
+    const [, slug, channelId] = m
+    if (method === 'PATCH') {
+      const body = await readJsonBody(req, res); if (body === null) return
+      if (typeof body !== 'object' || Array.isArray(body)) return json(res, 400, { error: 'Objekt mit Feldern erwartet' })
+      if (Object.values(body).some(v => typeof v !== 'string')) return json(res, 400, { error: 'Felder müssen Strings sein' })
+
+      let found = true
+      const handled = await withShowMutation(req, res, slug, 'channels-updated', () => {
+        found = patchChannel(slug, channelId, body, req.user.username)
+        if (!found) throw Object.assign(new Error('Kanal nicht gefunden'), { notFound: true })
+      }, {
+        broadcastPayload: user => ({ updatedBy: user.username }),
+      }).catch(err => {
+        if (err.notFound) return json(res, 404, { error: err.message })
+        throw err
+      })
+      return handled
     }
   }
 
