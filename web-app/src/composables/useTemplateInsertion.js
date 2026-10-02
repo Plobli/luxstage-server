@@ -1,12 +1,12 @@
 import { ref } from 'vue'
 import { api } from '../api/client.js'
 import { applyTemplateToShow, saveShowItemsToTemplate } from '../api/shows.js'
-import { fetchTemplateBars } from '../api/templateBars.js'
+import { fetchTemplateBattens } from '../api/templateBattens.js'
 import { fetchTemplateTowers } from '../api/templateTowers.js'
 
-export function useTemplateInsertion(showId, meta, { loadBars, loadTowers }) {
+export function useTemplateInsertion(showId, meta, { loadBattens, loadTowers }) {
   const fromTemplateDialogOpen = ref(false)
-  const fromTemplateScope = ref('bars')
+  const fromTemplateScope = ref('battens')
   const fromTemplateWithChannels = ref(false)
   const fromTemplateLoading = ref(false)
   const fromTemplateItemsLoading = ref(false)
@@ -38,14 +38,14 @@ export function useTemplateInsertion(showId, meta, { loadBars, loadTowers }) {
     fromTemplateDialogOpen.value = true
     fromTemplateItemsLoading.value = true
     try {
-      if (scope === 'bars') {
-        const items = await fetchTemplateBars(templateName)
-        fromTemplateItems.value = await Promise.all(items.map(async bar => {
+      if (scope === 'battens') {
+        const items = await fetchTemplateBattens(templateName)
+        fromTemplateItems.value = await Promise.all(items.map(async batten => {
           try {
-            const fixtures = await api.get(`/api/templates/${encodeURIComponent(templateName)}/bars/${bar.id}/fixtures`)
-            return { ...bar, _fixtureCount: fixtures.length }
+            const fixtures = await api.get(`/api/templates/${encodeURIComponent(templateName)}/battens/${batten.id}/fixtures`)
+            return { ...batten, _fixtureCount: fixtures.length }
           } catch {
-            return { ...bar, _fixtureCount: 0 }
+            return { ...batten, _fixtureCount: 0 }
           }
         }))
       } else {
@@ -62,9 +62,9 @@ export function useTemplateInsertion(showId, meta, { loadBars, loadTowers }) {
     await saveShowItemsToTemplate(showId, meta.value.template, 'towers', [tower.id], fields, overrideName)
   }
 
-  async function saveBarToTemplate(bar, fields, overrideName) {
+  async function saveBattenToTemplate(batten, fields, overrideName) {
     if (!meta.value.template) return
-    await saveShowItemsToTemplate(showId, meta.value.template, 'bars', [bar.id], fields, overrideName)
+    await saveShowItemsToTemplate(showId, meta.value.template, 'battens', [batten.id], fields, overrideName)
   }
 
   async function fetchTowerTemplateNames() {
@@ -73,10 +73,10 @@ export function useTemplateInsertion(showId, meta, { loadBars, loadTowers }) {
     return items.map(tower => tower.name)
   }
 
-  async function fetchBarTemplateNames() {
+  async function fetchBattenTemplateNames() {
     if (!meta.value.template) return []
-    const items = await fetchTemplateBars(meta.value.template)
-    return items.map(bar => bar.name)
+    const items = await fetchTemplateBattens(meta.value.template)
+    return items.map(batten => batten.name)
   }
 
   async function confirmFromTemplate() {
@@ -90,7 +90,7 @@ export function useTemplateInsertion(showId, meta, { loadBars, loadTowers }) {
         fromTemplateWithChannels.value,
         [...fromTemplateSelectedIds.value]
       )
-      if (fromTemplateScope.value === 'bars') await loadBars()
+      if (fromTemplateScope.value === 'battens') await loadBattens()
       else await loadTowers()
       fromTemplateDialogOpen.value = false
     } finally {
@@ -111,9 +111,9 @@ export function useTemplateInsertion(showId, meta, { loadBars, loadTowers }) {
     fromTemplateSelectNone,
     openFromTemplateDialog,
     saveTowerToTemplate,
-    saveBarToTemplate,
+    saveBattenToTemplate,
     fetchTowerTemplateNames,
-    fetchBarTemplateNames,
+    fetchBattenTemplateNames,
     confirmFromTemplate,
   }
 }

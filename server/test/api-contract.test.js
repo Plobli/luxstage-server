@@ -123,15 +123,15 @@ test('API-Vertrag für App-Endpunkte unverändert', async () => {
     { channel: '1', address: '1/1', device: 'Source Four', position: 'FOH', color: 'L201', notes: 'Hinweis', quantity: 1, sequence_order: '1' },
     { channel: '2', address: '1/2', device: 'Fresnel', position: '1. Zug', color: '', notes: '', quantity: 2, sequence_order: '' },
   ])
-  await call('POST', `/api/shows/${s}/bars`, { label: 'Zug 1', position: 0 })
+  await call('POST', `/api/shows/${s}/battens`, { label: 'Zug 1', position: 0 })
   await call('POST', `/api/shows/${s}/towers`, { label: 'Turm 1', position: 0, slot_count: 2 })
   await call('PUT', `/api/shows/${s}/section-defs`, { sections: [
     { id: 'sec-kv', title: 'Technik', type: 'kv-table', rows: [{ id: 'r1', label: 'Pult', value: 'Eos' }] },
     { id: 'sec-txt', title: 'Notizen', type: 'text' },
   ] })
   await call('PUT', `/api/shows/${s}/sections`, [{ id: 'sec-txt', content: 'Text' }])
-  const bars = await call('GET', `/api/shows/${s}/bars`)
-  await call('POST', `/api/shows/${s}/to-template`, { scope: 'bars', selectedIds: [bars.body[0].id], overrideName: 'Vorlage' })
+  const battens = await call('GET', `/api/shows/${s}/battens`)
+  await call('POST', `/api/shows/${s}/to-template`, { scope: 'battens', selectedIds: [battens.body[0].id], overrideName: 'Vorlage' })
 
   for (const [key, url] of [
     ['GET /api/shows', '/api/shows'],
@@ -142,9 +142,9 @@ test('API-Vertrag für App-Endpunkte unverändert', async () => {
     ['GET /api/shows/:id/section-defs', `/api/shows/${s}/section-defs`],
     ['GET /api/shows/:id/photos', `/api/shows/${s}/photos`],
     ['GET /api/shows/:id/photo-captions', `/api/shows/${s}/photo-captions`],
-    ['GET /api/shows/:id/bars', `/api/shows/${s}/bars`],
+    ['GET /api/shows/:id/battens', `/api/shows/${s}/battens`],
     ['GET /api/shows/:id/towers', `/api/shows/${s}/towers`],
-    ['GET /api/shows/:id/floorplan', `/api/shows/${s}/floorplan`],
+    ['GET /api/shows/:id/drawing-plan', `/api/shows/${s}/drawing-plan`],
     ['GET /api/templates', '/api/templates'],
     ['GET /api/me/griddeck', '/api/me/griddeck'],
     ['GET /api/diagnostics', '/api/diagnostics'],

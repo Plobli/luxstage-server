@@ -63,8 +63,8 @@ export function deleteAllTowers(showId) {
 // Auf show_id einschränken: sonst ließe sich ein Slot einer fremden tower-ID
 // (aus einer anderen Show) hier beschreiben.
 //
-// mount_ref: der Server ist alleiniger Schreiber (analog writeBarFixture in
-// db/bars.js) — der Client behandelt ihn nur noch lesend. Vorher wurde er für
+// mount_ref: der Server ist alleiniger Schreiber (analog writeBattenFixture in
+// db/battens.js) — der Client behandelt ihn nur noch lesend. Vorher wurde er für
 // Türme ausschließlich clientseitig im Speicher gepflegt und nie persistiert;
 // nach einem Neuladen war der Rückverweis vom Kanal zum Turm verloren.
 export function writeTowerSlot(showId, towerId, slotIndex, channelId) {

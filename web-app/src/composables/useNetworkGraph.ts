@@ -1,9 +1,9 @@
 // web-app/src/composables/useNetworkGraph.ts
 // Zustand + CRUD für die Netzwerk-Topologie (Elemente, Verbindungen, Lock,
-// Undo/Redo) — analog zu useShowBars/useShowTowers für den Show-Bereich.
+// Undo/Redo) — analog zu useShowBattens/useShowTowers für den Show-Bereich.
 // Bewusst NICHT hier: alles, was mit der VueFlow-Darstellung selbst zu tun
 // hat (syncFlow, dagre-Layout, Port-Grid-Ableitung) — das bleibt in
-// NetworkView.vue, aus demselben Grund wie bei FloorplanEditor.vue: eine
+// NetworkView.vue, aus demselben Grund wie bei DrawingPlanEditor.vue: eine
 // Aufspaltung von Domain-Logik und Rendering auf zwei Dateien versteckt die
 // Kopplung nur, statt sie aufzulösen. syncFlow() wird daher als Callback
 // hereingereicht statt hier importiert.

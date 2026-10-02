@@ -57,8 +57,8 @@ export function useShowChannels({
   localeReady,
   onLockConflict,
   onAfterUndoRedo,
-  getAufbauNotes,
-  onAufbauNotesChanged
+  getSetupPlanNotes,
+  onSetupPlanNotesChanged
 }: {
   showId: string;
   meta: Ref<any>;
@@ -67,20 +67,20 @@ export function useShowChannels({
   localeReady: () => Promise<void>;
   onLockConflict?: (body: { lockedBy?: string, since?: number }) => void;
   /** Wird nach einem erfolgreichen Undo/Redo aufgerufen — muss alle vom Server
-   *  geänderten Show-Daten (Kanäle, Sections, Türme, Bars) neu laden, da der
+   *  geänderten Show-Daten (Kanäle, Sections, Türme, Battens) neu laden, da der
    *  Server sie nur ändert, ohne den neuen Stand direkt zurückzusenden. */
   onAfterUndoRedo?: () => void | Promise<void>;
   /** Liefert den aktuellen Tiptap-JSON-String der Aufbaunotizen-Section (icon:
    *  'setup' in sectionContents — NICHT shows.setup_markdown, das ist nur ein
    *  Legacy-Fallback für den Fall ganz ohne Sections, siehe SectionEditor.vue).
    *  Wird für den Append-Fall gebraucht, um den bestehenden Inhalt zu lesen. */
-  getAufbauNotes?: () => string;
+  getSetupPlanNotes?: () => string;
   /** Wird aufgerufen, wenn der Plan-Scan-Import Freitext in die Aufbaunotizen
    *  schreiben soll. Callback bekommt den fertig kombinierten Tiptap-JSON-
    *  String und muss ihn denselben Weg wie SectionEditor.vue's
    *  onSectionChange() persistieren (sectionContents-Map aktualisieren +
    *  sectionChange-Save auslösen). */
-  onAufbauNotesChanged?: (value: string) => void;
+  onSetupPlanNotesChanged?: (value: string) => void;
 }) {
   const channels = ref<Channel[]>([])
   const channelsSaving = ref(false)
@@ -414,15 +414,15 @@ export function useShowChannels({
 
       if (applyFreitext && freitext) {
         // Aufbaunotizen sind eine Section (icon:'setup') in sectionContents,
-        // NICHT shows.setup_markdown — siehe getAufbauNotes/onAufbauNotesChanged
-        // JSDoc oben. getAufbauNotes liest den aktuellen Section-Inhalt für den
-        // Append-Fall; onAufbauNotesChanged persistiert über denselben Weg wie
+        // NICHT shows.setup_markdown — siehe getSetupPlanNotes/onSetupPlanNotesChanged
+        // JSDoc oben. getSetupPlanNotes liest den aktuellen Section-Inhalt für den
+        // Append-Fall; onSetupPlanNotesChanged persistiert über denselben Weg wie
         // SectionEditor.vue's onSectionChange().
-        const current = getAufbauNotes?.() ?? ''
+        const current = getSetupPlanNotes?.() ?? ''
         const newDoc = freitextMode === 'append' && current
           ? appendFreitextToTiptapJson(current, freitext)
           : markdownToTiptapDoc(freitext)
-        onAufbauNotesChanged?.(JSON.stringify(newDoc))
+        onSetupPlanNotesChanged?.(JSON.stringify(newDoc))
       }
 
       const appliedUpdated = updated.filter(row => !excludedChannels.has(row.channel)).length

@@ -42,7 +42,7 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 | `./Dev-Server-App/LuxStageMenu` | Kompilierte macOS-Executable der Menüleisten-App. |
 | `./Dev-Server-App/dev.sh` | Startet Server + Web-App lokal für Entwicklung; von der Menüleisten-App aufgerufen. |
 | `./audits/secrets-management-audit-2026-09-01.md` | Secrets-Management-Audit vom 2026-09-01: Findings zu Klartext-Credentials in der DB, Backup-Zugriff, Rotation und Key-Storage; enthält keine echten Secrets. |
-| `./audits/solid-principles-audit-2026-09-01.md` | SOLID-Audit vom 2026-09-01: SRP-Verstöße im Frontend (FloorplanEditor, useShowChannels), OCP-Streuung der Section-/Element-Typen, ISP der db.js-Fassade, DIP-Trade-offs. |
+| `./audits/solid-principles-audit-2026-09-01.md` | SOLID-Audit vom 2026-09-01: SRP-Verstöße im Frontend (DrawingPlanEditor, useShowChannels), OCP-Streuung der Section-/Element-Typen, ISP der db.js-Fassade, DIP-Trade-offs. |
 | `./audits/architecture-analysis-2026-09-01.md` | Architektur-Analyse vom 2026-09-01: Schichten- und Datenflussdiagramme, Zyklenprüfung (keine Zyklen), Bottlenecks (History-Job, Mandanten-Verbindungscache, prozesslokaler Zustand), Modularitätsbewertung 7/10. |
 | `./audits/architecture-analysis-frontend-2026-09-01.md` | Architektur-Analyse Frontend vom 2026-09-01: Schichtmessung, Zyklenprüfung (nur shadcn-ui-Barrels), God-Komponenten, ungenutzte SSE-Events, fehlendes State-Aggregat; Modularität 6/10. |
 | `./audits/design-patterns-audit-2026-09-01.md` | Design-Pattern-Audit vom 2026-09-01: Pattern-Inventar Server + Frontend, Memento/CoR/Facade als Positivbefunde, dreifaches Memento, unterbenutzte Strategy, fehlender Logger und Value Objects. |
@@ -83,18 +83,18 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 | `./server/history.js` | Periodische Snapshots von Show-State zur Versionierung; sichert vor dem Wiederherstellen den aktuellen Stand. Der Snapshot-Lauf gibt zwischen den Shows den Event-Loop frei und warnt bei Laufzeiten über 1s. |
 | `./server/backup.js` | ZIP-basierte Backup- und Wiederherstellungsfunktionen mit request-isoliertem Staging, Restore-Lock, Rollback und Grenzen für ZIP-Einträge sowie entpackte Daten; entfernt SMTP-Passwort und Reset-Token vor dem Export aus der Backup-Kopie. |
 | `./server/photos.js` | Gestreamter Foto-Upload mit Gesamt-, Datei- und Dateianzahlgrenzen, Skalierung und Thumbnail-Generierung; Ablage pro Mandant unter dessen Mandantenordner. |
-| `./server/floorplan.js` | Grundrissbild-Verwaltung mit Format-Validierung (nur PNG/JPEG); Ablage pro Mandant unter dessen Mandantenordner; Pfadauflösung für den PDF-Export. |
-| `./server/migrate-tenant-media.js` | Einmaliges Migrationsskript: verschiebt Fotos/Grundrisse aus dem alten mandantenübergreifend flachen Verzeichnis in die jeweiligen Mandantenordner. |
+| `./server/drawing-plan.js` | Zeichnungsbild-Verwaltung mit Format-Validierung (nur PNG/JPEG); Ablage pro Mandant unter dessen Mandantenordner; Pfadauflösung für den PDF-Export. |
+| `./server/migrate-tenant-media.js` | Einmaliges Migrationsskript: verschiebt Fotos/Zeichnungen aus dem alten mandantenübergreifend flachen Verzeichnis in die jeweiligen Mandantenordner. |
 | `./server/circuit-scan.js` | Wertet Foto einer Kreisliste per Claude Vision (`@anthropic-ai/sdk`, strukturierte Zod-Ausgabe) aus — Vordruck mit Handschrift oder komplett handschriftlich, ohne Vorlage; liefert pro erkannter Zeile alle Spalten (Kanal, Adresse, Gerät, Position, Filter, Notizen). |
 | `./server/plan-scan.js` | Wertet mehrseitigen PDF-Einleuchtplan per Claude Vision aus (analog `circuit-scan.js`, aber variable Struktur mit Positions-Headern und Kanalbereichen); liefert `{ rows, freitext }` — `rows` mit einer Zeile je Kanal (Bereiche wie „137-148“ werden zu Einzelzeilen expandiert), `freitext` als gesammeltes Markdown (Hängeplan, Züge, Maße). |
-| `./server/pdf.js` | PDF-Export für Einleuchtpläne: Orchestrierung (Titel, Sections, Kanalliste, Grundriss, Fotos). `generatePDF(data, stream, opts)` rendert in einen beliebigen Writable-Stream und kennt kein HTTP — Response-Header setzt der Aufrufer, Dateiname über `pdfFilename()`. Optionaler Vordruck-Modus (`opts.blank`) für handschriftlich auszufüllende Kreislisten (Filter/Notizen leer, Leerzeilen je Position, Block „Neue Kreise”); Rendering-Details in `pdf/`. |
+| `./server/pdf.js` | PDF-Export für Einleuchtpläne: Orchestrierung (Titel, Sections, Kanalliste, Zeichnung, Fotos). `generatePDF(data, stream, opts)` rendert in einen beliebigen Writable-Stream und kennt kein HTTP — Response-Header setzt der Aufrufer, Dateiname über `pdfFilename()`. Optionaler Vordruck-Modus (`opts.blank`) für handschriftlich auszufüllende Kreislisten (Filter/Notizen leer, Leerzeilen je Position, Block „Neue Kreise”); Rendering-Details in `pdf/`. |
 | `./server/pdf/constants.js` | Gemeinsame Layout-Konstanten (Maße, Farben, Fonts) für den PDF-Export. |
 | `./server/pdf/filter-colors.js` | Lee/Rosco-Filter-Code zu Hex-Farbe, Kontrastfarben-Berechnung. |
 | `./server/pdf/layout-primitives.js` | Low-Level-Zeichenhelfer für Tabellenzeilen und Key-Value-Sections; `drawRow`/`calcRowHeight` nehmen optionale `minRowH` für höhere Zeilen im Vordruck-Modus; Spaltentyp `badge` rendert Prio/Reihenfolge als farbiges Badge (Farbe aus `shared/color.js`). |
 | `./server/pdf/tiptap-parse.js` | Parsen von Tiptap-JSON/Markdown-Setup-Text in Render-Blöcke, inkl. Zeichnen. |
 | `./server/pdf/towers.js` | Rendering von Beleuchtungsgestellen (Karten-Grid und Textliste). |
-| `./server/pdf/bars.js` | Rendering von Zugstangen/Traversen/Punktzug (Skala, Fixture-Kreise, Textliste); generische Elemente (kein channel_id) als schmales gedrehtes Label-Rechteck statt Kreis. |
-| `./server/pdf/floorplan-vector.js` | Zeichnet die Grundriss-Seite direkt als Vektorgrafik aus canvas_data (alle 7 Elementtypen inkl. Rotation, Fixture-Pins, Slot-Badges) statt eines Raster-Snapshots; optionales Hintergrundbild wird weiterhin als Raster eingebettet. |
+| `./server/pdf/battens.js` | Rendering von FlySystem/Traversen/PointBatten (Skala, Fixture-Kreise, Textliste); generische Elemente (kein channel_id) als schmales gedrehtes Label-Rechteck statt Kreis. |
+| `./server/pdf/drawing-plan-vector.js` | Zeichnet die Zeichnungs-Seite direkt als Vektorgrafik aus canvas_data (alle 7 Elementtypen inkl. Rotation, Fixture-Pins, Slot-Badges) statt eines Raster-Snapshots; optionales Hintergrundbild wird weiterhin als Raster eingebettet. |
 | `./server/pdf/network.js` | PDF-Export der Netzwerk-Verkabelung: Port-Tabelle je Switch (Hauptswitch zuerst), Abschnitt „Sonstige Verbindungen“ für Switch-lose Verbindungen; nutzt dieselben Layout-Primitives wie `pdf.js`. |
 | `./server/pdf/section-renderers.js` | Registry der Section-Typen für den PDF-Export (`kv-table`, `fields`, Default für Setup-Text); je Typ Content-Prüfung und Render-Funktion. Ein neuer Typ ist ein Eintrag hier, `pdf.js` bleibt unverändert. |
 | `./server/pdf/utils.js` | Kanalgruppierung, Datumsformat, Bildgrößen-Ermittlung aus PNG/JPEG-Buffer. |
@@ -106,6 +106,7 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 | `./server/test/channel-patch.test.js` | Tests für `PATCH /api/shows/:id/channels/:chId`: Teilfelder, Undo-Eintrag, 404 bei fremdem/unbekanntem Kanal, Typprüfung. |
 | `./server/test/register.test.js` | Regressionstests für atomare SaaS-Registrierungsbestätigung und Cleanup bei Registry-Konflikten. |
 | `./server/test/router.test.js` | Regressionstests für öffentliche API-Methoden und Authentifizierungsgrenzen des HTTP-Routers. |
+| `./server/test/rename-migration.test.js` | Tests für Migration 051 (Tabellen/Spalten/JSON-Umbenennung) und die Übersetzung alter Snapshot-Namen. |
 | `./server/test/api-contract.test.js` | API-Vertragstest: prüft Antwortstruktur (Felder + Typen) aller von iOS/Android genutzten Endpunkte und SSE-Ereignisnamen gegen Snapshot. |
 | `./server/test/api-contract.json` | Snapshot des API-Vertrags (automatisch erzeugt, Update per `npm run api-contract:update`). |
 | `./server/test/photos.test.js` | Regressionstest für gestreamtes Multipart-Staging und garantiertes Cleanup temporärer Foto-Uploads. |
@@ -144,18 +145,19 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 | `./server/db/shows.js` | DB-Zugriff für Shows-Tabelle (Erstellen, Lesen, Archivieren, Löschen). |
 | `./server/db/users.js` | DB-Zugriff für Benutzer, Passwort-Reset-Tokens (SHA-256-gehasht gespeichert) und Freischaltung selbst-registrierter (pending) Nutzer. |
 | `./server/db/channels.js` | DB-Zugriff für Kanäle-Tabelle (inkl. `patchChannel`, `createChannel`, `deleteChannel`, `reorderChannels`), Beleuchtungs-Checks und mandantenweite Farbnutzungsstatistik. |
-| `./server/db/bars.js` | DB-Zugriff für Obermaschinerie-Elemente (Zugstange/Traverse/Punktzug via bar_type) und deren Befestigungen (Fixtures, optional ohne Kanalbezug via channel_id=NULL + label für generische Elemente); restoreBars() ersetzt den kompletten Bars-Zustand einer Show (für Undo/Redo). |
+| `./server/db/battens.js` | DB-Zugriff für Obermaschinerie-Elemente (Batten/Traverse/PointBatten via batten_type) und deren Befestigungen (Fixtures, optional ohne Kanalbezug via channel_id=NULL + label für generische Elemente); restoreBattens() ersetzt den kompletten Battens-Zustand einer Show (für Undo/Redo). |
 | `./server/db/towers.js` | DB-Zugriff für Show-Türme und deren Slots. |
 | `./server/db/sections.js` | DB-Zugriff für Show-Sections und deren Definitionen. |
 | `./server/db/photos.js` | DB-Zugriff für Fotos, Beschreibungen, Reihenfolge, Channel-Fotos. |
-| `./server/db/floorplan.js` | DB-Zugriff für Template- und Show-Grundrisse (Bilder, Canvas-Daten). |
-| `./server/db/full-state.js` | Liest/schreibt kompletten Show-Zustand (Channels, Sections, Bars, Towers) atomar als Snapshot; Basis für Undo/Redo-Integrität. |
+| `./server/db/drawing-plan.js` | DB-Zugriff für Template- und Show-Zeichnungen (Bilder, Canvas-Daten). |
+| `./server/db/full-state.js` | Liest/schreibt kompletten Show-Zustand (Channels, Sections, Battens, Towers) atomar als Snapshot; Basis für Undo/Redo-Integrität. |
+| `./server/db/legacy-names.js` | Übersetzt alte Namen (bar/zug/floorplan) in aktuelle (batten/drawing plan) für Migration 051 und alte Undo-Snapshots. |
 | `./server/db/templates.js` | DB-Zugriff für Spielort-Vorlagen (Stammdaten, Kanäle). |
 | `./server/db/template-sections.js` | DB-Zugriff für Template-Sections und deren Definitionen. |
-| `./server/db/template-bars.js` | DB-Zugriff für Template-Bars und deren Fixtures. |
+| `./server/db/template-battens.js` | DB-Zugriff für Template-Battens und deren Fixtures. |
 | `./server/db/template-towers.js` | DB-Zugriff für Template-Towers und deren Slots. |
 | `./server/db/template-apply-to-show.js` | Anwendung von Templates auf Shows (einzeln und auf alle Shows eines Templates). |
-| `./server/db/template-save-from-show.js` | Rück-Speichern von Show-Items (Bars/Towers) als Template-Einträge. |
+| `./server/db/template-save-from-show.js` | Rück-Speichern von Show-Items (Battens/Towers) als Template-Einträge. |
 | `./server/db/locks.js` | DB-Zugriff für Show-weiten Schreib-Lock: acquire/release/touch/get/transfer (direkte Übergabe an anderen User) sowie listLocks() für die Show-Übersicht. |
 | `./server/db/undo-stack.js` | Gemeinsame Mechanik der Undo/Redo-Stacks (`makeUndoStack`): Snapshot aufzeichnen, Redo-Stack, Begrenzung auf 50 Einträge, transaktionale Klammer. Zwei Varianten leiten sich daraus ab — je Show (`show_id`) und global fürs Netzwerk. |
 | `./server/db/operations.js` | Undo/Redo für Shows: Konfiguration von `makeUndoStack` mit Show-Scope und Full-Snapshot-Zustand; Funktion `withUndoSnapshot()` für transaktionale Snapshots. |
@@ -164,6 +166,7 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 | `./server/db/network-operations.js` | Netzwerk-Undo/Redo: Konfiguration von `makeUndoStack` ohne Scope-Spalte (einziger globaler Stack, da das Netzwerk gebäudeweit ist), `withNetworkUndoSnapshot()` für transaktionale Snapshots. |
 | `./server/db/settings.js` | DB-Zugriff für generische Key-Value-Settings-Tabelle (SMTP-Konfig, Anzeige-Einstellungen); `setSecretSetting`/`getSecretSetting` verschlüsseln Secrets (z. B. SMTP-Passwort) at rest mit AES-256-GCM, Schlüssel aus `JWT_SECRET` abgeleitet. |
 | `./server/db/migrations/index.js` | Geordnete Liste aller Schema-Migrationen. |
+| `./server/db/migrations/051-rename-batten-drawing-plan.js` | Benennt Tabellen/Spalten bars→battens, floorplan→drawing plan um und schreibt JSON in canvas_data/mount_ref um. |
 | `./server/db/migrations/039-operations-full-snapshot.js` | Migration: ändert operations-Tabelle für Full-Snapshot-Historie, fügt redo_stack-Tabelle für persistente Redo-Stack hinzu. |
 | `./server/db/migrations/046-diagnostics.js` | Migration: erstellt `diagnostics_reports`-Tabelle für Crash-/Error-Diagnosedaten von iOS/Android Apps (platform, app_version, build_number, os_version, device_model, report_type, payload, created_at); Indizes auf (platform, report_type) und created_at. |
 | `./server/db/migrations/NNN-*.js` | Einzelne Schema-Migration (`up`, `alreadyApplied`); wird von `db-init.js` einmalig ausgeführt und in `schema_migrations` getrackt. |
@@ -178,14 +181,14 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 | `./server/routes/register.js` | API-Routen für Self-Service-Registrierung (Double Opt-In); stößt bei Newsletter-Consent zusätzlich den Brevo-DOI-Flow an. |
 | `./server/routes/channels.js` | API-Routen für Kanäle, Beleuchtungs-Checks und mandantenweite Farbnutzungsstatistik (`/api/channels/color-usage`); zeichnet Undo-Operation pro Save auf; `PATCH .../channels/:chId` ändert einzelne Textfelder eines Kanals (Diktat/App-Edit); `POST .../channels` legt an, `DELETE .../channels/:chId` löscht, `PUT .../channels/order` sortiert um; `POST .../circuit-scan` wertet Foto eines ausgefüllten Kreislisten-Vordrucks per Claude Vision aus (liefert vollständige Zeilen als Vorschlag, kein DB-Write). |
 | `./server/routes/plan-scan.js` | API-Route `POST /api/shows/:slug/plan-scan` für PDF-Einleuchtplan-Upload: rendert Seiten zu PNG, wertet sie per Claude Vision aus, liefert Kanalzeilen + Freitext als Vorschlag (kein DB-Write) — Diff gegen bestehende Kanäle bildet das Frontend. |
-| `./server/routes/bars.js` | API-Routen für Obermaschinerie-Elemente, Fixtures (inkl. side/positionText), Reordering; jede Aktion zeichnet den kompletten Bars-Zustand als Undo-Operation auf. |
+| `./server/routes/battens.js` | API-Routen für Obermaschinerie-Elemente, Fixtures (inkl. side/positionText), Reordering; jede Aktion zeichnet den kompletten Battens-Zustand als Undo-Operation auf. |
 | `./server/routes/towers.js` | API-Routen für Show-Türme, Slots, Restore; jede Aktion zeichnet den kompletten Towers-Zustand als Undo-Operation auf. |
 | `./server/routes/sections.js` | API-Routen für Show-Sections und deren Definitionen; sendet SSE nach Inhalts- und Definitionsänderungen, zeichnet Undo-Operationen auf. |
 | `./server/routes/photos.js` | API-Routen für Foto-Upload, Beschreibungen, Channel-Fotos. |
-| `./server/routes/floorplan.js` | API-Routen für Show- und Template-Grundrisse (Bilder, Canvas-Daten). |
-| `./server/routes/templates.js` | API-Routen für Spielort-Vorlagen (Kanäle, Sections, Bars, Towers); `GET .../pdf` liefert Kreislisten-Vordruck (Blank-Modus) für die Vorlage. |
+| `./server/routes/drawing-plan.js` | API-Routen für Show- und Template-Zeichnungen (Bilder, Canvas-Daten). |
+| `./server/routes/templates.js` | API-Routen für Spielort-Vorlagen (Kanäle, Sections, Battens, Towers); `GET .../pdf` liefert Kreislisten-Vordruck (Blank-Modus) für die Vorlage. |
 | `./server/routes/history.js` | API-Routen für Show-Verlauf und Snapshot-Restore. |
-| `./server/routes/pdf.js` | API-Route für PDF-Export von Shows; löst Grundriss-Bildpfad (Show- oder Template-Fallback) für den Vektor-Export auf; `?blank=1` liefert Kreislisten-Vordruck zum handschriftlichen Ausfüllen. |
+| `./server/routes/pdf.js` | API-Route für PDF-Export von Shows; löst Zeichnung-Bildpfad (Show- oder Template-Fallback) für den Vektor-Export auf; `?blank=1` liefert Kreislisten-Vordruck zum handschriftlichen Ausfüllen. |
 | `./server/routes/display.js` | API-Routen für Anzeige-Einstellungen (Maßeinheiten). |
 | `./server/routes/system.js` | API-Routen für System-Status, Health-Check, Backup, Restore. |
 | `./server/routes/smtp.js` | API-Routen für SMTP-Konfiguration und Test-E-Mails. |
@@ -229,40 +232,40 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 | `./web-app/src/composables/useContainerWidth.ts` | Misst Container-Breite und reagiert responsiv auf Größenänderungen. |
 | `./web-app/src/composables/useConfirm.ts` | Verwaltet globale Bestätigungsdialoge mit Promises. |
 | `./web-app/src/composables/useShowNav.js` | Stellt Navigationselement-State (inkl. addSection/deleteSection) zwischen Komponenten bereit. |
-| `./web-app/src/composables/useShowSidebarNav.js` | Baut die Sidebar-Navigationsitems einer Show (Kanäle, Aufbau-Subtabs, Sections, Fotos, Grundriss) inkl. Section-Löschen. |
+| `./web-app/src/composables/useShowSidebarNav.js` | Baut die Sidebar-Navigationsitems einer Show (Kanäle, Aufbau-Subtabs, Sections, Fotos, Zeichnung) inkl. Section-Löschen. |
 | `./web-app/src/composables/useDragReorder.ts` | Ermöglicht Drag-and-Drop-Sortierung von Listen-Items. |
 | `./web-app/src/composables/useMeasureUnit.ts` | Konvertiert zwischen Maßeinheiten (m, cm, mm) mit Speicherung. |
 | `./web-app/src/composables/useKeyboardNav.ts` | Navigiert Tabellen mit Tab, Enter und Pfeiltasten. |
-| `./web-app/src/composables/useShowFloorplan.ts` | Lädt und speichert Grundriss-Daten und Bilder pro Show. |
+| `./web-app/src/composables/useShowDrawingPlan.ts` | Lädt und speichert Zeichnungs-Daten und Bilder pro Show. |
 | `./web-app/src/composables/useTokenRefresh.ts` | Erneuert JWT-Token automatisch vor Ablauf. |
 | `./web-app/src/composables/useShowChannels.ts` | Verwaltet Kanäle mit Suche, Filter, EOS-Import und Kreisliste-Scan-Import (inkl. Diff-Vorschau vor Übernahme, Lade-/Erfolg-/Fehler-Status); Undo/Redo läuft serverseitig über useUndoRedo.ts, das nach erfolgreichem Undo/Redo über `onAfter` die betroffenen Show-Daten neu lädt. |
 | `./web-app/src/composables/useColorUsage.js` | Modulweiter Cache der mandantenweiten Farbnutzungsstatistik für ColorAutocomplete. |
 | `./web-app/src/composables/useShowTabs.js` | Verwaltet Show-Tab-, Subtab- und Sitzungs-Persistenz inklusive Timeout und validiert verfügbare Aufbau-Tabs. |
-| `./web-app/src/composables/useTemplateInsertion.js` | Verwaltet Auswahl, Einfügen und Speichern von Bar-/Turm-Vorlagen für eine Show. |
+| `./web-app/src/composables/useTemplateInsertion.js` | Verwaltet Auswahl, Einfügen und Speichern von Batten-/Turm-Vorlagen für eine Show. |
 | `./web-app/src/composables/useLocale.ts` | Kompatibilitäts-Bridge auf @tolgee/vue; bestehende t(key)-Aufrufe laufen jetzt über Tolgee. |
 | `./web-app/src/composables/usePhotoSettings.ts` | Speichert Benutzereinstellung für Fotos pro Seite. |
 | `./web-app/src/composables/useShowSections.ts` | Lädt und speichert benutzerdefinierte Abschnitte pro Show. |
 | `./web-app/src/composables/useBreakpoint.ts` | Erkennt Bildschirmgröße via MediaQueryList-Listener. |
-| `./web-app/src/composables/floorplan/useFloorplanState.ts` | Aktuell leer (Platzhalter, ungenutzt). |
+| `./web-app/src/composables/drawingPlan/useDrawingPlanState.ts` | Aktuell leer (Platzhalter, ungenutzt). |
 | `./web-app/src/composables/useShowLockEvents.ts` | Abonniert Lock-Status, Übernahme-Anfragen und Präsenz (`presentUsers` — wer die Show gerade offen hat, ohne den eigenen Zugang) über Server-Sent Events. |
 | `./web-app/src/composables/useShowLock.ts` | Show-weiter Schreib-Lock im Frontend: Akquise beim Öffnen, periodischer Heartbeat, Freigabe/Übergabe, Übernahme-Anfrage-Handling, Beacon-Release beim Verlassen (Tab schließen/Reload) via pagehide. |
 | `./web-app/src/composables/useShowHistory.ts` | Versionsverlauf einer Show: Liste und Einzelversion laden, Ladefehler, Verwerfen überholter Antworten, Wiederherstellen inklusive Daten-Reload. |
 | `./web-app/src/composables/useShowTowers.ts` | Verwaltet Türme (Lichtstative) mit Slot-Zuweisungen; meldet Schreib-Lock-Konflikte (423) über onLockConflict. |
 | `./web-app/src/composables/useShowPhotos.ts` | Lädt Fotos-Liste pro Show. |
 | `./web-app/src/composables/useUndoRedo.ts` | Serverseitiges Undo/Redo: `useServerUndoRedo()` trägt die Mechanik (optimistische canUndo/canRedo-Führung, 400 = leerer Stack, 423 = Lock-Konflikt, `onAfter`-Reload, Cmd/Ctrl+Z-Kürzel), `useUndoRedo(showId)` konfiguriert sie für Shows; die Netzwerk-Ansicht nutzt dieselbe Mechanik mit den Netzwerk-Endpunkten. `markSaved()` öffnet canUndo nach einem regulären Save wieder. |
-| `./web-app/src/composables/useShowBars.ts` | Verwaltet Obermaschinerie-Elemente mit Fixtures (inkl. side/positionText) und Kanal-Zuordnungen; meldet Schreib-Lock-Konflikte (423) über onLockConflict. |
-| `./web-app/src/composables/useSaveToTemplateDialog.ts` | "Als Vorlage speichern"-Dialog-Logik (Namenskonflikt-Check, Speichern), geteilt von GassenturmView und ZugstangenView. |
+| `./web-app/src/composables/useShowBattens.ts` | Verwaltet Obermaschinerie-Elemente mit Fixtures (inkl. side/positionText) und Kanal-Zuordnungen; meldet Schreib-Lock-Konflikte (423) über onLockConflict. |
+| `./web-app/src/composables/useSaveToTemplateDialog.ts` | "Als Vorlage speichern"-Dialog-Logik (Namenskonflikt-Check, Speichern), geteilt von LightingTowerView und FlySystemView. |
 
 ### web-app/src/utils/
 
 | Datei | Beschreibung |
 |---|---|
-| `./web-app/src/utils/generateHangerei.ts` | Generiert formatierte Textlisten für Bars und Towers. |
+| `./web-app/src/utils/generateSetupText.ts` | Generiert formatierte Textlisten für Battens und Towers (Obermaschinerie/Gassentürme). |
 | `./web-app/src/utils/uuid.ts` | Erzeugt UUIDs mit Fallback für Non-Secure-Context. |
 | `./web-app/src/utils/templateName.ts` | Entfernt `.csv`-Suffix und ersetzt Bindestriche in Namen. |
 | `./web-app/src/utils/index.ts` | Exportiert `cn()`-Utility für Tailwind/clsx Klassenkombination. |
 | `./web-app/src/utils/filterColors.ts` | Normalisiert und validiert Filterfarben-Codes (Lee/Rosco). |
-| `./web-app/src/utils/floorplanSnapshot.js` | Rendert Floorplan-SVG+Hintergrundbild in Canvas für den PNG-Export-Button; Bild wird unverzerrt (contain) eingepasst. |
+| `./web-app/src/utils/drawingPlanSnapshot.js` | Rendert DrawingPlan-SVG+Hintergrundbild in Canvas für den PNG-Export-Button; Bild wird unverzerrt (contain) eingepasst. |
 | `./web-app/src/utils/template-csv.ts` | Parst Bühnen-Template-CSV (Semikolon, Kopfzeile ab `channel`) und leitet den Vorlagennamen aus dem Dateinamen ab. |
 | `./web-app/src/utils/template-csv.test.ts` | Unit-Tests für den Template-CSV-Parser (vitest). |
 | `./web-app/src/utils/eos-csv.ts` | Parst ETC-Eos-CSV-Exporte: aktive Kanäle, Moving-Light-Erkennung, Adressnormalisierung, Gerätenamen. |
@@ -282,14 +285,14 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 | `./web-app/src/api/cache.ts` | Einfacher In-Memory-Cache mit TTL-Support. |
 | `./web-app/src/api/shows.ts` | CRUD-API für Shows, Meta-Daten, History und Snapshots, Show-Lock (inkl. Übergabe und Beacon-Release beim Verlassen der Show), Undo/Redo. Listenverändernde Aufrufe verwerfen den `shows`-Cache selbst (`mutatesShows()`) — Aufrufer müssen nicht daran denken. |
 | `./web-app/src/api/channels.ts` | CRUD und CSV-Im-/Export für Kanäle, Merging-Logik, Abruf der Farbnutzungsstatistik; `scanCircuitSheet` lädt Vordruck-Foto zur Vision-Auswertung hoch. |
-| `./web-app/src/api/bars.ts` | Verwaltet Obermaschinerie-Elemente (Zugstange/Traverse/Punktzug), Fixtures und deren Reihenfolge. |
+| `./web-app/src/api/battens.ts` | Verwaltet Obermaschinerie-Elemente (Batten/Traverse/PointBatten), Fixtures und deren Reihenfolge. |
 | `./web-app/src/api/towers.ts` | CRUD-API für Lichtstative und Slot-Zuweisungen. |
 | `./web-app/src/api/sections.ts` | Lädt/speichert benutzerdefinierte Abschnitte für Shows und Templates. |
 | `./web-app/src/api/photos.ts` | Lädt, hochladen, löscht Fotos mit Progress-Tracking; Beschriftungen und Kreis-Zuordnungen pro Foto. |
-| `./web-app/src/api/floorplan.ts` | Speichert/lädt Grundriss-Canvas-Daten und Bilder (PDF-Grundriss wird serverseitig live aus Canvas-Daten gerendert, kein Snapshot-Upload mehr). |
+| `./web-app/src/api/drawingPlan.ts` | Speichert/lädt Zeichnungs-Canvas-Daten und Bilder (PDF-Zeichnung wird serverseitig live aus Canvas-Daten gerendert, kein Snapshot-Upload mehr). |
 | `./web-app/src/api/network.ts` | CRUD-API für Netzwerk-Elemente und -Verbindungen (gebäudeweite Netzwerk-Übersicht). |
 | `./web-app/src/api/templates.ts` | Verwaltet Templates (Vorlagen) mit Anwendungs- und Upload-Funktionen; `fetchTemplatePdfUrl` liefert Download-Link für den Kreislisten-Vordruck. |
-| `./web-app/src/api/templateBars.ts` | CRUD-API für Bars in Vorlagen. |
+| `./web-app/src/api/templateBattens.ts` | CRUD-API für Battens in Vorlagen. |
 | `./web-app/src/api/templateTowers.ts` | CRUD-API für Towers in Vorlagen mit Slot-Verwaltung. |
 | `./web-app/src/api/backup.ts` | Backup-Download und Restore-Upload mit ZIP-Format. |
 | `./web-app/src/api/account.ts` | `requestTenantDelete`: Mandanten-Löschanfrage (Passwort-Prüfung, benachrichtigt den Betreiber per Mail — keine automatisierte Löschung). |
@@ -328,20 +331,20 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 | `./web-app/src/components/MarkdownEditor.vue` | Rich-Text-Editor mit Toolbar für Fett, Kursiv, Überschriften, Listen und Tabellen. |
 | `./web-app/src/components/EosMergePreviewDialog.vue` | Vorschau neu aktiver, verschwundener und unberührter Kanäle bei EOS-Import. |
 | `./web-app/src/components/Spinner.vue` | Animiertes Lade-Icon mit konfigurierbarer Größe. |
-| `./web-app/src/components/FloorplanEditor.vue` | Interaktiver Zeichnungseditor mit Drag-Drop für Kanäle, Gestelle, Stangen und Formen; gruppierte Ribbon-Toolbar mit Tooltips, Empty-State mit Upload (nur PNG/JPEG), A4-Druckbereich-Guide, neue Uploads unverzerrt ins A4-Format eingepasst. |
+| `./web-app/src/components/DrawingPlanEditor.vue` | Interaktiver Zeichnungseditor mit Drag-Drop für Kanäle, Gestelle, Stangen und Formen; gruppierte Ribbon-Toolbar mit Tooltips, Empty-State mit Upload (nur PNG/JPEG), A4-Druckbereich-Guide, neue Uploads unverzerrt ins A4-Format eingepasst. |
 | `./web-app/src/components/ColorAutocomplete.vue` | Farbfilter-Autocomplete mit Lee- und Rosco-Codes, Vorschau, Sortierung nach Nutzungshäufigkeit und Aufklapp-Richtung je nach verfügbarem Platz. |
 | `./web-app/src/components/show/ShowHeader.vue` | Titel-Editor, Show-Metadaten, Import/Export (EOS, CSV, Kreisliste-Scan, Einleuchtplan-PDF-Scan, PDF) und Verlauf. |
 | `./web-app/src/components/show/ImportModal.vue` | Auswahl-Dialog für Kanal-Import: EOS, CSV, Kreisliste-Scan (Foto des ausgefüllten Vordrucks oder komplett handschriftlicher Liste) oder Einleuchtplan-PDF-Import. |
 | `./web-app/src/components/show/CircuitScanPreviewDialog.vue` | Diff-Vorschau vor Übernahme des Kreisliste-Scans oder Einleuchtplan-PDF-Scans (Prop `title` parametrisiert den Dialogtitel je Flow): aktualisierte Kreise (alt→neu je Feld) und neue Kreise, einzeln per Checkbox abwählbar (inkl. "Alle umschalten"); optionaler Freitext-Block (nur bei PDF-Scan, per `freitext`-Prop) mit Anhängen/Ersetzen-Auswahl für Einrichtungsnotizen; Übernehmen/Abbrechen. |
-| `./web-app/src/components/show/ShowWizardDialog.vue` | Mehrstufiger Assistent zum Anlegen einer Show: Vorlage, Name/Datum, Bereiche (Türme/Bars), dynamische Einzelauswahl-Schritte für Vorlagen-Bereiche/Obermaschinerie/Beleuchtungsgestelle, Zusammenfassung. |
+| `./web-app/src/components/show/ShowWizardDialog.vue` | Mehrstufiger Assistent zum Anlegen einer Show: Vorlage, Name/Datum, Bereiche (Türme/Battens), dynamische Einzelauswahl-Schritte für Vorlagen-Bereiche/Obermaschinerie/Beleuchtungsgestelle, Zusammenfassung. |
 | `./web-app/src/components/show/ShowActionBar.vue` | Undo/Redo, Schreib-Sperre-Anzeige mit Übernahme-Button, Mitleser-Badges (Initialen mit Tooltip aus der SSE-Präsenz) und klickbare Warn-Badges (doppelte Adresse/Kreisnummer, unvollständige Kreise) die die Kanalliste filtern. |
 | `./web-app/src/components/show/ChannelPickerGrid.vue` | Wiederverwendbares Kreisauswahl-Grid (Suchfeld + nummerierte Buttons) für Scheinwerfer-/Kreis-hinzufügen-Modale; unterstützt Einzel- und Mehrfachauswahl; optionaler Notiz-Filter (`notesFilter`-Prop, Auge-Icon) zeigt standardmäßig nur Kreise mit Notiz, deaktiviert bei aktiver Suche. |
 | `./web-app/src/components/show/PhotoGallery.vue` | Fotogalerie mit Upload, Beschriftungen, Mehrfachauswahl von Kreisen aus der Kreisliste (ChannelPickerGrid) und Lightbox-Vorschau. |
 | `./web-app/src/components/show/HistorySlideOver.vue` | Stellt Snapshots älterer Kanalkonfigurationen zum Durchsuchen und Wiederherstellen dar; reine Darstellung über Props/Emits, Daten und Fehlerbehandlung liefert `useShowHistory.ts`. |
-| `./web-app/src/components/show/ZugstangenView.vue` | Drag-Drop-Liste für Obermaschinerie-Elemente (Zugstange/Traverse/Punktzug, per Typ-Filter und -Auswahl) mit Scheinwerfer-Positionen und Vorlagen; vertikal zentrierter Empty-State mit Hinzufügen-Button, FAB nur bei vorhandenen Einträgen. |
-| `./web-app/src/components/show/BarVisualization.vue` | Visualisierung einer Zugstange/Traverse/Punktzug innerhalb ZugstangenView: Skala mit Ticks, Kanal-Marker (Klick/Drag) und generische Marker (ohne Kanal, schmales Rechteck mit 90°-gedrehtem Label), Bemaßungsrichtung (Mitte/Links/Rechts via `scale_origin`) nur für Anzeige-Label, gespeicherte Fixture-Position bleibt immer mitte-zentriert. |
+| `./web-app/src/components/show/FlySystemView.vue` | Drag-Drop-Liste für Obermaschinerie-Elemente (Batten/Traverse/PointBatten, per Typ-Filter und -Auswahl) mit Scheinwerfer-Positionen und Vorlagen; vertikal zentrierter Empty-State mit Hinzufügen-Button, FAB nur bei vorhandenen Einträgen. |
+| `./web-app/src/components/show/BattenVisualization.vue` | Visualisierung einer Batten/Traverse/PointBatten innerhalb FlySystemView: Skala mit Ticks, Kanal-Marker (Klick/Drag) und generische Marker (ohne Kanal, schmales Rechteck mit 90°-gedrehtem Label), Bemaßungsrichtung (Mitte/Links/Rechts via `scale_origin`) nur für Anzeige-Label, gespeicherte Fixture-Position bleibt immer mitte-zentriert. |
 | `./web-app/src/components/show/SectionEditor.vue` | Bearbeitbare Markdown- oder Tabellen-Abschnitte mit Drag-Drop, komponentenlokalen KV-Table-Refs und Migrations-Fallback. |
-| `./web-app/src/components/show/GassenturmView.vue` | Beleuchtungsgestelle mit Slots und Kanalbelegung, Vorlagen und Drag-Drop; vertikal zentrierter Empty-State mit Hinzufügen-Button, FAB nur bei vorhandenen Einträgen. |
+| `./web-app/src/components/show/LightingTowerView.vue` | Beleuchtungsgestelle mit Slots und Kanalbelegung, Vorlagen und Drag-Drop; vertikal zentrierter Empty-State mit Hinzufügen-Button, FAB nur bei vorhandenen Einträgen. |
 | `./web-app/src/components/show/GeneratedTextAccordion.vue` | Read-only-Bereich mit automatisch generierten Zusammenfassungen zu Beleuchtungsgestellen und Obermaschinerie; Höhe per Drag anpassbar, pro User gespeichert (`generatedHeight`). |
 | `./web-app/src/components/channel/ChannelTable.vue` | Virtuelle Kanaltabelle mit Suche, Gruppierung, Spaltensortierung (↑↓ pro Spalte, Reset-Leiste), Drag-Drop-Sortierung (nur bei manueller Reihenfolge) und Inline-Bearbeitung. |
 | `./web-app/src/components/channel/ChannelRow.vue` | Einzelne Kanalzeile mit Nummer, Farbe, Gerät, Notizen, Montage-Referenz und Assign-Menü. |
@@ -350,11 +353,11 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 | `./web-app/src/components/icons/IconKanaele.vue` | Icon für Kanäle/DMX-Adressen. |
 | `./web-app/src/components/icons/IconRaum.vue` | Icon für Bühnengrundriss-Ansicht. |
 | `./web-app/src/components/icons/IconBeleuchtungsgestelle.vue` | Icon für Beleuchtungsgestelle/Racks. |
-| `./web-app/src/components/icons/IconAufbau.vue` | Icon für Aufbauplan/Bühnenaufbau. |
-| `./web-app/src/components/icons/IconObermaschinerie.vue` | Icon für Zugstangen-Verwaltung. |
-| `./web-app/src/components/template/TemplateDetailPanel.vue` | Detail-Editor einer Vorlage: Kanaltabelle, Sections, Grundriss, Zugstangen, Beleuchtungsgestelle in Tabs; Umbenennen, OSC-Host, Übertragen auf alle Shows, Download des Kreislisten-Vordrucks (PDF). |
+| `./web-app/src/components/icons/IconSetupPlan.vue` | Icon für Aufbauplan/Bühnenaufbau. |
+| `./web-app/src/components/icons/IconObermaschinerie.vue` | Icon für FlySystem-Verwaltung. |
+| `./web-app/src/components/template/TemplateDetailPanel.vue` | Detail-Editor einer Vorlage: Kanaltabelle, Sections, Zeichnung, FlySystem, Beleuchtungsgestelle in Tabs; Umbenennen, OSC-Host, Übertragen auf alle Shows, Download des Kreislisten-Vordrucks (PDF). |
 | `./web-app/src/components/template/TemplateUploadDialog.vue` | Dialog für CSV-Upload neuer Vorlagen mit Vorschau der Kanäle. |
-| `./web-app/src/components/template/TemplateBarsPanel.vue` | Zugstangen-Verwaltung innerhalb einer Vorlage mit Drag-Drop und Scheinwerfer-Zuordnung; zentrierter Empty-State mit Hinzufügen-Button. |
+| `./web-app/src/components/template/TemplateBattensPanel.vue` | FlySystem-Verwaltung innerhalb einer Vorlage mit Drag-Drop und Scheinwerfer-Zuordnung; zentrierter Empty-State mit Hinzufügen-Button. |
 | `./web-app/src/components/template/TemplateTowersPanel.vue` | Beleuchtungsgestelle-Verwaltung innerhalb einer Vorlage mit Slots und Kanalbelegung; zentrierter Empty-State mit Hinzufügen-Button. |
 
 ### web-app/src/components/ui/ (Generische UI-Bausteine, shadcn-vue-Stil)

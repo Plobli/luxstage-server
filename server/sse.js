@@ -3,7 +3,7 @@
  * Clients abonnieren /api/shows/:id/events
  *
  * Event-Katalog (broadcast()/sendToUser() in routes/*.js): channels-updated,
- * sections-updated, towers-updated, bars-updated, floorplan-updated, checks-updated,
+ * sections-updated, towers-updated, battens-updated, drawing-plan-updated, checks-updated,
  * lock-status-updated, lock-takeover-requested, presence-updated.
  *
  * Der Web-Client (web-app/src/api/client.ts, subscribeShow()) hört bewusst nur drei davon ab

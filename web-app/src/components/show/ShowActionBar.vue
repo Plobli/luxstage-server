@@ -145,7 +145,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 
 defineProps({
-  activeTab: { type: String, default: 'gassenturm' },
+  activeTab: { type: String, default: 'setup' },
   canUndo: { type: Boolean, default: false },
   canRedo: { type: Boolean, default: false },
   saving: { type: Boolean, default: false },

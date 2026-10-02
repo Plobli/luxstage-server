@@ -1,5 +1,5 @@
-// mount_ref auf Kanälen kodiert, an welcher Tower-/Bar-Stelle ein Kanal montiert ist
-// (server/db/bars.js writeBarFixture, server/db/towers.js assignSlot). Wird als String
+// mount_ref auf Kanälen kodiert, an welcher Tower-/Batten-Stelle ein Kanal montiert ist
+// (server/db/battens.js writeBattenFixture, server/db/towers.js assignSlot). Wird als String
 // (JSON) aus der API geliefert, kann aber lokal bereits als Objekt vorliegen — daher der
 // try/catch statt eines reinen JSON.parse.
 

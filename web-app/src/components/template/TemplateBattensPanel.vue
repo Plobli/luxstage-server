@@ -1,0 +1,172 @@
+<template>
+  <div class="space-y-3">
+    <div class="text-sm text-muted-foreground whitespace-pre-line">
+      {{ t('batten.hint') }}
+    </div>
+    <div v-if="battens.length === 0" class="flex flex-col items-center justify-center gap-3 border border-dashed border-border rounded-lg px-4 py-8 text-center">
+      <AlignJustify class="size-8 text-muted-foreground/40" />
+      <p class="text-sm text-muted-foreground">{{ t('batten.empty') }}</p>
+      <Button variant="accent" size="sm" class="mt-1 rounded-full shadow-lg" @click="openNew">
+        <Plus class="size-3.5" /> {{ t('batten.add') }}
+      </Button>
+    </div>
+    <TransitionGroup name="reorder" tag="div" class="space-y-3">
+    <div
+      v-for="(batten, idx) in battens" :key="batten.id"
+      class="rounded-md border bg-card transition-colors"
+      :class="dragOverId === batten.id ? 'border-primary bg-primary/5' : draggedId === batten.id ? 'opacity-40 border-border' : 'border-border'"
+    >
+      <!-- Batten-Header Zeile -->
+      <div
+        draggable="true"
+        class="flex items-center gap-3 px-4 py-2.5 cursor-grab"
+        @dragstart="onDragStart(batten.id)"
+        @dragover="onDragOver($event, batten.id)"
+        @drop="onDrop(batten.id)"
+        @dragend="onDragEnd"
+      >
+        <svg class="size-4 text-muted-foreground shrink-0 cursor-grab" viewBox="0 0 16 16" fill="currentColor"><circle cx="5.5" cy="4" r="1.2"/><circle cx="10.5" cy="4" r="1.2"/><circle cx="5.5" cy="8" r="1.2"/><circle cx="10.5" cy="8" r="1.2"/><circle cx="5.5" cy="12" r="1.2"/><circle cx="10.5" cy="12" r="1.2"/></svg>
+        <span class="text-sm font-medium text-foreground flex-1 truncate">{{ batten.name }}</span>
+        <span v-if="batten.batten_nr" class="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-muted text-muted-foreground shrink-0">{{ batten.batten_nr }}</span>
+        <span class="text-xs text-muted-foreground shrink-0">{{ formatLength(batten.length_cm) }}</span>
+        <Button variant="ghost" size="icon" class="size-6 text-muted-foreground shrink-0" @click.stop="openEdit(batten)">
+          <Pencil class="size-3" />
+        </Button>
+        <Button variant="ghost" size="icon" class="size-6 text-muted-foreground shrink-0" @click.stop="remove(batten.id, idx)">
+          <X class="size-3" />
+        </Button>
+      </div>
+
+      <!-- Fixture-Panel -->
+      <div class="border-t border-border px-4 py-3 space-y-2">
+        <div v-for="fx in (fixtures[batten.id] ?? [])" :key="fx.id" class="flex items-center gap-2">
+          <span class="text-xs font-mono text-muted-foreground w-16 shrink-0 tabular-nums">{{ cmToDisplay(fx.position) }} {{ unit }}</span>
+          <span class="text-xs text-foreground flex-1 truncate">
+            <span v-if="fx.channel" class="font-semibold mr-1">{{ fx.channel }}</span>
+            <span v-if="fx.device">{{ fx.device }}</span>
+            <span v-if="fx.color" class="ml-1 text-muted-foreground">· {{ fx.color }}</span>
+          </span>
+          <span v-if="fx.notes" class="text-xs text-muted-foreground truncate max-w-24">{{ fx.notes }}</span>
+          <Button variant="ghost" size="icon" class="size-5 text-muted-foreground shrink-0" @click="openEditFixture(batten, fx)">
+            <Pencil class="size-2.5" />
+          </Button>
+          <Button variant="ghost" size="icon" class="size-5 text-muted-foreground shrink-0" @click="removeFixture(batten, fx.id)">
+            <X class="size-2.5" />
+          </Button>
+        </div>
+        <Button variant="outline" size="sm" class="border-dashed text-xs" @click="openNewFixture(batten)">
+          <Plus class="size-2.5 mr-1" /> {{ t('template.batten.fixture.add_optional') }}
+        </Button>
+      </div>
+    </div>
+    </TransitionGroup>
+    <Button v-if="battens.length > 0" variant="outline" size="sm" class="w-full border-dashed" @click="openNew">
+      <Plus class="size-3 mr-1.5" /> {{ t('batten.add') }}
+    </Button>
+
+    <!-- Template-Batten Dialog -->
+    <Dialog :open="dialogOpen" @update:open="dialogOpen = $event">
+      <DialogContent class="sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>{{ editing ? t('batten.dialog.edit') : t('batten.dialog.new') }}</DialogTitle>
+        </DialogHeader>
+        <DialogBody>
+          <div>
+            <Label>{{ t('batten.field.name') }}</Label>
+            <Input size="lg" v-model="form.name" :placeholder="t('batten.name.placeholder')" autofocus />
+          </div>
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <Label>{{ t('batten.field.batten_nr') }}</Label>
+              <Input size="lg" v-model="form.batten_nr" :placeholder="t('batten.field.batten_nr.placeholder')" />
+            </div>
+            <div>
+              <Label>{{ t('batten.field.length') }} ({{ unit }})</Label>
+              <Input size="lg" :modelValue="formDisplay.length" type="number" :min="lengthMin" :max="lengthMax" :step="inputStep" @update:modelValue="form.length_cm = parseToCm(Number($event))" />
+            </div>
+          </div>
+        </DialogBody>
+        <DialogFooter>
+          <Button variant="ghost" @click="dialogOpen = false">{{ t('action.cancel') }}</Button>
+          <Button @click="save">{{ editing ? t('action.save') : t('batten.action.create') }}</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+
+    <!-- Batten-Fixture Dialog -->
+    <Dialog :open="fixtureDialogOpen" @update:open="fixtureDialogOpen = $event">
+      <DialogContent class="sm:max-w-sm">
+        <DialogHeader>
+          <DialogTitle>{{ editingFixture ? t('template.batten.fixtures') : t('template.batten.fixture.add') }}</DialogTitle>
+        </DialogHeader>
+        <DialogBody>
+          <div>
+            <Label>{{ t('template.batten.fixture.position') }}</Label>
+            <Input size="lg" :modelValue="cmToDisplay(fixtureForm.position)" type="number" :step="inputStep" @update:modelValue="fixtureForm.position = parseToCm(Number($event))" />
+          </div>
+          <div>
+            <Label>{{ t('template.batten.fixture.channel') }}</Label>
+            <Input size="lg" v-model="fixtureForm.channel" :placeholder="t('template.fixture.channel.placeholder')" />
+          </div>
+          <div>
+            <Label>{{ t('template.batten.fixture.device') }}</Label>
+            <Input size="lg" v-model="fixtureForm.device" :placeholder="t('template.fixture.device.placeholder')" />
+          </div>
+          <div>
+            <Label>{{ t('template.batten.fixture.color') }}</Label>
+            <Input size="lg" v-model="fixtureForm.color" :placeholder="t('template.fixture.color.placeholder')" />
+          </div>
+          <div>
+            <Label>{{ t('template.batten.fixture.notes') }}</Label>
+            <Input size="lg" v-model="fixtureForm.notes" placeholder="" />
+          </div>
+        </DialogBody>
+        <DialogFooter>
+          <Button variant="ghost" @click="fixtureDialogOpen = false">{{ t('action.cancel') }}</Button>
+          <Button @click="saveFixture">{{ t('action.save') }}</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  </div>
+</template>
+
+<script setup lang="ts">
+import { computed, onMounted, toRef } from 'vue'
+import { Pencil, Plus, X, AlignJustify } from 'lucide-vue-next'
+import { useLocale } from '../../composables/useLocale.js'
+import { useMeasureUnit } from '../../composables/useMeasureUnit'
+import { useTemplateBattens } from '../../composables/useTemplateBattens'
+import { Button } from '@/components/ui/button'
+import { Label } from '@/components/ui/label'
+import { Input } from '@/components/ui/input'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogBody } from '@/components/ui/dialog'
+
+const props = defineProps<{ templateName: string | null }>()
+const { t } = useLocale()
+const { unit, formatLength, cmToDisplay, parseToCm, inputStep, lengthMin, lengthMax } = useMeasureUnit()
+
+const templateNameRef = toRef(props, 'templateName')
+const {
+  battens, fixtures, loadBattens,
+  draggedId, dragOverId, onDragStart, onDragOver, onDrop, onDragEnd,
+  dialogOpen, editing, form, openNew, openEdit, save, remove,
+  fixtureDialogOpen, editingFixture, fixtureForm, openNewFixture, openEditFixture, saveFixture, removeFixture,
+} = useTemplateBattens(templateNameRef)
+
+const formDisplay = computed({
+  get: () => ({ length: cmToDisplay(form.value.length_cm) }),
+  set: (v) => { form.value.length_cm = parseToCm(v.length) },
+})
+
+// TabsContent mountet dieses Panel erst beim Aktivieren des Tabs (unmountOnHide) —
+// hier selbst laden statt auf einen externen loadBattens()-Aufruf zu vertrauen.
+onMounted(loadBattens)
+
+defineExpose({ loadBattens, battens })
+</script>
+
+<style scoped>
+.reorder-move {
+  transition: transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+</style>

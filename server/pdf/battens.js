@@ -1,0 +1,305 @@
+import { mm, PAGE_MARGIN, FONT_NORMAL, FONT_BOLD, BATTEN_TYPE_LABELS } from './constants.js'
+import { fmtLeeColorLabel as fmtColor } from './filter-colors.js'
+
+// Hängerei als Textliste (eine Zeile pro Zug)
+export function renderFlySystemBattens(doc, battens, channels, margin, usableW, startY, bottomLimit, addFooter) {
+  let ty = startY
+
+  const sorted = [...battens].sort((a, b) => a.sort_order - b.sort_order)
+  for (const batten of sorted) {
+    const fixtures = batten.fixtures ?? []
+    if (!fixtures.length && !batten.notes) continue
+    if (!fixtures.length) {
+      const lineH = doc.font(FONT_NORMAL).fontSize(8.5).heightOfString(batten.notes, { width: usableW }) + mm(1)
+      if (ty + lineH > bottomLimit) { doc.addPage(); addFooter(); ty = PAGE_MARGIN }
+      const nameLabel = `${batten.name}: `
+      doc.font(FONT_BOLD).fontSize(8.5).fillColor('black')
+        .text(nameLabel, margin, ty, { continued: true, lineBreak: false })
+      doc.font(FONT_NORMAL).text(batten.notes, { width: usableW - doc.widthOfString(nameLabel), lineBreak: true })
+      ty += lineH + mm(1)
+      continue
+    }
+
+    const fixSorted = [...fixtures].sort((a, b) => a.position - b.position)
+    const parts = fixSorted.map(fx => {
+      if (!fx.channel_id) {
+        const tokens = [fx.label || '?', fx.notes || undefined]
+        if (!batten.hide_scale) {
+          const cm = fx.position
+          const origin = batten.scale_origin || 'center'
+          const half = (batten.length_cm || 600) / 2
+          let posStr
+          if (origin === 'left' || origin === 'right') {
+            const val = (origin === 'left' ? cm + half : half - cm) / 100
+            posStr = `${Number.isInteger(val) ? val : parseFloat(val.toFixed(2))}m`
+          } else if (cm === 0) posStr = 'Mitte'
+          else {
+            const val = Math.abs(cm) / 100
+            const valStr = Number.isInteger(val) ? val : parseFloat(val.toFixed(2))
+            posStr = `${valStr}m ${cm < 0 ? 'Links' : 'Rechts'}`
+          }
+          tokens.push(posStr)
+        }
+        return tokens.filter(Boolean).join(' ')
+      }
+      const ch = channels.find(c => c.id === fx.channel_id)
+      const tokens = [`V.${ch?.channel ?? '?'}`, ch?.device, ch?.address ? `#${ch.address}` : undefined, fmtColor(ch?.color), fx.notes || undefined]
+      if (!batten.hide_scale) {
+        const cm = fx.position
+        const origin = batten.scale_origin || 'center'
+        let posStr
+        if (origin === 'left' || origin === 'right') {
+          const half = (batten.length_cm || 600) / 2
+          const val = (origin === 'left' ? cm + half : half - cm) / 100
+          posStr = `${Number.isInteger(val) ? val : parseFloat(val.toFixed(2))}m`
+        } else if (cm === 0) posStr = 'Mitte'
+        else {
+          const val = Math.abs(cm) / 100
+          const valStr = Number.isInteger(val) ? val : parseFloat(val.toFixed(2))
+          posStr = `${valStr}m ${cm < 0 ? 'Links' : 'Rechts'}`
+        }
+        tokens.push(posStr)
+      }
+      return tokens.filter(Boolean).join(' ')
+    })
+    let line = `${batten.name}: ${parts.join(' • ')}`
+    if (batten.notes) line += ` • ${batten.notes}`
+
+    // Seitenumbruch
+    const lineH = doc.font(FONT_NORMAL).fontSize(8.5).heightOfString(line, { width: usableW }) + mm(1)
+    if (ty + lineH > bottomLimit) { doc.addPage(); addFooter(); ty = PAGE_MARGIN }
+
+    const nameLabel = `${batten.name}: `
+    doc.font(FONT_BOLD).fontSize(8.5).fillColor('black')
+      .text(nameLabel, margin, ty, { continued: true, lineBreak: false })
+    const rest = line.slice(nameLabel.length)
+    doc.font(FONT_NORMAL)
+      .text(rest, { width: usableW - doc.widthOfString(nameLabel), lineBreak: true })
+    ty += lineH + mm(1)
+  }
+  return ty
+}
+
+export function cmToDisplayUnit(cm, unit) {
+  if (unit === 'mm') return `${Math.round(cm * 10)} mm`
+  if (unit === 'cm') return `${Math.round(cm)} cm`
+  return `${Math.round(cm / 100 * 100) / 100} m`
+}
+
+// scale_origin: 'center' (Standard, ± von der Mitte), 'left' (0 links, aufsteigend)
+// oder 'right' (0 rechts, aufsteigend). halfLenCm nur für left/right nötig.
+export function posLabel(cm, unit, scaleOrigin = 'center', halfLenCm = 0) {
+  function toUnit(v) {
+    if (unit === 'mm') return Math.round(v * 10)
+    if (unit === 'cm') return Math.round(v)
+    return Math.round(v / 100 * 100) / 100
+  }
+  if (scaleOrigin === 'left') return `${toUnit(cm + halfLenCm)}`
+  if (scaleOrigin === 'right') return `${toUnit(halfLenCm - cm)}`
+  if (cm === 0) return '0'
+  return cm > 0 ? `+${toUnit(cm)}` : `-${toUnit(Math.abs(cm))}`
+}
+
+// PointBatten: kompakte Zeile ohne Längen-Skala — Freitext-Position + ein Kreis
+function drawPointBattenRow(doc, batten, fx, channels, margin, usableW, startY, bottomLimit, addFooter) {
+  const CIRCLE_R = mm(3.2)
+  const hasNotes = !!(batten.notes && batten.notes.trim())
+  const ROW_H = mm(hasNotes ? 20 : 15)
+
+  let ty = startY
+  if (ty + ROW_H > bottomLimit) { doc.addPage(); addFooter(); ty = PAGE_MARGIN }
+
+  doc.roundedRect(margin, ty, usableW, ROW_H, 4).fillAndStroke('#f5f5f5', '#cccccc')
+  doc.fillColor('black')
+
+  doc.font(FONT_BOLD).fontSize(11).fillColor('#111111')
+    .text(batten.name ?? '', margin + mm(4), ty + mm(3), { width: mm(48), lineBreak: false, ellipsis: true })
+  doc.font(FONT_NORMAL).fontSize(7.5).fillColor('#888888')
+    .text(BATTEN_TYPE_LABELS.point_batten, margin + mm(4), ty + mm(9), { width: mm(48), lineBreak: false })
+
+  const posX = margin + mm(56)
+  const posW = usableW - mm(56) - mm(16)
+  if (fx?.position_text) {
+    doc.font(FONT_NORMAL).fontSize(8).fillColor('#333333')
+      .text(fx.position_text, posX, ty + mm(6), { width: posW, lineBreak: false, ellipsis: true })
+  }
+
+  if (fx) {
+    const cx = margin + usableW - mm(10)
+    const cy = ty + mm(7.5)
+    const ch = channels.find(c => c.id === fx.channel_id)
+    doc.circle(cx, cy, CIRCLE_R + 0.5).fill('rgba(220,55,64,0.18)')
+    doc.circle(cx, cy, CIRCLE_R).fill('#dc3740')
+    doc.font(FONT_BOLD).fontSize(7.5).fillColor('white')
+    const textH = doc.currentLineHeight()
+    doc.text(String(ch?.channel ?? '?'), cx - CIRCLE_R, cy - textH / 2, { width: CIRCLE_R * 2, align: 'center', lineBreak: false })
+    doc.fillColor('black')
+    if (fx.notes) doc.circle(cx + CIRCLE_R * 0.7, cy - CIRCLE_R * 0.7, mm(1.2)).fill('#f59e0b')
+  }
+
+  if (hasNotes) {
+    doc.font(FONT_NORMAL).fontSize(7).fillColor('#000000')
+      .text(batten.notes, margin + mm(4), ty + ROW_H - mm(6), { width: usableW - mm(8), lineBreak: false, ellipsis: true })
+  }
+
+  return ty + ROW_H + mm(4)
+}
+
+// FlySystem als visuelle Zeilen mit Kanal-Kreisen
+export function drawBattenRows(doc, battens, channels, margin, usableW, startY, bottomLimit, addFooter, unit = 'm') {
+  const CIRCLE_R = mm(3.2)
+  const LEFT_COL = mm(48)   // Breite linke Infospalte
+  const GAP = mm(4)
+
+  let ty = startY
+  for (const batten of battens) {
+    const fixtures = batten.fixtures ?? []
+    const battenLenCm = batten.length_cm || 600
+    const hasNotes = !!(batten.notes && batten.notes.trim())
+
+    if (batten.batten_type === 'point_batten') {
+      ty = drawPointBattenRow(doc, batten, fixtures[0], channels, margin, usableW, ty, bottomLimit, addFooter)
+      continue
+    }
+
+    // Höhe dynamisch: Basis + ggf. Gerät-Zeilen + ggf. Anmerkung
+    // Für jedes Fixture eine Gerätename-Zeile unterhalb des Kreises (nur wenn Device vorhanden)
+    const BATTEN_H = mm(hasNotes ? 46 : 42)
+
+    if (ty + BATTEN_H > bottomLimit) { doc.addPage(); addFooter(); ty = PAGE_MARGIN }
+
+    // Hintergrund
+    doc.roundedRect(margin, ty, usableW, BATTEN_H, 4).fillAndStroke('#f5f5f5', '#cccccc')
+    doc.fillColor('black')
+
+    // ── Linke Spalte ──────────────────────────────────────────────────────────
+    // Name
+    doc.font(FONT_BOLD).fontSize(11).fillColor('#111111')
+      .text(batten.name ?? '', margin + mm(4), ty + mm(4), { width: LEFT_COL - mm(6), lineBreak: false, ellipsis: true })
+
+    // Meta: Länge · Höhe · Zugname
+    const metaParts = [
+      BATTEN_TYPE_LABELS[batten.batten_type] ?? null,
+      batten.length_cm ? `Länge ${cmToDisplayUnit(batten.length_cm, unit)}` : null,
+      batten.height_cm != null ? `Höhe ${cmToDisplayUnit(batten.height_cm, unit)}` : null,
+      batten.batten_nr ? `Zug ${batten.batten_nr}` : null,
+    ].filter(Boolean)
+    if (metaParts.length) {
+      doc.font(FONT_NORMAL).fontSize(7.5).fillColor('#888888')
+        .text(metaParts.join(' · '), margin + mm(4), ty + mm(11), { width: LEFT_COL - mm(6), lineBreak: false })
+    }
+
+    // Anzahl Scheinwerfer
+    if (fixtures.length > 0) {
+      doc.font(FONT_NORMAL).fontSize(7).fillColor('#aaaaaa')
+        .text(`${fixtures.length} Scheinwerfer`, margin + mm(4), ty + mm(16.5), { width: LEFT_COL - mm(6), lineBreak: false })
+    }
+
+    // ── Stangenlinie ──────────────────────────────────────────────────────────
+    const lineLeft = margin + LEFT_COL
+    const lineRight = margin + usableW - mm(4)
+    const lineY = ty + mm(21)   // Mittelpunkt der Kreise
+    const linePx = lineRight - lineLeft
+
+    // Track-Hintergrund
+    doc.roundedRect(lineLeft, lineY - mm(0.8), linePx, mm(1.6), mm(0.8)).fill('#cccccc')
+
+    // Grüne Linie
+    doc.moveTo(lineLeft, lineY).lineTo(lineRight, lineY).lineWidth(2.5).stroke('#10b981').lineWidth(1)
+
+    // Endmarkierungen
+    doc.moveTo(lineLeft, lineY - mm(3)).lineTo(lineLeft, lineY + mm(3)).lineWidth(1.5).stroke('#10b981')
+    doc.moveTo(lineRight, lineY - mm(3)).lineTo(lineRight, lineY + mm(3)).lineWidth(1.5).stroke('#10b981')
+
+    // ── Skala-Ticks ───────────────────────────────────────────────────────────
+    if (!batten.hide_scale) {
+      const half = battenLenCm / 2
+      const tickStep = battenLenCm <= 600 ? 50 : battenLenCm <= 1200 ? 100 : 200
+      for (let cm = -half; cm <= half + 0.01; cm += tickStep) {
+        const snapped = Math.round(cm)
+        const pct = (snapped + half) / battenLenCm
+        const tx = lineLeft + pct * linePx
+        const isCenter = snapped === 0
+        const tickH = isCenter ? mm(4) : mm(2.5)
+        doc.moveTo(tx, lineY - tickH / 2).lineTo(tx, lineY + tickH / 2)
+          .lineWidth(isCenter ? 1.5 : 0.75).stroke(isCenter ? 'rgba(0,0,0,0.4)' : 'rgba(0,0,0,0.2)')
+        // Label oberhalb
+        const label = posLabel(snapped, unit, batten.scale_origin, half)
+        doc.font(FONT_NORMAL).fontSize(5.5).fillColor(isCenter ? '#444444' : '#aaaaaa')
+          .text(label, tx - mm(6), lineY - tickH / 2 - mm(4.5), { width: mm(12), align: 'center', lineBreak: false })
+      }
+    }
+
+    // ── Fixture-Circles ───────────────────────────────────────────────────────
+    for (const fx of fixtures) {
+      const posFrac = (fx.position + battenLenCm / 2) / battenLenCm
+      const cx = lineLeft + posFrac * linePx
+      const isGeneric = !fx.channel_id
+      const ch = channels.find(c => c.id === fx.channel_id)
+      const nr = ch?.channel ?? '?'
+      const device = ch?.device ?? ''
+
+      let markerHalfH = CIRCLE_R
+      if (isGeneric) {
+        // Generisches Element (kein Kanal): schmales, hohes Rechteck statt
+        // Kreis, damit es Nachbar-Marker horizontal nicht verdeckt.
+        const RECT_W = CIRCLE_R * 1.3
+        const RECT_H = CIRCLE_R * 3.2
+        markerHalfH = RECT_H / 2
+        doc.roundedRect(cx - RECT_W, lineY - RECT_H / 2, RECT_W * 2, RECT_H, mm(0.6))
+          .fillAndStroke('#3b3f46', '#6b7280')
+        doc.font(FONT_BOLD).fontSize(6).fillColor('white')
+        doc.save()
+        doc.rotate(-90, { origin: [cx, lineY] })
+        doc.text(fx.label || '', cx - RECT_H / 2, lineY - RECT_W / 2 - 1, { width: RECT_H, height: RECT_W * 2, align: 'center', lineBreak: false, ellipsis: true })
+        doc.restore()
+        doc.fillColor('black')
+      } else {
+        // Kreis mit Schatten-Effekt (leichter Rand)
+        doc.circle(cx, lineY, CIRCLE_R + 0.5).fill('rgba(220,55,64,0.18)')
+        doc.circle(cx, lineY, CIRCLE_R).fill('#dc3740')
+
+        // Kanalnummer zentriert im Kreis
+        doc.font(FONT_BOLD).fontSize(7.5).fillColor('white')
+        const textH = doc.currentLineHeight()
+        doc.text(String(nr), cx - CIRCLE_R, lineY - textH / 2, { width: CIRCLE_R * 2, align: 'center', lineBreak: false })
+        doc.fillColor('black')
+      }
+
+      // Positionslabel unterhalb Marker (nur wenn Skala nicht ausgeblendet)
+      const deviceY = batten.hide_scale ? lineY + markerHalfH + mm(1.5) : lineY + markerHalfH + mm(5.5)
+      if (!batten.hide_scale) {
+        doc.font(FONT_NORMAL).fontSize(6).fillColor('#555555')
+          .text(posLabel(fx.position, unit, batten.scale_origin, battenLenCm / 2), cx - mm(7), lineY + markerHalfH + mm(1.5), { width: mm(14), align: 'center', lineBreak: false })
+      }
+
+      // Gerätename unter Positionslabel (nur bei Kanal-Fixtures)
+      if (device) {
+        doc.font(FONT_NORMAL).fontSize(5.5).fillColor('#999999')
+          .text(device, cx - mm(10), deviceY, { width: mm(20), align: 'center', lineBreak: false, ellipsis: true })
+      }
+
+      // Anmerkungs-Marker (kleiner Punkt oben rechts am Kreis, wie gelber Ring in WebApp)
+      if (fx.notes && !isGeneric) {
+        doc.circle(cx + CIRCLE_R * 0.7, lineY - CIRCLE_R * 0.7, mm(1.2)).fill('#f59e0b')
+      }
+
+      // Innen/Außen-Kennzeichnung bei Traversen
+      if (batten.batten_type === 'traverse') {
+        doc.font(FONT_BOLD).fontSize(5).fillColor('#666666')
+          .text(fx.side === 'in' ? 'I' : 'A', cx - CIRCLE_R, lineY - markerHalfH - mm(3.5), { width: CIRCLE_R * 2, align: 'center', lineBreak: false })
+        doc.fillColor('black')
+      }
+    }
+
+    // ── Anmerkung zur Batten ───────────────────────────────────────────────
+    if (hasNotes) {
+      const notesY = ty + BATTEN_H - mm(9)
+      doc.font(FONT_NORMAL).fontSize(7).fillColor('#000000')
+        .text(batten.notes, lineLeft, notesY + mm(1.5), { width: linePx, lineBreak: false, ellipsis: true })
+    }
+
+    ty += BATTEN_H + GAP
+  }
+  return ty
+}

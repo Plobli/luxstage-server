@@ -1,35 +1,35 @@
 import { computed, watch, onUnmounted } from 'vue'
 import {
   Image as NavPhotosIcon,
-  Map as NavFloorplanIcon,
+  Map as NavDrawingPlanIcon,
   TriangleAlert as IconHinweise,
 } from 'lucide-vue-next'
 import IconKanaele from '../components/icons/IconKanaele.vue'
 import IconBeleuchtungsgestelle from '../components/icons/IconBeleuchtungsgestelle.vue'
 import IconObermaschinerie from '../components/icons/IconObermaschinerie.vue'
-import IconAufbau from '../components/icons/IconAufbau.vue'
+import IconSetupPlan from '../components/icons/IconSetupPlan.vue'
 import IconRaum from '../components/icons/IconRaum.vue'
 import { useShowNav } from './useShowNav.js'
 
 // Abschnitts-Symbole über den stabilen icon-Bezeichner aus der DB, nicht über
 // den Titel: der ist frei editierbar und sprachabhängig. Unbekannte oder leere
-// Werte fallen auf IconAufbau zurück.
+// Werte fallen auf IconSetupPlan zurück.
 const SECTION_ICONS = {
   warning: IconHinweise,
   room: IconRaum,
-  setup: IconAufbau,
+  setup: IconSetupPlan,
 }
 
 // Baut die Haupt-Sidebar-Navigation einer Show (Kanäle, Aufbau-Subtabs,
 // benutzerdefinierte Sections, Fotos, Grundriss) und meldet sie über
 // useShowNav an App.vue. Kapselt nur die Item-Berechnung — das Senden/Lesen
 // des globalen Nav-State bleibt in useShowNav.
-export function useShowSidebarNav({ t, meta, mobileTab, aufbauTab, sectionDefs, onSidebarNavigate, addSectionFromSubtab, deleteSection, renameSection }) {
+export function useShowSidebarNav({ t, meta, mobileTab, setupPlanTab, sectionDefs, onSidebarNavigate, addSectionFromSubtab, deleteSection, renameSection }) {
   const { setNav, clearNav } = useShowNav()
 
   const sidebarNavItems = computed(() => {
     const activeTab = mobileTab.value
-    const activeSubTab = aufbauTab.value
+    const activeSubTab = setupPlanTab.value
     const items = []
 
     items.push({
@@ -49,10 +49,10 @@ export function useShowSidebarNav({ t, meta, mobileTab, aufbauTab, sectionDefs, 
       items.push({
         key: `section:${s.id}`,
         label: s.title || t('sections.untitled'),
-        icon: SECTION_ICONS[s.icon] ?? IconAufbau,
+        icon: SECTION_ICONS[s.icon] ?? IconSetupPlan,
         iconClass: s.icon === 'warning' ? 'size-5' : 'size-6',
-        active: activeTab === 'gassenturm' && activeSubTab === `section:${s.id}`,
-        navigate: () => onSidebarNavigate({ tab: 'gassenturm', subTab: `section:${s.id}` }),
+        active: activeTab === 'setup' && activeSubTab === `section:${s.id}`,
+        navigate: () => onSidebarNavigate({ tab: 'setup', subTab: `section:${s.id}` }),
         sectionId: s.icon === 'setup' ? null : s.id,
         renameId: s.id,
       })
@@ -62,22 +62,22 @@ export function useShowSidebarNav({ t, meta, mobileTab, aufbauTab, sectionDefs, 
 
     if (meta.value.use_towers !== false) {
       items.push({
-        key: 'gassenturm',
+        key: 'lightingTower',
         label: t('tab.towers'),
         icon: IconBeleuchtungsgestelle,
         iconClass: 'size-6',
-        active: activeTab === 'gassenturm' && activeSubTab === 'gassenturm',
-        navigate: () => onSidebarNavigate({ tab: 'gassenturm', subTab: 'gassenturm' }),
+        active: activeTab === 'setup' && activeSubTab === 'lightingTower',
+        navigate: () => onSidebarNavigate({ tab: 'setup', subTab: 'lightingTower' }),
       })
     }
-    if (meta.value.use_bars !== false) {
+    if (meta.value.use_battens !== false) {
       items.push({
-        key: 'zugstangen',
-        label: t('tab.obermaschinerie'),
+        key: 'flySystem',
+        label: t('tab.fly_system'),
         icon: IconObermaschinerie,
         iconClass: 'size-6',
-        active: activeTab === 'gassenturm' && activeSubTab === 'zugstangen',
-        navigate: () => onSidebarNavigate({ tab: 'gassenturm', subTab: 'zugstangen' }),
+        active: activeTab === 'setup' && activeSubTab === 'flySystem',
+        navigate: () => onSidebarNavigate({ tab: 'setup', subTab: 'flySystem' }),
       })
     }
     for (const s of otherSections) pushSection(s)
@@ -93,11 +93,11 @@ export function useShowSidebarNav({ t, meta, mobileTab, aufbauTab, sectionDefs, 
       navigate: () => onSidebarNavigate({ tab: 'photos' }),
     })
     items.push({
-      key: 'floorplan',
-      label: t('tab.floorplan'),
-      icon: NavFloorplanIcon,
-      active: activeTab === 'floorplan',
-      navigate: () => onSidebarNavigate({ tab: 'floorplan' }),
+      key: 'drawingPlan',
+      label: t('tab.drawing_plan'),
+      icon: NavDrawingPlanIcon,
+      active: activeTab === 'drawingPlan',
+      navigate: () => onSidebarNavigate({ tab: 'drawingPlan' }),
     })
 
     return items
@@ -116,9 +116,9 @@ export function useShowSidebarNav({ t, meta, mobileTab, aufbauTab, sectionDefs, 
 
   onUnmounted(() => clearNav())
 
-  const aufbauNavVisible = computed(() =>
-    meta.value.use_towers !== false || meta.value.use_bars !== false || sectionDefs.value.length > 0
+  const setupPlanNavVisible = computed(() =>
+    meta.value.use_towers !== false || meta.value.use_battens !== false || sectionDefs.value.length > 0
   )
 
-  return { sidebarNavItems, aufbauNavVisible }
+  return { sidebarNavItems, setupPlanNavVisible }
 }

@@ -2,7 +2,7 @@ import { ref } from 'vue'
 import { fetchTemplateChannels, saveTemplate, saveTemplateOscHost, renameTemplate, applyTemplateToAllShows, fetchTemplatePdfUrl } from '../api/templates.js'
 import { fetchTemplateSections, saveTemplateSections } from '../api/sections.js'
 import { fetchShows } from '../api/shows.js'
-import { fetchTemplateFloorplan, saveTemplateFloorplan, uploadTemplateFloorplanImage, deleteTemplateFloorplanImage } from '../api/floorplan.js'
+import { fetchTemplateDrawingPlan, saveTemplateDrawingPlan, uploadTemplateDrawingPlanImage, deleteTemplateDrawingPlanImage } from '../api/drawingPlan.js'
 import { api } from '../api/client.js'
 import { uuid } from '../utils/uuid.js'
 import { isSectionTableType, sectionTypeHasRows } from '@shared/constants.js'
@@ -22,10 +22,10 @@ export function useTemplateDetail(templateName) {
   const templateSections = ref([])
   const sectionsSaving = ref(false)
 
-  const floorplanImageUrl = ref(null)
-  const floorplanCanvasData = ref(null)
-  const floorplanUploading = ref(false)
-  const floorplanError = ref('')
+  const drawingPlanImageUrl = ref(null)
+  const drawingPlanCanvasData = ref(null)
+  const drawingPlanUploading = ref(false)
+  const drawingPlanError = ref('')
 
   async function loadChannelsAndSections() {
     detailLoading.value = true
@@ -104,39 +104,39 @@ export function useTemplateDetail(templateName) {
     persistSections()
   }
 
-  async function loadFloorplan() {
+  async function loadDrawingPlan() {
     if (!templateName.value) return
-    const data = await fetchTemplateFloorplan(templateName.value).catch(() => null)
-    floorplanImageUrl.value = data?.image_url ? (await api.url(data.image_url)) + '&t=' + Date.now() : null
-    floorplanCanvasData.value = data?.canvas_data ?? null
+    const data = await fetchTemplateDrawingPlan(templateName.value).catch(() => null)
+    drawingPlanImageUrl.value = data?.image_url ? (await api.url(data.image_url)) + '&t=' + Date.now() : null
+    drawingPlanCanvasData.value = data?.canvas_data ?? null
   }
 
-  function onFloorplanChange(canvasData) {
-    floorplanCanvasData.value = canvasData
-    saveTemplateFloorplan(templateName.value, canvasData).catch(() => {})
+  function onDrawingPlanChange(canvasData) {
+    drawingPlanCanvasData.value = canvasData
+    saveTemplateDrawingPlan(templateName.value, canvasData).catch(() => {})
   }
 
-  async function onFloorplanImageUpload(file) {
-    if (!file || floorplanUploading.value) return
-    floorplanUploading.value = true
-    floorplanError.value = ''
+  async function onDrawingPlanImageUpload(file) {
+    if (!file || drawingPlanUploading.value) return
+    drawingPlanUploading.value = true
+    drawingPlanError.value = ''
     try {
-      const result = await uploadTemplateFloorplanImage(templateName.value, file)
-      floorplanImageUrl.value = result.image_url ? await api.url(result.image_url) : null
+      const result = await uploadTemplateDrawingPlanImage(templateName.value, file)
+      drawingPlanImageUrl.value = result.image_url ? await api.url(result.image_url) : null
     } catch (err) {
-      floorplanError.value = err?.message || 'Upload fehlgeschlagen'
+      drawingPlanError.value = err?.message || 'Upload fehlgeschlagen'
     } finally {
-      floorplanUploading.value = false
+      drawingPlanUploading.value = false
     }
   }
 
-  async function removeFloorplanImage() {
-    floorplanError.value = ''
+  async function removeDrawingPlanImage() {
+    drawingPlanError.value = ''
     try {
-      await deleteTemplateFloorplanImage(templateName.value)
-      floorplanImageUrl.value = null
+      await deleteTemplateDrawingPlanImage(templateName.value)
+      drawingPlanImageUrl.value = null
     } catch (err) {
-      floorplanError.value = err?.message || 'Löschen fehlgeschlagen'
+      drawingPlanError.value = err?.message || 'Löschen fehlgeschlagen'
     }
   }
 
@@ -167,11 +167,11 @@ export function useTemplateDetail(templateName) {
   return {
     detailChannels, detailLoading, detailSaving,
     templateSections, sectionsSaving,
-    floorplanImageUrl, floorplanCanvasData, floorplanUploading, floorplanError,
+    drawingPlanImageUrl, drawingPlanCanvasData, drawingPlanUploading, drawingPlanError,
     loadChannelsAndSections, persistChannels, deleteChannel, clearChannel,
     persistSections, addSection, deleteSection, moveSection, addField, deleteField,
     hasKvTableType, onTypeChange,
-    loadFloorplan, onFloorplanChange, onFloorplanImageUpload, removeFloorplanImage,
+    loadDrawingPlan, onDrawingPlanChange, onDrawingPlanImageUpload, removeDrawingPlanImage,
     saveOscHost, renameTo, fetchPdfUrl,
     loadShowsUsingTemplate, applyToShows,
   }

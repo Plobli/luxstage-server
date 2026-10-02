@@ -11,7 +11,7 @@ import { sectionTypeHasRows } from '@shared/constants.js'
 // bereits fertigen Refs/Funktionen für die Dialog-Komponente.
 
 export function useShowDialogs({
-  sectionDefs, aufbauTab, aufbauSubTabs, aufbauSectionId,
+  sectionDefs, setupPlanTab, setupPlanSubTabs, setupPlanSectionId,
   persistSectionDefs, confirm, t,
   templateInsertion, eosMergePreview, resolveEosMergePreview,
 }) {
@@ -33,11 +33,11 @@ export function useShowDialogs({
     const newDefs = [...sectionDefs.value, { id, title, type: newSectionType.value, order: sectionDefs.value.length, rows: sectionTypeHasRows(newSectionType.value) ? [] : undefined }]
     sectionDefs.value = newDefs
     await persistSectionDefs()
-    aufbauTab.value = `section:${id}`
+    setupPlanTab.value = `section:${id}`
   }
 
   async function deleteSection(sectionId) {
-    if (sectionId === aufbauSectionId.value) return
+    if (sectionId === setupPlanSectionId.value) return
     const ok = await confirm({ t, titleKey: 'action.delete', confirmKey: 'action.delete', cancelKey: 'action.cancel' })
     if (!ok) return
     const newDefs = sectionDefs.value
@@ -45,8 +45,8 @@ export function useShowDialogs({
       .map((s, i) => ({ ...s, order: i }))
     sectionDefs.value = newDefs
     await persistSectionDefs()
-    if (aufbauTab.value === `section:${sectionId}`) {
-      aufbauTab.value = aufbauSubTabs.value[0]?.key ?? aufbauTab.value
+    if (setupPlanTab.value === `section:${sectionId}`) {
+      setupPlanTab.value = setupPlanSubTabs.value[0]?.key ?? setupPlanTab.value
     }
   }
 

@@ -32,8 +32,8 @@ function broadcastShowState(slug, updatedBy) {
   broadcast(slug, 'channels-updated', { updatedBy })
   broadcast(slug, 'sections-updated', { updatedBy })
   broadcast(slug, 'towers-updated', {})
-  broadcast(slug, 'bars-updated', {})
-  broadcast(slug, 'floorplan-updated', {})
+  broadcast(slug, 'battens-updated', {})
+  broadcast(slug, 'drawing-plan-updated', {})
 }
 
 export async function showRoutes(req, res, pathname, params) {
@@ -53,10 +53,10 @@ export async function showRoutes(req, res, pathname, params) {
 
   if (isRoute(method, pathname, 'POST', SHOW_LIST)) {
     const body = await readJsonBody(req, res); if (body === null) return
-    const { id, name, datum, template, spielzeit, channels, use_bars, use_towers, importSections } = body
+    const { id, name, datum, template, spielzeit, channels, use_battens, use_towers, importSections } = body
     if (!id || !/^[a-z0-9_-]+$/i.test(id)) return json(res, 400, { error: 'Ungültige ID' })
     try {
-      createShow(id, { name, datum, template, spielzeit, use_bars: use_bars !== false, use_towers: use_towers !== false, importSections })
+      createShow(id, { name, datum, template, spielzeit, use_battens: use_battens !== false, use_towers: use_towers !== false, importSections })
     } catch (err) {
       if (err.code === 'SQLITE_CONSTRAINT_UNIQUE') return json(res, 409, { error: 'Eine Show mit dieser ID existiert bereits' })
       throw err
@@ -70,12 +70,12 @@ export async function showRoutes(req, res, pathname, params) {
     if (method === 'PUT') {
       const user = req.user
       const body = await readJsonBody(req, res); if (body === null) return
-      const { setupMarkdown, eosActiveChannels, eosExcludedChannels, use_bars, use_towers, ...rest } = body
+      const { setupMarkdown, eosActiveChannels, eosExcludedChannels, use_battens, use_towers, ...rest } = body
       const fields = { ...rest }
       if (setupMarkdown !== undefined) fields.setup_markdown = setupMarkdown
       if (eosActiveChannels !== undefined) fields.eos_active_channels = JSON.stringify(eosActiveChannels)
       if (eosExcludedChannels !== undefined) fields.eos_excluded_channels = JSON.stringify(eosExcludedChannels)
-      if (use_bars !== undefined) fields.use_bars = use_bars ? 1 : 0
+      if (use_battens !== undefined) fields.use_battens = use_battens ? 1 : 0
       if (use_towers !== undefined) fields.use_towers = use_towers ? 1 : 0
       fields.last_edited_by = user.username
       fields.last_edited_at = Date.now()
@@ -88,13 +88,13 @@ export async function showRoutes(req, res, pathname, params) {
     const slug = m[1]
     if (method === 'POST') {
       const body = await readJsonBody(req, res); if (body === null) return
-      const validScopes = ['bars', 'towers', 'sections']
-      const scope = validScopes.includes(body.scope) ? body.scope : 'bars'
+      const validScopes = ['battens', 'towers', 'sections']
+      const scope = validScopes.includes(body.scope) ? body.scope : 'battens'
       const withChannels = body.withChannels === true
       const selectedIds = Array.isArray(body.selectedIds) ? body.selectedIds : null
       try {
         applyTemplateToShow(body.templateName, slug, scope, withChannels, selectedIds)
-        if (scope !== 'sections') broadcast(slug, scope === 'bars' ? 'bars-updated' : 'towers-updated', {})
+        if (scope !== 'sections') broadcast(slug, scope === 'battens' ? 'battens-updated' : 'towers-updated', {})
         return json(res, 200, { ok: true })
       } catch (e) {
         return json(res, 404, { error: e.message })
@@ -107,8 +107,8 @@ export async function showRoutes(req, res, pathname, params) {
     if (method === 'POST') {
       const user = requireAuth(req, res); if (!user) return
       const body = await readJsonBody(req, res); if (body === null) return
-      const validScopes = ['bars', 'towers']
-      const scope = validScopes.includes(body.scope) ? body.scope : 'bars'
+      const validScopes = ['battens', 'towers']
+      const scope = validScopes.includes(body.scope) ? body.scope : 'battens'
       const selectedIds = Array.isArray(body.selectedIds) ? body.selectedIds : []
       const fields = body.fields && typeof body.fields === 'object' ? body.fields : {}
       const overrideName = typeof body.overrideName === 'string' ? body.overrideName.trim() : null
@@ -269,7 +269,7 @@ export async function showRoutes(req, res, pathname, params) {
         datum: show.datum,
         template: show.template,
         spielzeit: show.spielzeit,
-        use_bars: show.use_bars !== 0,
+        use_battens: show.use_battens !== 0,
         use_towers: show.use_towers !== 0,
         setupMarkdown: show.setup_markdown ?? '',
         eosActiveChannels: show.eos_active_channels ? JSON.parse(show.eos_active_channels) : null,

@@ -146,7 +146,7 @@ export function drawTowerCards(doc, towers, channels, margin, usableW, startY, b
 }
 
 // Gassentürme als Textliste (eine Zeile pro Turm)
-export function renderGassenturmText(doc, towers, channels, margin, usableW, startY, bottomLimit, addFooter) {
+export function renderLightingTowerText(doc, towers, channels, margin, usableW, startY, bottomLimit, addFooter) {
   let ty = startY
 
   const sorted = [...towers].sort((a, b) => a.sort_order - b.sort_order)

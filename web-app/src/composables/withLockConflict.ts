@@ -1,7 +1,7 @@
 import { ApiError } from '../api/client'
 
 // Kapselt das wiederkehrende Muster "API-Call, bei 423 (Show gesperrt) onLockConflict
-// aufrufen und abbrechen, sonst weiterwerfen" — siehe useShowBars.ts/useShowTowers.ts.
+// aufrufen und abbrechen, sonst weiterwerfen" — siehe useShowBattens.ts/useShowTowers.ts.
 // NICHT geeignet für Stellen, die den Lock-Conflict selbst als regulären Rückgabewert
 // behandeln (useShowLock.ts: { ok: false, ... }), einen anderen Fallback-Rückgabewert
 // als undefined brauchen (useUndoRedo.ts: false), oder bei Nicht-423-Fehlern NICHT

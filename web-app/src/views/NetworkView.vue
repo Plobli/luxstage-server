@@ -156,7 +156,7 @@ function onFullscreenKeydown(e) {
   if (e.key === 'Escape' && isFullscreen.value) isFullscreen.value = false
 }
 
-// Zustand + CRUD kommen aus useNetworkGraph (analog useShowBars/useShowTowers) —
+// Zustand + CRUD kommen aus useNetworkGraph (analog useShowBattens/useShowTowers) —
 // hier bleibt nur, was mit der VueFlow-Darstellung selbst zu tun hat
 // (syncFlow, dagre-Layout, Port-Grid/Raum-Ableitung), siehe Kommentar dort.
 const graph = useNetworkGraph(() => syncFlow())

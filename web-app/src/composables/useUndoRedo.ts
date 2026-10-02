@@ -17,7 +17,7 @@ export interface UseUndoRedoReturn {
  * dieses Composable ruft nur noch die Endpunkte auf und reagiert auf 400
  * (Stack leer) bzw. 423 (Show durch anderen User gesperrt).
  *
- * `onAfter` lädt die betroffenen Daten (Kanäle, Sections, Türme, Bars) nach
+ * `onAfter` lädt die betroffenen Daten (Kanäle, Sections, Türme, Battens) nach
  * jedem erfolgreichen Undo/Redo neu — der Server ändert sie nur, sendet den
  * neuen Stand aber nicht automatisch zurück.
  */

@@ -122,8 +122,8 @@
               <span class="text-sm">{{ t('tab.towers') }}</span>
             </label>
             <label class="flex items-center gap-2 cursor-pointer select-none">
-              <Checkbox v-model="form.use_bars" />
-              <span class="text-sm">{{ t('tab.bars') }}</span>
+              <Checkbox v-model="form.use_battens" />
+              <span class="text-sm">{{ t('tab.fly_system') }}</span>
             </label>
           </div>
           <p v-if="createError" role="alert" class="text-sm text-destructive">{{ createError }}</p>
@@ -217,7 +217,7 @@ const drawerOpen = ref(false)
 const wizardOpen = ref(false)
 const createError = ref('')
 
-const form = ref({ name: '', datum: new Date().toISOString().slice(0, 10), template: '__none__', spielzeit: currentSpielzeit(), use_bars: true, use_towers: true })
+const form = ref({ name: '', datum: new Date().toISOString().slice(0, 10), template: '__none__', spielzeit: currentSpielzeit(), use_battens: true, use_towers: true })
 
 const groupedShows = computed(() => {
   const groups = []
@@ -261,7 +261,7 @@ async function handleCreate() {
   try {
     const tplCreate = form.value.template === '__none__' ? '' : form.value.template
     const content = `---\nid: ${id}\nname: ${form.value.name || id}\ndatum: ${form.value.datum || new Date().toISOString().slice(0, 10)}\n${tplCreate ? `template: ${tplCreate}\n` : ''}---\n\n`
-    await createShow({ id, name: form.value.name || id, datum: form.value.datum || new Date().toISOString().slice(0, 10), content, template: tplCreate || undefined, spielzeit: form.value.spielzeit || undefined, use_bars: form.value.use_bars, use_towers: form.value.use_towers })
+    await createShow({ id, name: form.value.name || id, datum: form.value.datum || new Date().toISOString().slice(0, 10), content, template: tplCreate || undefined, spielzeit: form.value.spielzeit || undefined, use_battens: form.value.use_battens, use_towers: form.value.use_towers })
     const newShow = { id, name: form.value.name || id, datum: form.value.datum || new Date().toISOString().slice(0, 10), template: tplCreate }
     shows.value.push(newShow)
     if (tplCreate) {
@@ -292,7 +292,7 @@ function onWizardCreated(newShow) {
 }
 
 function openCreate() {
-  form.value = { name: '', datum: new Date().toISOString().slice(0, 10), template: '__none__', spielzeit: currentSpielzeit(), use_bars: true, use_towers: true }
+  form.value = { name: '', datum: new Date().toISOString().slice(0, 10), template: '__none__', spielzeit: currentSpielzeit(), use_battens: true, use_towers: true }
   createError.value = ''
   drawerOpen.value = true
 }

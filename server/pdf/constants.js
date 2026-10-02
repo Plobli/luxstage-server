@@ -15,4 +15,4 @@ export const FONT_NORMAL = 'Helvetica'
 export const FONT_BOLD   = 'Helvetica-Bold'
 export const COLOR_SWATCH_R = mm(2)
 export const MAX_ROW_H = mm(40) // Sicherheitsgrenze gegen pdfkit Stack Overflow
-export const BAR_TYPE_LABELS = { zugstange: 'Zugstange', traverse: 'Traverse', punktzug: 'Punktzug' }
+export const BATTEN_TYPE_LABELS = { batten: 'Batten', traverse: 'Traverse', point_batten: 'PointBatten' }

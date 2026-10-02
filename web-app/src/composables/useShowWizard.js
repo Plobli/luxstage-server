@@ -2,7 +2,7 @@ import { ref, watch } from 'vue'
 import { createShow, applyTemplateToShow } from '../api/shows.js'
 import { fetchTemplateChannels } from '../api/templates.js'
 import { fetchTemplateSections } from '../api/sections.js'
-import { fetchTemplateBars } from '../api/templateBars.js'
+import { fetchTemplateBattens } from '../api/templateBattens.js'
 import { fetchTemplateTowers } from '../api/templateTowers.js'
 import { saveChannels } from '../api/channels.js'
 import { currentSpielzeit, generateShowId as generateId } from '../utils/index.ts'
@@ -13,7 +13,7 @@ function emptyForm() {
     datum: new Date().toISOString().slice(0, 10),
     template: '__none__',
     spielzeit: currentSpielzeit(),
-    use_bars: true,
+    use_battens: true,
     use_towers: true,
     importChannels: true,
   }
@@ -28,10 +28,10 @@ function emptyForm() {
 export function useShowWizard() {
   const form = ref(emptyForm())
   const templateSections = ref([])
-  const templateBars = ref([])
+  const templateBattens = ref([])
   const templateTowers = ref([])
   const selectedSectionIds = ref(new Set())
-  const selectedBarIds = ref(new Set())
+  const selectedBattenIds = ref(new Set())
   const selectedTowerIds = ref(new Set())
   const creating = ref(false)
 
@@ -39,7 +39,7 @@ export function useShowWizard() {
   // entpackt $setup Refs automatisch (Auto-Unwrap), sodass eine übergebene Ref
   // dort bereits das rohe Set wäre und toggleSelection() beim Zugriff auf
   // .value crashen würde.
-  const selectionRefs = { sections: selectedSectionIds, bars: selectedBarIds, towers: selectedTowerIds }
+  const selectionRefs = { sections: selectedSectionIds, battens: selectedBattenIds, towers: selectedTowerIds }
   function toggleSelection(key, id) {
     const setRef = selectionRefs[key]
     const next = new Set(setRef.value)
@@ -51,36 +51,36 @@ export function useShowWizard() {
   function reset() {
     form.value = emptyForm()
     templateSections.value = []
-    templateBars.value = []
+    templateBattens.value = []
     templateTowers.value = []
     selectedSectionIds.value = new Set()
-    selectedBarIds.value = new Set()
+    selectedBattenIds.value = new Set()
     selectedTowerIds.value = new Set()
   }
 
   watch(() => form.value.template, async (name) => {
     if (name === '__none__') {
       templateSections.value = []
-      templateBars.value = []
+      templateBattens.value = []
       templateTowers.value = []
       return
     }
     try {
-      const [sections, bars, towers] = await Promise.all([
+      const [sections, battens, towers] = await Promise.all([
         fetchTemplateSections(name),
-        fetchTemplateBars(name),
+        fetchTemplateBattens(name),
         fetchTemplateTowers(name),
       ])
       templateSections.value = Array.isArray(sections) ? sections : (sections?.sections ?? [])
-      templateBars.value = bars
+      templateBattens.value = battens
       templateTowers.value = towers
       selectedSectionIds.value = new Set(templateSections.value.map(s => s.id))
-      selectedBarIds.value = new Set(templateBars.value.map(b => b.id))
+      selectedBattenIds.value = new Set(templateBattens.value.map(b => b.id))
       selectedTowerIds.value = new Set(templateTowers.value.map(t => t.id))
     } catch (e) {
       console.error('Failed to load template details:', e)
       templateSections.value = []
-      templateBars.value = []
+      templateBattens.value = []
       templateTowers.value = []
     }
   })
@@ -104,7 +104,7 @@ export function useShowWizard() {
         content,
         template: tplCreate || undefined,
         spielzeit: form.value.spielzeit || undefined,
-        use_bars: form.value.use_bars,
+        use_battens: form.value.use_battens,
         use_towers: form.value.use_towers,
         importSections: false,
       })
@@ -116,11 +116,11 @@ export function useShowWizard() {
           console.error('Failed to apply template (towers):', e)
         }
       }
-      if (tplCreate && form.value.use_bars && selectedBarIds.value.size) {
+      if (tplCreate && form.value.use_battens && selectedBattenIds.value.size) {
         try {
-          await applyTemplateToShow(id, tplCreate, 'bars', false, [...selectedBarIds.value])
+          await applyTemplateToShow(id, tplCreate, 'battens', false, [...selectedBattenIds.value])
         } catch (e) {
-          console.error('Failed to apply template (bars):', e)
+          console.error('Failed to apply template (battens):', e)
         }
       }
       if (tplCreate && selectedSectionIds.value.size) {
@@ -149,8 +149,8 @@ export function useShowWizard() {
   }
 
   return {
-    form, templateSections, templateBars, templateTowers,
-    selectedSectionIds, selectedBarIds, selectedTowerIds,
+    form, templateSections, templateBattens, templateTowers,
+    selectedSectionIds, selectedBattenIds, selectedTowerIds,
     creating, toggleSelection, reset, createShowFromWizard,
   }
 }

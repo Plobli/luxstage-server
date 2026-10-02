@@ -6,7 +6,7 @@ import { updateNetworkNode } from '../api/network.ts'
 // (syncFlow), automatisches dagre-Layout für neu angelegte Elemente ohne gespeicherte
 // Position, Raum-Hintergrundboxen, Pfad-Hervorhebung per Klick, und die "Automatisch
 // anordnen"-Funktion (verbundene Komponenten einzeln layouten, dann zu Zeilen packen).
-// Zustand + CRUD kommen aus useNetworkGraph (analog useShowBars/useShowTowers) und
+// Zustand + CRUD kommen aus useNetworkGraph (analog useShowBattens/useShowTowers) und
 // werden hier nur gelesen/über updateNetworkNode persistiert — dieser Composable
 // besitzt keinen eigenen Server-Zustand.
 

@@ -5,7 +5,7 @@ import { sectionTypeHasRows } from '../../shared/constants.js'
 import { getLock } from './locks.js'
 import { broadcast } from '../sse.js'
 
-// Richtung "Template → Show": kopiert Template-Bereiche/-Bars/-Towers in eine Show —
+// Richtung "Template → Show": kopiert Template-Bereiche/-Battens/-Towers in eine Show —
 // fügt nur fehlende Einträge hinzu (nach Titel/Name), überschreibt nichts Bestehendes.
 // Für die umgekehrte Richtung (Show → Template) siehe template-save-from-show.js.
 
@@ -53,37 +53,37 @@ export function applySections(tpl, show, idSet) {
   return added
 }
 
-export function applyBars(tpl, show, idSet, withChannels) {
-  const tBars = getDb().prepare('SELECT * FROM template_bars WHERE template_id = ? ORDER BY sort_order').all(tpl.id)
-  const existingBars = getDb().prepare('SELECT * FROM bars WHERE show_id = ?').all(show.id)
-  const existingByName = new Map(existingBars.map(b => [b.name, b]))
-  let sortBase = existingBars.length
+export function applyBattens(tpl, show, idSet, withChannels) {
+  const tBattens = getDb().prepare('SELECT * FROM template_battens WHERE template_id = ? ORDER BY sort_order').all(tpl.id)
+  const existingBattens = getDb().prepare('SELECT * FROM battens WHERE show_id = ?').all(show.id)
+  const existingByName = new Map(existingBattens.map(b => [b.name, b]))
+  let sortBase = existingBattens.length
   let added = 0
 
-  for (const tb of tBars) {
+  for (const tb of tBattens) {
     if (idSet && !idSet.has(tb.id)) continue
     if (!existingByName.has(tb.name)) {
-      const newBarId = randomUUID()
+      const newBattenId = randomUUID()
       getDb().prepare(
-        'INSERT INTO bars (id, show_id, name, zug_nr, length_cm, sort_order, bar_type, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
-      ).run(newBarId, show.id, tb.name, tb.zug_nr, tb.length_cm, sortBase++, tb.bar_type ?? 'zugstange', Date.now())
-      existingByName.set(tb.name, { id: newBarId })
+        'INSERT INTO battens (id, show_id, name, batten_nr, length_cm, sort_order, batten_type, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+      ).run(newBattenId, show.id, tb.name, tb.batten_nr, tb.length_cm, sortBase++, tb.batten_type ?? 'batten', Date.now())
+      existingByName.set(tb.name, { id: newBattenId })
       added++
     }
     if (withChannels) {
-      const bar = existingByName.get(tb.name)
-      // Fixtures des Ziel-Bars vor dem Einfügen leeren: sonst verdoppeln sich
-      // Fixtures bei jeder erneuten Anwendung auf einen bereits vorhandenen Bar
-      // (analog zur Bereinigung in applyBarsToTemplate).
-      getDb().prepare('DELETE FROM bar_fixtures WHERE bar_id = ?').run(bar.id)
-      const fixtures = getDb().prepare('SELECT * FROM template_bar_fixtures WHERE bar_id = ?').all(tb.id)
+      const batten = existingByName.get(tb.name)
+      // Fixtures des Ziel-Battens vor dem Einfügen leeren: sonst verdoppeln sich
+      // Fixtures bei jeder erneuten Anwendung auf einen bereits vorhandenen Batten
+      // (analog zur Bereinigung in applyBattensToTemplate).
+      getDb().prepare('DELETE FROM batten_fixtures WHERE batten_id = ?').run(batten.id)
+      const fixtures = getDb().prepare('SELECT * FROM template_batten_fixtures WHERE batten_id = ?').all(tb.id)
       for (const fx of fixtures) {
         getDb().prepare(`
-          INSERT INTO bar_fixtures (id, bar_id, channel_id, position, notes, side, position_text)
+          INSERT INTO batten_fixtures (id, batten_id, channel_id, position, notes, side, position_text)
           SELECT ?, ?, c.id, ?, ?, ?, ?
           FROM channels c
           WHERE c.show_id = ? AND c.channel = ?
-        `).run(randomUUID(), bar.id, fx.position, fx.notes ?? '', fx.side ?? 'out', fx.position_text ?? '', show.id, fx.channel ?? '')
+        `).run(randomUUID(), batten.id, fx.position, fx.notes ?? '', fx.side ?? 'out', fx.position_text ?? '', show.id, fx.channel ?? '')
       }
     }
   }
@@ -129,10 +129,10 @@ export function applyTowers(tpl, show, idSet, withChannels) {
   return added
 }
 
-// Wendet Template-Bars, Template-Towers oder Template-Bereiche (Sections) auf
+// Wendet Template-Battens, Template-Towers oder Template-Bereiche (Sections) auf
 // eine einzelne Show an.
 // withChannels: true → Fixtures/Slot-Belegungen aus Template werden mit übernommen und per Kanalnummer den Show-Kanälen zugeordnet.
-// withChannels: false → nur leere Bars/Towers ohne Fixtures/Kanäle werden angelegt (ohne Wirkung bei scope 'sections').
+// withChannels: false → nur leere Battens/Towers ohne Fixtures/Kanäle werden angelegt (ohne Wirkung bei scope 'sections').
 // Die Funktion fügt nur fehlende Einträge hinzu (nach Name/Position/Titel).
 export function applyTemplateToShow(templateName, showSlug, scope, withChannels, selectedIds = null) {
   const tpl = getDb().prepare('SELECT * FROM templates WHERE name = ?').get(templateName)
@@ -143,15 +143,15 @@ export function applyTemplateToShow(templateName, showSlug, scope, withChannels,
 
   const tx = getDb().transaction(() => {
     if (scope === 'sections') return applySections(tpl, show, idSet)
-    if (scope === 'bars')     return applyBars(tpl, show, idSet, withChannels)
+    if (scope === 'battens')     return applyBattens(tpl, show, idSet, withChannels)
     if (scope === 'towers')   return applyTowers(tpl, show, idSet, withChannels)
   })
   tx()
 }
 
-// Wendet Template-Bars, Template-Towers oder Sections-Struktur auf alle Shows mit diesem Template an.
-// scope: 'bars' | 'towers' | 'sections' — bestehende Einträge werden nicht überschrieben.
-// Nutzt dieselben applySections/applyBars/applyTowers wie applyTemplateToShow()
+// Wendet Template-Battens, Template-Towers oder Sections-Struktur auf alle Shows mit diesem Template an.
+// scope: 'battens' | 'towers' | 'sections' — bestehende Einträge werden nicht überschrieben.
+// Nutzt dieselben applySections/applyBattens/applyTowers wie applyTemplateToShow()
 // (statt derselben "fehlende Einträge nach Name/Titel ergänzen"-Logik ein
 // drittes Mal zu implementieren) — pro Show ohne Auswahl (idSet=null) und
 // ohne Kanal-Übernahme (withChannels=false), wie es dieser Bulk-Pfad schon
@@ -161,7 +161,7 @@ export async function applyTemplateToAllShows(templateName, scope) {
   if (!tpl) throw new Error('Bühnen-Template nicht gefunden')
 
   const shows = getDb().prepare('SELECT * FROM shows WHERE template = ? AND archived = 0').all(templateName)
-  const stats = { shows: shows.length, barsAdded: 0, towersAdded: 0, sectionsAdded: 0, failedShows: [], skippedLockedShows: [] }
+  const stats = { shows: shows.length, battensAdded: 0, towersAdded: 0, sectionsAdded: 0, failedShows: [], skippedLockedShows: [] }
 
   // Eine Transaktion pro Show statt einer einzigen über alle Shows hinweg
   // (analog zu history.js' Bulkhead-Muster): better-sqlite3 ist synchron, ohne
@@ -170,7 +170,7 @@ export async function applyTemplateToAllShows(templateName, scope) {
   // kein Upload solange. Verliert die Alles-oder-Nichts-Semantik über alle
   // Shows hinweg (ein Fehler bei Show 50 lässt 1-49 bereits übernommen), das
   // ist hier akzeptabel: jede Show-Anwendung ist unabhängig und idempotent
-  // (bereits vorhandene Bars/Towers/Sections werden übersprungen, ein erneuter
+  // (bereits vorhandene Battens/Towers/Sections werden übersprungen, ein erneuter
   // Lauf holt fehlgeschlagene Shows einfach nach) — vorausgesetzt, ein Fehler
   // bei einer Show bricht nicht den ganzen Lauf ab, sondern überspringt nur
   // diese eine (wie beim history.js-Vorbild: Fehlerisolierung pro Einheit).
@@ -178,7 +178,7 @@ export async function applyTemplateToAllShows(templateName, scope) {
     // Show-Lock respektieren: nur ein transienter Check (keine Acquisition),
     // da der Bulk-Job nicht selbst als Editor auftreten soll — ein Nutzer, der
     // eine Show gerade aktiv bearbeitet, soll nicht durch verdecktes
-    // Untermischen von Bars/Towers/Sections überrascht werden (das ist genau
+    // Untermischen von Battens/Towers/Sections überrascht werden (das ist genau
     // die Garantie, für die das Lock-System existiert).
     if (getLock(show.slug)) {
       stats.skippedLockedShows.push(show.slug)
@@ -187,13 +187,13 @@ export async function applyTemplateToAllShows(templateName, scope) {
     }
 
     const applyToOneShow = getDb().transaction(() => {
-      if (scope === 'bars')     stats.barsAdded     += applyBars(tpl, show, null, false)
+      if (scope === 'battens')     stats.battensAdded     += applyBattens(tpl, show, null, false)
       if (scope === 'towers')   stats.towersAdded   += applyTowers(tpl, show, null, false)
       if (scope === 'sections') stats.sectionsAdded += applySections(tpl, show, null)
     })
     try {
       applyToOneShow()
-      if (scope === 'bars')     broadcast(show.slug, 'bars-updated', {})
+      if (scope === 'battens')     broadcast(show.slug, 'battens-updated', {})
       if (scope === 'towers')   broadcast(show.slug, 'towers-updated', {})
       if (scope === 'sections') broadcast(show.slug, 'sections-updated', { updatedBy: null })
     } catch (err) {

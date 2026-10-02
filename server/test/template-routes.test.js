@@ -38,20 +38,20 @@ test('GET /api/templates/:name liefert die Kanäle', async () => {
   assert.equal(res.body[0].channel, 'Kanal 1')
 })
 
-test('Bars: POST/GET/PUT/DELETE laufen über den ausgelagerten templateBarRoutes-Sub-Handler', async () => {
-  const created = await call('POST', '/api/templates/tpl-a/bars', { label: 'Bar 1', position: 0 })
+test('Battens: POST/GET/PUT/DELETE laufen über den ausgelagerten templateBattenRoutes-Sub-Handler', async () => {
+  const created = await call('POST', '/api/templates/tpl-a/battens', { label: 'Batten 1', position: 0 })
   assert.equal(created.res.status, 201)
-  const barId = created.res.body.id
-  assert.ok(barId)
+  const battenId = created.res.body.id
+  assert.ok(battenId)
 
-  const listed = await call('GET', '/api/templates/tpl-a/bars')
+  const listed = await call('GET', '/api/templates/tpl-a/battens')
   assert.equal(listed.res.status, 200)
   assert.equal(listed.res.body.length, 1)
 
-  const updated = await call('PUT', `/api/templates/tpl-a/bars/${barId}`, { label: 'Bar 1 neu', position: 0 })
+  const updated = await call('PUT', `/api/templates/tpl-a/battens/${battenId}`, { label: 'Batten 1 neu', position: 0 })
   assert.equal(updated.res.status, 200)
 
-  const deleted = await call('DELETE', `/api/templates/tpl-a/bars/${barId}`)
+  const deleted = await call('DELETE', `/api/templates/tpl-a/battens/${battenId}`)
   assert.equal(deleted.res.status, 200)
 })
 
@@ -74,14 +74,14 @@ test('Sections: GET/PUT laufen über den ausgelagerten templateSectionRoutes-Sub
   assert.equal(get.res.body.length, 1)
 })
 
-test('Floorplan: GET liefert leeren Zustand über den ausgelagerten templateFloorplanRoutes-Sub-Handler', async () => {
-  const { res } = await call('GET', '/api/templates/tpl-a/floorplan')
+test('DrawingPlan: GET liefert leeren Zustand über den ausgelagerten templateDrawingPlanRoutes-Sub-Handler', async () => {
+  const { res } = await call('GET', '/api/templates/tpl-a/drawing-plan')
   assert.equal(res.status, 200)
   assert.equal(res.body.image_url, null)
 })
 
-test('Floorplan auf unbekanntem Template liefert weiterhin 404 (notFound-Verhalten erhalten)', async () => {
-  const { res } = await call('GET', '/api/templates/gibt-es-nicht/floorplan')
+test('DrawingPlan auf unbekanntem Template liefert weiterhin 404 (notFound-Verhalten erhalten)', async () => {
+  const { res } = await call('GET', '/api/templates/gibt-es-nicht/drawing-plan')
   assert.equal(res.status, 404)
 })
 
@@ -99,13 +99,13 @@ test('Lock: POST/GET/DELETE laufen weiterhin über den Template-Kern-Handler', a
 })
 
 test('apply-to-shows auf unbekanntem Template liefert 404', async () => {
-  const { res } = await call('POST', '/api/templates/gibt-es-nicht/apply-to-shows', { scope: 'bars' })
+  const { res } = await call('POST', '/api/templates/gibt-es-nicht/apply-to-shows', { scope: 'battens' })
   assert.equal(res.status, 404)
 })
 
-test('Ein Template mit "bars" im Namen wird nicht fälschlich vom Bars-Sub-Handler verschluckt', async () => {
-  writeTemplate('bars-2024', [])
-  const { res } = await call('GET', '/api/templates/bars-2024')
+test('Ein Template mit "battens" im Namen wird nicht fälschlich vom Battens-Sub-Handler verschluckt', async () => {
+  writeTemplate('battens-2024', [])
+  const { res } = await call('GET', '/api/templates/battens-2024')
   assert.equal(res.status, 200)
   assert.deepEqual(res.body, [])
 })

@@ -89,7 +89,7 @@ export async function analyzePlanScan(pageBuffers, knownChannels, client = defau
             '',
             'FREITEXT (in "freitext"):',
             'Sammle alle Abschnitte, die NICHT Teil der tabellarischen Kanalliste sind — z.B.',
-            'Hängeplan-Notizen, Zug-Angaben (Züge/Bars mit Maßen), Portalbrücken-/Portal-Maße,',
+            'Hängeplan-Notizen, Zug-Angaben (Züge/Battens mit Maßen), Portalbrücken-/Portal-Maße,',
             'Truss-Höhen, allgemeine Hinweise zum Aufbau oder zur Show. Als zusammenhängendes',
             'Markdown zurückgeben, mit den Original-Überschriften aus dem Plan als Markdown-Überschriften.',
             'Weglassen, wenn es keinen solchen Freitext gibt.',

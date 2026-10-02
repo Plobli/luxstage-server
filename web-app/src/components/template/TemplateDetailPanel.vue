@@ -62,11 +62,11 @@
           <TabsTrigger value="sections" class="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:text-foreground text-muted-foreground rounded-none px-4 py-2 border-b-2 border-transparent">
             {{ t('sections.btn') }}
           </TabsTrigger>
-          <TabsTrigger value="floorplan" class="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:text-foreground text-muted-foreground rounded-none px-4 py-2 border-b-2 border-transparent">
-            {{ t('tab.floorplan') }}
+          <TabsTrigger value="drawingPlan" class="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:text-foreground text-muted-foreground rounded-none px-4 py-2 border-b-2 border-transparent">
+            {{ t('tab.drawing_plan') }}
           </TabsTrigger>
-          <TabsTrigger value="bars" class="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:text-foreground text-muted-foreground rounded-none px-4 py-2 border-b-2 border-transparent">
-            {{ t('tab.bars') }}
+          <TabsTrigger value="battens" class="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:text-foreground text-muted-foreground rounded-none px-4 py-2 border-b-2 border-transparent">
+            {{ t('tab.fly_system') }}
           </TabsTrigger>
           <TabsTrigger value="towers" class="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:text-foreground text-muted-foreground rounded-none px-4 py-2 border-b-2 border-transparent">
             {{ t('tab.towers') }}
@@ -168,9 +168,9 @@
         <Button variant="outline" size="sm" @click="addSection">+ {{ t('sections.add') }}</Button>
         </TabsContent>
 
-        <!-- Zugstangen -->
-        <TabsContent value="bars" class="mt-0 outline-none">
-          <TemplateBarsPanel ref="barsPanel" :templateName="templateName" />
+        <!-- FlySystem -->
+        <TabsContent value="battens" class="mt-0 outline-none">
+          <TemplateBattensPanel ref="battensPanel" :templateName="templateName" />
         </TabsContent>
 
         <!-- Beleuchtungsgestelle -->
@@ -184,21 +184,21 @@
         </TabsContent>
 
         <!-- Grundriss-Editor -->
-        <TabsContent value="floorplan" class="mt-0 outline-none">
+        <TabsContent value="drawingPlan" class="mt-0 outline-none">
           <div class="h-[calc(100vh-16rem)] rounded-lg border border-border overflow-hidden">
-          <FloorplanEditor
-            :image-url="floorplanImageUrl"
-            :initial-canvas-data="floorplanCanvasData"
+          <DrawingPlanEditor
+            :image-url="drawingPlanImageUrl"
+            :initial-canvas-data="drawingPlanCanvasData"
             :channels="[]"
             :towers="[]"
-            :bars="floorplanBars"
-            @change="onFloorplanChange"
-            @upload-image="onFloorplanImageUpload"
-            @delete-image="removeFloorplanImage"
+            :battens="drawingPlanBattens"
+            @change="onDrawingPlanChange"
+            @upload-image="onDrawingPlanImageUpload"
+            @delete-image="removeDrawingPlanImage"
           />
           </div>
-          <Alert v-if="floorplanError" variant="destructive" class="mt-2">
-            <AlertDescription>{{ floorplanError }}</AlertDescription>
+          <Alert v-if="drawingPlanError" variant="destructive" class="mt-2">
+            <AlertDescription>{{ drawingPlanError }}</AlertDescription>
           </Alert>
         </TabsContent>
       </Tabs>
@@ -260,8 +260,8 @@ import { useResourceLock } from '../../composables/useResourceLock'
 import { acquireTemplateLock, releaseTemplateLock, touchTemplateLock } from '../../api/templates.ts'
 import { templateDisplayName } from '../../utils/templateName.js'
 import ChannelTable from '../channel/ChannelTable.vue'
-import FloorplanEditor from '../FloorplanEditor.vue'
-import TemplateBarsPanel from './TemplateBarsPanel.vue'
+import DrawingPlanEditor from '../DrawingPlanEditor.vue'
+import TemplateBattensPanel from './TemplateBattensPanel.vue'
 import TemplateTowersPanel from './TemplateTowersPanel.vue'
 
 import { Button } from '@/components/ui/button'
@@ -286,11 +286,11 @@ const emit = defineEmits(['close', 'renamed', 'oscHostChanged'])
 const {
   detailChannels, detailLoading, detailSaving,
   templateSections, sectionsSaving,
-  floorplanImageUrl, floorplanCanvasData, floorplanError,
+  drawingPlanImageUrl, drawingPlanCanvasData, drawingPlanError,
   loadChannelsAndSections, persistChannels, deleteChannel, clearChannel,
   persistSections, addSection, deleteSection, moveSection, addField, deleteField,
   hasKvTableType, onTypeChange,
-  loadFloorplan, onFloorplanChange, onFloorplanImageUpload, removeFloorplanImage,
+  loadDrawingPlan, onDrawingPlanChange, onDrawingPlanImageUpload, removeDrawingPlanImage,
   saveOscHost, renameTo, fetchPdfUrl,
   loadShowsUsingTemplate, applyToShows,
 } = useTemplateDetail(computed(() => props.templateName))
@@ -305,7 +305,7 @@ const renameInput = ref(null)
 
 const activeTab = ref('channels')
 
-const barsPanel = ref(null)
+const battensPanel = ref(null)
 const towersPanel = ref(null)
 
 const emptySet = new Set()
@@ -332,19 +332,19 @@ const groupedChannels = computed(() => {
   return [...map.entries()].map(([position, channels]) => ({ position, channels }))
 })
 
-const floorplanBars = computed(() => barsPanel.value?.bars ?? [])
+const drawingPlanBattens = computed(() => battensPanel.value?.battens ?? [])
 
 async function loadDetail() {
   activeTab.value = 'channels'
   editingOscHost.value = props.oscHost
   await loadChannelsAndSections()
   await nextTick()
-  await Promise.all([barsPanel.value?.loadBars(), towersPanel.value?.loadTowers()])
+  await Promise.all([battensPanel.value?.loadBattens(), towersPanel.value?.loadTowers()])
 }
 
 watch(() => props.templateName, () => {
   loadDetail()
-  loadFloorplan()
+  loadDrawingPlan()
 }, { immediate: true })
 
 // Schreib-Lock: verhindert, dass zwei Personen dasselbe Template gleichzeitig
@@ -443,7 +443,7 @@ async function confirmApplyToAllShows() {
     const result = await applyToShows(scope)
     applyResultText.value = t(`template.apply_to_shows.${scope}.result`, {
       shows: result.shows,
-      bars: result.barsAdded,
+      battens: result.battensAdded,
       towers: result.towersAdded,
       sections: result.sectionsAdded,
     })

@@ -118,9 +118,9 @@
             @delete="emit('deleteChannel', item.ch)"
             @clear="emit('clearChannel', item.ch)"
             @insertAfter="insertAfter(item.ch)"
-            @placeInFloorplan="emit('placeInFloorplan', item.ch)"
+            @placeInDrawingPlan="emit('placeInDrawingPlan', item.ch)"
             @assignTower="emit('assignTower', item.ch)"
-            @assignBar="emit('assignBar', item.ch)"
+            @assignBatten="emit('assignBatten', item.ch)"
             @selectDragStart="onSelectDragStart"
             @selectDragEnter="onSelectDragEnter"
             @cellDragStart="onCellDragStart"
@@ -576,9 +576,9 @@ const emit = defineEmits([
   'deleteChannel',
   'clearChannel',
   'reorder',
-  'placeInFloorplan',
+  'placeInDrawingPlan',
   'assignTower',
-  'assignBar',
+  'assignBatten',
 ])
 
 let channelRowUid = 0

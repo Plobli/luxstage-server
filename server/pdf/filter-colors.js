@@ -31,7 +31,7 @@ export function leeHex(input) {
 
 export { contrastColor }
 
-// LEE-Farbfilter-Kurznotation für den Text-Renderpfad (Hängerei/Gassenturm-Listen).
+// LEE-Farbfilter-Kurznotation für den Text-Renderpfad (Hängerei/LightingTower-Listen).
 export function fmtLeeColorLabel(color) {
   if (!color) return undefined
   const s = color.trim()

@@ -96,7 +96,7 @@ export function isRoute(method, pathname, expectedMethod, regex) {
   return method === expectedMethod && regex.test(pathname)
 }
 
-// Kondensiert das in routes/bars.js, routes/towers.js, routes/sections.js,
+// Kondensiert das in routes/battens.js, routes/towers.js, routes/sections.js,
 // routes/channels.js ~16x wiederholte Muster "Show laden + 404-Guard,
 // mutate() im Undo-Snapshot ausführen, SSE-Broadcast, JSON-Antwort" (siehe
 // audits/code-duplication-audit-2026-09-03.md, F1). `mutate` bekommt die

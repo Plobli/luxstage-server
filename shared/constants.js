@@ -38,6 +38,6 @@ export function maxConnectionsForType(type) {
 }
 
 // A4-Querformat-Druckbereich als Ziel-Seitenverhältnis (267mm x 160mm) — vom
-// PDF-Export (server/pdf/floorplan-vector.js) UND vom Editor (FloorplanEditor.vue)
+// PDF-Export (server/pdf/drawing-plan-vector.js) UND vom Editor (DrawingPlanEditor.vue)
 // verwendet, damit die Bühnenfläche im Editor exakt dem Druckbereich entspricht.
 export const PDF_PRINT_AREA_RATIO = 267 / 160

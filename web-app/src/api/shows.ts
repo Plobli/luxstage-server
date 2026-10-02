@@ -11,7 +11,7 @@ export interface ShowSummary {
   datum: string | null;
   template: string | null;
   spielzeit: string | null;
-  use_bars: 0 | 1;
+  use_battens: 0 | 1;
   use_towers: 0 | 1;
   archived: 0 | 1;
   created_at: number;
@@ -28,7 +28,7 @@ export interface ShowDetail {
   datum: string | null;
   template: string | null;
   spielzeit: string | null;
-  use_bars: boolean;
+  use_battens: boolean;
   use_towers: boolean;
   setupMarkdown: string;
   eosActiveChannels: string[] | null;
@@ -60,8 +60,8 @@ export interface LockInfo {
  * manuell mit neuem Token durchgeführt.
  *
  * Der Server sendet neun Event-Typen (Katalog in server/sse.js); hier werden bewusst nur
- * drei abgehört. Die sechs datenverändernden Events (channels-/sections-/towers-/bars-/
- * floorplan-/checks-updated) bleiben ungenutzt — sie sind für native Clients reserviert bzw.
+ * drei abgehört. Die sechs datenverändernden Events (channels-/sections-/towers-/battens-/
+ * drawing-plan-/checks-updated) bleiben ungenutzt — sie sind für native Clients reserviert bzw.
  * Grundlage für ein späteres optimistischeres Update-Modell, kein totes Gepäck. Siehe
  * audits/architecture-analysis-2026-09-03.md, F-02.
  */
@@ -138,7 +138,7 @@ export interface ShowCreateInput {
   template?: string | null;
   spielzeit?: string | null;
   channels?: import('./channels').Channel[];
-  use_bars?: boolean;
+  use_battens?: boolean;
   use_towers?: boolean;
   importSections?: boolean;
 }
@@ -152,7 +152,7 @@ export interface ShowMetaFields {
   setupMarkdown?: string;
   eosActiveChannels?: string;
   eosExcludedChannels?: string;
-  use_bars?: boolean;
+  use_battens?: boolean;
   use_towers?: boolean;
 }
 
@@ -176,7 +176,7 @@ export interface SaveToTemplateFields {
 export function saveShowItemsToTemplate(
   showId: string,
   templateName: string,
-  scope: 'bars' | 'towers',
+  scope: 'battens' | 'towers',
   selectedIds: string[],
   fields: SaveToTemplateFields,
   overrideName?: string
@@ -187,7 +187,7 @@ export function saveShowItemsToTemplate(
 export function applyTemplateToShow(
   showId: string,
   templateName: string,
-  scope: 'bars' | 'towers',
+  scope: 'battens' | 'towers',
   withChannels: boolean,
   selectedIds: string[]
 ): Promise<{ ok: true }> {

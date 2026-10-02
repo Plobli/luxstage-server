@@ -2,50 +2,50 @@ import { getDb } from '../db-context.js'
 import { randomUUID } from 'node:crypto'
 import { ensureTemplateTowerSlots } from './template-towers.js'
 
-// Richtung "Show → Template": speichert ausgewählte Show-Bars/-Towers als
+// Richtung "Show → Template": speichert ausgewählte Show-Battens/-Towers als
 // Template-Einträge. Für die umgekehrte Richtung (Template → Show) siehe
 // template-apply-to-show.js.
 
-function applyBarsToTemplate(tpl, show, idSet, fields, overrideName, withChannels) {
-  const showBars = getDb().prepare('SELECT * FROM bars WHERE show_id = ? ORDER BY sort_order').all(show.id)
-  const selectedBars = showBars.filter(b => idSet.has(b.id))
-  const existingTplBars = getDb().prepare('SELECT * FROM template_bars WHERE template_id = ?').all(tpl.id)
-  const tplBarByName = new Map(existingTplBars.map(b => [b.name, b]))
-  const currentCount = existingTplBars.length
+function applyBattensToTemplate(tpl, show, idSet, fields, overrideName, withChannels) {
+  const showBattens = getDb().prepare('SELECT * FROM battens WHERE show_id = ? ORDER BY sort_order').all(show.id)
+  const selectedBattens = showBattens.filter(b => idSet.has(b.id))
+  const existingTplBattens = getDb().prepare('SELECT * FROM template_battens WHERE template_id = ?').all(tpl.id)
+  const tplBattenByName = new Map(existingTplBattens.map(b => [b.name, b]))
+  const currentCount = existingTplBattens.length
 
   let idx = 0
-  for (const bar of selectedBars) {
-    let tplBarId
-    const barName = overrideName ?? bar.name
-    if (tplBarByName.has(barName)) {
-      tplBarId = tplBarByName.get(barName).id
+  for (const batten of selectedBattens) {
+    let tplBattenId
+    const battenName = overrideName ?? batten.name
+    if (tplBattenByName.has(battenName)) {
+      tplBattenId = tplBattenByName.get(battenName).id
       getDb().prepare(
-        'UPDATE template_bars SET name=?, zug_nr=?, length_cm=?, sort_order=?, bar_type=? WHERE id=?'
-      ).run(barName, bar.zug_nr ?? '', bar.length_cm ?? 600, currentCount + idx, bar.bar_type ?? 'zugstange', tplBarId)
+        'UPDATE template_battens SET name=?, batten_nr=?, length_cm=?, sort_order=?, batten_type=? WHERE id=?'
+      ).run(battenName, batten.batten_nr ?? '', batten.length_cm ?? 600, currentCount + idx, batten.batten_type ?? 'batten', tplBattenId)
     } else {
-      tplBarId = randomUUID()
+      tplBattenId = randomUUID()
       getDb().prepare(
-        'INSERT INTO template_bars (id, template_id, name, zug_nr, length_cm, sort_order, bar_type) VALUES (?, ?, ?, ?, ?, ?, ?)'
-      ).run(tplBarId, tpl.id, barName, bar.zug_nr ?? '', bar.length_cm ?? 600, currentCount + idx, bar.bar_type ?? 'zugstange')
-      // Map sofort ergänzen: zwei Show-Bars mit demselben (Override-)Namen
+        'INSERT INTO template_battens (id, template_id, name, batten_nr, length_cm, sort_order, batten_type) VALUES (?, ?, ?, ?, ?, ?, ?)'
+      ).run(tplBattenId, tpl.id, battenName, batten.batten_nr ?? '', batten.length_cm ?? 600, currentCount + idx, batten.batten_type ?? 'batten')
+      // Map sofort ergänzen: zwei Show-Battens mit demselben (Override-)Namen
       // innerhalb desselben Aufrufs sollen zusammengeführt werden statt
       // eines unerreichbaren Duplikats (siehe Backlog-Finding).
-      tplBarByName.set(barName, { id: tplBarId })
+      tplBattenByName.set(battenName, { id: tplBattenId })
     }
     idx++
 
     if (withChannels) {
-      getDb().prepare('DELETE FROM template_bar_fixtures WHERE bar_id = ?').run(tplBarId)
+      getDb().prepare('DELETE FROM template_batten_fixtures WHERE batten_id = ?').run(tplBattenId)
       const fixtures = getDb().prepare(`
         SELECT bf.*, c.channel, c.device, c.color
-        FROM bar_fixtures bf LEFT JOIN channels c ON c.id = bf.channel_id
-        WHERE bf.bar_id = ?
-      `).all(bar.id)
+        FROM batten_fixtures bf LEFT JOIN channels c ON c.id = bf.channel_id
+        WHERE bf.batten_id = ?
+      `).all(batten.id)
       for (const fx of fixtures) {
         getDb().prepare(
-          'INSERT INTO template_bar_fixtures (id, bar_id, position, channel, device, color, notes, side, position_text) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
+          'INSERT INTO template_batten_fixtures (id, batten_id, position, channel, device, color, notes, side, position_text) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
         ).run(
-          randomUUID(), tplBarId,
+          randomUUID(), tplBattenId,
           fields.position !== false ? fx.position : 0,
           fields.channel !== false ? (fx.channel ?? null) : null,
           fields.device  !== false ? (fx.device  ?? null) : null,
@@ -105,19 +105,19 @@ function applyTowersToTemplate(tpl, show, idSet, fields, overrideName, withChann
   }
 }
 
-// Speichert ausgewählte Show-Bars oder Show-Towers als Template-Einträge.
+// Speichert ausgewählte Show-Battens oder Show-Towers als Template-Einträge.
 // fields: { channel, device, color, notes, position } — welche Felder übernommen werden
 // Bestehende Template-Einträge gleichen Namens werden überschrieben.
-export function saveShowItemsToTemplate(templateName, showSlug, scope, barOrTowerIds, fields = {}, overrideName = null) {
+export function saveShowItemsToTemplate(templateName, showSlug, scope, battenOrTowerIds, fields = {}, overrideName = null) {
   const withChannels = !!(fields.channel || fields.device || fields.color || fields.notes || fields.position)
   const tpl = getDb().prepare('SELECT * FROM templates WHERE name = ?').get(templateName)
   if (!tpl) throw new Error('Bühnen-Template nicht gefunden')
   const show = getDb().prepare('SELECT * FROM shows WHERE slug = ?').get(showSlug)
   if (!show) throw new Error('Show nicht gefunden')
-  const idSet = new Set(barOrTowerIds)
+  const idSet = new Set(battenOrTowerIds)
 
   const tx = getDb().transaction(() => {
-    if (scope === 'bars')   return applyBarsToTemplate(tpl, show, idSet, fields, overrideName, withChannels)
+    if (scope === 'battens')   return applyBattensToTemplate(tpl, show, idSet, fields, overrideName, withChannels)
     if (scope === 'towers') return applyTowersToTemplate(tpl, show, idSet, fields, overrideName, withChannels)
   })
   tx()

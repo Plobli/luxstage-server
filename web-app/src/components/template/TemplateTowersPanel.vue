@@ -75,17 +75,17 @@
         </DialogHeader>
         <DialogBody>
           <div>
-            <Label>{{ t('gassenturm.field.name') }}</Label>
-            <Input size="lg" v-model="form.name" :placeholder="t('gassenturm.field.name.placeholder')" autofocus />
+            <Label>{{ t('lighting_tower.field.name') }}</Label>
+            <Input size="lg" v-model="form.name" :placeholder="t('lighting_tower.field.name.placeholder')" autofocus />
           </div>
           <div class="grid grid-cols-1 gap-3">
             <div>
-              <Label>{{ t('gassenturm.field.side') }}</Label>
+              <Label>{{ t('lighting_tower.field.side') }}</Label>
               <Input size="lg" v-model="form.side" placeholder="L / R" />
             </div>
           </div>
           <div>
-            <Label>{{ t('gassenturm.field.slot_count') }}</Label>
+            <Label>{{ t('lighting_tower.field.slot_count') }}</Label>
             <Input size="lg" v-model.number="form.slot_count" type="number" min="1" max="20" />
           </div>
         </DialogBody>

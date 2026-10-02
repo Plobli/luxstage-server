@@ -67,7 +67,7 @@
   <Dialog :open="fromTemplateDialogOpen" @update:open="val => emit('update:fromTemplateDialogOpen', val)">
     <DialogContent class="sm:max-w-md">
       <DialogHeader>
-        <DialogTitle>{{ fromTemplateScope === 'bars' ? t('from_template.bars.title') : t('from_template.towers.title') }}</DialogTitle>
+        <DialogTitle>{{ fromTemplateScope === 'battens' ? t('from_template.battens.title') : t('from_template.towers.title') }}</DialogTitle>
       </DialogHeader>
       <DialogBody>
         <div v-if="fromTemplateItemsLoading" class="text-sm text-muted-foreground">…</div>
@@ -95,9 +95,9 @@
               />
               <span class="flex-1 min-w-0">
                 <span class="text-sm font-medium text-foreground">{{ item.name }}</span>
-                <span v-if="fromTemplateScope === 'bars'" class="text-xs text-muted-foreground ml-2">
-                  <span v-if="item.zug_nr">{{ t('from_template.bar.zug', { nr: item.zug_nr }) }} · </span>{{ formatLength(item.length_cm) }}
-                  <span v-if="item._fixtureCount" class="ml-1">· {{ t('from_template.bar.fixtures', { count: item._fixtureCount }) }}</span>
+                <span v-if="fromTemplateScope === 'battens'" class="text-xs text-muted-foreground ml-2">
+                  <span v-if="item.batten_nr">{{ t('from_template.batten.nr', { nr: item.batten_nr }) }} · </span>{{ formatLength(item.length_cm) }}
+                  <span v-if="item._fixtureCount" class="ml-1">· {{ t('from_template.batten.fixtures', { count: item._fixtureCount }) }}</span>
                 </span>
                 <span v-else class="text-xs text-muted-foreground ml-2">
                   <span v-if="item.side">{{ item.side }} · </span>
@@ -117,8 +117,8 @@
             <label for="withChannelsCb" class="flex flex-col gap-0.5 cursor-pointer">
               <span class="text-sm font-medium text-foreground">{{ t('from_template.with_channels') }}</span>
               <span class="text-xs text-muted-foreground">
-                {{ fromTemplateScope === 'bars'
-                  ? t('from_template.with_channels.bars.desc')
+                {{ fromTemplateScope === 'battens'
+                  ? t('from_template.with_channels.battens.desc')
                   : t('from_template.with_channels.towers.desc') }}
               </span>
             </label>

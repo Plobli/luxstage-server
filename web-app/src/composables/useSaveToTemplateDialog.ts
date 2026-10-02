@@ -1,11 +1,11 @@
 import { ref, watch } from 'vue'
 
-// Kapselt das "Als Vorlage speichern"-Dialog-Pattern, das GassenturmView (Towers)
-// und ZugstangenView (Bars) identisch implementieren: Dialog öffnen, Namenskonflikt
+// Kapselt das "Als Vorlage speichern"-Dialog-Pattern, das LightingTowerView (Towers)
+// und FlySystemView (Battens) identisch implementieren: Dialog öffnen, Namenskonflikt
 // gegen bestehende Templates prüfen, auf Bestätigung speichern.
 //
 // defaultFields: Startzustand der Checkbox-Auswahl (unterscheidet sich je Domäne,
-// z.B. Towers ohne 'position'/'notes', Bars mit).
+// z.B. Towers ohne 'position'/'notes', Battens mit).
 export function useSaveToTemplateDialog<TItem extends { id: string; name: string }, TFields extends Record<string, boolean>>(
   saveToTemplateFn: ((item: TItem, fields: TFields, name: string) => Promise<void>) | null | undefined,
   fetchTemplateNamesFn: (() => Promise<string[]>) | null | undefined,

@@ -5,15 +5,15 @@ import './helpers/test-env.js'
 
 const { getDb } = await import('../db-context.js')
 const { createShow } = await import('../db/shows.js')
-const { writeBar } = await import('../db/bars.js')
+const { writeBatten } = await import('../db/battens.js')
 const { writeTower } = await import('../db/towers.js')
 const { writeTemplate } = await import('../db/templates.js')
 const { saveShowItemsToTemplate } = await import('../db/template-save-from-show.js')
 const { showRoutes } = await import('../routes/shows.js')
 
-function templateBarsByName(templateName) {
+function templateBattensByName(templateName) {
   const tpl = getDb().prepare('SELECT * FROM templates WHERE name = ?').get(templateName)
-  return getDb().prepare('SELECT * FROM template_bars WHERE template_id = ?').all(tpl.id)
+  return getDb().prepare('SELECT * FROM template_battens WHERE template_id = ?').all(tpl.id)
 }
 
 function templateTowersByName(templateName) {
@@ -21,17 +21,17 @@ function templateTowersByName(templateName) {
   return getDb().prepare('SELECT * FROM template_towers WHERE template_id = ?').all(tpl.id)
 }
 
-test('saveShowItemsToTemplate führt zwei gleichnamige Show-Bars zu einem Template-Eintrag zusammen statt Duplikate anzulegen', () => {
-  createShow('to-template-dup-bars', { name: 'Dup-Bars-Test', importSections: false })
-  writeTemplate('tpl-dup-bars', [])
-  const bar1 = writeBar('to-template-dup-bars', { name: 'Zugstange 1' })
-  const bar2 = writeBar('to-template-dup-bars', { name: 'Zugstange 1' }) // bewusst gleicher Name, andere id
+test('saveShowItemsToTemplate führt zwei gleichnamige Show-Battens zu einem Template-Eintrag zusammen statt Duplikate anzulegen', () => {
+  createShow('to-template-dup-battens', { name: 'Dup-Battens-Test', importSections: false })
+  writeTemplate('tpl-dup-battens', [])
+  const batten1 = writeBatten('to-template-dup-battens', { name: 'Batten 1' })
+  const batten2 = writeBatten('to-template-dup-battens', { name: 'Batten 1' }) // bewusst gleicher Name, andere id
 
-  saveShowItemsToTemplate('tpl-dup-bars', 'to-template-dup-bars', 'bars', [bar1, bar2], {}, null)
+  saveShowItemsToTemplate('tpl-dup-battens', 'to-template-dup-battens', 'battens', [batten1, batten2], {}, null)
 
-  const tplBars = templateBarsByName('tpl-dup-bars')
-  assert.equal(tplBars.length, 1, 'zwei gleichnamige Show-Bars dürfen nur einen Template-Eintrag erzeugen')
-  assert.equal(tplBars[0].name, 'Zugstange 1')
+  const tplBattens = templateBattensByName('tpl-dup-battens')
+  assert.equal(tplBattens.length, 1, 'zwei gleichnamige Show-Battens dürfen nur einen Template-Eintrag erzeugen')
+  assert.equal(tplBattens[0].name, 'Batten 1')
 })
 
 test('saveShowItemsToTemplate führt zwei gleichnamige Show-Towers zu einem Template-Eintrag zusammen statt Duplikate anzulegen', () => {
@@ -67,38 +67,38 @@ function createResponseLocal() {
 test('POST /api/shows/:slug/to-template lehnt overrideName bei mehr als einem ausgewählten Element mit 400 ab', async () => {
   createShow('to-template-override-multi', { name: 'Override-Multi-Test', importSections: false })
   writeTemplate('tpl-override-multi', [])
-  const bar1 = writeBar('to-template-override-multi', { name: 'A' })
-  const bar2 = writeBar('to-template-override-multi', { name: 'B' })
+  const batten1 = writeBatten('to-template-override-multi', { name: 'A' })
+  const batten2 = writeBatten('to-template-override-multi', { name: 'B' })
 
   const res = createResponseLocal()
   await showRoutes(
     jsonRequest('POST', { username: 'tester' }, {
-      templateName: 'tpl-override-multi', scope: 'bars', selectedIds: [bar1, bar2], overrideName: 'Kollision',
+      templateName: 'tpl-override-multi', scope: 'battens', selectedIds: [batten1, batten2], overrideName: 'Kollision',
     }),
     res,
     '/api/shows/to-template-override-multi/to-template'
   )
 
   assert.equal(res.status, 400)
-  assert.equal(templateBarsByName('tpl-override-multi').length, 0, 'bei abgelehnter Anfrage darf kein Template-Eintrag entstehen')
+  assert.equal(templateBattensByName('tpl-override-multi').length, 0, 'bei abgelehnter Anfrage darf kein Template-Eintrag entstehen')
 })
 
 test('POST /api/shows/:slug/to-template erlaubt overrideName bei genau einem ausgewählten Element', async () => {
   createShow('to-template-override-single', { name: 'Override-Single-Test', importSections: false })
   writeTemplate('tpl-override-single', [])
-  const bar1 = writeBar('to-template-override-single', { name: 'Original' })
+  const batten1 = writeBatten('to-template-override-single', { name: 'Original' })
 
   const res = createResponseLocal()
   await showRoutes(
     jsonRequest('POST', { username: 'tester' }, {
-      templateName: 'tpl-override-single', scope: 'bars', selectedIds: [bar1], overrideName: 'Umbenannt',
+      templateName: 'tpl-override-single', scope: 'battens', selectedIds: [batten1], overrideName: 'Umbenannt',
     }),
     res,
     '/api/shows/to-template-override-single/to-template'
   )
 
   assert.equal(res.status, 200)
-  const tplBars = templateBarsByName('tpl-override-single')
-  assert.equal(tplBars.length, 1)
-  assert.equal(tplBars[0].name, 'Umbenannt')
+  const tplBattens = templateBattensByName('tpl-override-single')
+  assert.equal(tplBattens.length, 1)
+  assert.equal(tplBattens[0].name, 'Umbenannt')
 })

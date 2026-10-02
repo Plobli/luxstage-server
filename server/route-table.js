@@ -6,14 +6,14 @@ import { planScanRoutes } from './routes/plan-scan.js'
 import { photoRoutes } from './routes/photos.js'
 import { sectionRoutes } from './routes/sections.js'
 import { templateRoutes } from './routes/templates.js'
-import { floorplanRoutes } from './routes/floorplan.js'
+import { drawingPlanRoutes } from './routes/drawing-plan.js'
 import { historyRoutes } from './routes/history.js'
 import { systemRoutes } from './routes/system.js'
 import { smtpRoutes } from './routes/smtp.js'
 import { displayRoutes } from './routes/display.js'
 import { pdfRoutes } from './routes/pdf.js'
 import { towerRoutes } from './routes/towers.js'
-import { barRoutes } from './routes/bars.js'
+import { battenRoutes } from './routes/battens.js'
 import { networkRoutes } from './routes/network.js'
 import { diagnosticsRoutes } from './routes/diagnostics.js'
 
@@ -54,7 +54,7 @@ export const API_ROUTE_HANDLERS = [
   { matches: pathname => pathname.startsWith('/api/me/') || pathname.startsWith('/api/users') || pathname === '/api/self-register', handler: userRoutes },
   { matches: pathname => pathname.startsWith('/api/smtp'), handler: smtpRoutes },
   { matches: pathname => pathname.startsWith('/api/settings/'), handler: displayRoutes },
-  { matches: pathname => pathname.startsWith('/api/floorplans/'), handler: floorplanRoutes },
+  { matches: pathname => pathname.startsWith('/api/drawing-plans/'), handler: drawingPlanRoutes },
   { matches: pathname => pathname.startsWith('/api/templates'), handler: templateRoutes },
   { matches: pathname => pathname.startsWith('/api/channels/color-usage'), handler: channelStatsRoutes },
   { matches: pathname => pathname.startsWith('/api/network/'), handler: networkRoutes },
@@ -68,9 +68,9 @@ export const SHOW_ROUTE_HANDLERS = [
   { matches: pathname => /\/plan-scan$/.test(pathname), handler: planScanRoutes },
   { matches: pathname => /\/photos(\/|$)|\/photo-/.test(pathname), handler: photoRoutes },
   { matches: pathname => /\/sections(\/|$)|\/section-defs/.test(pathname), handler: sectionRoutes },
-  { matches: pathname => /\/floorplan(\/|$)/.test(pathname), handler: floorplanRoutes },
+  { matches: pathname => /\/drawing-plan(\/|$)/.test(pathname), handler: drawingPlanRoutes },
   { matches: pathname => /\/towers(\/|$)/.test(pathname), handler: towerRoutes },
-  { matches: pathname => /\/bars(\/|$)/.test(pathname), handler: barRoutes },
+  { matches: pathname => /\/battens(\/|$)/.test(pathname), handler: battenRoutes },
   { matches: pathname => /\/history(\/|$)/.test(pathname), handler: historyRoutes },
   { matches: pathname => /\/pdf$/.test(pathname), handler: pdfRoutes },
 ]

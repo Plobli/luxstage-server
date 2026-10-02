@@ -11,7 +11,7 @@
     </div>
     <div class="px-6 pt-4 flex flex-col gap-5 overflow-y-auto" :style="{ height: height + 'px' }">
 
-    <div v-if="!gassenturmEntries.length && !hangereiEntries.length" class="flex flex-col items-center justify-center gap-3 py-20 text-center px-8">
+    <div v-if="!lightingTowerEntries.length && !flySystemEntries.length" class="flex flex-col items-center justify-center gap-3 py-20 text-center px-8">
       <Cpu class="size-7 text-muted-foreground/40" />
       <div>
         <p class="text-base font-medium text-foreground/70">{{ t('generated.empty') }}</p>
@@ -19,11 +19,11 @@
       </div>
     </div>
 
-    <template v-if="gassenturmEntries.length">
+    <template v-if="lightingTowerEntries.length">
       <div class="flex flex-col gap-1.5">
         <p class="text-base font-bold text-foreground mt-2 mb-1">{{ t('tab.towers') }}</p>
         <div
-          v-for="entry in gassenturmEntries"
+          v-for="entry in lightingTowerEntries"
           :key="entry.name"
           class="text-sm text-foreground/80 leading-relaxed select-all"
         >
@@ -32,11 +32,11 @@
       </div>
     </template>
 
-    <template v-if="hangereiEntries.length">
+    <template v-if="flySystemEntries.length">
       <div class="flex flex-col gap-1.5">
-        <p class="text-base font-bold text-foreground mt-2 mb-1">{{ t('tab.obermaschinerie') }}</p>
+        <p class="text-base font-bold text-foreground mt-2 mb-1">{{ t('tab.fly_system') }}</p>
         <div
-          v-for="entry in hangereiEntries"
+          v-for="entry in flySystemEntries"
           :key="entry.name"
           class="text-sm text-foreground/80 leading-relaxed select-all"
         >
@@ -57,8 +57,8 @@ import { api } from '@/api/client.js'
 const { t } = useLocale()
 
 defineProps({
-  gassenturmEntries: { type: Array, default: () => [] },
-  hangereiEntries: { type: Array, default: () => [] },
+  lightingTowerEntries: { type: Array, default: () => [] },
+  flySystemEntries: { type: Array, default: () => [] },
 })
 
 const HEIGHT_MIN = 150

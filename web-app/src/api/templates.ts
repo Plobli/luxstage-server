@@ -28,7 +28,7 @@ export async function saveTemplate(name: string, channels: Channel[]): Promise<{
   return api.put(`/api/templates/${encodeURIComponent(name)}`, channels)
 }
 
-export async function applyTemplateToAllShows(name: string, scope: 'bars' | 'sections'): Promise<{ ok: boolean, shows: number, barsAdded: number, sectionsAdded: number }> {
+export async function applyTemplateToAllShows(name: string, scope: 'battens' | 'sections'): Promise<{ ok: boolean, shows: number, battensAdded: number, sectionsAdded: number }> {
   return api.post(`/api/templates/${encodeURIComponent(name)}/apply-to-shows`, { scope })
 }
 

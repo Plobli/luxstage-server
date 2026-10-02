@@ -62,9 +62,9 @@
             <span class="text-sm flex-1">{{ t('tab.towers') }}</span>
           </label>
           <label class="flex items-center gap-3 rounded-lg border border-border px-4 py-3 cursor-pointer select-none hover:bg-muted/50">
-            <Checkbox v-model="form.use_bars" />
+            <Checkbox v-model="form.use_battens" />
             <AlignJustify class="size-4 text-muted-foreground" />
-            <span class="text-sm flex-1">{{ t('tab.bars') }}</span>
+            <span class="text-sm flex-1">{{ t('tab.fly_system') }}</span>
           </label>
 
           <template v-if="form.template !== '__none__' && templateSections.length">
@@ -90,19 +90,19 @@
         </div>
 
         <!-- Obermaschinerie einzeln auswählen -->
-        <div v-else-if="currentStep.id === 'bars'" class="flex flex-col gap-2">
-          <p class="text-sm text-muted-foreground mb-1">{{ t('show.wizard.bars.hint') }}</p>
+        <div v-else-if="currentStep.id === 'battens'" class="flex flex-col gap-2">
+          <p class="text-sm text-muted-foreground mb-1">{{ t('show.wizard.battens.hint') }}</p>
           <div class="flex flex-wrap gap-2">
             <button
-              v-for="bar in templateBars"
-              :key="bar.id"
+              v-for="batten in templateBattens"
+              :key="batten.id"
               type="button"
               class="flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm transition-colors select-none"
-              :class="selectedBarIds.has(bar.id) ? 'border-accent bg-accent/10 text-foreground' : 'border-border text-muted-foreground hover:bg-muted/50'"
-              @click="toggleSelection('bars', bar.id)"
+              :class="selectedBattenIds.has(batten.id) ? 'border-accent bg-accent/10 text-foreground' : 'border-border text-muted-foreground hover:bg-muted/50'"
+              @click="toggleSelection('battens', batten.id)"
             >
-              <Check v-if="selectedBarIds.has(bar.id)" class="size-3.5 shrink-0" />
-              <span class="truncate max-w-40">{{ bar.name }}</span>
+              <Check v-if="selectedBattenIds.has(batten.id)" class="size-3.5 shrink-0" />
+              <span class="truncate max-w-40">{{ batten.name }}</span>
             </button>
           </div>
         </div>
@@ -196,8 +196,8 @@ const { t } = useLocale()
 // das Anlegen der Show laufen über useShowWizard.js, damit die Komponente
 // ohne laufenden Server darstellbar bleibt (F-04).
 const {
-  form, templateSections, templateBars, templateTowers,
-  selectedSectionIds, selectedBarIds, selectedTowerIds,
+  form, templateSections, templateBattens, templateTowers,
+  selectedSectionIds, selectedBattenIds, selectedTowerIds,
   creating, toggleSelection, reset: resetWizard, createShowFromWizard,
 } = useShowWizard()
 
@@ -211,7 +211,7 @@ watch(() => props.open, (isOpen) => {
 })
 
 // Dynamische Schrittliste: Auswahl-Schritte erscheinen nur, wenn eine Vorlage
-// gewählt ist, der jeweilige Bereich aktiviert ist (bars/towers) und die
+// gewählt ist, der jeweilige Bereich aktiviert ist (battens/towers) und die
 // Vorlage überhaupt Einträge dafür hat. Sections haben keinen eigenen
 // Schritt mehr, sondern werden direkt im "areas"-Schritt mit ausgewählt.
 const steps = computed(() => {
@@ -221,8 +221,8 @@ const steps = computed(() => {
     { id: 'info', labelKey: 'show.wizard.step.info' },
     { id: 'areas', labelKey: 'show.wizard.step.areas' },
   ]
-  if (hasTemplate && form.value.use_bars && templateBars.value.length) {
-    list.push({ id: 'bars', labelKey: 'show.wizard.step.bars' })
+  if (hasTemplate && form.value.use_battens && templateBattens.value.length) {
+    list.push({ id: 'battens', labelKey: 'show.wizard.step.battens' })
   }
   if (hasTemplate && form.value.use_towers && templateTowers.value.length) {
     list.push({ id: 'towers', labelKey: 'show.wizard.step.towers' })
@@ -248,7 +248,7 @@ const nextLabel = computed(() => {
 const areasSummary = computed(() => {
   const parts = []
   if (form.value.use_towers) parts.push(t('tab.towers'))
-  if (form.value.use_bars) parts.push(t('tab.bars'))
+  if (form.value.use_battens) parts.push(t('tab.fly_system'))
   return parts.length ? parts.join(', ') : t('show.wizard.areas.none')
 })
 
@@ -256,7 +256,7 @@ const importSummary = computed(() => {
   const parts = []
   if (form.value.importChannels) parts.push(t('show.channels'))
   if (form.value.use_towers && selectedTowerIds.value.size) parts.push(t('show.wizard.templateImport.towers.count', { count: selectedTowerIds.value.size }))
-  if (form.value.use_bars && selectedBarIds.value.size) parts.push(t('show.wizard.templateImport.bars.count', { count: selectedBarIds.value.size }))
+  if (form.value.use_battens && selectedBattenIds.value.size) parts.push(t('show.wizard.templateImport.battens.count', { count: selectedBattenIds.value.size }))
   if (selectedSectionIds.value.size) parts.push(t('show.wizard.templateImport.sections.count', { count: selectedSectionIds.value.size }))
   return parts.length ? parts.join(', ') : t('show.wizard.areas.none')
 })

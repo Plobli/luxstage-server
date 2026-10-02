@@ -72,7 +72,7 @@ test('withUndoSnapshot speichert den Vorher-Zustand als einen Full-Snapshot', ()
 test('Redo-Stack ist persistent (DB-Tabelle, keine In-Memory-Struktur)', () => {
   createShow('test-show-redo', { name: 'Redo-Test', importSections: false })
   const show = readShow('test-show-redo')
-  const state = { channels: [{ channel: '1', notes: 'nach redo' }], sectionDefs: [], sections: [], towers: [], bars: [] }
+  const state = { channels: [{ channel: '1', notes: 'nach redo' }], sectionDefs: [], sections: [], towers: [], battens: [] }
 
   pushRedo(show.id, state)
   // Beweis der Persistenz: popRedo liest ausschließlich aus der redo_stack-Tabelle
@@ -125,7 +125,7 @@ test('Undo lehnt einen manipulierten Snapshot ab statt ihn stillschweigend anzuw
   const show = readShow('test-show-hashcheck')
 
   // Manipulierten Snapshot direkt in die DB schreiben (simuliert Datenkorruption)
-  const fakeState = { channels: [{ channel: '999' }], sectionDefs: [], sections: [], towers: [], bars: [] }
+  const fakeState = { channels: [{ channel: '999' }], sectionDefs: [], sections: [], towers: [], battens: [] }
   const conn = dbCtx.getDb()
   conn.prepare(`
     INSERT INTO operations (id, show_id, created_at, performed_by, snapshot, hash)

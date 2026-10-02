@@ -3,7 +3,7 @@ import { ref, computed } from 'vue'
 // Elemente-Tabelle in NetworkView.vue: Raum-Gruppierung/Ein-Klappen, Suche und die
 // UI-lokalen Zustände für neu angelegte Elemente/Raum-Inline-Editing. Bewusst NICHT
 // hier: createNode/updateNode/removeNode selbst (kommen aus useNetworkGraph, analog
-// useShowBars/useShowTowers) — dieser Composable bündelt nur die Tabellen-UI darüber.
+// useShowBattens/useShowTowers) — dieser Composable bündelt nur die Tabellen-UI darüber.
 
 export function useNetworkElementsTable(nodes, nodesById, graph, createNode, t) {
   const roomOptions = computed(() => [...new Set(nodes.value.map(n => n.room).filter(Boolean))].sort())

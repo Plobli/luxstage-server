@@ -108,8 +108,8 @@
             <span class="text-sm">{{ t('tab.towers') }}</span>
           </label>
           <label class="flex items-center gap-2 cursor-pointer select-none">
-            <Checkbox v-model="editMeta.use_bars" />
-            <span class="text-sm">{{ t('tab.bars') }}</span>
+            <Checkbox v-model="editMeta.use_battens" />
+            <span class="text-sm">{{ t('tab.fly_system') }}</span>
           </label>
         </div>
       </DialogBody>
@@ -169,7 +169,7 @@ const circuitScanInput = ref(null)
 const planScanInput = ref(null)
 const metaDialogOpen = ref(false)
 const importModalOpen = ref(false)
-const editMeta = ref({ name: '', datum: '', spielzeit: '', use_bars: true, use_towers: true })
+const editMeta = ref({ name: '', datum: '', spielzeit: '', use_battens: true, use_towers: true })
 
 const editingName = ref(false)
 const nameDraft = ref('')
@@ -199,7 +199,7 @@ function openMetaDialog() {
     name: props.showName ?? '',
     datum: props.showMeta.datum ?? '',
     spielzeit: props.showMeta.spielzeit ?? '',
-    use_bars: props.showMeta.use_bars !== false,
+    use_battens: props.showMeta.use_battens !== false,
     use_towers: props.showMeta.use_towers !== false,
   }
   metaDialogOpen.value = true

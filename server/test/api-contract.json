@@ -45,7 +45,7 @@
           "spielzeit": "string",
           "template": "null",
           "updated_at": "number",
-          "use_bars": "number",
+          "use_battens": "number",
           "use_towers": "number"
         }
       ]
@@ -79,7 +79,7 @@
         "setupMarkdown": "string",
         "spielzeit": "string",
         "template": "null",
-        "use_bars": "boolean",
+        "use_battens": "boolean",
         "use_towers": "boolean"
       }
     },
@@ -150,11 +150,11 @@
       "status": 200,
       "shape": {}
     },
-    "GET /api/shows/:id/bars": {
+    "GET /api/shows/:id/battens": {
       "status": 200,
       "shape": [
         {
-          "bar_type": "string",
+          "batten_type": "string",
           "created_at": "number",
           "fixtures": [
             "leer"
@@ -168,7 +168,7 @@
           "scale_origin": "string",
           "show_id": "string",
           "sort_order": "number",
-          "zug_nr": "string"
+          "batten_nr": "string"
         }
       ]
     },
@@ -197,7 +197,7 @@
         }
       ]
     },
-    "GET /api/shows/:id/floorplan": {
+    "GET /api/shows/:id/drawing-plan": {
       "status": 200,
       "shape": {
         "canvas_data": "null",
@@ -224,10 +224,10 @@
     }
   },
   "sseEvents": [
-    "bars-updated",
+    "battens-updated",
     "channels-updated",
     "checks-updated",
-    "floorplan-updated",
+    "drawing-plan-updated",
     "lock-status-updated",
     "presence-updated",
     "sections-updated",

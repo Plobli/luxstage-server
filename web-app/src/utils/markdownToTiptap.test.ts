@@ -31,7 +31,7 @@ describe('markdownToTiptapDoc', () => {
   })
 
   test('Round-Trip: JSON.stringify(doc) wird von der Editor-Parse-Logik undestruktiv geparst', () => {
-    const markdown = '# Zugstangen\n\nBar 3 auf 6,00m.\n\n- Zug 12: 5,50m\n- Zug 14: 6,20m'
+    const markdown = '# FlySystem\n\nBatten 3 auf 6,00m.\n\n- Zug 12: 5,50m\n- Zug 14: 6,20m'
     const doc = markdownToTiptapDoc(markdown)
     const serialized = JSON.stringify(doc)
     const parsed = simulateEditorParse(serialized)

@@ -8,8 +8,9 @@ import { getDb } from '../db-context.js'
 import { readChannels, restoreChannels } from './channels.js'
 import { readShowSectionDefs, writeShowSectionDefs, readShowSections, writeShowSections } from './sections.js'
 import { readTowers, restoreTowers } from './towers.js'
-import { readBars, restoreBars } from './bars.js'
-import { readFloorplanForState, restoreFloorplan } from './floorplan.js'
+import { readBattens, restoreBattens } from './battens.js'
+import { readDrawingPlanForState, restoreDrawingPlan } from './drawing-plan.js'
+import { upgradeLegacyNames } from './legacy-names.js'
 
 export function readFullShowState(slug) {
   const sections = readShowSections(slug)
@@ -18,7 +19,7 @@ export function readFullShowState(slug) {
       const normalized = {
         // id bewusst mitgeschnitten (anders als bei anderen Feldern hier
         // kein reiner Anzeigewert): restoreChannels() braucht die exakte
-        // Snapshot-id, damit Tower-/Bar-Slots, die per channel_id auf diesen
+        // Snapshot-id, damit Tower-/Batten-Slots, die per channel_id auf diesen
         // Kanal verweisen, nach einem Restore nicht auf eine inzwischen
         // durch Löschen+Neuanlage vergebene andere id zeigen.
         id: ch.id,
@@ -37,19 +38,32 @@ export function readFullShowState(slug) {
     sectionDefs: readShowSectionDefs(slug),
     sections: [...sections.entries()].map(([id, content]) => ({ id, content })),
     towers: readTowers(slug),
-    bars: readBars(slug),
-    floorplan: readFloorplanForState(slug),
+    battens: readBattens(slug),
+    drawingPlan: readDrawingPlanForState(slug),
   }
 }
 
-export function writeFullShowState(slug, state, username) {
+// Snapshots aus der Zeit vor der Umbenennung (bars/floorplan) tragen noch alte Namen.
+function upgradeLegacyState(state) {
+  if (state.bars === undefined && state.floorplan === undefined) return state
+  const { bars, floorplan, ...rest } = state
+  return {
+    ...rest,
+    channels: upgradeLegacyNames(rest.channels),
+    battens: upgradeLegacyNames(bars),
+    drawingPlan: upgradeLegacyNames(floorplan),
+  }
+}
+
+export function writeFullShowState(slug, legacyState, username) {
+  const state = upgradeLegacyState(legacyState)
   const tx = getDb().transaction(() => {
     restoreChannels(slug, state.channels, username)
     writeShowSectionDefs(slug, state.sectionDefs, username)
     writeShowSections(slug, new Map(state.sections.map(s => [s.id, s.content])), username)
     restoreTowers(slug, state.towers)
-    restoreBars(slug, state.bars)
-    restoreFloorplan(slug, state.floorplan)
+    restoreBattens(slug, state.battens)
+    restoreDrawingPlan(slug, state.drawingPlan)
   })
   tx()
 }

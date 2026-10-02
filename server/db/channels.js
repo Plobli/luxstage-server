@@ -153,7 +153,7 @@ export function reorderChannels(slug, ids, editedBy = null) {
  *  jeder Kanal-Zeile 1:1 statt sie per Kanalnummer gegen die aktuelle DB neu
  *  zuzuordnen. writeChannels' Nummer-Mapping ist für reguläre Importe (CSV/EOS)
  *  richtig, bricht bei Restore aber die channel_id-Fremdschlüssel in
- *  tower_slots/bar_fixtures, falls ein Kanal zwischen Snapshot und Restore
+ *  tower_slots/batten_fixtures, falls ein Kanal zwischen Snapshot und Restore
  *  gelöscht+neu angelegt wurde (neue id, alte id in Snapshot-Slots verwaist).
  *  Snapshots ohne `id` (aus einer Zeit vor diesem Feld) bekommen wie bisher
  *  eine frische UUID — kein Bruch für ältere Undo-Historie. */

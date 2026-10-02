@@ -73,7 +73,7 @@ test('verifySnapshot meldet fehlenden Snapshot', async () => {
   assert.equal(result.error, 'Snapshot nicht gefunden')
 })
 
-test('Snapshot sichert und stellt Datei-Ordner (photos/floorplans) mit wieder her', async () => {
+test('Snapshot sichert und stellt Datei-Ordner (photos/drawing-plans) mit wieder her', async () => {
   const dir = tenantDir(tenantId)
   const photosDir = path.join(dir, 'photos')
   fs.mkdirSync(photosDir, { recursive: true })

@@ -9,7 +9,7 @@ export function useShowTabs(showId, subTabs, { onLeaveChannels }) {
   const isTimedOut = Date.now() - Number(localStorage.getItem(tabTimeKey) || 0) > TAB_TIMEOUT_MS
 
   const mobileTab = ref(isTimedOut ? 'channels' : (sessionStorage.getItem(tabKey) || 'channels'))
-  const aufbauTab = ref(isTimedOut ? null : (sessionStorage.getItem(subTabKey) ?? null))
+  const setupPlanTab = ref(isTimedOut ? null : (sessionStorage.getItem(subTabKey) ?? null))
   const visitedTabs = ref(new Set([mobileTab.value]))
 
   if (!localStorage.getItem(tabTimeKey)) localStorage.setItem(tabTimeKey, String(Date.now()))
@@ -18,17 +18,17 @@ export function useShowTabs(showId, subTabs, { onLeaveChannels }) {
   watch(mobileTab, tab => {
     sessionStorage.setItem(tabKey, tab)
     localStorage.setItem(tabTimeKey, String(Date.now()))
-    if (tab === 'floorplan' || (tab === 'gassenturm' && !aufbauTab.value)) {
-      aufbauTab.value = subTabs.value[0]?.key ?? null
+    if (tab === 'drawingPlan' || (tab === 'setup' && !setupPlanTab.value)) {
+      setupPlanTab.value = subTabs.value[0]?.key ?? null
     }
     if (tab !== 'channels') onLeaveChannels()
   })
-  watch(aufbauTab, tab => {
+  watch(setupPlanTab, tab => {
     if (tab) sessionStorage.setItem(subTabKey, tab)
   })
   watch(subTabs, tabs => {
-    if (!tabs.find(tab => tab.key === aufbauTab.value)) {
-      aufbauTab.value = tabs[0]?.key ?? null
+    if (!tabs.find(tab => tab.key === setupPlanTab.value)) {
+      setupPlanTab.value = tabs[0]?.key ?? null
     }
   })
 
@@ -36,5 +36,5 @@ export function useShowTabs(showId, subTabs, { onLeaveChannels }) {
     return visitedTabs.value.has(tab)
   }
 
-  return { mobileTab, aufbauTab, tabMounted }
+  return { mobileTab, setupPlanTab, tabMounted }
 }

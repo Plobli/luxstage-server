@@ -9,10 +9,10 @@ import {
 import { applyTemplateToAllShows } from '../db/template-apply-to-show.js'
 import { readTemplateSections, writeTemplateSections, deleteTemplateSections } from '../db/template-sections.js'
 import { acquireResourceLock, releaseResourceLock, touchResourceLock, getResourceLock } from '../db/resource-locks.js'
-import { templateBarRoutes } from './template-bars.js'
+import { templateBattenRoutes } from './template-battens.js'
 import { templateTowerRoutes } from './template-towers.js'
 import { templateSectionRoutes } from './template-sections.js'
-import { templateFloorplanRoutes } from './template-floorplan.js'
+import { templateDrawingPlanRoutes } from './template-drawing-plan.js'
 
 const TPL_LIST     = /^\/api\/templates$/
 const TPL_CHANNELS = /^\/api\/templates\/([^/]+)\/channels$/
@@ -25,8 +25,8 @@ export async function templateRoutes(req, res, pathname) {
   const { method } = req
   let m
 
-  if (/\/bars(\/|$)/.test(pathname)) {
-    const result = await templateBarRoutes(req, res, pathname)
+  if (/\/battens(\/|$)/.test(pathname)) {
+    const result = await templateBattenRoutes(req, res, pathname)
     if (result !== null) return result
   }
   if (/\/towers(\/|$)/.test(pathname)) {
@@ -37,8 +37,8 @@ export async function templateRoutes(req, res, pathname) {
     const result = await templateSectionRoutes(req, res, pathname)
     if (result !== null) return result
   }
-  if (/\/floorplan(\/|$)/.test(pathname)) {
-    const result = await templateFloorplanRoutes(req, res, pathname)
+  if (/\/drawing-plan(\/|$)/.test(pathname)) {
+    const result = await templateDrawingPlanRoutes(req, res, pathname)
     if (result !== null) return result
   }
 
@@ -88,8 +88,8 @@ export async function templateRoutes(req, res, pathname) {
     if (method === 'POST') {
       const user = req.user
       const body = await readJsonBody(req, res); if (body === null) return
-      const validScopes = ['bars', 'towers', 'sections']
-      const scope = validScopes.includes(body.scope) ? body.scope : 'bars'
+      const validScopes = ['battens', 'towers', 'sections']
+      const scope = validScopes.includes(body.scope) ? body.scope : 'battens'
       try {
         const stats = await applyTemplateToAllShows(templateName, scope)
         return json(res, 200, { ok: true, ...stats })

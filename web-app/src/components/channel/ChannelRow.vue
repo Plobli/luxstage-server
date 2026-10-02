@@ -144,14 +144,14 @@
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" class="w-52">
-              <DropdownMenuItem @click="emit('placeInFloorplan', ch)">
-                <MapPin class="size-3.5 mr-2 shrink-0" />{{ t('channel.row.place_floorplan') }}
+              <DropdownMenuItem @click="emit('placeInDrawingPlan', ch)">
+                <MapPin class="size-3.5 mr-2 shrink-0" />{{ t('channel.row.place_drawing_plan') }}
               </DropdownMenuItem>
               <DropdownMenuItem @click="emit('assignTower', ch)">
                 <TowerControl class="size-3.5 mr-2 shrink-0" />{{ t('channel.row.assign_tower') }}
               </DropdownMenuItem>
-              <DropdownMenuItem @click="emit('assignBar', ch)">
-                <AlignJustify class="size-3.5 mr-2 shrink-0" />{{ t('channel.row.assign_bar') }}
+              <DropdownMenuItem @click="emit('assignBatten', ch)">
+                <AlignJustify class="size-3.5 mr-2 shrink-0" />{{ t('channel.row.assign_batten') }}
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -302,7 +302,7 @@ const props = defineProps({
 const emit = defineEmits([
   'change',
   'toggleStatus', 'delete', 'clear',
-  'placeInFloorplan', 'assignTower', 'assignBar',
+  'placeInDrawingPlan', 'assignTower', 'assignBatten',
   'update:selected',
   'selectDragStart', 'selectDragEnter',
   'cellDragStart', 'cellDragEnter', 'cellSync',
@@ -393,7 +393,7 @@ const mountRefLabel = computed(() => {
     const parts = [ref.towerName, ref.slotIndex != null ? `Slot ${ref.slotIndex}` : null].filter(Boolean)
     return parts.join(' · ') || 'Beleuchtungsgestell'
   }
-  if (ref.type === 'bar') return ref.barName ?? 'Zugstange'
+  if (ref.type === 'batten') return ref.battenName ?? 'Batten'
   if (ref.type === 'stage_object') return ref.objectName ?? 'Kulisse'
   return null
 })

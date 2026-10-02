@@ -1,5 +1,5 @@
 import * as photos from '../photos.js'
-import * as floorplan from '../floorplan.js'
+import * as drawingPlan from '../drawing-plan.js'
 import { notFound } from '../helpers.js'
 import { generatePDF, pdfFilename } from '../pdf.js'
 import { getDisplayUnit, getPhotosPerPage } from '../db/settings.js'
@@ -8,8 +8,8 @@ import { readChannels } from '../db/channels.js'
 import { readShowSections, readShowSectionDefs } from '../db/sections.js'
 import { readPhotoDescriptions } from '../db/photos.js'
 import { readTowers } from '../db/towers.js'
-import { readBars } from '../db/bars.js'
-import { getShowFloorplan, getTemplateFloorplan } from '../db/floorplan.js'
+import { readBattens } from '../db/battens.js'
+import { getShowDrawingPlan, getTemplateDrawingPlan } from '../db/drawing-plan.js'
 import { getTemplateByName } from '../db/templates.js'
 
 const SHOW_PDF = /^\/api\/shows\/([^/]+)\/pdf$/
@@ -34,17 +34,17 @@ export async function pdfRoutes(req, res, pathname, params) {
       caption: captionsMap[f]?.caption ?? '',
     }))
     const towers = readTowers(slug)
-    const bars = readBars(slug)
-    const floorplanRow = getShowFloorplan(show.id)
+    const battens = readBattens(slug)
+    const drawingPlanRow = getShowDrawingPlan(show.id)
     let imagePath = null
-    let canvasData = floorplanRow?.canvas_data ?? null
-    if (floorplanRow?.image_path) {
-      imagePath = floorplan.resolveFloorplanImagePath(floorplanRow.image_path)
+    let canvasData = drawingPlanRow?.canvas_data ?? null
+    if (drawingPlanRow?.image_path) {
+      imagePath = drawingPlan.resolveDrawingPlanImagePath(drawingPlanRow.image_path)
     } else if (show.template) {
       const tpl = getTemplateByName(show.template)
       if (tpl) {
-        const fp = getTemplateFloorplan(tpl.id)
-        if (fp?.image_path) imagePath = floorplan.resolveFloorplanImagePath(fp.image_path)
+        const fp = getTemplateDrawingPlan(tpl.id)
+        if (fp?.image_path) imagePath = drawingPlan.resolveDrawingPlanImagePath(fp.image_path)
         if (!canvasData && fp?.canvas_data) canvasData = fp.canvas_data
       }
     }
@@ -56,7 +56,7 @@ export async function pdfRoutes(req, res, pathname, params) {
     await generatePDF(
       {
         show, channels, sectionsMap, templateSections, photoEntries,
-        floorplan: { canvasData, imagePath, towers, bars },
+        drawingPlan: { canvasData, imagePath, towers, battens },
       },
       res,
       { unit, photosPerPage: getPhotosPerPage(), blank },

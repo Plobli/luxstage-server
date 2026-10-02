@@ -54,7 +54,7 @@
         :canUndo="canUndo"
         :canRedo="canRedo"
         :saving="channelsSaving || sectionsSaving || setupSaving"
-        :saveError="channelsSaveError || sectionsSaveError || floorplanSaveError"
+        :saveError="channelsSaveError || sectionsSaveError || drawingPlanSaveError"
         :lockedByOther="showLock.isLockedByOther.value"
         :forceTakeoverInSeconds="showLock.forceTakeoverInSeconds.value"
         :presentUsers="presentUsers"
@@ -175,9 +175,9 @@
               @deleteChannel="deleteChannel($event)"
               @clearChannel="clearChannel($event)"
               @reorder="channels.splice(0, channels.length, ...$event)"
-              @placeInFloorplan="onPlaceInFloorplan($event)"
+              @placeInDrawingPlan="onPlaceInDrawingPlan($event)"
               @assignTower="onAssignTower($event)"
-              @assignBar="onAssignBar($event)"
+              @assignBatten="onAssignBatten($event)"
             />
           </div>
         </div>
@@ -213,7 +213,7 @@
                 channelUnknown: t('photo.channel_unknown'),
                 channelPick: t('photo.channel_pick'),
                 channelSearchPlaceholder: t('photo.channel_search_placeholder'),
-                channelNone: t('gassenturm.channel.none'),
+                channelNone: t('lighting_tower.channel.none'),
                 channelPickMultiHint: t('photo.channel_pick_multi_hint'),
               }"
             />
@@ -224,58 +224,58 @@
           </label>
         </div>
 
-        <!-- Floorplan View -->
+        <!-- DrawingPlan View -->
         <div
-          v-if="tabMounted('floorplan')"
-          v-show="mobileTab === 'floorplan'"
+          v-if="tabMounted('drawingPlan')"
+          v-show="mobileTab === 'drawingPlan'"
           class="flex flex-col flex-1 min-h-0 overflow-hidden"
         >
           <div class="flex-1 min-h-0">
-            <FloorplanEditor
-              :image-url="floorplanImageUrl"
-              :initial-canvas-data="floorplan.canvas_data"
+            <DrawingPlanEditor
+              :image-url="drawingPlanImageUrl"
+              :initial-canvas-data="drawing_plan.canvas_data"
               :channels="channels"
               :towers="towers"
-              :bars="bars"
-              :pending-channel="pendingFloorplanChannel"
-              @change="onFloorplanChange"
-              @upload-image="onFloorplanImageUpload"
-              @delete-image="onFloorplanImageDelete"
+              :battens="battens"
+              :pending-channel="pendingDrawingPlanChannel"
+              @change="onDrawingPlanChange"
+              @upload-image="onDrawingPlanImageUpload"
+              @delete-image="onDrawingPlanImageDelete"
               @jump-to-channel="jumpToChannel"
-              @open-tower="openTowerFromFloorplan"
-              @open-bar="onOpenBarFromFloorplan"
+              @open-tower="openTowerFromDrawingPlan"
+              @open-batten="onOpenBattenFromDrawingPlan"
             />
           </div>
         </div>
 
         <!-- Aufbauplan View -->
         <div
-          v-if="tabMounted('gassenturm')"
-          v-show="mobileTab === 'gassenturm'"
+          v-if="tabMounted('setup')"
+          v-show="mobileTab === 'setup'"
           class="flex flex-col flex-1 min-h-0 overflow-hidden"
         >
-          <ShowAufbauTab
+          <ShowSetupPlanTab
             :showId="props.id"
-            :aufbauSubTabs="aufbauSubTabs"
-            :aufbauTab="aufbauTab"
-            :aufbauSectionId="aufbauSectionId"
+            :setupPlanSubTabs="setupPlanSubTabs"
+            :setupPlanTab="setupPlanTab"
+            :setupPlanSectionId="setupPlanSectionId"
             :sectionDefs="sectionDefs"
             :sectionContents="sectionContents"
             :setupMarkdown="setupMarkdown"
             :persistSectionDefs="persistSectionDefs"
-            :gassenturmGenerated="gassenturmGenerated"
-            :hangerei="hangerei"
+            :lightingTowerGenerated="lightingTowerGenerated"
+            :flySystem="flySystem"
             :meta="meta"
             :towers="towers"
-            :bars="bars"
+            :battens="battens"
             :channels="channels"
             :activeChannelForAssign="activeChannelForAssign"
             :saveTowerToTemplate="saveTowerToTemplate"
             :fetchTowerTemplateNames="fetchTowerTemplateNames"
-            :saveBarToTemplate="saveBarToTemplate"
-            :fetchBarTemplateNames="fetchBarTemplateNames"
+            :saveBattenToTemplate="saveBattenToTemplate"
+            :fetchBattenTemplateNames="fetchBattenTemplateNames"
             :openFromTemplateDialog="openFromTemplateDialog"
-            @update:aufbauTab="aufbauTab = $event"
+            @update:setupPlanTab="setupPlanTab = $event"
             @deleteSection="dialogs.deleteSection($event)"
             @update:sectionDefs="sectionDefs = $event"
             @update:sectionContents="sectionContents = $event"
@@ -423,9 +423,9 @@ import { useShowSections } from '../composables/useShowSections.js'
 import { useShowLock } from '../composables/useShowLock.js'
 import { useShowChannels } from '../composables/useShowChannels.js'
 import { usePhotoGallery } from '../composables/usePhotoGallery'
-import { useShowFloorplan } from '../composables/useShowFloorplan.js'
+import { useShowDrawingPlan } from '../composables/useShowDrawingPlan.js'
 import { useShowTowers } from '../composables/useShowTowers.js'
-import { useShowBars } from '../composables/useShowBars.js'
+import { useShowBattens } from '../composables/useShowBattens.js'
 import { useShowHistory } from '../composables/useShowHistory'
 import { useMeasureUnit } from '../composables/useMeasureUnit'
 import { useShowTabs } from '../composables/useShowTabs.js'
@@ -436,21 +436,21 @@ import ShowHeader from '../components/show/ShowHeader.vue'
 import CircuitScanPreviewDialog from '../components/show/CircuitScanPreviewDialog.vue'
 const ShowActionBar = defineAsyncComponent(() => import('../components/show/ShowActionBar.vue'))
 import { useShowSidebarNav } from '../composables/useShowSidebarNav.js'
-import ShowAufbauTab from '../components/show/ShowAufbauTab.vue'
+import ShowSetupPlanTab from '../components/show/ShowSetupPlanTab.vue'
 import { Button } from '@/components/ui/button'
 import ViewHelpBanner from '@/components/ui/ViewHelpBanner.vue'
 import ShortcutsOverlay from '@/components/ShortcutsOverlay.vue'
 import { fetchShow, updateMeta, createSnapshot } from '../api/shows.js'
 import { uuid } from '../utils/uuid.js'
 import { downloadChannelsCsv } from '../api/channels.js'
-import { generateHangereiEntries, generateGassenturmEntries } from '../utils/generateHangerei'
+import { generateFlySystemEntries, generateLightingTowerEntries } from '../utils/generateSetupText'
 const PhotoGallery = defineAsyncComponent(() => import('../components/show/PhotoGallery.vue'))
 const HistorySlideOver = defineAsyncComponent(() => import('../components/show/HistorySlideOver.vue'))
 const ShowDetailDialogs = defineAsyncComponent(() => import('../components/show/ShowDetailDialogs.vue'))
 import { isOnline, api, ApiError } from '../api/client.js'
 
 const ChannelTable = defineAsyncComponent(() => import('../components/channel/ChannelTable.vue'))
-const FloorplanEditor = defineAsyncComponent(() => import('../components/FloorplanEditor.vue'))
+const DrawingPlanEditor = defineAsyncComponent(() => import('../components/DrawingPlanEditor.vue'))
 
 const props = defineProps({ id: { type: String, required: true } })
 const { t, locale, ready: localeReady } = useLocale()
@@ -470,7 +470,7 @@ const setupMarkdown = ref('')
 const setupSaving = ref(false)
 
 // ── Composables ────────────────────────────────────────────────────────────
-// showLock zuerst: useShowFloorplan/useShowSections/useShowChannels (unten)
+// showLock zuerst: useShowDrawingPlan/useShowSections/useShowChannels (unten)
 // brauchen onLockConflict beim Erzeugen. useShowLock bündelt seit Kurzem auch
 // die SSE-Lock-Events selbst (vorher zwei Composables, die sich zirkulär
 // brauchten — siehe Kommentar in useShowLock.ts) — dadurch kann showLock hier
@@ -489,13 +489,13 @@ const {
   saveCaption: savePhotoCaption, saveChannelsForPhoto: savePhotoChannelsForPhoto,
   photoUrl, uploadFiles: uploadPhotoFiles, removePhoto: removeShowPhoto, removeAllPhotos: removeAllShowPhotos,
 } = usePhotoGallery(props.id, photos)
-const { floorplan, floorplanSaveError, loadFloorplan, onFloorplanChange, onFloorplanImageUpload, onFloorplanImageDelete } = useShowFloorplan(props.id, onLockConflict)
+const { drawingPlan, drawingPlanSaveError, loadDrawingPlan, onDrawingPlanChange, onDrawingPlanImageUpload, onDrawingPlanImageDelete } = useShowDrawingPlan(props.id, onLockConflict)
 
 // api.url() ist async (kurzlebiges Token muss ggf. nachgeladen werden) —
-// floorplanImageUrl hält den zuletzt aufgelösten String für :image-url.
-const floorplanImageUrl = ref(null)
-watch(() => floorplan.value.image_url, async (path) => {
-  floorplanImageUrl.value = path ? await api.url(path) : null
+// drawingPlanImageUrl hält den zuletzt aufgelösten String für :image-url.
+const drawingPlanImageUrl = ref(null)
+watch(() => drawingPlan.value.image_url, async (path) => {
+  drawingPlanImageUrl.value = path ? await api.url(path) : null
 }, { immediate: true })
 
 const {
@@ -504,15 +504,15 @@ const {
   loadSections,
 } = useShowSections(props.id, meta, onLockConflict)
 
-const aufbauFixedTabs = computed(() => [
-  ...(meta.value.use_towers !== false ? [{ key: 'gassenturm', label: t('tab.towers') }] : []),
-  ...(meta.value.use_bars !== false ? [{ key: 'zugstangen', label: t('tab.obermaschinerie') }] : []),
+const setupPlanFixedTabs = computed(() => [
+  ...(meta.value.use_towers !== false ? [{ key: 'lightingTower', label: t('tab.towers') }] : []),
+  ...(meta.value.use_battens !== false ? [{ key: 'flySystem', label: t('tab.fly_system') }] : []),
 ])
-const aufbauSubTabs = computed(() => {
+const setupPlanSubTabs = computed(() => {
   const sectionTabs = [...sectionDefs.value]
     .sort((a, b) => a.order - b.order)
     .map(s => ({ key: `section:${s.id}`, label: s.title || '(kein Titel)', sectionId: s.id }))
-  return [...sectionTabs, ...aufbauFixedTabs.value]
+  return [...sectionTabs, ...setupPlanFixedTabs.value]
 })
 
 let pendingSetupMd = null
@@ -537,7 +537,7 @@ const persistSetupDebounced = useDebounceFn(doPersistSetup, 50)
 const towers = ref([])
 
 // useShowChannels() braucht den Reload-Callback schon beim Erzeugen, loadTowers/
-// loadBars entstehen aber erst danach (sie hängen von `channels` ab). Der Callback
+// loadBattens entstehen aber erst danach (sie hängen von `channels` ab). Der Callback
 // wird daher über eine Closure verzögert aufgelöst — bei Ausführung (nur nach
 // erfolgreichem Undo/Redo, also erst nach dem Setup) sind alle vier Loader gesetzt.
 let afterUndoRedoImpl = null
@@ -561,14 +561,14 @@ const {
   onAfterUndoRedo: () => afterUndoRedoImpl?.(),
   // Aufbaunotizen sind eine Section (icon:'setup') in sectionContents, nicht
   // shows.setup_markdown — siehe onSectionChange() in SectionEditor.vue, das
-  // denselben Weg für normale Editor-Eingaben nutzt. aufbauSectionId ist erst
+  // denselben Weg für normale Editor-Eingaben nutzt. setupPlanSectionId ist erst
   // weiter unten deklariert, aber beide Callbacks laufen erst zur Laufzeit
   // (nach einem Datei-Upload), zu dem Zeitpunkt ist sie längst initialisiert.
-  getAufbauNotes: () => aufbauSectionId.value ? (sectionContents.value.get(aufbauSectionId.value) ?? '') : '',
-  onAufbauNotesChanged: (content) => {
-    if (!aufbauSectionId.value) return
+  getSetupPlanNotes: () => setupPlanSectionId.value ? (sectionContents.value.get(setupPlanSectionId.value) ?? '') : '',
+  onSetupPlanNotesChanged: (content) => {
+    if (!setupPlanSectionId.value) return
     const newMap = new Map(sectionContents.value)
-    newMap.set(aufbauSectionId.value, content)
+    newMap.set(setupPlanSectionId.value, content)
     sectionContents.value = newMap
     persistSectionsDebounced()
   },
@@ -619,17 +619,17 @@ function onUndoRedoKeydownFlushed(e) {
 }
 
 const { loadTowers, addTower, saveTower, removeTower, removeAllTowers, assignSlot, saveSlotNotes } = useShowTowers(props.id, channels, towers, onLockConflict, loadChannels)
-const { bars, loadBars, addBar, saveBar, removeBar, removeAllBars, assignFixture, updateFixtureNotes, unassignFixture, reorderBars } = useShowBars(props.id, channels, onLockConflict, loadChannels)
+const { battens, loadBattens, addBatten, saveBatten, removeBatten, removeAllBattens, assignFixture, updateFixtureNotes, unassignFixture, reorderBattens } = useShowBattens(props.id, channels, onLockConflict, loadChannels)
 
-// GassenturmView/ZugstangenView holen sich CRUD per inject() statt über
-// je 4-7 einzelne Function-Props — teilt dieselbe useShowTowers/useShowBars-
-// Instanz (dieselben towers/bars-Refs wie z.B. die generierten Übersichten
+// LightingTowerView/FlySystemView holen sich CRUD per inject() statt über
+// je 4-7 einzelne Function-Props — teilt dieselbe useShowTowers/useShowBattens-
+// Instanz (dieselben towers/battens-Refs wie z.B. die generierten Übersichten
 // unten), statt sie im Kind ein zweites Mal zu erzeugen.
 provide('showTowers', { addTower, saveTower, removeTower, removeAllTowers, assignSlot, saveSlotNotes })
-provide('showBars', { addBar, saveBar, removeBar, removeAllBars, assignFixture, updateFixtureNotes, unassignFixture, reorderBars })
+provide('showBattens', { addBatten, saveBatten, removeBatten, removeAllBattens, assignFixture, updateFixtureNotes, unassignFixture, reorderBattens })
 
 afterUndoRedoImpl = async () => {
-  await Promise.all([loadChannels(), loadSections(), loadTowers(), loadBars(), loadFloorplan()])
+  await Promise.all([loadChannels(), loadSections(), loadTowers(), loadBattens(), loadDrawingPlan()])
 }
 
 const {
@@ -645,11 +645,11 @@ const {
   fromTemplateSelectNone,
   openFromTemplateDialog,
   saveTowerToTemplate,
-  saveBarToTemplate,
+  saveBattenToTemplate,
   fetchTowerTemplateNames,
-  fetchBarTemplateNames,
+  fetchBattenTemplateNames,
   confirmFromTemplate,
-} = useTemplateInsertion(props.id, meta, { loadBars, loadTowers })
+} = useTemplateInsertion(props.id, meta, { loadBattens, loadTowers })
 
 const {
   historyOpen, openHistory, restore: doRestoreHistory,
@@ -660,7 +660,7 @@ const {
   loadSections,
 })
 
-const { mobileTab, aufbauTab, tabMounted } = useShowTabs(props.id, aufbauSubTabs, {
+const { mobileTab, setupPlanTab, tabMounted } = useShowTabs(props.id, setupPlanSubTabs, {
   onLeaveChannels: () => {
     search.value = ''
     activateHealthFilter(null)
@@ -670,17 +670,17 @@ const { mobileTab, aufbauTab, tabMounted } = useShowTabs(props.id, aufbauSubTabs
 // Über icon, nicht über den Titel: benennt der Nutzer den Abschnitt um, soll der
 // generierte Text (Beleuchtungsgestelle/Obermaschinerie) weiter dort erscheinen.
 // Muss vor viewHelp deklariert sein — dessen watch({immediate:true}) unten liest
-// aufbauSectionId synchron beim Erstellen, sobald mobileTab bereits 'gassenturm'
+// setupPlanSectionId synchron beim Erstellen, sobald mobileTab bereits 'lightingTower'
 // ist (z.B. aus einem vorherigen Session-Tab-Zustand) — sonst ReferenceError (TDZ).
-const aufbauSectionId = computed(() => sectionDefs.value.find(s => s.icon === 'setup')?.id ?? null)
+const setupPlanSectionId = computed(() => sectionDefs.value.find(s => s.icon === 'setup')?.id ?? null)
 
 const viewHelp = computed(() => {
   if (mobileTab.value === 'channels') return { key: 'channels', text: t('channel.help.view') }
   if (mobileTab.value === 'photos') return { key: 'photos', text: t('photo.help') }
-  if (mobileTab.value === 'floorplan') return { key: 'floorplan', text: t('floorplan.help') }
-  if (mobileTab.value === 'gassenturm' && aufbauTab.value === 'gassenturm') return { key: 'gassenturm', text: t('gassenturm.help') }
-  if (mobileTab.value === 'gassenturm' && aufbauTab.value === 'zugstangen') return { key: 'zugstangen', text: t('zugstange.help') }
-  if (mobileTab.value === 'gassenturm' && aufbauSectionId.value && aufbauTab.value === `section:${aufbauSectionId.value}`) return { key: 'setup', text: t('section.setup.help') }
+  if (mobileTab.value === 'drawingPlan') return { key: 'drawingPlan', text: t('drawing_plan.help') }
+  if (mobileTab.value === 'setup' && setupPlanTab.value === 'lightingTower') return { key: 'lightingTower', text: t('lighting_tower.help') }
+  if (mobileTab.value === 'setup' && setupPlanTab.value === 'flySystem') return { key: 'flySystem', text: t('batten.help') }
+  if (mobileTab.value === 'setup' && setupPlanSectionId.value && setupPlanTab.value === `section:${setupPlanSectionId.value}`) return { key: 'setup', text: t('section.setup.help') }
   return null
 })
 
@@ -690,12 +690,12 @@ watch(() => viewHelp.value?.key, (key) => {
 }, { immediate: true })
 
 const { unit, cmToDisplay, formatLength } = useMeasureUnit()
-const channelByIdForHangerei = computed(() => new Map(channels.value.map(c => [c.id, c])))
-const hangerei = computed(() => generateHangereiEntries(bars.value, channelByIdForHangerei.value, unit.value, cmToDisplay, locale.value))
-const gassenturmGenerated = computed(() => generateGassenturmEntries(towers.value, channelByIdForHangerei.value, locale.value))
+const channelByIdForFlySystem = computed(() => new Map(channels.value.map(c => [c.id, c])))
+const flySystem = computed(() => generateFlySystemEntries(battens.value, channelByIdForFlySystem.value, unit.value, cmToDisplay, locale.value))
+const lightingTowerGenerated = computed(() => generateLightingTowerEntries(towers.value, channelByIdForFlySystem.value, locale.value))
 
 const dialogs = useShowDialogs({
-  sectionDefs, aufbauTab, aufbauSubTabs, aufbauSectionId,
+  sectionDefs, setupPlanTab, setupPlanSubTabs, setupPlanSectionId,
   persistSectionDefs, confirm, t,
   templateInsertion: {
     fromTemplateDialogOpen, fromTemplateScope, fromTemplateItemsLoading, fromTemplateItems,
@@ -794,41 +794,41 @@ function jumpToChannel(channelNum) {
   })
 }
 
-function openTowerFromFloorplan(_towerId) {
-  mobileTab.value = 'gassenturm'
-  aufbauTab.value = 'gassenturm'
+function openTowerFromDrawingPlan(_towerId) {
+  mobileTab.value = 'setup'
+  setupPlanTab.value = 'lightingTower'
 }
 
-function onOpenBarFromFloorplan(_barId) {
-  mobileTab.value = 'gassenturm'
-  aufbauTab.value = 'zugstangen'
+function onOpenBattenFromDrawingPlan(_battenId) {
+  mobileTab.value = 'setup'
+  setupPlanTab.value = 'flySystem'
 }
 
 const activeChannelForAssign = ref(null)
-const pendingFloorplanChannel = ref(null)
+const pendingDrawingPlanChannel = ref(null)
 
 async function onAssignTower(ch) {
   if (!ch.id) await persistChannels()
   activeChannelForAssign.value = channels.value.find(c => c.channel === ch.channel) ?? ch
-  mobileTab.value = 'gassenturm'
-  aufbauTab.value = 'gassenturm'
+  mobileTab.value = 'setup'
+  setupPlanTab.value = 'lightingTower'
 }
 
-async function onAssignBar(ch) {
+async function onAssignBatten(ch) {
   if (!ch.id) await persistChannels()
   activeChannelForAssign.value = channels.value.find(c => c.channel === ch.channel) ?? ch
-  mobileTab.value = 'gassenturm'
-  aufbauTab.value = 'zugstangen'
+  mobileTab.value = 'setup'
+  setupPlanTab.value = 'flySystem'
 }
 
 function onSidebarNavigate({ tab, subTab }) {
   mobileTab.value = tab
-  if (subTab !== undefined) aufbauTab.value = subTab
+  if (subTab !== undefined) setupPlanTab.value = subTab
 }
 
 // ── Haupt-Sidebar Nav-Items ────────────────────────────────────────────────
-const { aufbauNavVisible } = useShowSidebarNav({
-  t, meta, mobileTab, aufbauTab, sectionDefs,
+const { setupPlanNavVisible } = useShowSidebarNav({
+  t, meta, mobileTab, setupPlanTab, sectionDefs,
   onSidebarNavigate,
   addSectionFromSubtab: () => dialogs.addSectionFromSubtab(),
   deleteSection: (sectionId) => dialogs.deleteSection(sectionId),
@@ -843,12 +843,12 @@ const bottomNavItems = computed(() => [
     active: mobileTab.value === 'channels',
     action: () => { mobileTab.value = 'channels' },
   },
-  ...(aufbauNavVisible.value ? [{
-    key: 'gassenturm',
-    label: t('tab.gassenturm'),
+  ...(setupPlanNavVisible.value ? [{
+    key: 'setup',
+    label: t('tab.setup'),
     icon: Construction,
-    active: mobileTab.value === 'gassenturm',
-    action: () => { mobileTab.value = 'gassenturm' },
+    active: mobileTab.value === 'setup',
+    action: () => { mobileTab.value = 'setup' },
   }] : []),
   {
     key: 'photos',
@@ -858,19 +858,19 @@ const bottomNavItems = computed(() => [
     action: () => { mobileTab.value = 'photos' },
   },
   {
-    key: 'floorplan',
-    label: t('tab.floorplan'),
+    key: 'drawingPlan',
+    label: t('tab.drawing_plan'),
     icon: MapIcon,
-    active: mobileTab.value === 'floorplan',
-    action: () => { mobileTab.value = 'floorplan' },
+    active: mobileTab.value === 'drawingPlan',
+    action: () => { mobileTab.value = 'drawingPlan' },
   },
 ])
 
-function onPlaceInFloorplan(ch) {
-  pendingFloorplanChannel.value = null
+function onPlaceInDrawingPlan(ch) {
+  pendingDrawingPlanChannel.value = null
   nextTick(() => {
-    pendingFloorplanChannel.value = channels.value.find(c => c.channel === ch.channel) ?? ch
-    mobileTab.value = 'floorplan'
+    pendingDrawingPlanChannel.value = channels.value.find(c => c.channel === ch.channel) ?? ch
+    mobileTab.value = 'drawingPlan'
   })
 }
 
@@ -885,7 +885,7 @@ onMounted(async () => {
       loadSections()
     ])
 
-    meta.value = { name: showData.name, datum: showData.datum, template: showData.template, spielzeit: showData.spielzeit, use_bars: showData.use_bars !== false, use_towers: showData.use_towers !== false }
+    meta.value = { name: showData.name, datum: showData.datum, template: showData.template, spielzeit: showData.spielzeit, use_battens: showData.use_battens !== false, use_towers: showData.use_towers !== false }
     setupMarkdown.value = showData.setupMarkdown ?? ''
     eosActiveChannels.value = showData.eosActiveChannels ?? null
     eosExcludedChannels.value = showData.eosExcludedChannels ?? []
@@ -910,19 +910,19 @@ onMounted(async () => {
 
   loadPhotos().catch(() => {})
   loadPhotoCaptionsAndChannels()
-  loadFloorplan().catch(() => {})
+  loadDrawingPlan().catch(() => {})
   loadTowers().catch(() => {})
-  loadBars().catch(() => {})
+  loadBattens().catch(() => {})
   initLockEvents()
   showLock.acquireOnOpen().catch(() => {})
 
   // Bereichs-Chunks im Hintergrund vorladen, damit der erste Klick auf einen
   // Sidebar-Tab nicht auf den Netzwerk-Download des Chunks warten muss.
-  import('../components/show/GassenturmView.vue').catch(() => {})
-  import('../components/show/ZugstangenView.vue').catch(() => {})
+  import('../components/show/LightingTowerView.vue').catch(() => {})
+  import('../components/show/FlySystemView.vue').catch(() => {})
   import('../components/show/SectionEditor.vue').catch(() => {})
   import('../components/show/PhotoGallery.vue').catch(() => {})
-  import('../components/FloorplanEditor.vue').catch(() => {})
+  import('../components/DrawingPlanEditor.vue').catch(() => {})
 
   await nextTick()
   window.addEventListener('keydown', onUndoRedoKeydownFlushed)

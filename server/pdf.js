@@ -9,11 +9,11 @@ import { mm, PAGE_MARGIN, COL, GROUP_H, ROW_MIN_H, FONT_NORMAL, FONT_BOLD } from
 import { calcRowHeight, drawRow, drawHeaderRow, createFooter } from './pdf/layout-primitives.js'
 import { parseSetupSection, renderSetupBlocks } from './pdf/tiptap-parse.js'
 import { rendererFor } from './pdf/section-renderers.js'
-import { drawTowerCards, renderGassenturmText } from './pdf/towers.js'
-import { renderHangereiBars, drawBarRows } from './pdf/bars.js'
+import { drawTowerCards, renderLightingTowerText } from './pdf/towers.js'
+import { renderFlySystemBattens, drawBattenRows } from './pdf/battens.js'
 import { buildSequenceColorMap } from '../shared/color.js'
 import { groupByPosition, fmt } from './pdf/utils.js'
-import { drawFloorplanVector } from './pdf/floorplan-vector.js'
+import { drawDrawingPlanVector } from './pdf/drawing-plan-vector.js'
 
 /** Dateiname für den Content-Disposition-Header — hier, damit alle
  *  Auslieferungswege denselben Namen verwenden.
@@ -39,7 +39,7 @@ export function pdfFilename(showName, blank = false) {
  *   sectionsMap     Map<sectionId, contentString>  (aus db.readShowSections)
  *   templateSections[{ id, title, order, type }]
  *   photoEntries    [{ path, caption }]  — Fotos mit optionaler Beschreibung
- *   floorplan       { imagePath, canvasData, towers, bars } — optionaler Grundriss
+ *   drawingPlan       { imagePath, canvasData, towers, battens } — optionaler Grundriss
  * opts:
  *   unit, photosPerPage (1, 2, 4, 6, 8, 9 oder 12), blank, blankExtraRows
  */
@@ -50,7 +50,7 @@ export async function generatePDF(data, stream, opts = {}) {
     sectionsMap = new Map(),
     templateSections = [],
     photoEntries = [],
-    floorplan = null,
+    drawingPlan = null,
   } = data
   const { unit = 'm', photosPerPage = 4, blank = false, blankExtraRows = 4 } = opts
   const fm = { name: show.name, datum: show.datum, venue: show.template }
@@ -109,20 +109,20 @@ export async function generatePDF(data, stream, opts = {}) {
     }
   }
 
-  // ── Beleuchtergestelle, Zugstangen & Hängerei ────────────────────────────
-  const towers = floorplan?.towers ?? []
-  const bars = floorplan?.bars ?? []
+  // ── Beleuchtergestelle, FlySystem & Hängerei ────────────────────────────
+  const towers = drawingPlan?.towers ?? []
+  const battens = drawingPlan?.battens ?? []
 
-  if (!blank && (towers.length > 0 || bars.length > 0)) {
+  if (!blank && (towers.length > 0 || battens.length > 0)) {
     let ty = doc.y
 
-    if (bars.length > 0) {
+    if (battens.length > 0) {
       doc.font(FONT_BOLD).fontSize(13).fillColor('black').text('Obermaschinerie', PAGE_MARGIN, ty, { lineBreak: false })
       ty += mm(9)
-      ty = renderHangereiBars(doc, bars, channels, PAGE_MARGIN, usableW, ty, printableBottom, addFooter)
+      ty = renderFlySystemBattens(doc, battens, channels, PAGE_MARGIN, usableW, ty, printableBottom, addFooter)
       ty += mm(5)
-      const barsWithFixtures = bars.filter(bar => (bar.fixtures ?? []).length > 0)
-      ty = drawBarRows(doc, barsWithFixtures, channels, PAGE_MARGIN, usableW, ty, printableBottom, addFooter, unit)
+      const battensWithFixtures = battens.filter(batten => (batten.fixtures ?? []).length > 0)
+      ty = drawBattenRows(doc, battensWithFixtures, channels, PAGE_MARGIN, usableW, ty, printableBottom, addFooter, unit)
       ty += mm(8)
     }
 
@@ -130,7 +130,7 @@ export async function generatePDF(data, stream, opts = {}) {
       if (ty + mm(30) > printableBottom) { doc.addPage(); addFooter(); ty = PAGE_MARGIN }
       doc.font(FONT_BOLD).fontSize(13).fillColor('black').text('Beleuchtungsgestelle', PAGE_MARGIN, ty, { lineBreak: false })
       ty += mm(9)
-      ty = renderGassenturmText(doc, towers, channels, PAGE_MARGIN, usableW, ty, printableBottom, addFooter)
+      ty = renderLightingTowerText(doc, towers, channels, PAGE_MARGIN, usableW, ty, printableBottom, addFooter)
       ty += mm(5)
       drawTowerCards(doc, towers, channels, PAGE_MARGIN, usableW, ty, printableBottom, addFooter)
     }
@@ -256,15 +256,15 @@ export async function generatePDF(data, stream, opts = {}) {
   // ── Grundriss ─────────────────────────────────────────────────────────────
   // Nur anzeigen wenn echte Canvas-Objekte vorhanden (nicht nur Hintergrundbild)
   const hasCanvasObjects = (() => {
-    if (!floorplan?.canvasData) return false
+    if (!drawingPlan?.canvasData) return false
     try {
-      const parsed = typeof floorplan.canvasData === 'string' ? JSON.parse(floorplan.canvasData) : floorplan.canvasData
+      const parsed = typeof drawingPlan.canvasData === 'string' ? JSON.parse(drawingPlan.canvasData) : drawingPlan.canvasData
       const elements = Array.isArray(parsed) ? parsed : parsed?.elements
       return Array.isArray(elements) && elements.length > 0
     } catch { return false }
   })()
 
-  if (!blank && floorplan?.canvasData && hasCanvasObjects) {
+  if (!blank && drawingPlan?.canvasData && hasCanvasObjects) {
     doc.addPage()
     addFooter()
 
@@ -275,12 +275,12 @@ export async function generatePDF(data, stream, opts = {}) {
     const imgMaxH = pageH - imgY - PAGE_MARGIN - mm(8)
 
     try {
-      drawFloorplanVector(doc, {
-        canvasData: floorplan.canvasData,
-        towers: floorplan.towers,
-        bars: floorplan.bars,
+      drawDrawingPlanVector(doc, {
+        canvasData: drawingPlan.canvasData,
+        towers: drawingPlan.towers,
+        battens: drawingPlan.battens,
         channels,
-        imagePath: floorplan.imagePath,
+        imagePath: drawingPlan.imagePath,
       }, { x: PAGE_MARGIN, y: imgY, width: usableW, height: imgMaxH })
     } catch (err) {
       doc.font(FONT_NORMAL).fontSize(9).fillColor('#888888')
