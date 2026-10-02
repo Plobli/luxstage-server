@@ -88,7 +88,7 @@ export function subscribeShow(showId: string, { onLockStatus, onTakeoverRequeste
     if (closed) return
     let url: string
     try {
-      url = await api.downloadUrl(`/api/shows/${showId}/events?device=web`)
+      url = await api.downloadUrl(`/api/shows/${showId}/events?device=web&api_version=2`)
     } catch {
       if (!closed) { retryTimer = setTimeout(connect, nextDelay()); attempt++ }
       return

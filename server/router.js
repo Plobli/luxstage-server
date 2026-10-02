@@ -11,6 +11,7 @@ import { getLock } from './db/locks.js'
 import { getResourceLock } from './db/resource-locks.js'
 import { isGloballyRateLimited } from './rate-limit.js'
 import { logger } from './logger.js'
+import { rewriteLegacyPath, isLegacyClient, applyLegacyResponse } from './legacy-compat.js'
 
 const log = logger('router')
 
@@ -137,6 +138,11 @@ export async function router(req, res) {
   if (req.method === 'GET' && pathname === '/.well-known/apple-app-site-association') {
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'public, max-age=3600' })
     return res.end(APPLE_APP_SITE_ASSOCIATION)
+  }
+
+  if (pathname.startsWith('/api/')) {
+    pathname = rewriteLegacyPath(pathname)
+    if (isLegacyClient(req, params)) applyLegacyResponse(req, res, pathname)
   }
 
   if (pathname.startsWith('/api/')) {

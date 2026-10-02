@@ -79,6 +79,7 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 | `./server/auth.js` | JWT-Token, Passwort-Hashing und kurzlebige Download-Token-Verwaltung; Cleanup-Timer blockiert keine Einmalprozesse. |
 | `./server/logger.js` | Strukturierter Logger mit Log-Level (`LOG_LEVEL`, Standard `info`) und key=value-Feldern; sicherheitsrelevante Ereignisse in `routes/auth.js` und `routes/users.js` laufen darüber. |
 | `./server/helpers.js` | Utility-Funktionen für Body-Parsing, JSON, Fehlerbehandlung, Client-IP-Ermittlung. |
+| `./server/legacy-compat.js` | Übergangsschicht für App-Builds vor der Umbenennung (ohne Header `X-Api-Version: 2`): schreibt alte Pfade um, übersetzt JSON-Antworten und SSE-Events zurück auf alte Namen, loggt alte Clients. Zum Entfernen siehe Kopfkommentar. |
 | `./server/rate-limit.js` | Grobes globales IP-Rate-Limiting (300 Req/Min) für alle API-Routen, ergänzt das strengere Login-spezifische Limit in `routes/auth.js`. |
 | `./server/history.js` | Periodische Snapshots von Show-State zur Versionierung; sichert vor dem Wiederherstellen den aktuellen Stand. Der Snapshot-Lauf gibt zwischen den Shows den Event-Loop frei und warnt bei Laufzeiten über 1s. |
 | `./server/backup.js` | ZIP-basierte Backup- und Wiederherstellungsfunktionen mit request-isoliertem Staging, Restore-Lock, Rollback und Grenzen für ZIP-Einträge sowie entpackte Daten; entfernt SMTP-Passwort und Reset-Token vor dem Export aus der Backup-Kopie. |
@@ -109,6 +110,7 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 | `./server/test/rename-migration.test.js` | Tests für Migration 051 (Tabellen/Spalten/JSON-Umbenennung) und die Übersetzung alter Snapshot-Namen. |
 | `./server/test/api-contract.test.js` | API-Vertragstest: prüft Antwortstruktur (Felder + Typen) aller von iOS/Android genutzten Endpunkte und SSE-Ereignisnamen gegen Snapshot. |
 | `./server/test/api-contract.json` | Snapshot des API-Vertrags (automatisch erzeugt, Update per `npm run api-contract:update`). |
+| `./server/test/api-contract.legacy.json` | Eingefrorener API-Vertrag der alten App-Builds (bars/floorplan), Grundlage des Legacy-Tests. |
 | `./server/test/photos.test.js` | Regressionstest für gestreamtes Multipart-Staging und garantiertes Cleanup temporärer Foto-Uploads. |
 | `./server/test/tenant-backup.test.js` | Regressionstests für Tenant-Snapshot-Restore, Rollback bei fehlgeschlagener Aktivierung und Snapshot-Verifikation (verifySnapshot). |
 | `./server/test/tenant-delete.test.js` | Regressionstests für die Mandanten-Löschanfrage: falsches Passwort liefert 401 ohne jede Löschung, korrektes Passwort liefert 202 — der Mandant bleibt in beiden Fällen bestehen (Löschung passiert ausschließlich manuell durch den Betreiber). |

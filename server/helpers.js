@@ -1,3 +1,4 @@
+import { upgradeLegacyNames } from './db/legacy-names.js'
 import { config } from './config.js'
 import { requireShow } from './db/shows.js'
 import { withUndoSnapshot } from './db/operations.js'
@@ -68,7 +69,7 @@ export async function readJsonBody(req, res, maxBytes) {
   if (exceedsMaxDepth(parsed)) {
     json(res, 400, { error: 'JSON-Body zu tief verschachtelt' }); return null
   }
-  return parsed
+  return upgradeLegacyNames(parsed)
 }
 
 export function json(res, status, data, extraHeaders = {}) {

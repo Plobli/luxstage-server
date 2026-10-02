@@ -28,6 +28,7 @@ export function uploadTemplateDrawingPlanImage(templateId: string, file: File): 
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest()
     xhr.open('POST', `${BASE()}/api/templates/${templateId}/drawing-plan/image`)
+    xhr.setRequestHeader('X-Api-Version', '2')
     xhr.setRequestHeader('Authorization', 'Bearer ' + (getToken() || ''))
     xhr.onload = () => {
       if (xhr.status >= 200 && xhr.status < 300) resolve(JSON.parse(xhr.responseText))
@@ -48,6 +49,7 @@ export function uploadShowDrawingPlanImage(showId: string, file: File): Promise<
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest()
     xhr.open('POST', `${BASE()}/api/shows/${showId}/drawing-plan/image`)
+    xhr.setRequestHeader('X-Api-Version', '2')
     xhr.setRequestHeader('Authorization', 'Bearer ' + (getToken() || ''))
     xhr.onload = () => {
       if (xhr.status >= 200 && xhr.status < 300) resolve(JSON.parse(xhr.responseText))

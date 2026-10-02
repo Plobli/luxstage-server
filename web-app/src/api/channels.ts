@@ -41,6 +41,7 @@ export function scanCircuitSheet(showId: string, file: File): Promise<CircuitSca
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest()
     xhr.open('POST', `${BASE()}/api/shows/${showId}/circuit-scan`)
+    xhr.setRequestHeader('X-Api-Version', '2')
     xhr.setRequestHeader('Authorization', 'Bearer ' + (getToken() || ''))
     xhr.onload = () => {
       if (xhr.status >= 200 && xhr.status < 300) resolve(JSON.parse(xhr.responseText))
@@ -65,6 +66,7 @@ export function scanPlanPdf(showId: string, file: File): Promise<PlanScanResult>
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest()
     xhr.open('POST', `${BASE()}/api/shows/${showId}/plan-scan`)
+    xhr.setRequestHeader('X-Api-Version', '2')
     xhr.setRequestHeader('Authorization', 'Bearer ' + (getToken() || ''))
     xhr.onload = () => {
       if (xhr.status >= 200 && xhr.status < 300) resolve(JSON.parse(xhr.responseText))

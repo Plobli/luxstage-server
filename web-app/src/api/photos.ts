@@ -16,6 +16,7 @@ export function uploadPhoto(showId: string, file: File, onProgress?: (p: number)
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest()
     xhr.open('POST', `${BASE()}/api/shows/${showId}/photos`)
+    xhr.setRequestHeader('X-Api-Version', '2')
     xhr.setRequestHeader('Authorization', 'Bearer ' + (getToken() || ''))
     if (onProgress) {
       xhr.upload.onprogress = (e) => {

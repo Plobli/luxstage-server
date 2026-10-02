@@ -29,6 +29,7 @@ initDb()
 const { hashPassword } = await import('../auth.js')
 const { createConfirmedUser } = await import('../db/users.js')
 const { router } = await import('../router.js')
+const { legacyEventName } = await import('../legacy-compat.js')
 
 const server = http.createServer((req, res) => router(req, res))
 await new Promise(r => server.listen(0, '127.0.0.1', r))
@@ -39,8 +40,9 @@ after(() => {
 })
 
 let token = null
-async function call(method, url, body) {
+async function call(method, url, body, { legacy = false } = {}) {
   const headers = { 'content-type': 'application/json' }
+  if (!legacy) headers['x-api-version'] = '2'
   if (token) headers.authorization = `Bearer ${token}`
   const res = await fetch(base + url, { method, headers, body: body != null ? JSON.stringify(body) : undefined })
   const text = await res.text()
@@ -164,4 +166,38 @@ test('API-Vertrag für App-Endpunkte unverändert', async () => {
       'Wenn gewollt: `npm run api-contract:update` und Change-Record mit ios/android-Status anlegen.\n\n' + err.message
     throw err
   }
+})
+
+// Übergangsschicht (server/legacy-compat.js): alte App-Builds senden keinen X-Api-Version-Header und
+// müssen weiterhin die Antwortstruktur vor der Umbenennung (bars/floorplan) bekommen.
+// Läuft nach dem Test oben (gleiche Testdaten).
+test('API-Vertrag für alte App-Builds (ohne X-Api-Version) unverändert', async () => {
+  const legacy = JSON.parse(fs.readFileSync(path.join(here, 'api-contract.legacy.json'), 'utf8'))
+  const skip = new Set(['GET /api/health', 'POST /api/auth/login', 'POST /api/auth/refresh', 'POST /api/shows/:id/lock'])
+  for (const [key, expected] of Object.entries(legacy.endpoints)) {
+    if (skip.has(key)) continue
+    const [method, urlTemplate] = key.split(' ')
+    const r = await call(method, urlTemplate.replace(':id', 'demo'), undefined, { legacy: true })
+    assert.deepEqual({ status: r.status, shape: shape(r.body) }, expected, `Legacy-Antwort weicht ab: ${key}`)
+  }
+  assert.deepEqual(sseEvents().map(legacyEventName).sort(), legacy.sseEvents)
+})
+
+test('alter Client schreibt mit alten Namen, neuer Client liest neue Namen', async () => {
+  const created = await call('POST', '/api/shows/demo/bars', { name: 'Punktzug A', zug_nr: '7', length_cm: 300, bar_type: 'punktzug' }, { legacy: true })
+  assert.equal(created.status, 201)
+
+  const old = (await call('GET', '/api/shows/demo/bars', undefined, { legacy: true })).body.find(b => b.id === created.body.id)
+  assert.equal(old.bar_type, 'punktzug')
+  assert.equal(old.zug_nr, '7')
+  assert.equal(old.batten_type, undefined)
+
+  const fresh = (await call('GET', '/api/shows/demo/battens')).body.find(b => b.id === created.body.id)
+  assert.equal(fresh.batten_type, 'point_batten')
+  assert.equal(fresh.batten_nr, '7')
+  assert.equal(fresh.bar_type, undefined)
+
+  const show = await call('PUT', '/api/shows/demo/meta', { use_bars: false }, { legacy: true })
+  assert.equal(show.status, 200)
+  assert.equal((await call('GET', '/api/shows/demo')).body.use_battens, false)
 })

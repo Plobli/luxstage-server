@@ -52,7 +52,7 @@ type RequestOptions = {
 const DEFAULT_TIMEOUT_MS = 20_000
 
 function headers({ authenticated, contentType, extraHeaders }: Pick<RequestOptions, 'authenticated' | 'contentType' | 'extraHeaders'>): Record<string, string> {
-  const result: Record<string, string> = { ...extraHeaders }
+  const result: Record<string, string> = { 'X-Api-Version': '2', ...extraHeaders }
   if (contentType) result['Content-Type'] = contentType
   const token = getToken()
   if (authenticated && token) result['Authorization'] = 'Bearer ' + token

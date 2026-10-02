@@ -14,6 +14,7 @@
  * WRITE_METHODS-Gate) dort weiterhin architektonisch notwendig ist, nicht nur eine
  * Vorsichtsmaßnahme. Siehe audits/architecture-analysis-2026-09-03.md, F-02.
  */
+import { formatEvent } from './legacy-compat.js'
 import { getTenantId } from './db-context.js'
 
 // tenantId:showId → Map<res, { username, device }>
@@ -62,9 +63,8 @@ export function subscribe(showId, res, username, device, getChecksFn) {
 export function broadcast(showId, event, data) {
   const map = clients.get(scopedKey(showId))
   if (!map?.size) return
-  const msg = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`
   for (const res of map.keys()) {
-    try { res.write(msg) } catch { map.delete(res) }
+    try { res.write(formatEvent(res, event, data)) } catch { map.delete(res) }
   }
 }
 
@@ -72,10 +72,9 @@ export function broadcast(showId, event, data) {
 export function sendToUser(showId, username, event, data) {
   const map = clients.get(scopedKey(showId))
   if (!map?.size) return
-  const msg = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`
   for (const [res, client] of map) {
     if (client.username !== username) continue
-    try { res.write(msg) } catch { map.delete(res) }
+    try { res.write(formatEvent(res, event, data)) } catch { map.delete(res) }
   }
 }
 
