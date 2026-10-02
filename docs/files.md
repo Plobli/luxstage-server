@@ -41,11 +41,6 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 | `./Dev-Server-App/LuxStageMenu.swift` | macOS-Menüleisten-App; startet/stoppt/restartet Dev-Server via `dev.sh`, zeigt Live-Status (Backend/Web-App erreichbar, Version, PID, Laufzeit), Web-App- und Log-Öffnen-Aktionen. |
 | `./Dev-Server-App/LuxStageMenu` | Kompilierte macOS-Executable der Menüleisten-App. |
 | `./Dev-Server-App/dev.sh` | Startet Server + Web-App lokal für Entwicklung; von der Menüleisten-App aufgerufen. |
-| `./audits/secrets-management-audit-2026-09-01.md` | Secrets-Management-Audit vom 2026-09-01: Findings zu Klartext-Credentials in der DB, Backup-Zugriff, Rotation und Key-Storage; enthält keine echten Secrets. |
-| `./audits/solid-principles-audit-2026-09-01.md` | SOLID-Audit vom 2026-09-01: SRP-Verstöße im Frontend (DrawingPlanEditor, useShowChannels), OCP-Streuung der Section-/Element-Typen, ISP der db.js-Fassade, DIP-Trade-offs. |
-| `./audits/architecture-analysis-2026-09-01.md` | Architektur-Analyse vom 2026-09-01: Schichten- und Datenflussdiagramme, Zyklenprüfung (keine Zyklen), Bottlenecks (History-Job, Mandanten-Verbindungscache, prozesslokaler Zustand), Modularitätsbewertung 7/10. |
-| `./audits/architecture-analysis-frontend-2026-09-01.md` | Architektur-Analyse Frontend vom 2026-09-01: Schichtmessung, Zyklenprüfung (nur shadcn-ui-Barrels), God-Komponenten, ungenutzte SSE-Events, fehlendes State-Aggregat; Modularität 6/10. |
-| `./audits/design-patterns-audit-2026-09-01.md` | Design-Pattern-Audit vom 2026-09-01: Pattern-Inventar Server + Frontend, Memento/CoR/Facade als Positivbefunde, dreifaches Memento, unterbenutzte Strategy, fehlender Logger und Value Objects. |
 | `./docs/saas-betrieb.md` | Dokumentation für Multi-Mandanten-SaaS-Betrieb mit alternativem Wildcard- oder On-Demand-TLS; Abschnitt „Skalierung" begründet den Ein-Prozess-Betrieb (prozesslokaler Zustand, SQLite) und nennt Sharding als Weg. |
 | `./docs/deploy-cx43.md` | Deployment-Anleitung für Hetzner-CX43-Server. |
 | `./shared/locales/de.json` | Übersetzungen für deutsche Oberfläche. |
