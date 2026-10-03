@@ -12,6 +12,9 @@
           <li v-for="u in users" :key="u.username" class="flex items-center justify-between py-3">
             <div class="flex items-center gap-3">
               <span class="text-foreground font-medium">{{ u.username }}</span>
+              <span v-if="u.isOwner" class="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
+                {{ t('settings.users.owner') }}
+              </span>
               <span v-if="u.pending" class="rounded-full bg-amber-500/10 px-2 py-0.5 text-xs font-medium text-amber-600">
                 {{ t('settings.users.pending') }}
               </span>
@@ -20,7 +23,7 @@
               <Button v-if="u.pending" variant="outline" size="sm" @click="doApproveUser(u.username)">
                 {{ t('settings.users.approve') }}
               </Button>
-              <Button v-if="u.source === 'db'" variant="ghost" size="sm" @click="doDeleteUser(u.username)"
+              <Button v-if="u.source === 'db' && !u.isOwner" variant="ghost" size="sm" @click="doDeleteUser(u.username)"
                 class="text-xs text-destructive hover:text-destructive hover:bg-destructive/10">
                 {{ t('settings.users.delete') }}
               </Button>

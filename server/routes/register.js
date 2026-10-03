@@ -10,6 +10,7 @@ import { randomBytes } from 'node:crypto'
 import { json, readJsonBody, clientIp } from '../helpers.js'
 import { hashPassword } from '../auth.js'
 import { config } from '../config.js'
+import { TRIAL_DAYS } from '../team-status.js'
 import { isValidTenantId, createTenant, deleteTenant, tenantExists } from '../tenants.js'
 import { isReservedSubdomain, tenantBaseUrl } from '../tenant-resolve.js'
 import { getRegistry, tenantIdTaken, emailTaken, addPending, getPending, confirmPending, hasPendingForTenant } from '../registry.js'
@@ -112,7 +113,7 @@ export async function registerRoutes(req, res, pathname) {
     if (row.newsletter_consent) {
       startNewsletterDoubleOptin(row.email).catch(err => log.error('Brevo-DOI fehlgeschlagen', { team: row.tenant_id, fehler: err.message }))
     }
-    return json(res, 200, { ok: true, tenantId: row.tenant_id, loginUrl: tenantBaseUrl(row.tenant_id) })
+    return json(res, 200, { ok: true, tenantId: row.tenant_id, loginUrl: tenantBaseUrl(row.tenant_id), trialDays: config.billingEnabled ? TRIAL_DAYS : null })
   }
 
   return null

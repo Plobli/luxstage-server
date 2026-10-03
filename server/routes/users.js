@@ -5,6 +5,7 @@ import { readJsonBody, json, clientIp } from '../helpers.js'
 import { sendWelcomeEmail, sendApprovalRequestEmail, sendPendingRegistrationEmail } from '../email.js'
 import { PASSWORD_MIN_LENGTH, isValidEmail } from '../../shared/constants.js'
 import { logger } from '../logger.js'
+import { resolveOwner } from '../team-owner.js'
 import { createLoginRateLimiter } from '../login-rate-limit.js'
 
 const log = logger('users')
@@ -46,7 +47,8 @@ export async function userRoutes(req, res, pathname) {
 
   if (method === 'GET' && pathname === '/api/users') {
     const user = requireAuth(req, res); if (!user) return
-    return json(res, 200, listUsers())
+    const owner = resolveOwner()
+    return json(res, 200, listUsers().map(u => ({ ...u, isOwner: owner !== null && u.username === owner })))
   }
 
   if (method === 'POST' && pathname === '/api/users') {
@@ -108,6 +110,7 @@ export async function userRoutes(req, res, pathname) {
     const user = requireAuth(req, res); if (!user) return
     const username = decodeURIComponent(m[1])
     if (username === user.username) return json(res, 400, { error: 'Eigenen Account kann man nicht löschen' })
+    if (resolveOwner() === username) return json(res, 400, { error: 'Der Inhaber kann nicht gelöscht werden. Zuerst die Inhaberschaft übertragen.' })
     deleteUser(username)
     log.warn('Nutzer gelöscht', { user: username, von: user.username })
     return json(res, 200, { ok: true })

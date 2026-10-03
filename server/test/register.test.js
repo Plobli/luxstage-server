@@ -38,6 +38,8 @@ test('bestätigte Registrierung erzeugt Tenant und verbraucht den Link', async (
   assert.equal(tenantExists('licht-team'), true)
   assert.equal(getPending(token), null)
   assert.ok(getRegistry().prepare('SELECT 1 FROM tenants WHERE tenant_id = ?').get('licht-team'))
+  // Abrechnung aus (Standard): kein Testzeitraum, das Team läuft nie ab.
+  assert.equal(getRegistry().prepare('SELECT trial_ends_at FROM tenants WHERE tenant_id = ?').get('licht-team').trial_ends_at, null)
 })
 
 test('fehlgeschlagener Registry-Commit entfernt vorbereiteten Tenant und behält Link', async () => {

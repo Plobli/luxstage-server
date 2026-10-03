@@ -180,6 +180,9 @@ export async function router(req, res) {
         if (tenantId) {
           if (!saas.tenantExists(tenantId)) return json(res, 404, { error: 'Unbekannter Mandant' })
           if (saas.isSuspended(tenantId)) return json(res, 403, { error: 'Dieser Zugang wurde gesperrt' })
+          const teamStatus = saas.computeTeamStatus(saas.getTenant(tenantId))
+          const denial = saas.teamAccessDenial(teamStatus, req.method, pathname)
+          if (denial) return json(res, 403, { error: denial.error, code: denial.code })
           const tdb = saas.openTenantDb(tenantId)
           // Markiert die Verbindung als in Benutzung, solange dieser Request läuft —
           // evictOldest() (tenants.js) darf sie währenddessen nicht schließen.

@@ -8,6 +8,7 @@ import Database from 'better-sqlite3'
 import path from 'node:path'
 import { createHash, randomBytes } from 'node:crypto'
 import { config } from './config.js'
+import { TRIAL_DAYS } from './team-status.js'
 
 const hashToken = t => createHash('sha256').update(t).digest('hex')
 
@@ -56,6 +57,11 @@ export function getRegistry() {
   if (!cols.includes('newsletter_consent')) {
     db.exec('ALTER TABLE tenants ADD COLUMN newsletter_consent INTEGER NOT NULL DEFAULT 0')
   }
+  // Testzeitraum/Bezahlung je Team. Bestehende Teams bleiben ohne Eintrag (kein Ablauf).
+  if (!cols.includes('trial_ends_at')) db.exec('ALTER TABLE tenants ADD COLUMN trial_ends_at INTEGER')
+  if (!cols.includes('paid_until')) db.exec('ALTER TABLE tenants ADD COLUMN paid_until INTEGER')
+  // Inhaber (Nutzername im Team). NULL = aus Registrierungs-E-Mail ableiten, siehe team-owner.js.
+  if (!cols.includes('owner_username')) db.exec('ALTER TABLE tenants ADD COLUMN owner_username TEXT')
   const pendingCols = db.pragma('table_info(pending_registrations)').map(c => c.name)
   if (!pendingCols.includes('newsletter_consent')) {
     db.exec('ALTER TABLE pending_registrations ADD COLUMN newsletter_consent INTEGER NOT NULL DEFAULT 0')
@@ -82,19 +88,29 @@ export function listTenantIds() {
 // ── Betreiber-Panel: Mandanten-Verwaltung ────────────────────────────────────
 export function listTenants() {
   return getRegistry().prepare(
-    'SELECT tenant_id, email, created_at, suspended FROM tenants ORDER BY created_at DESC'
+    'SELECT tenant_id, email, created_at, suspended, trial_ends_at, paid_until, owner_username FROM tenants ORDER BY created_at DESC'
   ).all()
 }
 
 export function getTenant(tenantId) {
   return getRegistry().prepare(
-    'SELECT tenant_id, email, created_at, suspended FROM tenants WHERE tenant_id = ?'
+    'SELECT tenant_id, email, created_at, suspended, trial_ends_at, paid_until, owner_username FROM tenants WHERE tenant_id = ?'
   ).get(tenantId) || null
 }
 
 export function isSuspended(tenantId) {
   const row = getRegistry().prepare('SELECT suspended FROM tenants WHERE tenant_id = ?').get(tenantId)
   return row?.suspended === 1
+}
+
+export function setOwnerUsername(tenantId, username) {
+  return getRegistry().prepare('UPDATE tenants SET owner_username = ? WHERE tenant_id = ?')
+    .run(username, tenantId).changes
+}
+
+export function setPaidUntil(tenantId, paidUntilMs) {
+  return getRegistry().prepare('UPDATE tenants SET paid_until = ? WHERE tenant_id = ?')
+    .run(paidUntilMs, tenantId).changes
 }
 
 export function setSuspended(tenantId, suspended) {
@@ -173,8 +189,8 @@ export function confirmPending(token, tenantId, email) {
       return false
     }
     reg.prepare(
-      'INSERT INTO tenants (tenant_id, email, created_at, newsletter_consent) VALUES (?, ?, ?, ?)'
-    ).run(tenantId, email.toLowerCase(), now(), row.newsletter_consent)
+      'INSERT INTO tenants (tenant_id, email, created_at, newsletter_consent, trial_ends_at) VALUES (?, ?, ?, ?, ?)'
+    ).run(tenantId, email.toLowerCase(), now(), row.newsletter_consent, config.billingEnabled ? now() + TRIAL_DAYS * 24 * 60 * 60 * 1000 : null)
     reg.prepare('DELETE FROM pending_registrations WHERE token = ?').run(hashedToken)
     return true
   })()

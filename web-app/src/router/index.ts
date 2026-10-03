@@ -73,6 +73,7 @@ const routes: RouteRecordRaw[] = [
       { path: 'display', name: 'settings-display', component: () => import('../views/settings/DisplayView.vue') },
       { path: 'server', name: 'settings-server', component: () => import('../views/settings/ServerView.vue') },
       { path: 'backup', name: 'settings-backup', component: () => import('../views/settings/BackupView.vue') },
+      { path: 'team', name: 'settings-team', component: () => import('../views/settings/TeamView.vue') },
       { path: 'users', name: 'settings-users', component: () => import('../views/settings/UsersView.vue') },
       { path: 'smtp', name: 'settings-smtp', component: () => import('../views/settings/SmtpView.vue') },
     ],

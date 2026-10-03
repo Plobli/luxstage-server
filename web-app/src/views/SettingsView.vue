@@ -48,6 +48,7 @@ const nav = computed(() => [
   { to: '/settings/account', label: t('settings.account') },
   { to: '/settings/display', label: t('settings.display') },
   { to: '/settings/users', label: t('settings.users') },
+  ...(saasMode.value === true ? [{ to: '/settings/team', label: t('settings.team') }] : []),
   // Backup/Server/SMTP sind Self-Hosted-Einstellungen, siehe App.vue settingsNavItems.
   ...(saasMode.value === false ? [{ to: '/settings/backup', label: t('settings.backup') }] : []),
   ...(saasMode.value === false ? [{ to: '/settings/server', label: t('settings.server') }] : []),

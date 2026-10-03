@@ -12,7 +12,7 @@ let mod = null
 // Lädt die SaaS-Module einmalig. Nur aufrufen, wenn saasEnabled true ist.
 async function load() {
   if (mod) return mod
-  const [tenantResolve, tenants, registry, dbContext, operatorRoutes, registerRoutes, tenantDeleteRoutes, feedbackRoutes] = await Promise.all([
+  const [tenantResolve, tenants, registry, dbContext, operatorRoutes, registerRoutes, tenantDeleteRoutes, feedbackRoutes, teamStatus] = await Promise.all([
     import('./tenant-resolve.js'),
     import('./tenants.js'),
     import('./registry.js'),
@@ -21,6 +21,7 @@ async function load() {
     import('./routes/register.js'),
     import('./routes/tenant-delete.js'),
     import('./routes/feedback.js'),
+    import('./team-status.js'),
   ])
   mod = {
     resolveTenantId: tenantResolve.resolveTenantId,
@@ -33,6 +34,13 @@ async function load() {
     markTenantInUse: tenants.markTenantInUse,
     releaseTenantInUse: tenants.releaseTenantInUse,
     isSuspended: registry.isSuspended,
+    getTenant: registry.getTenant,
+    setOwnerUsername: registry.setOwnerUsername,
+    // Ohne aktive Abrechnung läuft kein Team ab.
+    computeTeamStatus: (tenant, nowMs) => config.billingEnabled
+      ? teamStatus.computeTeamStatus(tenant, nowMs)
+      : { state: 'active', accessUntil: null },
+    teamAccessDenial: teamStatus.teamAccessDenial,
     runWithDb: dbContext.runWithDb,
     operatorRoutes: operatorRoutes.operatorRoutes,
     registerRoutes: registerRoutes.registerRoutes,

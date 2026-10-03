@@ -35,7 +35,7 @@ export async function confirmPasswordReset(token: string, newPassword: string): 
 }
 
 /** Bestätigt die Registrierung über den Token aus der Opt-In-Mail. */
-export async function confirmRegistration(token: string): Promise<{ tenantId: string, loginUrl: string }> {
+export async function confirmRegistration(token: string): Promise<{ tenantId: string, loginUrl: string, trialDays: number | null }> {
   return request('GET', '/api/register/confirm?token=' + encodeURIComponent(token), { authenticated: false })
 }
 

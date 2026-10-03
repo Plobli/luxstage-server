@@ -44,6 +44,7 @@
               autocomplete="email"
               required
             />
+            <p class="text-xs text-muted-foreground">{{ t('register.email.owner_hint') }}</p>
           </div>
 
           <div class="space-y-2">

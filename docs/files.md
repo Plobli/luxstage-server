@@ -108,6 +108,8 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 | `./server/test/api-contract.legacy.json` | Eingefrorener API-Vertrag der alten App-Builds (bars/floorplan), Grundlage des Legacy-Tests. |
 | `./server/test/photos.test.js` | Regressionstest für gestreamtes Multipart-Staging und garantiertes Cleanup temporärer Foto-Uploads. |
 | `./server/test/tenant-backup.test.js` | Regressionstests für Tenant-Snapshot-Restore, Rollback bei fehlgeschlagener Aktivierung und Snapshot-Verifikation (verifySnapshot). |
+| `./server/test/team-status.test.js` | Tests für Team-Zugangsstatus: Phasen (Probe, dauerhaft lesen), Bestand ohne Ablauf, bezahlter Zeitraum, Schreibsperre je Methode. |
+| `./server/test/team-owner.test.js` | Tests für Team-Inhaber: Ableitung aus Registrierungs-E-Mail (Bestand), Übertragung, kein passender Nutzer. |
 | `./server/test/tenant-delete.test.js` | Regressionstests für die Mandanten-Löschanfrage: falsches Passwort liefert 401 ohne jede Löschung, korrektes Passwort liefert 202 — der Mandant bleibt in beiden Fällen bestehen (Löschung passiert ausschließlich manuell durch den Betreiber). |
 | `./server/test/tenant-health.test.js` | Regressionstests für Mandanten-Health-Check (Erreichbarkeit, Schema-Migrationen, Snapshot-Alter, mandantenweite letzte Aktivität) und On-Demand-Konsistenzcheck. |
 | `./server/test/secrets.test.js` | Regressionstests für AES-256-GCM-Verschlüsselung der SMTP-Settings und SHA-256-Hashing der Passwort-Reset-Token (inkl. Ablauf, Einmal-Einlösung). |
@@ -123,8 +125,10 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 | `./server/test/plan-scan.test.js` | Tests für `plan-scan.js`: PDF-Magic-Byte-Validierung (`isPdfBuffer`), korrekte Durchreichung eines injizierten Fake-Clients, Fehlerfälle bei fehlendem `parsed_output` und bei leerem Seiten-Array. Kein Kanal-Extraktions-/Freitexterkennungs-Test — LLM-Output ist nicht sinnvoll automatisiert testbar. |
 | `./server/test/plan-scan-route.test.js` | Test für die Pfad-Zuständigkeit der `plan-scan`-Route (gibt `null` für nicht-passende Pfade zurück); der volle Upload-Pfad ist über `plan-scan.js`-Unit-Tests und den manuellen End-to-End-Test abgedeckt. |
 | `./server/.env` | Server-Development-Umgebungsvariablen. |
+| `./server/team-status.js` | Zugangsstatus eines Teams (trial/active/readonly) aus Testzeitraum und bezahltem Zeitraum; nach Ablauf dauerhaft nur lesbar, nie gesperrt oder gelöscht; `teamAccessDenial` blockt Schreiben im Zustand readonly. |
+| `./server/team-owner.js` | Inhaber eines Teams: `resolveOwner` (aus Registry `owner_username`, sonst Nutzer mit Registrierungs-E-Mail), `isOwner`, `transferOwnership`. Alle anderen Nutzer sind Mitglieder. |
 | `./server/saas.js` | Kapsel für SaaS-Funktionalität, lädt Module nur im SaaS-Modus; stellt u.a. `tenantDeleteRoutes` für die Mandanten-Löschanfrage bereit. |
-| `./server/registry.js` | Zentrale Registrierung für Mandantenverzeichnis und Doppel-Opt-In; aktiviert Tenant-Eintrag (inkl. Newsletter-Consent) und verbraucht Bestätigungslink atomar; hält außerdem die Feedback-Tabelle der WebApp. |
+| `./server/registry.js` | Zentrale Registrierung für Mandantenverzeichnis und Doppel-Opt-In; aktiviert Tenant-Eintrag (inkl. Newsletter-Consent) und verbraucht Bestätigungslink atomar; hält außerdem die Feedback-Tabelle der WebApp; Spalten `owner_username`/`trial_ends_at`/`paid_until` (neue Teams 14 Tage, Bestandsteams ohne Ablauf). |
 | `./server/routes/feedback.js` | Feedback-Knopf der WebApp (nur SaaS): `POST /api/feedback` (angemeldet, max. 4000 Zeichen, 5 pro Stunde und Nutzer) speichert in der Registry und mailt optional an `OPERATOR_NOTIFY_EMAIL`. |
 | `./server/test/feedback.test.js` | Tests: Feedback speichern, Längen-/Rate-Limit, Operator-Abruf nur mit Betreiber-Token, Importiert-Markierung. |
 | `./server/routes/tenant-delete.js` | Self-Service-Löschanfrage für den eigenen Mandanten (nur SaaS): `POST /api/tenant/delete-request` prüft das Passwort des anfragenden Nutzers und benachrichtigt den Betreiber per Mail (`OPERATOR_NOTIFY_EMAIL`); keine automatisierte Löschung — der Betreiber löscht manuell über das Betreiber-Panel (`DELETE /api/operator/tenants/:id`). |
@@ -301,7 +305,7 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 | `./web-app/src/views/LoginView.vue` | Anmeldung mit E-Mail und Passwort; zeigt Hinweis bei Konto mit ausstehender Freischaltung, verlinkt Selbst-Registrierung. |
 | `./web-app/src/views/RegisterView.vue` | Team-Registrierung mit E-Mail-Bestätigung und optionaler Newsletter-Einwilligung. |
 | `./web-app/src/views/SelfRegisterView.vue` | Selbst-Registrierung neuer Nutzer innerhalb eines bestehenden Tenants; Konto bleibt pending bis ein bestehender Nutzer freischaltet. |
-| `./web-app/src/views/ConfirmView.vue` | Bestätigung der Team-Registrierung via E-Mail-Link. |
+| `./web-app/src/views/ConfirmView.vue` | Bestätigung der Team-Registrierung via E-Mail-Link; Erfolgsseite mit Probezeit-Hinweis, Browser-Anmeldung, „App laden", „App öffnen" (luxstage://connect?team=…) und Teamname zum Eintippen. |
 | `./web-app/src/views/ForgotPasswordView.vue` | Passwort-Zurücksetzen anfordern per E-Mail. |
 | `./web-app/src/views/ResetPasswordView.vue` | Passwort-Zurücksetzen nach E-Mail-Link. |
 | `./web-app/src/views/ShowsView.vue` | Übersicht aller Produktionen mit Sortierung; zeigt Schreib-Sperre pro Show (Schloss-Icon); Erstellung per Schnell-Dialog oder ShowWizardDialog (FAB-Menü). |
@@ -313,7 +317,9 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 | `./web-app/src/views/TemplatesView.vue` | Vorlagenliste, Neu-Anlegen, Löschen, Download des Kreislisten-Vordrucks (PDF); Detail-Bearbeitung an TemplateDetailPanel, Upload an TemplateUploadDialog delegiert. |
 | `./web-app/src/views/SettingsView.vue` | Sub-Navigation zu verschiedenen Einstellungsbereichen. |
 | `./web-app/src/views/settings/AccountView.vue` | Passwort-Änderung, Druckeinstellungen, Abmelden; im SaaS-Betrieb zusätzlich Feedback-Formular und Team-Löschanfrage (Passwort-Bestätigung im Dialog, danach Benachrichtigung des Betreibers — keine automatisierte Löschung). |
-| `./web-app/src/views/settings/UsersView.vue` | Benutzerverwaltung: Anlegen, Löschen, Freischalten selbst-registrierter Nutzer, Passwort-Reset. |
+| `./web-app/src/views/settings/UsersView.vue` | Benutzerverwaltung: Anlegen, Löschen, Freischalten selbst-registrierter Nutzer, Passwort-Reset; Inhaber-Badge, Inhaber nicht löschbar. |
+| `./web-app/src/views/settings/TeamView.vue` | Inhaber-Bereich (nur SaaS): Zugangsstatus (Probe/aktiv/nur lesbar), aktueller Inhaber, Inhaberschaft übertragen. Platzhalter für die Abrechnung (Stripe). |
+| `./web-app/src/api/team.ts` | API-Client für `GET /api/auth/team-status` und `POST /api/auth/team-owner`. |
 | `./web-app/src/views/settings/DisplayView.vue` | Sprach- und Maßeinheit-Einstellungen (Deutsch/Englisch). |
 | `./web-app/src/views/settings/ServerView.vue` | Server-URL, Versionsinformationen und Speicherstatus. |
 | `./web-app/src/views/settings/BackupView.vue` | Datenbank-Backup-Download und Wiederherstellung, beides Admin-only. |

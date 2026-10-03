@@ -24,6 +24,8 @@ export const config = {
   // SaaS: Basis-Domain, unter der Mandanten als Subdomain laufen (z. B. luxstage.app
   // für team-a.luxstage.app). Leer = Single-Tenant/Self-Hosted (keine Subdomain-Auflösung).
   baseDomain: process.env.BASE_DOMAIN || '',
+  // Abrechnung (Stripe). Aus: neue Teams bekommen keinen Testzeitraum, niemand läuft ab.
+  billingEnabled: process.env.BILLING_ENABLED === 'true',
   // Betreiber-Panel (admin.<baseDomain>): eigener Zugang, getrennt von Mandanten-Admins.
   // Ohne gesetztes Passwort ist das Panel deaktiviert (kein vorangelegter Zugang).
   operator: {

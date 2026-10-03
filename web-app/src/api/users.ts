@@ -5,6 +5,8 @@ export interface UserSummary {
   username: string;
   email: string;
   pending: boolean;
+  /** Inhaber des Teams (nur im SaaS-Betrieb gesetzt). */
+  isOwner?: boolean;
   source: 'db';
 }
 

@@ -16,9 +16,34 @@
           <p class="text-sm text-muted-foreground">
             {{ t('confirm.success.message', { team: tenantId }) }}
           </p>
-          <a :href="loginUrl" class="inline-block text-sm text-primary hover:text-primary/80">
-            {{ t('confirm.success.login_link') }}
-          </a>
+          <p v-if="trialDays" class="text-sm text-muted-foreground">
+            {{ t('confirm.success.trial', { days: trialDays }) }}
+          </p>
+
+          <div class="space-y-3 pt-2 text-left">
+            <a :href="loginUrl"
+              class="block rounded-md bg-primary px-4 py-2 text-center text-sm font-medium text-primary-foreground hover:bg-primary/90">
+              {{ t('confirm.success.login_link') }}
+            </a>
+
+            <div class="rounded-lg border border-border p-4">
+              <p class="text-sm font-medium text-foreground">{{ t('confirm.app.title') }}</p>
+              <p class="mt-1 text-xs text-muted-foreground">{{ t('confirm.app.hint') }}</p>
+              <div class="mt-3 flex flex-wrap gap-2">
+                <a :href="APP_STORE_URL" target="_blank" rel="noopener"
+                  class="rounded-md border border-border px-3 py-1.5 text-sm text-foreground hover:bg-muted">
+                  {{ t('confirm.app.download') }}
+                </a>
+                <a :href="appLink"
+                  class="rounded-md border border-border px-3 py-1.5 text-sm text-foreground hover:bg-muted">
+                  {{ t('confirm.app.open') }}
+                </a>
+              </div>
+              <p class="mt-3 text-xs text-muted-foreground">
+                {{ t('confirm.app.manual') }} <span class="font-mono text-foreground">{{ tenantId }}</span>
+              </p>
+            </div>
+          </div>
         </template>
 
         <template v-else>
@@ -37,7 +62,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 import { confirmRegistration } from '../api/auth'
 import { useLocale } from '../composables/useLocale.js'
@@ -50,6 +75,9 @@ const route = useRoute()
 const loading = ref(true)
 const tenantId = ref('')
 const loginUrl = ref('/login')
+const trialDays = ref<number | null>(null)
+const APP_STORE_URL = 'https://apps.apple.com/app/luxstage/id6760355522'
+const appLink = computed(() => `luxstage://connect?team=${encodeURIComponent(tenantId.value)}`)
 const error = ref('')
 
 onMounted(async () => {
@@ -63,6 +91,7 @@ onMounted(async () => {
     const res = await confirmRegistration(token)
     tenantId.value = res.tenantId
     if (res.loginUrl) loginUrl.value = res.loginUrl + '/login'
+    trialDays.value = res.trialDays ?? null
   } catch (e: any) {
     error.value = e?.message || t('confirm.error.invalid')
   } finally {

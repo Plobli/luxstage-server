@@ -4,7 +4,9 @@ import { setPasswordHash, clearResetTokens, createResetToken, findUserByEmail, g
 import { readJsonBody, json, clientIp } from '../helpers.js'
 import { sendPasswordResetLink, isSmtpConfigured } from '../email.js'
 import { getTenantId } from '../db-context.js'
+import { isOwner, resolveOwner, transferOwnership } from '../team-owner.js'
 import { config } from '../config.js'
+import { saasEnabled, getSaas } from '../saas.js'
 import { PASSWORD_MIN_LENGTH } from '../../shared/constants.js'
 import { logger } from '../logger.js'
 import { createLoginRateLimiter } from '../login-rate-limit.js'
@@ -22,6 +24,33 @@ export async function authRoutes(req, res, pathname) {
   // preisgibt und deshalb Auth verlangt.
   if (method === 'GET' && pathname === '/api/auth/capabilities') {
     return json(res, 200, { passwordReset: isSmtpConfigured() })
+  }
+
+  // Zugangsstatus des Teams (trial | active | readonly) und Inhaber. Self-Hosted: immer active, jeder Inhaber.
+  if (method === 'GET' && pathname === '/api/auth/team-status') {
+    const user = requireAuth(req, res); if (!user) return
+    if (!saasEnabled) return json(res, 200, { state: 'active', accessUntil: null, owner: true, ownerUsername: null, billingEnabled: false })
+    const saas = getSaas()
+    const status = saas.computeTeamStatus(saas.getTenant(getTenantId()))
+    return json(res, 200, {
+      state: status.state,
+      accessUntil: status.accessUntil ?? null,
+      owner: isOwner(user.username),
+      ownerUsername: resolveOwner(),
+      billingEnabled: config.billingEnabled,
+    })
+  }
+
+  // Inhaberschaft übertragen (nur der Inhaber, nur an einen bestehenden Nutzer).
+  if (method === 'POST' && pathname === '/api/auth/team-owner') {
+    const user = requireAuth(req, res); if (!user) return
+    if (!saasEnabled) return json(res, 400, { error: 'Nur für Teams verfügbar' })
+    if (!isOwner(user.username)) return json(res, 403, { error: 'Nur der Inhaber kann die Inhaberschaft übertragen' })
+    const body = await readJsonBody(req, res); if (body === null) return
+    const target = String(body.username || '')
+    if (!transferOwnership(target)) return json(res, 404, { error: 'Nutzer nicht gefunden' })
+    log.warn('Inhaberschaft übertragen', { von: user.username, an: target })
+    return json(res, 200, { ok: true, ownerUsername: target })
   }
 
   if (method === 'POST' && pathname === '/api/auth/login') {
