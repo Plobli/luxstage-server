@@ -1,8 +1,6 @@
 # LuxStage SaaS — Betrieb
 
 Anleitung zum Betrieb von LuxStage als SaaS (gehostet, Mandanten via Subdomain).
-Für Self-Hosted (ein Kunde, eine Instanz) gilt weiterhin `docker-compose.yml` +
-`README.md`.
 
 ## Überblick
 
@@ -12,8 +10,7 @@ Für Self-Hosted (ein Kunde, eine Instanz) gilt weiterhin `docker-compose.yml` +
 - **Eine Instanz** bedient alle Mandanten; jeder Mandant hat eine eigene,
   isolierte SQLite-Datei unter `data/tenants/<id>/`.
 
-Der Server leitet den Mandanten aus dem `Host`-Header ab. Der einzige echte
-Zusatzaufwand gegenüber Self-Hosted ist **Wildcard-DNS + Wildcard-TLS**.
+Der Server leitet den Mandanten aus dem `Host`-Header ab. Voraussetzung dafür ist **Wildcard-DNS + Wildcard-TLS**.
 
 ## Voraussetzungen
 

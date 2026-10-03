@@ -2,13 +2,12 @@
 // Inhaber eines Teams (Abrechnung, Inhaber übertragen, Team löschen). Alle anderen Nutzer sind Mitglieder.
 // Der Inhaber steht in der Registry (owner_username). Fehlt der Eintrag (Bestand), gilt der Nutzer,
 // dessen E-Mail der Registrierungs-E-Mail des Teams entspricht; er wird beim ersten Zugriff gespeichert.
-// Läuft im DB-Kontext eines Requests. Ohne SaaS-Modus gibt es keine Teams: jeder gilt als Inhaber.
-import { saasEnabled, getSaas } from './saas.js'
+// Läuft im DB-Kontext eines Requests.
+import { getSaas } from './saas.js'
 import { getTenantId } from './db-context.js'
 import { findUserByEmail, listUsers } from './db/users.js'
 
 export function resolveOwner() {
-  if (!saasEnabled) return null
   const saas = getSaas()
   const tenantId = getTenantId()
   const tenant = tenantId && saas.getTenant(tenantId)
@@ -24,7 +23,6 @@ export function resolveOwner() {
 }
 
 export function isOwner(username) {
-  if (!saasEnabled) return true
   return resolveOwner() === username
 }
 

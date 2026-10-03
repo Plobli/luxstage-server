@@ -1,43 +1,18 @@
 import nodemailer from 'nodemailer'
 import { config } from './config.js'
-import { getDb } from './db-context.js'
-import { getSecretSetting } from './db/settings.js'
-import { saasEnabled, saasReady, getSaas } from './saas.js'
+import { getSaas } from './saas.js'
 
 // Basis-URL für Links in Mails, die im Request-/Tenant-Kontext verschickt
-// werden: Mandanten-Subdomain im SaaS-Betrieb, sonst config.appUrl.
-// tenant-resolve.js existiert im Self-Hosted-Image gar nicht (siehe Dockerfile) —
-// daher nur über saas.js' bedingten dynamischen Import ansprechen, nie direkt.
+// werden: Mandanten-Subdomain, sonst config.appUrl.
 async function currentBaseUrl() {
-  if (!saasEnabled) return config.appUrl
-  await saasReady
   const saas = getSaas()
   const tenantId = saas.getTenantId()
   return tenantId ? saas.tenantBaseUrl(tenantId) : config.appUrl
 }
 
+// SMTP ist zentral (Betreiber-ENV) — Mandanten können es nicht übersteuern.
 function getSmtpCfg() {
-  // SaaS-Modus (BASE_DOMAIN gesetzt): immer die zentrale ENV-Config des Betreibers.
-  // Mandanten können SMTP nicht übersteuern — alle Mails gehen zentral raus.
-  if (config.baseDomain) return config.smtp
-
-  // Self-Hosted: pro-Instanz-Config aus der DB, sonst ENV-Fallback.
-  try {
-    const rows = getDb().prepare("SELECT key, value FROM settings WHERE key LIKE 'smtp.%'").all()
-    if (!rows.length) return config.smtp
-    const cfg = { host: '', port: 587, secure: false, user: '', pass: '', from: config.smtp.from }
-    for (const { key, value } of rows) {
-      const k = key.replace('smtp.', '')
-      if (k === 'pass') continue
-      if (k === 'secure') cfg.secure = value === 'true'
-      else if (k === 'port') cfg.port = parseInt(value) || 587
-      else cfg[k] = value
-    }
-    cfg.pass = getSecretSetting('smtp.pass')
-    return cfg
-  } catch {
-    return config.smtp
-  }
+  return config.smtp
 }
 
 /**

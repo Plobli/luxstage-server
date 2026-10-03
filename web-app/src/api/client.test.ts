@@ -61,6 +61,14 @@ describe('ApiError-Mapping', () => {
     expect(fakeLocation.href).toBe('/login')
   })
 
+  test('403 TOKEN_TENANT_MISMATCH löscht das Token und leitet auf /login um', async () => {
+    setToken('abc')
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse(403, { error: 'Token gilt nicht für diesen Mandanten', code: 'TOKEN_TENANT_MISMATCH' })))
+    await expect(api.get('/api/x')).rejects.toMatchObject({ status: 403 })
+    expect(getToken()).toBeNull()
+    expect(fakeLocation.href).toBe('/login')
+  })
+
   test('401 ohne vorheriges Token leitet nicht um (kein abgelaufener Login-Zustand)', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse(401, { error: 'Nicht angemeldet' })))
     await expect(api.get('/api/x')).rejects.toMatchObject({ status: 401 })

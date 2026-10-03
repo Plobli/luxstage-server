@@ -8,9 +8,13 @@ import { after, test } from 'node:test'
 const dataPath = fs.mkdtempSync(path.join(os.tmpdir(), 'luxstage-router-test-'))
 process.env.DATA_PATH = dataPath
 process.env.JWT_SECRET = 'test-secret-with-at-least-thirty-two-characters'
-process.env.BASE_DOMAIN = ''
+process.env.BASE_DOMAIN = 'luxstage.test'
 
 const { router, dispatchRoute } = await import('../router.js')
+const { createTenant } = await import('../tenants.js')
+const { getRegistry } = await import('../registry.js')
+createTenant('router-test')
+getRegistry().prepare('INSERT INTO tenants (tenant_id, email, created_at) VALUES (?, ?, ?)').run('router-test', 'r@example.test', Date.now())
 
 class Response extends EventEmitter {
   constructor() {
@@ -31,14 +35,14 @@ class Response extends EventEmitter {
   }
 }
 
-async function request(method, url) {
+async function request(method, url, host = 'router-test.luxstage.test') {
   const response = new Response()
-  await router({ method, url, headers: {}, socket: {} }, response)
+  await router({ method, url, headers: { host }, socket: {} }, response)
   return response
 }
 
 test('Health-Check bleibt ausschließlich als GET öffentlich', async () => {
-  const health = await request('GET', '/api/health')
+  const health = await request('GET', '/api/health', 'luxstage.test')
   assert.equal(health.statusCode, 200)
   assert.deepEqual(health.body, { ok: true })
 

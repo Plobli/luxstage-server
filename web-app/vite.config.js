@@ -54,7 +54,10 @@ export default defineConfig({
     proxy: {
       '/api': {
         target: process.env.VITE_SERVER_URL || 'http://localhost:3000',
-        changeOrigin: true,
+        // Der Server leitet den Mandanten aus dem Host ab (<team>.localhost):
+        // der Proxy setzt ihn fest, damit localhost:5173 direkt funktioniert.
+        changeOrigin: false,
+        headers: { Host: `${process.env.DEV_TENANT || 'lokal'}.localhost` },
       },
     },
   },

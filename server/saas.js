@@ -1,57 +1,40 @@
 // LuxStage/server/saas.js
-// Kapselt die SaaS-Funktionalität und lädt sie NUR im SaaS-Modus (BASE_DOMAIN gesetzt).
-// Dadurch enthält das Self-Hosted-Image die SaaS-Module gar nicht erst (bedingter
-// dynamischer Import — die Dateien dürfen im schlanken Image fehlen, ohne Crash).
+// Bündelt die Mandanten-Module (LuxStage läuft ausschließlich als SaaS).
 import { config } from './config.js'
+import * as tenantResolve from './tenant-resolve.js'
+import * as tenants from './tenants.js'
+import * as registry from './registry.js'
+import * as dbContext from './db-context.js'
+import * as teamStatus from './team-status.js'
+import { operatorRoutes } from './routes/operator.js'
+import { registerRoutes } from './routes/register.js'
+import { tenantDeleteRoutes } from './routes/tenant-delete.js'
+import { feedbackRoutes } from './routes/feedback.js'
 
-export const saasEnabled = !!config.baseDomain
-
-// Dynamisch geladene SaaS-Handler (nur im SaaS-Modus befüllt).
-let mod = null
-
-// Lädt die SaaS-Module einmalig. Nur aufrufen, wenn saasEnabled true ist.
-async function load() {
-  if (mod) return mod
-  const [tenantResolve, tenants, registry, dbContext, operatorRoutes, registerRoutes, tenantDeleteRoutes, feedbackRoutes, teamStatus] = await Promise.all([
-    import('./tenant-resolve.js'),
-    import('./tenants.js'),
-    import('./registry.js'),
-    import('./db-context.js'),
-    import('./routes/operator.js'),
-    import('./routes/register.js'),
-    import('./routes/tenant-delete.js'),
-    import('./routes/feedback.js'),
-    import('./team-status.js'),
-  ])
-  mod = {
-    resolveTenantId: tenantResolve.resolveTenantId,
-    isOperatorHost: tenantResolve.isOperatorHost,
-    isRootHost: tenantResolve.isRootHost,
-    tenantBaseUrl: tenantResolve.tenantBaseUrl,
-    getTenantId: dbContext.getTenantId,
-    openTenantDb: tenants.openTenantDb,
-    tenantExists: tenants.tenantExists,
-    markTenantInUse: tenants.markTenantInUse,
-    releaseTenantInUse: tenants.releaseTenantInUse,
-    isSuspended: registry.isSuspended,
-    getTenant: registry.getTenant,
-    setOwnerUsername: registry.setOwnerUsername,
-    // Ohne aktive Abrechnung läuft kein Team ab.
-    computeTeamStatus: (tenant, nowMs) => config.billingEnabled
-      ? teamStatus.computeTeamStatus(tenant, nowMs)
-      : { state: 'active', accessUntil: null },
-    teamAccessDenial: teamStatus.teamAccessDenial,
-    runWithDb: dbContext.runWithDb,
-    operatorRoutes: operatorRoutes.operatorRoutes,
-    registerRoutes: registerRoutes.registerRoutes,
-    tenantDeleteRoutes: tenantDeleteRoutes.tenantDeleteRoutes,
-    feedbackRoutes: feedbackRoutes.feedbackRoutes,
-  }
-  return mod
+const mod = {
+  resolveTenantId: tenantResolve.resolveTenantId,
+  isOperatorHost: tenantResolve.isOperatorHost,
+  isRootHost: tenantResolve.isRootHost,
+  tenantBaseUrl: tenantResolve.tenantBaseUrl,
+  getTenantId: dbContext.getTenantId,
+  openTenantDb: tenants.openTenantDb,
+  tenantExists: tenants.tenantExists,
+  markTenantInUse: tenants.markTenantInUse,
+  releaseTenantInUse: tenants.releaseTenantInUse,
+  isSuspended: registry.isSuspended,
+  getTenant: registry.getTenant,
+  setOwnerUsername: registry.setOwnerUsername,
+  // Ohne aktive Abrechnung läuft kein Team ab.
+  computeTeamStatus: (tenant, nowMs) => config.billingEnabled
+    ? teamStatus.computeTeamStatus(tenant, nowMs)
+    : { state: 'active', accessUntil: null },
+  teamAccessDenial: teamStatus.teamAccessDenial,
+  runWithDb: dbContext.runWithDb,
+  operatorRoutes,
+  registerRoutes,
+  tenantDeleteRoutes,
+  feedbackRoutes,
 }
-
-// Beim Start vorladen, damit die Handler synchron verfügbar sind.
-export const saasReady = saasEnabled ? load() : Promise.resolve(null)
 
 export function getSaas() {
   return mod

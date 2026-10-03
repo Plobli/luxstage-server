@@ -13,16 +13,13 @@ import { getTenantId } from './db-context.js'
 
 // tenantId ist zu diesem Zeitpunkt bereits über resolveTenantId()/isValidTenantId()
 // geprüft (siehe tenant-resolve.js) — hier nur zur Verteidigung in der Tiefe erneut
-// validiert, ohne das SaaS-only-Modul tenants.js zu importieren (das Self-Hosted-
-// Image enthält diese Datei nicht, siehe Dockerfile).
+// validiert, ohne tenants.js zu importieren.
 const VALID_TENANT_ID = /^[a-z0-9][a-z0-9-]{1,62}$/
 
-// Mandant: eigener photos-Ordner in seinem Mandantenverzeichnis. Self-Hosted/
-// Single-Tenant (kein Mandantenkontext): unverändert flach unter data/photos.
+// Mandant: eigener photos-Ordner in seinem Mandantenverzeichnis.
 function photosRoot() {
   const tenantId = getTenantId()
-  if (!tenantId) return path.join(config.dataPath, 'photos')
-  if (!VALID_TENANT_ID.test(tenantId)) throw new Error('Ungültige tenantId')
+  if (!tenantId || !VALID_TENANT_ID.test(tenantId)) throw new Error('Ungültige tenantId')
   return path.join(config.dataPath, 'tenants', tenantId, 'photos')
 }
 

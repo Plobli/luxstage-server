@@ -2,8 +2,6 @@ import assert from 'node:assert/strict'
 import { after, test } from 'node:test'
 import { cleanupDataPath } from './helpers/test-env.js'
 
-const { saasReady } = await import('../saas.js')
-await saasReady
 const { createTenant, closeTenantDb } = await import('../tenants.js')
 const { getRegistry } = await import('../registry.js')
 const { runWithDb } = await import('../db-context.js')

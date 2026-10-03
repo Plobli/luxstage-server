@@ -17,15 +17,19 @@ import { fileURLToPath } from 'node:url'
 const dataPath = fs.mkdtempSync(path.join(os.tmpdir(), 'luxstage-contract-'))
 process.env.DATA_PATH = dataPath
 process.env.JWT_SECRET = 'test-secret-with-at-least-thirty-two-characters'
-process.env.BASE_DOMAIN = ''
+process.env.BASE_DOMAIN = 'luxstage.test'
 
 const here = path.dirname(fileURLToPath(import.meta.url))
 const CONTRACT_FILE = path.join(here, 'api-contract.json')
 const SERVER_DIR = path.dirname(here)
 const UPDATE = process.env.UPDATE_API_CONTRACT === '1'
 
-const { initDb } = await import('../db-init.js')
-initDb()
+const { createTenant } = await import('../tenants.js')
+const { getRegistry } = await import('../registry.js')
+const { runWithDb } = await import('../db-context.js')
+const TENANT = 'vertrag'
+const tenantDb = createTenant(TENANT)
+getRegistry().prepare('INSERT INTO tenants (tenant_id, email, created_at) VALUES (?, ?, ?)').run(TENANT, 'anna@example.test', Date.now())
 const { hashPassword } = await import('../auth.js')
 const { createConfirmedUser } = await import('../db/users.js')
 const { router } = await import('../router.js')
@@ -39,16 +43,31 @@ after(() => {
   fs.rmSync(dataPath, { recursive: true, force: true })
 })
 
+// fetch erlaubt keinen eigenen Host-Header — der Mandant kommt aber aus dem Host.
+function rawRequest(method, url, headers, payload) {
+  return new Promise((resolve, reject) => {
+    const req = http.request(base + url, { method, headers }, res => {
+      let text = ''
+      res.setEncoding('utf8')
+      res.on('data', c => { text += c })
+      res.on('end', () => resolve({ status: res.statusCode, headers: res.headers, text }))
+    })
+    req.on('error', reject)
+    if (payload) req.write(payload)
+    req.end()
+  })
+}
+
 let token = null
 async function call(method, url, body, { legacy = false } = {}) {
-  const headers = { 'content-type': 'application/json' }
+  const headers = { 'content-type': 'application/json', host: `${TENANT}.luxstage.test` }
   if (!legacy) headers['x-api-version'] = '2'
   if (token) headers.authorization = `Bearer ${token}`
-  const res = await fetch(base + url, { method, headers, body: body != null ? JSON.stringify(body) : undefined })
-  const text = await res.text()
+  const res = await rawRequest(method, url, headers, body != null ? JSON.stringify(body) : undefined)
+  const text = res.text
   let json = null
   try { json = text ? JSON.parse(text) : null } catch { json = '<nicht-JSON>' }
-  return { status: res.status, body: json, type: (res.headers.get('content-type') || '').split(';')[0] }
+  return { status: res.status, body: json, type: (res.headers['content-type'] || '').split(';')[0] }
 }
 
 // ── Formbeschreibung ─────────────────────────────────────────────────────────
@@ -106,7 +125,8 @@ test('API-Vertrag für App-Endpunkte unverändert', async () => {
   const contract = {}
   const rec = (key, r) => { contract[key] = { status: r.status, shape: shape(r.body) } }
 
-  createConfirmedUser('anna', await hashPassword('vertrag-passwort-123'), 'anna@example.test')
+  const pwHash = await hashPassword('vertrag-passwort-123')
+  runWithDb(tenantDb, () => createConfirmedUser('anna', pwHash, 'anna@example.test'), TENANT)
 
   rec('GET /api/health', await call('GET', '/api/health'))
   const login = await call('POST', '/api/auth/login', { username: 'anna', password: 'vertrag-passwort-123' })

@@ -2,14 +2,13 @@
 import { createHash, randomUUID } from 'node:crypto'
 import { setTimeout as sleep } from 'node:timers/promises'
 import { getDb, runWithDb } from './db-context.js'
-import { saasEnabled } from './saas.js'
 import { readChannels, writeChannels } from './db/channels.js'
 import { readShowSections, writeShowSections } from './db/sections.js'
 
-// SaaS-Helfer (Mandanten-Iteration, Purge) nur im SaaS-Modus dynamisch laden.
+// Mandanten-Helfer (Iteration, Purge) dynamisch laden.
 let saasMod = null
 async function loadSaasHelpers() {
-  if (!saasEnabled || saasMod) return saasMod
+  if (saasMod) return saasMod
   const [tenants, registry] = await Promise.all([import('./tenants.js'), import('./registry.js')])
   saasMod = {
     openTenantDb: tenants.openTenantDb,
@@ -84,10 +83,10 @@ async function takeSnapshots() {
   }
 }
 
-// Führt fn für jeden Mandanten im jeweiligen DB-Kontext aus. Im Self-Hosted-Modus
-// (keine SaaS-Module) läuft fn einmal gegen die globale DB.
+// Führt fn für jeden Mandanten im jeweiligen DB-Kontext aus. Ohne geladene
+// Mandanten-Helfer (Tests/Tools) läuft fn einmal gegen die globale DB.
 async function forEachTenant(fn) {
-  if (!saasMod) return fn() // Self-Hosted: globale DB
+  if (!saasMod) return fn() // Tests/Tools: globale DB
   const ids = saasMod.listTenantIds()
   if (ids.length === 0) return fn()
   for (const id of ids) {

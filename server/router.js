@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url'
 import { parseUrl, notFound, json, clientIp } from './helpers.js'
 import { authenticate } from './auth.js'
 import { getTenantId } from './db-context.js'
-import { saasEnabled, getSaas } from './saas.js'
+import { getSaas } from './saas.js'
 import { PUBLIC_ROUTES, API_ROUTE_HANDLERS, SHOW_ROUTE_HANDLERS, showRoutes, systemRoutes } from './route-table.js'
 import { getLock } from './db/locks.js'
 import { getResourceLock } from './db/resource-locks.js'
@@ -156,72 +156,65 @@ export async function router(req, res) {
     if (pathname.startsWith('/api/')) {
       if (isGloballyRateLimited(req)) return json(res, 429, { error: 'Zu viele Anfragen. Bitte warten.' })
 
-      // SaaS-Routing nur im SaaS-Modus (BASE_DOMAIN gesetzt). Im Self-Hosted-Modus
-      // sind die SaaS-Module nicht geladen — dieser Block wird komplett übersprungen.
-      if (saasEnabled) {
-        const saas = getSaas()
+      const saas = getSaas()
 
-        // Caddy On-Demand-TLS ask-Endpoint: host-unabhängig, ohne DB-Kontext.
-        if (pathname === '/api/tls-check') return systemRoutes(req, res, pathname)
+      // Caddy On-Demand-TLS ask-Endpoint: host-unabhängig, ohne DB-Kontext.
+      if (pathname === '/api/tls-check') return systemRoutes(req, res, pathname)
 
-        // Betreiber-Panel auf admin.<baseDomain>: eigener Kontext, nur Operator-Routen.
-        if (saas.isOperatorHost(req)) {
-          if (pathname === '/api/health') return systemRoutes(req, res, pathname)
-          if (pathname.startsWith('/api/operator/')) {
-            const r = await saas.operatorRoutes(req, res, pathname)
-            if (r === null) return notFound(res)
-            return
-          }
-          return notFound(res)
-        }
-
-        // Mandant aus dem Host ableiten (team-a.luxstage.app -> "team-a").
-        const tenantId = saas.resolveTenantId(req)
-        if (tenantId) {
-          if (!saas.tenantExists(tenantId)) return json(res, 404, { error: 'Unbekannter Mandant' })
-          if (saas.isSuspended(tenantId)) return json(res, 403, { error: 'Dieser Zugang wurde gesperrt' })
-          const teamStatus = saas.computeTeamStatus(saas.getTenant(tenantId))
-          const denial = saas.teamAccessDenial(teamStatus, req.method, pathname)
-          if (denial) return json(res, 403, { error: denial.error, code: denial.code })
-          const tdb = saas.openTenantDb(tenantId)
-          // Markiert die Verbindung als in Benutzung, solange dieser Request läuft —
-          // evictOldest() (tenants.js) darf sie währenddessen nicht schließen.
-          saas.markTenantInUse(tenantId)
-          try {
-            return await saas.runWithDb(tdb, () => handleApi(req, res, pathname, params), tenantId)
-          } finally {
-            saas.releaseTenantInUse(tenantId)
-          }
-        }
-
-        // Kein Mandant aus dem Host ableitbar (falsch konfigurierter Proxy, nackte
-        // IP, unbekannte Subdomain o.ä.): NICHT ohne DB-Kontext auf handleApi()
-        // durchfallen lassen — getDb() hätte dort keinen Mandanten-Kontext und
-        // würde im SaaS-Betrieb hart fehlschlagen (siehe db-context.js). Nur die
-        // Endpunkte durchlassen, die nachweislich ohne Mandanten-DB auskommen
-        // (Registrierung legt den Mandanten erst an; Health-Check greift nicht auf
-        // die DB zu) — alles andere ist hier per Definition nicht erreichbar.
-        if (pathname === '/api/register' || pathname === '/api/register/confirm' || pathname === '/api/health') {
-          return handleApi(req, res, pathname, params)
+      // Betreiber-Panel auf admin.<baseDomain>: eigener Kontext, nur Operator-Routen.
+      if (saas.isOperatorHost(req)) {
+        if (pathname === '/api/health') return systemRoutes(req, res, pathname)
+        if (pathname.startsWith('/api/operator/')) {
+          const r = await saas.operatorRoutes(req, res, pathname)
+          if (r === null) return notFound(res)
+          return
         }
         return notFound(res)
       }
 
-      // Self-Hosted (kein BASE_DOMAIN): öffentlicher/globaler Kontext.
-      return handleApi(req, res, pathname, params)
+      // Mandant aus dem Host ableiten (team-a.luxstage.app -> "team-a").
+      const tenantId = saas.resolveTenantId(req)
+      if (tenantId) {
+        if (!saas.tenantExists(tenantId)) return json(res, 404, { error: 'Unbekannter Mandant' })
+        if (saas.isSuspended(tenantId)) return json(res, 403, { error: 'Dieser Zugang wurde gesperrt' })
+        const teamStatus = saas.computeTeamStatus(saas.getTenant(tenantId))
+        const denial = saas.teamAccessDenial(teamStatus, req.method, pathname)
+        if (denial) return json(res, 403, { error: denial.error, code: denial.code })
+        const tdb = saas.openTenantDb(tenantId)
+        // Markiert die Verbindung als in Benutzung, solange dieser Request läuft —
+        // evictOldest() (tenants.js) darf sie währenddessen nicht schließen.
+        saas.markTenantInUse(tenantId)
+        try {
+          return await saas.runWithDb(tdb, () => handleApi(req, res, pathname, params), tenantId)
+        } finally {
+          saas.releaseTenantInUse(tenantId)
+        }
+      }
+
+      // Kein Mandant aus dem Host ableitbar (falsch konfigurierter Proxy, nackte
+      // IP, unbekannte Subdomain o.ä.): NICHT ohne DB-Kontext auf handleApi()
+      // durchfallen lassen — getDb() hätte dort keinen Mandanten-Kontext und
+      // würde im SaaS-Betrieb hart fehlschlagen (siehe db-context.js). Nur die
+      // Endpunkte durchlassen, die nachweislich ohne Mandanten-DB auskommen
+      // (Registrierung legt den Mandanten erst an; Health-Check greift nicht auf
+      // die DB zu) — alles andere ist hier per Definition nicht erreichbar.
+      if (pathname === '/api/register' || pathname === '/api/register/confirm' || pathname === '/api/health') {
+        return handleApi(req, res, pathname, params)
+      }
+      return notFound(res)
     }
 
     // Betreiber-Panel-Oberfläche (HTML/JS) läuft als eigener Service
     // (operator-panel/), nicht mehr hier. admin.<baseDomain> liefert in
     // diesem Prozess nur noch /api/operator/* (siehe oben) und /api/health.
-    if (saasEnabled && req.method === 'GET' && getSaas().isOperatorHost(req)) {
+    if (req.method === 'GET' && getSaas().isOperatorHost(req)) {
       return notFound(res)
     }
 
     // Root-Domain: Caddy reicht dort nur /register* durch (alles andere bleibt
     // bei der Marketing-Website) — zur Verteidigung in der Tiefe hier zusätzlich
     // serverseitig einschränken, falls Caddy je anders konfiguriert wird.
-    if (saasEnabled && req.method === 'GET' && getSaas().isRootHost(req)) {
+    if (req.method === 'GET' && getSaas().isRootHost(req)) {
       const isAsset = pathname.startsWith('/assets/') || /\.[a-zA-Z0-9]+$/.test(pathname)
       if (!isAsset && !PUBLIC_SPA_PATHS.has(pathname)) return notFound(res)
       return serveStatic(req, res, pathname)
@@ -258,7 +251,7 @@ async function handleApi(req, res, pathname, params) {
       // ausgestelltes Token, das gegen Mandant B verwendet wird, im Log
       // nicht von jedem anderen 403 zu unterscheiden.
       log.warn('Cross-Tenant-Tokenverwendung', { user: user.username, tokenTenant: user.tenantId, hostTenant: tenantId, ip: clientIp(req) })
-      return json(res, 403, { error: 'Token gilt nicht für diesen Mandanten' })
+      return json(res, 403, { error: 'Token gilt nicht für diesen Mandanten', code: 'TOKEN_TENANT_MISMATCH' })
     }
     req.user = user
   }
@@ -266,15 +259,15 @@ async function handleApi(req, res, pathname, params) {
 }
 
 async function dispatchApi(req, res, pathname, params) {
-  if (saasEnabled && pathname.startsWith('/api/register')) {
+  if (pathname.startsWith('/api/register')) {
     return dispatchRoute(getSaas().registerRoutes, req, res, pathname, params)
   }
 
-  if (saasEnabled && pathname === '/api/feedback') {
+  if (pathname === '/api/feedback') {
     return dispatchRoute(getSaas().feedbackRoutes, req, res, pathname, params)
   }
 
-  if (saasEnabled && pathname.startsWith('/api/tenant/')) {
+  if (pathname.startsWith('/api/tenant/')) {
     return dispatchRoute(getSaas().tenantDeleteRoutes, req, res, pathname, params)
   }
 

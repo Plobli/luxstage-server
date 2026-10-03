@@ -33,8 +33,6 @@ jobs:
 
       - name: Docker-Compose-Konfiguration prüfen
         run: |
-          JWT_SECRET=test-secret CORS_ORIGINS=http://localhost \
-            docker compose -f docker-compose.yml config --quiet
           JWT_SECRET=test-secret APP_URL=https://example.test \
             SMTP_HOST=localhost SMTP_USER=test SMTP_PASS=test \
             docker compose -f docker-compose.saas.yml config --quiet

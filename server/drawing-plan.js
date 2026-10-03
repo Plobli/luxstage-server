@@ -8,16 +8,13 @@ const ALLOWED_TYPES = ['image/png', 'image/jpeg']
 
 // tenantId ist zu diesem Zeitpunkt bereits über resolveTenantId()/isValidTenantId()
 // geprüft (siehe tenant-resolve.js) — hier nur zur Verteidigung in der Tiefe erneut
-// validiert, ohne das SaaS-only-Modul tenants.js zu importieren (das Self-Hosted-
-// Image enthält diese Datei nicht, siehe Dockerfile).
+// validiert, ohne tenants.js zu importieren.
 const VALID_TENANT_ID = /^[a-z0-9][a-z0-9-]{1,62}$/
 
-// Mandant: eigener floorplans-Ordner in seinem Mandantenverzeichnis (Verzeichnisname bleibt aus Kompatibilität). Self-Hosted/
-// Single-Tenant (kein Mandantenkontext): unverändert flach unter data/floorplans.
+// Mandant: eigener floorplans-Ordner in seinem Mandantenverzeichnis (Verzeichnisname bleibt aus Kompatibilität).
 function drawingPlansDir() {
   const tenantId = getTenantId()
-  if (!tenantId) return path.join(config.dataPath, 'floorplans')
-  if (!VALID_TENANT_ID.test(tenantId)) throw new Error('Ungültige tenantId')
+  if (!tenantId || !VALID_TENANT_ID.test(tenantId)) throw new Error('Ungültige tenantId')
   return path.join(config.dataPath, 'tenants', tenantId, 'floorplans')
 }
 

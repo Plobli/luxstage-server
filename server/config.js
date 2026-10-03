@@ -22,8 +22,8 @@ export const config = {
   appUrl: process.env.APP_URL || 'http://localhost:5173',
   trustProxy: process.env.TRUST_PROXY === 'true',
   // SaaS: Basis-Domain, unter der Mandanten als Subdomain laufen (z. B. luxstage.app
-  // für team-a.luxstage.app). Leer = Single-Tenant/Self-Hosted (keine Subdomain-Auflösung).
-  baseDomain: process.env.BASE_DOMAIN || '',
+  // für team-a.luxstage.app). Lokal: localhost (team.localhost).
+  baseDomain: process.env.BASE_DOMAIN || 'localhost',
   // Abrechnung (Stripe). Aus: neue Teams bekommen keinen Testzeitraum, niemand läuft ab.
   billingEnabled: process.env.BILLING_ENABLED === 'true',
   // Betreiber-Panel (admin.<baseDomain>): eigener Zugang, getrennt von Mandanten-Admins.

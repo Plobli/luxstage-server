@@ -280,7 +280,6 @@ async function backupAllTenants() {
 }
 
 export function startBackupJob() {
-  if (!config.baseDomain) return // nur SaaS-Modus
   setInterval(() => { backupAllTenants().catch(() => {}) }, DAILY_MS)
   console.log('[backup] Täglicher Mandanten-Backup-Job aktiv')
 }

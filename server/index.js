@@ -4,8 +4,6 @@ import path from 'node:path'
 import { router } from './router.js'
 import { config } from './config.js'
 import { startHistoryJob } from './history.js'
-import { saasEnabled } from './saas.js'
-import { initDb } from './db-init.js'
 import { applyCors, applySecurityHeaders } from './security-headers.js'
 
 const pkg = JSON.parse(fs.readFileSync(new URL('../package.json', import.meta.url)))
@@ -55,13 +53,7 @@ process.on('uncaughtException', (err) => {
   process.exit(1)
 })
 
-// Erst nach dem Lock öffnen — zwei Prozesse dürfen die Datei nie gleichzeitig anfassen.
-// Im SaaS-Betrieb gibt es keine globale DB (jeder Mandant hat seine eigene, siehe
-// tenants.js) — sie hier trotzdem zu öffnen, würde nur eine ungenutzte, aber als
-// Fallback erreichbare Datei anlegen (siehe getDb() in db-context.js).
-if (!saasEnabled) initDb()
-
-const isDev = process.env.NODE_ENV === 'development' && !config.baseDomain
+const isDev = process.env.NODE_ENV === 'development'
 
 const server = http.createServer((req, res) => {
   if (applyCors(req, res, isDev)) return
@@ -90,10 +82,7 @@ server.listen(config.port, '0.0.0.0', () => {
   console.log(`LuxStage Server v${pkg.version} läuft auf Port ${config.port}`)
   console.log(`Datenpfad: ${config.dataPath}`)
   startHistoryJob()
-  // Mandanten-Backup-Job nur im SaaS-Modus (Modul dynamisch geladen).
-  if (saasEnabled) {
-    import('./tenant-backup.js').then(m => m.startBackupJob())
-  }
+  import('./tenant-backup.js').then(m => m.startBackupJob())
 })
 
 // Graceful Shutdown: PM2 sendet bei jedem Deploy/Neustart SIGTERM an den
@@ -117,11 +106,7 @@ function gracefulShutdown() {
   forceExit.unref()
   server.close(() => {
     clearTimeout(forceExit)
-    if (saasEnabled) {
-      import('./tenants.js').then(m => m.closeAllTenantDbs()).finally(() => process.exit(0))
-    } else {
-      import('./db-init.js').then(m => { if (m.dbContainer.db) m.dbContainer.db.close() }).finally(() => process.exit(0))
-    }
+    import('./tenants.js').then(m => m.closeAllTenantDbs()).finally(() => process.exit(0))
   })
 }
 process.on('SIGINT', gracefulShutdown)

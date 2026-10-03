@@ -6,7 +6,7 @@ import { sendPasswordResetLink, isSmtpConfigured } from '../email.js'
 import { getTenantId } from '../db-context.js'
 import { isOwner, resolveOwner, transferOwnership } from '../team-owner.js'
 import { config } from '../config.js'
-import { saasEnabled, getSaas } from '../saas.js'
+import { getSaas } from '../saas.js'
 import { PASSWORD_MIN_LENGTH } from '../../shared/constants.js'
 import { logger } from '../logger.js'
 import { createLoginRateLimiter } from '../login-rate-limit.js'
@@ -26,10 +26,9 @@ export async function authRoutes(req, res, pathname) {
     return json(res, 200, { passwordReset: isSmtpConfigured() })
   }
 
-  // Zugangsstatus des Teams (trial | active | readonly) und Inhaber. Self-Hosted: immer active, jeder Inhaber.
+  // Zugangsstatus des Teams (trial | active | readonly) und Inhaber.
   if (method === 'GET' && pathname === '/api/auth/team-status') {
     const user = requireAuth(req, res); if (!user) return
-    if (!saasEnabled) return json(res, 200, { state: 'active', accessUntil: null, owner: true, ownerUsername: null, billingEnabled: false })
     const saas = getSaas()
     const status = saas.computeTeamStatus(saas.getTenant(getTenantId()))
     return json(res, 200, {
@@ -44,7 +43,6 @@ export async function authRoutes(req, res, pathname) {
   // Inhaberschaft übertragen (nur der Inhaber, nur an einen bestehenden Nutzer).
   if (method === 'POST' && pathname === '/api/auth/team-owner') {
     const user = requireAuth(req, res); if (!user) return
-    if (!saasEnabled) return json(res, 400, { error: 'Nur für Teams verfügbar' })
     if (!isOwner(user.username)) return json(res, 403, { error: 'Nur der Inhaber kann die Inhaberschaft übertragen' })
     const body = await readJsonBody(req, res); if (body === null) return
     const target = String(body.username || '')
@@ -132,7 +130,7 @@ export async function authRoutes(req, res, pathname) {
       const token = randomBytes(32).toString('hex')
       createResetToken(token, username, 60 * 60 * 1000) // 1 h
       const tenantId = getTenantId()
-      const baseUrl = config.baseDomain ? `https://${tenantId}.${config.baseDomain}` : config.appUrl
+      const baseUrl = getSaas().tenantBaseUrl(tenantId)
       const resetUrl = `${baseUrl}/reset-password?token=${token}`
       sendPasswordResetLink(email, username, resetUrl)
         .catch(err => log.error('Reset-Link-Versand fehlgeschlagen', { user: username, fehler: err.message }))

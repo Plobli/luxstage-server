@@ -1,6 +1,5 @@
 import { requireAuth } from '../auth.js'
 import { json } from '../helpers.js'
-import { streamBackup, restoreBackup } from '../backup.js'
 import { config } from '../config.js'
 import { version } from '../version.js'
 
@@ -25,23 +24,7 @@ export async function systemRoutes(req, res, pathname) {
     const { execFileSync } = await import('node:child_process')
     let diskFree = null
     try { diskFree = execFileSync('df', ['-h', config.dataPath]).toString().split('\n')[1] } catch {}
-    return json(res, 200, { version, dataPath: config.dataPath, diskFree, saasEnabled: !!config.baseDomain })
-  }
-
-  // System-Backup/Restore ist Single-Tenant (globale DB, Prozess-Neustart).
-  // Im SaaS gesperrt — Backups laufen zentral pro Mandant über das Betreiber-Panel.
-  if (method === 'GET' && pathname === '/api/backup') {
-    const user = requireAuth(req, res); if (!user) return
-    if (config.baseDomain) return json(res, 403, { error: 'Backups werden zentral verwaltet' })
-    streamBackup(res, user.username)
-    return
-  }
-
-  if (method === 'POST' && pathname === '/api/restore') {
-    const user = requireAuth(req, res); if (!user) return
-    if (config.baseDomain) return json(res, 403, { error: 'Restore wird zentral verwaltet' })
-    restoreBackup(req, res, user.username)
-    return
+    return json(res, 200, { version, dataPath: config.dataPath, diskFree })
   }
 
   return null

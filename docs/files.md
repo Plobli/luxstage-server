@@ -12,10 +12,7 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 | `./docker-compose.operator-panel.yml` | Betreiber-Panel als eigenständiges Compose-Projekt (GHCR-Image, `luxstage-saas-net` als external), unabhängig vom SaaS-Stack deploybar. |
 | `./docker-compose.saas.yml` | SaaS-Docker-Compose mit Caddy-Netzwerk; ein Service (`luxstage`). |
 | `./docker-compose.operator-panel.caddy.yml` | Betreiber-Panel als eigenständiges Compose-Projekt, Caddy-Netzwerk-Variante (lokaler Build statt GHCR-Image) analog zu `docker-compose.saas.yml`. |
-| `./docker-compose.yml` | Self-Hosted Docker-Compose; Port 3030:3000, Data-Volume. |
-| `./Dockerfile` | Multi-Stage Build für Self-Hosted; baut Web-App, entfernt SaaS-Module. |
 | `./Dockerfile.saas` | Multi-Stage Build für SaaS-Image (baut Web-App, Module separat). |
-| `./entrypoint.sh` | Self-Hosted-Startskript; Bootstrap-Nutzer falls `.bootstrap-done` fehlt. |
 | `./entrypoint.saas.sh` | SaaS-Startskript; lädt Server ohne Bootstrap. |
 | `./README.md` | Projekt-Übersicht, Features und Hinweis auf gehosteten Betrieb (keine Selbstinstallation mehr). |
 | `./DEV-SERVER.md` | Anleitung für lokalen Dev-Server: Start via LuxStage-Dev-App (empfohlen) oder manuell, Login, Konfiguration, Warnung vor Doppelstart (SQLite-Korruptionsrisiko). |
@@ -23,7 +20,7 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 | `./package-lock.json` | Lock-Datei für Monorepo-Dependencies (server, web-app). |
 | `./.gitignore` | Ignoriert node_modules, dist, .env, Daten, iOS-Xcode-Artefakte. |
 | `./.env` | Development-Umgebungsvariablen (JWT, Passwörter, Host). |
-| `./.env.example` | Vorlage für Self-Hosted-Umgebungsvariablen. |
+| `./.env.example` | Vorlage für lokale Entwicklung (BASE_DOMAIN=localhost, Test-Mandant). |
 | `./.env.saas.example` | Vorlage für SaaS-Umgebungsvariablen (JWT, SMTP, Domain). |
 | `./server.log` | Server-Logdatei (Laufzeitartefakt). |
 | `./.claude/settings.json` | Claude-Code-Permissions und erlaubte Bash-/MCP-Befehle. |
@@ -66,7 +63,6 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 | `./server/router.js` | HTTP-Router für API-Endpunkte und Datei-Serving; öffentliche API-Ausnahmen sind an Methode und Pfad gebunden, API- und Show-Unterressourcen laufen über geordnete Handler-Listen. Globales IP-Rate-Limiting greift vor jedem API-Request. Fehler in Route-Handlern werden abgefangen (500 statt Prozessabsturz). Liefert hostunabhängig `/.well-known/apple-app-site-association` für Apple Universal Links (Passwort-Reset → App-Login). `/api/tenant/*` (Mandanten-Löschanfrage) läuft nur im SaaS-Modus über `saas.tenantDeleteRoutes`. |
 | `./server/brevo.js` | Startet Newsletter-Double-Opt-in bei Brevo (eigener Bestätigungs-Flow, getrennt von der Registrierungs-Bestätigung) für Mandanten mit Newsletter-Consent. |
 | `./server/config.js` | Lädt Umgebungsvariablen und Konfigurationsdefaults, einschließlich explizitem Reverse-Proxy-Vertrauen und Brevo-Newsletter-Konfiguration. |
-| `./server/bootstrap.js` | Einmaliges Setup-Skript; legt den ersten Admin an (Login = `ADMIN_EMAIL`). |
 | `./server/db.js` | Re-Export der Datenbank-Funktionen aus `db/index.js`. |
 | `./server/route-table.js` | Deklarative Route-Tabelle (öffentliche Endpunkte, globale API-Gruppen, Show-Unterressourcen); zentralisiert, was vorher direkt in router.js stand. |
 | `./server/db-init.js` | Datenbankverbindung, Basis-Schema und Migrations-Runner (führt `db/migrations/*` einmalig aus, getrackt in `schema_migrations`). |
@@ -77,7 +73,6 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 | `./server/legacy-compat.js` | Übergangsschicht für App-Builds vor der Umbenennung (ohne Header `X-Api-Version: 2`): schreibt alte Pfade um, übersetzt JSON-Antworten und SSE-Events zurück auf alte Namen, loggt alte Clients. Zum Entfernen siehe Kopfkommentar. |
 | `./server/rate-limit.js` | Grobes globales IP-Rate-Limiting (300 Req/Min) für alle API-Routen, ergänzt das strengere Login-spezifische Limit in `routes/auth.js`. |
 | `./server/history.js` | Periodische Snapshots von Show-State zur Versionierung; sichert vor dem Wiederherstellen den aktuellen Stand. Der Snapshot-Lauf gibt zwischen den Shows den Event-Loop frei und warnt bei Laufzeiten über 1s. |
-| `./server/backup.js` | ZIP-basierte Backup- und Wiederherstellungsfunktionen mit request-isoliertem Staging, Restore-Lock, Rollback und Grenzen für ZIP-Einträge sowie entpackte Daten; entfernt SMTP-Passwort und Reset-Token vor dem Export aus der Backup-Kopie. |
 | `./server/photos.js` | Gestreamter Foto-Upload mit Gesamt-, Datei- und Dateianzahlgrenzen, Skalierung und Thumbnail-Generierung; Ablage pro Mandant unter dessen Mandantenordner. |
 | `./server/drawing-plan.js` | Zeichnungsbild-Verwaltung mit Format-Validierung (nur PNG/JPEG); Ablage pro Mandant unter dessen Mandantenordner; Pfadauflösung für den PDF-Export. |
 | `./server/migrate-tenant-media.js` | Einmaliges Migrationsskript: verschiebt Fotos/Zeichnungen aus dem alten mandantenübergreifend flachen Verzeichnis in die jeweiligen Mandantenordner. |
@@ -127,7 +122,8 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 | `./server/.env` | Server-Development-Umgebungsvariablen. |
 | `./server/team-status.js` | Zugangsstatus eines Teams (trial/active/readonly) aus Testzeitraum und bezahltem Zeitraum; nach Ablauf dauerhaft nur lesbar, nie gesperrt oder gelöscht; `teamAccessDenial` blockt Schreiben im Zustand readonly. |
 | `./server/team-owner.js` | Inhaber eines Teams: `resolveOwner` (aus Registry `owner_username`, sonst Nutzer mit Registrierungs-E-Mail), `isOwner`, `transferOwnership`. Alle anderen Nutzer sind Mitglieder. |
-| `./server/saas.js` | Kapsel für SaaS-Funktionalität, lädt Module nur im SaaS-Modus; stellt u.a. `tenantDeleteRoutes` für die Mandanten-Löschanfrage bereit. |
+| `./server/dev-seed.js` | Legt lokal idempotent einen Test-Mandanten `<DEV_TENANT>` mit Admin aus `.env` an (`npm run dev:seed -w server`). |
+| `./server/saas.js` | Bündelt die Mandanten-Module (Resolve, DB, Registry, Betreiber-/Registrierungsrouten); stellt u.a. `tenantDeleteRoutes` für die Mandanten-Löschanfrage bereit. |
 | `./server/registry.js` | Zentrale Registrierung für Mandantenverzeichnis und Doppel-Opt-In; aktiviert Tenant-Eintrag (inkl. Newsletter-Consent) und verbraucht Bestätigungslink atomar; hält außerdem die Feedback-Tabelle der WebApp; Spalten `owner_username`/`trial_ends_at`/`paid_until` (neue Teams 14 Tage, Bestandsteams ohne Ablauf). |
 | `./server/routes/feedback.js` | Feedback-Knopf der WebApp (nur SaaS): `POST /api/feedback` (angemeldet, max. 4000 Zeichen, 5 pro Stunde und Nutzer) speichert in der Registry und mailt optional an `OPERATOR_NOTIFY_EMAIL`. |
 | `./server/test/feedback.test.js` | Tests: Feedback speichern, Längen-/Rate-Limit, Operator-Abruf nur mit Betreiber-Token, Importiert-Markierung. |
@@ -192,8 +188,7 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 | `./server/routes/pdf.js` | API-Route für PDF-Export von Shows; löst Zeichnung-Bildpfad (Show- oder Template-Fallback) für den Vektor-Export auf; `?blank=1` liefert Kreislisten-Vordruck zum handschriftlichen Ausfüllen. |
 | `./server/routes/display.js` | API-Routen für Anzeige-Einstellungen (Maßeinheiten). |
 | `./server/routes/system.js` | API-Routen für System-Status, Health-Check, Backup, Restore. |
-| `./server/routes/smtp.js` | API-Routen für SMTP-Konfiguration und Test-E-Mails. |
-| `./server/routes/operator.js` | API-Routen für Betreiber-Panel (Mandanten-Verwaltung, Server-Version, Health-Status, Snapshot-Verifikation, Konsistenzcheck, Feedback-Abruf `GET /api/operator/feedback?neu=1` und `POST …/:id/importiert`). |
+| `./server/routes/operator.js` | API-Routen für Betreiber-Panel (Mandanten-Verwaltung, Server-Version, Health-Status, Snapshot-Verifikation, Konsistenzcheck, Feedback-Abruf `GET /api/operator/feedback?neu=1` und `POST …/:id/importiert`, Inhaber lesen/festlegen `GET/POST /api/operator/tenants/:id/owner`). |
 | `./server/routes/network.js` | API-Routen für die gebäudeweite Netzwerk-Übersicht (Elemente wie Dose/Switch/Gerät und deren Verbindungen), unabhängig von einzelnen Shows; validiert, dass Netzwerkdose↔Netzwerkdose und Gerät↔Gerät nicht direkt verbunden werden (nur über einen Switch) und dass Dose max. zwei Verbindungen (Durchschleifung rein/raus), Gerät max. eine hat (Switch-Ausnahme); jede Mutation läuft über `withNetworkUndoSnapshot()`, dazu `POST /api/network/undo`/`redo`; inkl. PDF-Export (`GET /api/network/pdf`, siehe `pdf/network.js`). |
 | `./server/routes/diagnostics.js` | API-Routen für Crash-/Error-Diagnostik von mobilen Apps ohne Auth-Requirement: `POST /api/diagnostics` (öffentlich, Rate-Limited auf 50 Req/Min pro IP) akzeptiert Diagnosedaten (platform, app_version, build_number, os_version, device_model, report_type, payload als JSON), validiert platform-Wert und Pflichtfelder; `GET /api/diagnostics` (authentifiziert) listet Reports mit optionalen Filtern (platform, report_type, since-Timestamp), Standard-Limit 100, Max. 1000. |
 
@@ -295,7 +290,6 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 | `./web-app/src/api/templates.ts` | Verwaltet Templates (Vorlagen) mit Anwendungs- und Upload-Funktionen; `fetchTemplatePdfUrl` liefert Download-Link für den Kreislisten-Vordruck. |
 | `./web-app/src/api/templateBattens.ts` | CRUD-API für Battens in Vorlagen. |
 | `./web-app/src/api/templateTowers.ts` | CRUD-API für Towers in Vorlagen mit Slot-Verwaltung. |
-| `./web-app/src/api/backup.ts` | Backup-Download und Restore-Upload mit ZIP-Format. |
 | `./web-app/src/api/account.ts` | `requestTenantDelete`: Mandanten-Löschanfrage (Passwort-Prüfung, benachrichtigt den Betreiber per Mail — keine automatisierte Löschung). |
 
 ### web-app/src/views/ (Seiten/Routen)
@@ -321,9 +315,6 @@ Mini-Doku aller relevanten Dateien im Projekt. Zweck: schnelles Verständnis fü
 | `./web-app/src/views/settings/TeamView.vue` | Inhaber-Bereich (nur SaaS): Zugangsstatus (Probe/aktiv/nur lesbar), aktueller Inhaber, Inhaberschaft übertragen. Platzhalter für die Abrechnung (Stripe). |
 | `./web-app/src/api/team.ts` | API-Client für `GET /api/auth/team-status` und `POST /api/auth/team-owner`. |
 | `./web-app/src/views/settings/DisplayView.vue` | Sprach- und Maßeinheit-Einstellungen (Deutsch/Englisch). |
-| `./web-app/src/views/settings/ServerView.vue` | Server-URL, Versionsinformationen und Speicherstatus. |
-| `./web-app/src/views/settings/BackupView.vue` | Datenbank-Backup-Download und Wiederherstellung, beides Admin-only. |
-| `./web-app/src/views/settings/SmtpView.vue` | Konfiguration von SMTP-Einstellungen und Test-E-Mails. |
 | `./web-app/src/views/NotFoundView.vue` | 404-Fehlerseite mit Navigation zur Startseite. |
 
 ### web-app/src/components/ (Fachliche Komponenten)

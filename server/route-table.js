@@ -9,7 +9,6 @@ import { templateRoutes } from './routes/templates.js'
 import { drawingPlanRoutes } from './routes/drawing-plan.js'
 import { historyRoutes } from './routes/history.js'
 import { systemRoutes } from './routes/system.js'
-import { smtpRoutes } from './routes/smtp.js'
 import { displayRoutes } from './routes/display.js'
 import { pdfRoutes } from './routes/pdf.js'
 import { towerRoutes } from './routes/towers.js'
@@ -52,7 +51,6 @@ export const PUBLIC_ROUTES = new Set([
 export const API_ROUTE_HANDLERS = [
   { matches: pathname => pathname.startsWith('/api/auth/'), handler: authRoutes },
   { matches: pathname => pathname.startsWith('/api/me/') || pathname.startsWith('/api/users') || pathname === '/api/self-register', handler: userRoutes },
-  { matches: pathname => pathname.startsWith('/api/smtp'), handler: smtpRoutes },
   { matches: pathname => pathname.startsWith('/api/settings/'), handler: displayRoutes },
   { matches: pathname => pathname.startsWith('/api/drawing-plans/'), handler: drawingPlanRoutes },
   { matches: pathname => pathname.startsWith('/api/templates'), handler: templateRoutes },

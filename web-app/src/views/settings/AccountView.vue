@@ -54,7 +54,7 @@
     </div>
 
     <!-- Feedback (nur SaaS) -->
-    <div v-if="saasMode" class="grid max-w-7xl grid-cols-1 gap-x-8 gap-y-10 px-4 py-16 sm:px-6 md:grid-cols-3 lg:px-8">
+    <div class="grid max-w-7xl grid-cols-1 gap-x-8 gap-y-10 px-4 py-16 sm:px-6 md:grid-cols-3 lg:px-8">
       <div>
         <h2 class="text-base/7 font-semibold text-foreground">{{ t('settings.account.feedback') }}</h2>
         <p class="mt-1 text-sm/6 text-muted-foreground">{{ t('settings.account.feedback.hint') }}</p>
@@ -84,7 +84,7 @@
     </div>
 
     <!-- Team löschen (nur SaaS) -->
-    <div v-if="saasMode" class="grid max-w-7xl grid-cols-1 gap-x-8 gap-y-10 px-4 py-16 sm:px-6 md:grid-cols-3 lg:px-8">
+    <div class="grid max-w-7xl grid-cols-1 gap-x-8 gap-y-10 px-4 py-16 sm:px-6 md:grid-cols-3 lg:px-8">
       <div>
         <h2 class="text-base/7 font-semibold text-destructive">{{ t('settings.account.delete_team') }}</h2>
         <p class="mt-1 text-sm/6 text-muted-foreground">{{ t('settings.account.delete_team.hint') }}</p>
@@ -133,12 +133,11 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useLocale } from '../../composables/useLocale.js'
 import { logout, changePassword } from '../../api/auth.js'
 import { requestTenantDelete, sendFeedback } from '../../api/account'
-import { api } from '../../api/client.js'
 import { PASSWORD_MIN_LENGTH } from '@shared/constants.js'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -150,16 +149,6 @@ const { t } = useLocale()
 const router = useRouter()
 const route = useRoute()
 const forceChange = computed(() => route.query.forceChange === '1')
-
-const saasMode = ref(false)
-onMounted(async () => {
-  try {
-    const status = await api.get('/api/status')
-    saasMode.value = !!status.saasEnabled
-  } catch {
-    saasMode.value = false
-  }
-})
 
 const FEEDBACK_MAX_LENGTH = 4000
 const feedbackText = ref('')

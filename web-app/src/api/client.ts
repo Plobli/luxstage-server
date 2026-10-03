@@ -90,6 +90,11 @@ export async function request<T>(method: string, path: string, {
   }
   if (!res.ok) {
     const err = await res.json().catch(() => ({}))
+    // Token eines anderen Mandanten (z. B. nach Wechsel der Subdomain): wie abgelaufen behandeln.
+    if (res.status === 403 && err.code === 'TOKEN_TENANT_MISMATCH') {
+      clearToken()
+      if (location.pathname !== '/login') location.href = '/login'
+    }
     throw new ApiError(err.error || `HTTP ${res.status}`, res.status, err)
   }
   if (res.status === 204) return null as T
