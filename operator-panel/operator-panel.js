@@ -101,6 +101,7 @@ async function loadTenants() {
         <div class="menu-list">
           <button data-act="backups" data-id="${id}">Backups</button>
           <button data-act="check" data-id="${id}">Konsistenz prüfen</button>
+          <button data-act="owner" data-id="${id}">Inhaber festlegen</button>
           <button data-act="toggle" data-id="${id}" data-sus="${t.suspended}">${t.suspended ? 'Entsperren' : 'Sperren'}</button>
           <button class="danger" data-act="delete" data-id="${id}">Löschen</button>
         </div>
@@ -237,6 +238,14 @@ $('#tbody').addEventListener('click', async e => {
       checkResults.set(id, result)
       const cell = document.querySelector(`[data-check-cell="${CSS.escape(id)}"]`)
       if (cell) cell.innerHTML = checkBadge(id)
+      return
+    }
+    if (btn.dataset.act === 'owner') {
+      const { owner, users } = await api('GET', `/api/operator/tenants/${id}/owner`)
+      const name = prompt(`Inhaber von "${id}" (aktuell: ${owner || 'keiner'}).\nNutzer: ${users.join(', ')}`, owner || '')
+      if (!name || name === owner) return
+      await api('POST', `/api/operator/tenants/${id}/owner`, { username: name.trim() })
+      alert(`Inhaber: ${name.trim()}`)
       return
     }
     if (btn.dataset.act === 'toggle') {

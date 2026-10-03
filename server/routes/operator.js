@@ -5,6 +5,8 @@
 //   GET    /api/operator/tenants/:id        -> Detail
 //   POST   /api/operator/tenants/:id/suspend   { suspended: bool }
 //   DELETE /api/operator/tenants/:id        -> Mandant komplett löschen (DSGVO)
+//   GET    /api/operator/tenants/:id/owner  -> Inhaber + Nutzerliste
+//   POST   /api/operator/tenants/:id/owner  { username } -> Inhaber festlegen
 //   GET    /api/operator/pending            -> offene Registrierungen
 //   POST   /api/operator/pending/:id/resend -> Bestätigungsmail erneut senden
 //   DELETE /api/operator/pending/:id        -> offene Registrierung verwerfen
@@ -23,6 +25,8 @@ import {
 import {
   createSnapshot, listSnapshots, restoreSnapshot, snapshotPath, deleteBackups, verifySnapshot,
 } from '../tenant-backup.js'
+import { resolveOwner, transferOwnership } from '../team-owner.js'
+import { listUsers } from '../db/users.js'
 import { tenantHealth, checkTenantConsistency } from '../tenant-health.js'
 import { config } from '../config.js'
 import { sendConfirmEmail } from '../email.js'
@@ -192,6 +196,26 @@ export async function operatorRoutes(req, res, pathname) {
     })
     fs.createReadStream(p).pipe(res)
     return
+  }
+
+  const owner = pathname.match(/^\/api\/operator\/tenants\/([a-z0-9-]+)\/owner$/)
+  if (owner) {
+    const id = owner[1]
+    if (!getTenant(id) || !tenantExists(id)) return json(res, 404, { error: 'Mandant nicht gefunden' })
+    const db = openTenantDb(id)
+    if (method === 'GET') {
+      return json(res, 200, runWithDb(db, () => ({
+        owner: resolveOwner(),
+        users: listUsers().filter(u => !u.pending).map(u => u.username),
+      }), id))
+    }
+    if (method === 'POST') {
+      const body = await readJsonBody(req, res); if (body === null) return
+      const username = String(body.username || '')
+      if (!runWithDb(db, () => transferOwnership(username), id)) return json(res, 404, { error: 'Nutzer nicht gefunden' })
+      log.warn('Inhaber vom Betreiber gesetzt', { tenant: id, user: username })
+      return json(res, 200, { ok: true, owner: username })
+    }
   }
 
   const suspend = pathname.match(/^\/api\/operator\/tenants\/([a-z0-9-]+)\/suspend$/)
